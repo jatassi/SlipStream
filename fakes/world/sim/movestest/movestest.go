@@ -72,8 +72,18 @@ func Scenario(t testing.TB) scenario.Scenario {
 // subtitle in den's movies-e, walking, with opts.
 func Launch(t *testing.T, opts ...sim.Option) World {
 	t.Helper()
-	return launch(t, Scenario(t), simtest.Settled, opts)
+	return launch(t, Scenario(t), hd, simtest.Settled, opts)
 }
+
+// LaunchUpgradable launches as Launch does with the film at 720p, so the
+// Scenario's 1080p release of The Quiet Orchard is its upgrade.
+func LaunchUpgradable(t *testing.T, opts ...sim.Option) World {
+	t.Helper()
+	return launch(t, Scenario(t), scenario.MediaVideo{Width: 1280, Height: 720, Seconds: 6, HDR: "sdr"}, simtest.Settled, opts)
+}
+
+// hd is the film's video unless a launch says otherwise.
+var hd = scenario.MediaVideo{Width: 1920, Height: 1080, Seconds: 6, HDR: "sdr"}
 
 // Seed launches as Launch does, with n generated movies more, each a film
 // in movies-d or movies-e by turns, and waits until the scans record every
@@ -86,14 +96,14 @@ func Seed(t *testing.T, n int, opts ...sim.Option) World {
 	s.Timings.TMDB = tmdb.Timings{Interval: time.Millisecond, Burst: 100}
 	for i := range n {
 		m := gen.Movie(i)
-		name := fmt.Sprintf("Seeded %d (%s)", i, m.Dates[0].Date[:4])
+		name := fmt.Sprintf("%s (%s)", m.Title, m.Dates[0].Date[:4])
 		add(&s, []string{"movies-d", "movies-e"}[i%2], scenario.MediaFile{
 			Path:  fmt.Sprintf("%s {tmdb-%d}/%s.mkv", name, m.ID, name),
 			Video: scenario.MediaVideo{Width: 1920, Height: 1080, Seconds: 6, HDR: "sdr"},
 		})
 	}
 	settled := simtest.Settled + time.Duration(n)*time.Second
-	w := launch(t, s, settled, opts)
+	w := launch(t, s, hd, settled, opts)
 	await(t, settled, fmt.Sprintf("the scans record %d seeded movies", n), func() bool {
 		w.Seeded = w.Seeded[:0]
 		err := w.Library(t, func(ctx context.Context, r storage.Reader[storage.Library]) error {
@@ -137,9 +147,9 @@ func await(t *testing.T, limit time.Duration, what string, ok func() bool) {
 	t.Fatalf("not within %s: %s", limit, what)
 }
 
-func launch(t *testing.T, s scenario.Scenario, settled time.Duration, opts []sim.Option) World {
+func launch(t *testing.T, s scenario.Scenario, film scenario.MediaVideo, settled time.Duration, opts []sim.Option) World {
 	t.Helper()
-	add(&s, "movies-e", scenario.MediaFile{Path: Film, Video: scenario.MediaVideo{Width: 1920, Height: 1080, Seconds: 6, HDR: "sdr"}})
+	add(&s, "movies-e", scenario.MediaFile{Path: Film, Video: film})
 	w := World{World: sim.Launch(t, s, append([]sim.Option{sim.WithWalk()}, opts...)...), Roots: map[string]simtest.RootRow{}}
 	for _, r := range simtest.Decode[struct {
 		Roots []simtest.RootRow `json:"roots"`

@@ -120,7 +120,7 @@ func (m *Moves) pass(ctx context.Context) (time.Duration, error) {
 	}
 	tm := m.cfg.Timings
 	rules := Rules{
-		PlexBound: set.PlexBound, PlayingEvery: tm.PlayingEvery,
+		PlexBound: set.PlexBound, CheckBound: set.CheckBound, PlayingEvery: tm.PlayingEvery,
 		Guard: tm.Guard, ReplyWait: tm.ReplyWait, StopBound: tm.StopBound, HandoffBound: tm.HandoffBound, DownloadingEvery: tm.DownloadingEvery,
 	}
 	judged := make([]work, len(units))

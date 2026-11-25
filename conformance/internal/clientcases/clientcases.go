@@ -1,7 +1,12 @@
 // Package clientcases is the cases every Download Client conformance
 // suite runs alike: a complete add over files already on disk, the last
 // announce a Move's guard reads, a paused add that reads paused until
-// it is listed and checked, and a pause that reads paused.
+// it is listed and checked, and a resume and a pause the target lists.
+//
+// A client may read a run it asked for before the target lists it, so a
+// case that resumes or pauses also polls a witness: a second client of
+// the same target that never calls Act or Add, whose reads are the
+// target's own listing.
 package clientcases
 
 import (
@@ -25,11 +30,12 @@ type Folder struct {
 // poll is how often a case reads the target while it waits.
 const poll = time.Second
 
-// pauseWait bounds a pause's, a resume's or an add's wait to read
+// pauseWait bounds each wait for a pause, a resume or an add to read
 // settled, and pauseEvery is how often it reads: Transmission 4.1.4 read
 // stopped up to 485 ms after the call, on a tick of about 0.5 s,
 // qBittorrent 4.6.7 listed an add 4 ms after it answered, and qBittorrent
-// 4.6.7 and 5.3.0 listed a start up to 1520 ms after it.
+// 4.6.7 and 5.3.0 listed a start up to 1523 ms and a stop up to 1476 ms
+// after the call, at their next refresh, which came every 1.5 s.
 const (
 	pauseWait  = 2 * time.Second
 	pauseEvery = 100 * time.Millisecond
@@ -99,8 +105,8 @@ func checked(t *testing.T, c clients.Client, hashes ...bencode.InfoHash) map[ben
 // LastAnnounce starts h, which announces to a tracker that answers it
 // every interval, and asserts that Announces reads an answer at or after
 // the start with the next announce after it within two intervals. It
-// pauses h again and waits until it reads paused.
-func LastAnnounce(t *testing.T, c clients.Client, h bencode.InfoHash, interval time.Duration) {
+// pauses h again as Pause does.
+func LastAnnounce(t *testing.T, c, witness clients.Client, h bencode.InfoHash, interval time.Duration) {
 	t.Helper()
 	start := time.Now().Truncate(time.Second)
 	if err := c.Act(t.Context(), clients.Resume, []bencode.InfoHash{h}); err != nil {
@@ -120,12 +126,13 @@ func LastAnnounce(t *testing.T, c clients.Client, h bencode.InfoHash, interval t
 		}
 		time.Sleep(poll)
 	}
-	Pause(t, c, h)
+	Pause(t, c, witness, h)
 }
 
 // Pause pauses h and polls until the client reads it paused, which a
-// client may do on its next tick after it answered.
-func Pause(t *testing.T, c clients.Client, h bencode.InfoHash) {
+// client may do on its next tick after it answered, and until the witness
+// does with no check running.
+func Pause(t *testing.T, c, witness clients.Client, h bencode.InfoHash) {
 	t.Helper()
 	if err := c.Act(t.Context(), clients.Pause, []bencode.InfoHash{h}); err != nil {
 		t.Errorf("Act(Pause): %v", err)
@@ -138,7 +145,7 @@ func Pause(t *testing.T, c clients.Client, h bencode.InfoHash) {
 			t.Fatalf("Poll: %v", err)
 		}
 		if got[h].Run == clients.Paused {
-			return
+			break
 		}
 		if time.Now().After(deadline) {
 			t.Errorf("%s after Pause: %+v, want paused", pauseWait, got[h])
@@ -146,12 +153,14 @@ func Pause(t *testing.T, c clients.Client, h bencode.InfoHash) {
 		}
 		time.Sleep(pauseEvery)
 	}
+	witnessed(t, witness, h, clients.Paused)
 }
 
 // Resume resumes h and polls until the client reads it started with no
 // check running, which a client may list a tick after it answered, and
-// answers its status. Each read must say started, checking or not.
-func Resume(t *testing.T, c clients.Client, h bencode.InfoHash) clients.Status {
+// until the witness does, and answers the client's status. Each of the
+// client's reads must say started, checking or not.
+func Resume(t *testing.T, c, witness clients.Client, h bencode.InfoHash) clients.Status {
 	t.Helper()
 	if err := c.Act(t.Context(), clients.Resume, []bencode.InfoHash{h}); err != nil {
 		t.Errorf("Act(Resume): %v", err)
@@ -169,7 +178,29 @@ func Resume(t *testing.T, c clients.Client, h bencode.InfoHash) clients.Status {
 			return s
 		}
 		if s.Activity != clients.Checking || time.Now().After(deadline) {
+			witnessed(t, witness, h, clients.Started)
 			return s
+		}
+		time.Sleep(pauseEvery)
+	}
+}
+
+// witnessed polls until witness reads h at run with no check running.
+func witnessed(t *testing.T, witness clients.Client, h bencode.InfoHash, run clients.Run) {
+	t.Helper()
+	deadline := time.Now().Add(pauseWait)
+	for {
+		got, err := witness.Poll(t.Context(), []bencode.InfoHash{h})
+		if err != nil {
+			t.Fatalf("the witness's Poll: %v", err)
+		}
+		s, ok := got[h]
+		if ok && s.Run == run && s.Activity != clients.Checking {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Errorf("after %s the witness reads %+v, %v, want it listed with run %d and no check running", pauseWait, s, ok, run)
+			return
 		}
 		time.Sleep(pauseEvery)
 	}

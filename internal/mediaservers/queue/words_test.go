@@ -25,7 +25,7 @@ func TestWordsSayWhatAChangeDidAndWhatItLost(t *testing.T) {
 		change queue.Change
 		want   string
 	}{
-		{sent(tb.change(link.ChangeMoved, "A>B", "f"), link.ResultAccepted), "Sent the rename. Kept every user's watch data."},
+		{sent(tb.change(link.ChangeMoved, "A>B", "f"), link.ResultAccepted), "Sent the rename. Kept who watched it and each user's play count, resume position, favorite and rating."},
 		{sent(tb.change(link.ChangeReplaced, "A>B", "f"), link.ResultAccepted, link.LostPlayCount, link.LostLastPlayed),
 			"Sent the replaced file. Lost: play count, last played."},
 		{sent(tb.change(link.ChangeMoved, "A>B", "f"), link.ResultConverted),
@@ -34,10 +34,10 @@ func TestWordsSayWhatAChangeDidAndWhatItLost(t *testing.T) {
 		{sent(tb.change(link.ChangeSidecarRemoved, "A.en.srt", "s"), link.ResultAccepted), "Sent the subtitle file's removal."},
 		{refused, "The Media Server refused SlipStream's credential (status 401). SlipStream retries automatically."},
 		{tb.doomed(tb.change(link.ChangeRemoved, "A", "old")), "This change is part of an upgrade. SlipStream sends it together with the upgrade's other file change."},
-		{prepared, "Saved every user's watch data before the rename. SlipStream sends this change once the rename finishes."},
-		{missed, "SlipStream couldn't save the watch data before the rename. It tries again when it sends this change."},
+		{prepared, "Saved who watched it and each user's play count, resume position, favorite and rating before the rename. SlipStream sends this change once the rename finishes."},
+		{missed, "SlipStream couldn't save who watched it or each user's play count, resume position, favorite and rating before the rename. It tries again when it sends this change."},
 		{sent(tb.change(link.ChangeMoved, "A>d:A", "f"), link.ResultAccepted, link.LostCollections), "Sent the Move to Vault (E:). Lost: collections."},
-		{moving, "Saved every user's watch data before the Move. SlipStream sends this change once the Move finishes."},
+		{moving, "Saved who watched it and each user's play count, resume position, favorite and rating before the Move. SlipStream sends this change once the Move finishes."},
 	} {
 		if got := c.change.Words("Vault (E:)"); got != c.want {
 			t.Errorf("%s reads %q, want %q", show(tb, c.change), got, c.want)

@@ -9111,7 +9111,9 @@ export const movesBatchRowTotalMin = 0;
 
 export const MovesBatchRow = zod.object({
   canCancel: zod.boolean().describe("A unit hasn't switched yet"),
-  canMoveBack: zod.boolean().describe("A unit moved"),
+  canMoveBack: zod
+    .boolean()
+    .describe("The batch finished, and a unit it moved hasn't moved again since"),
   canRetry: zod.boolean().describe("A unit failed"),
   canceledAt: zod.iso.datetime({ offset: true }).exactOptional(),
   counts: zod.record(zod.string(), zod.int()).describe("Units per phase"),

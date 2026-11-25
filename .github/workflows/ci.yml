@@ -536,9 +536,12 @@ jobs:
   online:
     name: Online conformance suites
     needs: plan
+    # A dispatch for one tier runs only that tier's lanes, and these suites
+    # call the real metadata providers with the repository's keys.
     if: >-
       ${{ !cancelled() && (
-        github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')) ||
+        github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.tier == 'all') ||
+        (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')) ||
         (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && needs.plan.outputs.online == 'true')
       ) }}
     runs-on: ubuntu-24.04

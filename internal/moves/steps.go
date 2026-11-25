@@ -410,11 +410,26 @@ func (m *Moves) placeFrom(ctx context.Context, u Unit, f File, hold storing.Rel,
 	if _, ok := errors.AsType[*storing.NeedsSpaceError](err); ok {
 		return storing.Placed{}, true, m.waitSpace(ctx, u.ID)
 	}
+	if errors.Is(err, storing.ErrSourceGone) {
+		return storing.Placed{}, true, m.requeue(ctx, u.ID)
+	}
 	if err != nil {
 		return storing.Placed{}, false, err
 	}
 	placed, err = m.move(ctx, to, hold, f)
 	return placed, false, err
+}
+
+// requeue sends unit id back to its lane, its placed files kept: a file it
+// places is gone from its source, so it plans its files afresh when it
+// takes the lane.
+func (m *Moves) requeue(ctx context.Context, id UnitID) error {
+	now := m.now()
+	_, err := m.update(ctx, id, PhasePlace, func(_ context.Context, _ *storage.Tx[file], cu *Unit) error {
+		cu.Stage, cu.Due = Queued{Pass: 1, Since: now}, &now
+		return nil
+	})
+	return err
 }
 
 // recopy has unit id send its unplaced files again: its Transfer holds no

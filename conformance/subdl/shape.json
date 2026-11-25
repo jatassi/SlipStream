@@ -97,6 +97,7 @@
     "$.subtitles[].hi": "boolean",
     "$.subtitles[].lang": "string",
     "$.subtitles[].language": "string",
+    "$.subtitles[].n_id": "string",
     "$.subtitles[].name": "string",
     "$.subtitles[].release_name": "string",
     "$.subtitles[].releases": "array",

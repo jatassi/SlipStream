@@ -25,8 +25,8 @@ func TestFakeQBittorrentConforms(t *testing.T) {
 		if version >= "5.2" {
 			c.APIKey = "qbt_0123456789abcdefghijklmnopqrstuv"
 		}
-		// The real 4.6.7 and 5.3.0 ran cold, just after their machine booted.
-		c.Cold = version == "4.6" || version == "5.3"
+		// The real 4.6.7 and 5.3.0 were seen to list an add late.
+		c.LateAdds = version == "4.6" || version == "5.3"
 		target := func(t *testing.T, f faketest.Served, cat *releases.Catalog) conformance.Target {
 			return conformance.Target{
 				Address: f.Address.URL(""), Username: c.Username, Password: c.Password, APIKey: c.APIKey, HTTP: f.Client, Folder: "/downloads/Movies",

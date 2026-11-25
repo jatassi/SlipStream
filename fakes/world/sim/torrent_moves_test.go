@@ -392,6 +392,39 @@ func TestAShortPayloadFailsTheDestinationsCheck(t *testing.T) {
 	})
 }
 
+// TestADestinationCheckThatNeverEndsRollsBack sets the check bound to 30
+// minutes and cuts den's reports once den placed the payload in
+// Transmission's folder: home never hears the check's result, so the Move
+// fails destination_check_failed at the bound, and once den is back the
+// undo removes its copy while seedbox seeds on.
+func TestADestinationCheckThatNeverEndsRollsBack(t *testing.T) {
+	t.Parallel()
+	synctest.Test(t, func(t *testing.T) {
+		var w *sim.World
+		var cut atomic.Bool
+		w = launchMoves(t, sim.Edit(func(name string, e *node.Env) {
+			if name == "home" {
+				e.Test.BeforeMoveStep = func(_ context.Context, s moves.Step) {
+					if s.Action == moves.RecordPlace && cut.CompareAndSwap(false, true) {
+						simtest.Flip(t, w.Path("den", "home"), fault.Stall{})
+					}
+				}
+			}
+		}))
+		simtest.Decode[json.RawMessage](t, "patchMoveSettings",
+			w.API().Admin("home", http.MethodPatch, "/api/v1/moves/settings", `{"values":{"moves.checkBound":1800}}`))
+		s := seedOrchard(t, w, kinds[0])
+		unit := ended(t, w, moveTorrent(t, w, s, client{"den", "transmission"}.side(t, w)))
+		if !cut.Load() || unit.Phase != moves.PhaseFailed || unit.Failure.Code != moves.DestinationCheckFailed {
+			t.Fatalf("with den's reports cut after its place the unit ended %s %+v, want failed destination_check_failed", unit.Phase, unit.Failure)
+		}
+		w.Path("den", "home").Clear("")
+		within(t, time.Hour, "the undo removes den's copy", func() bool {
+			return slices.Equal(wantedOf(t, w, s), []string{"seedbox:started"})
+		})
+	})
+}
+
 // TestAStartedMoveTakesItsLaneAtOnce starts a Move long after the runner
 // last passed: its unit leaves queued within a pass, not at the next
 // unrelated event.

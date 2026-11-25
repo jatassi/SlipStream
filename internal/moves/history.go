@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/jatassi/slipstream/internal/history/entry"
 	"github.com/jatassi/slipstream/internal/setting"
@@ -194,6 +195,10 @@ const (
 	refusedNoAnswer = "no_answer"
 )
 
+// checkUnfinished leads the detail of a destination check that gave up
+// at the check bound, which follows it as a time.Duration.
+const checkUnfinished = "unfinished:"
+
 // torrentFailureWords is a torrent unit's failure sentence: from and to
 // are its Nodes' names, client its destination in words.
 func (m *Moves) torrentFailureWords(s Failed, from, to, client string) string {
@@ -207,6 +212,10 @@ func (m *Moves) torrentFailureWords(s Failed, from, to, client string) string {
 	case DestinationGone:
 		return "Its copy in " + client + " was removed before it moved. Try again."
 	case DestinationCheckFailed:
+		if after, ok := strings.CutPrefix(s.Detail, checkUnfinished); ok {
+			bound, _ := time.ParseDuration(after)
+			return client + " didn't finish checking the copy within " + setting.Words(bound) + ". Try again."
+		}
 		n, _ := strconv.Atoi(s.Detail)
 		return fmt.Sprintf("The copy in %s is missing %d %s. Try again.", client, n, plural(n, "piece", "pieces"))
 	case SwitchRefused:

@@ -58,7 +58,7 @@ func Run(t *testing.T, tgt Target) {
 		t.Fatal(err)
 	}
 	r := run{t: t, tgt: tgt, label: label}
-	r.c = r.open(tgt.Password, tgt.APIKey)
+	r.c, r.witness = r.open(tgt.Password, tgt.APIKey), r.open(tgt.Password, tgt.APIKey)
 	r.signIn()
 	meta, hash, name := torrentfile.New(t)
 	r.hash = hash
@@ -68,10 +68,12 @@ func Run(t *testing.T, tgt Target) {
 	r.remove()
 	t.Cleanup(func() { _ = r.c.Remove(context.WithoutCancel(t.Context()), tgt.Seeded.Hash, true) })
 	clientcases.CompleteAdd(t, r.c, label, clientcases.Folder{Client: tgt.Folder, Node: tgt.NodeFolder}, tgt.Seeded)
-	clientcases.LastAnnounce(t, r.c, tgt.Seeded.Hash, tgt.Interval)
+	clientcases.LastAnnounce(t, r.c, r.witness, tgt.Seeded.Hash, tgt.Interval)
 	r.refused()
-	if err := r.c.Close(t.Context()); err != nil {
-		t.Errorf("Close: %v", err)
+	for _, c := range []clients.Client{r.c, r.witness} {
+		if err := c.Close(t.Context()); err != nil {
+			t.Errorf("Close: %v", err)
+		}
 	}
 }
 
@@ -80,7 +82,10 @@ type run struct {
 	tgt   Target
 	label clients.Label
 	c     clients.Client
-	hash  bencode.InfoHash
+	// witness never calls Act or Add, so it reads only what the target
+	// lists.
+	witness clients.Client
+	hash    bencode.InfoHash
 }
 
 func (r run) open(password, apiKey string) clients.Client {
@@ -140,7 +145,7 @@ func (r run) add(meta []byte, name string) {
 }
 
 func (r run) act() {
-	if s := clientcases.Resume(r.t, r.c, r.hash); s.Finished {
+	if s := clientcases.Resume(r.t, r.c, r.witness, r.hash); s.Finished {
 		r.t.Errorf("after Resume: %+v, want it not finished", s)
 	}
 	for _, a := range []clients.Act{clients.Recheck, clients.Announce} {
@@ -148,7 +153,7 @@ func (r run) act() {
 			r.t.Errorf("Act(%d): %v", a, err)
 		}
 	}
-	clientcases.Pause(r.t, r.c, r.hash)
+	clientcases.Pause(r.t, r.c, r.witness, r.hash)
 }
 
 func (r run) remove() {

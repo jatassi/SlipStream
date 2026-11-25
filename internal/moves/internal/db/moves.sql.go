@@ -280,18 +280,19 @@ func (q *Queries) GetBatch(ctx context.Context, id BatchID) (MovesBatch, error) 
 }
 
 const getSettings = `-- name: GetSettings :one
-SELECT needs_you_after_minutes, plex_bound_minutes FROM moves_settings WHERE id = 1
+SELECT needs_you_after_minutes, plex_bound_minutes, check_bound_minutes FROM moves_settings WHERE id = 1
 `
 
 type GetSettingsRow struct {
 	NeedsYouAfterMinutes *int64
 	PlexBoundMinutes     *int64
+	CheckBoundMinutes    *int64
 }
 
 func (q *Queries) GetSettings(ctx context.Context) (GetSettingsRow, error) {
 	row := q.db.QueryRowContext(ctx, getSettings)
 	var i GetSettingsRow
-	err := row.Scan(&i.NeedsYouAfterMinutes, &i.PlexBoundMinutes)
+	err := row.Scan(&i.NeedsYouAfterMinutes, &i.PlexBoundMinutes, &i.CheckBoundMinutes)
 	return i, err
 }
 
@@ -1010,6 +1011,49 @@ func (q *Queries) ListLatestUnitsOfWorks(ctx context.Context, argWorks []works.W
 			&i.CleanedAt,
 			&i.Notes,
 		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listMovedOn = `-- name: ListMovedOn :many
+SELECT torrent_id, dest_torrent_id FROM moves_unit
+WHERE torrent_id IN (/*SLICE:torrents*/?) AND phase IN ('cleanup', 'done') ORDER BY torrent_id
+`
+
+type ListMovedOnRow struct {
+	TorrentID     storage.UUID
+	DestTorrentID storage.UUID
+}
+
+func (q *Queries) ListMovedOn(ctx context.Context, torrents []storage.UUID) ([]ListMovedOnRow, error) {
+	query := listMovedOn
+	var queryParams []interface{}
+	if len(torrents) > 0 {
+		for _, v := range torrents {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:torrents*/?", strings.Repeat(",?", len(torrents))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:torrents*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListMovedOnRow
+	for rows.Next() {
+		var i ListMovedOnRow
+		if err := rows.Scan(&i.TorrentID, &i.DestTorrentID); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -1917,16 +1961,18 @@ func (q *Queries) SetDue(ctx context.Context, arg SetDueParams) error {
 }
 
 const setSettings = `-- name: SetSettings :exec
-UPDATE moves_settings SET needs_you_after_minutes = ?1, plex_bound_minutes = ?2 WHERE id = 1
+UPDATE moves_settings SET needs_you_after_minutes = ?1, plex_bound_minutes = ?2,
+    check_bound_minutes = ?3 WHERE id = 1
 `
 
 type SetSettingsParams struct {
 	NeedsYouAfterMinutes *int64
 	PlexBoundMinutes     *int64
+	CheckBoundMinutes    *int64
 }
 
 func (q *Queries) SetSettings(ctx context.Context, arg SetSettingsParams) error {
-	_, err := q.db.ExecContext(ctx, setSettings, arg.NeedsYouAfterMinutes, arg.PlexBoundMinutes)
+	_, err := q.db.ExecContext(ctx, setSettings, arg.NeedsYouAfterMinutes, arg.PlexBoundMinutes, arg.CheckBoundMinutes)
 	return err
 }
 

@@ -28,6 +28,7 @@ test("history.changed reads the first page once and puts the new entries on top 
 
   history.record(anEntry(81, new Date().toISOString()));
   history.record(anEntry(82, new Date().toISOString()));
+  expect({ clients: live.clients.length, closed: live.closed }).toEqual({ clients: 1, closed: [] });
   live.clients[0]?.send({ event: "history.changed", data: {} });
 
   await expect.poll(() => rows().all().length).toBe(82);
@@ -52,6 +53,7 @@ test("a Clear between events leaves only what the first page now holds", async (
   await userEvent.click(page.getByRole("button", { name: "History options" }));
   await userEvent.click(page.getByRole("menuitem", { name: "Clear History…" }));
   await userEvent.click(page.getByRole("button", { name: "Clear History", exact: true }));
+  await expect.poll(() => history.cleared).toBe(1);
   history.record(anEntry(4, new Date().toISOString()));
   live.clients[0]?.send({ event: "history.changed", data: {} });
   await expect.poll(() => rows().all().length).toBe(1);

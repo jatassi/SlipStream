@@ -1,4 +1,4 @@
-import type { HealthVolume, RootsRoot, RootsRootVolume } from "../api/gen/model";
+import type { HealthVolume, HealthVolumeLevel, RootsRoot, RootsRootVolume } from "../api/gen/model";
 import { levels } from "../health/levels";
 import { Chip } from "../ui/chip";
 import { Data } from "../ui/data";
@@ -9,6 +9,12 @@ import { hasOwnLevels } from "./volume-levels-dialog";
 import { VolumeMenu } from "./volume-menu";
 
 const kindChip = { local: undefined, removable: "Removable", network: "Network" } as const;
+
+/** A volume's Storage level as a chip, nothing while it has none. */
+export const LevelChip = ({ level }: { level: HealthVolumeLevel | undefined }) =>
+  level === null || level === undefined ? null : (
+    <SignalChip kind={level}>{levels[level].chip}</SignalChip>
+  );
 
 export function VolumeRow({
   volume,
@@ -28,7 +34,7 @@ export function VolumeRow({
     <li className="flex flex-col gap-2 px-4 py-3.5 not-first:shadow-[inset_0_1px_0_var(--color-hairline)]">
       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
         <span className="flex min-w-0 items-center gap-2">
-          {level !== undefined && <SignalChip kind={level}>{levels[level].chip}</SignalChip>}
+          <LevelChip level={level} />
           <Data className="truncate">{volume.name}</Data>
           {chip !== undefined && <Chip>{chip}</Chip>}
           {health !== undefined && hasOwnLevels(health) && <Chip>Own levels</Chip>}

@@ -2,6 +2,7 @@ package moves
 
 import (
 	"context"
+	"maps"
 	"path"
 	"slices"
 	"time"
@@ -29,11 +30,7 @@ func titledSourceIn(ctx context.Context, r storage.Reader[file], u Unit) (downlo
 	if err != nil {
 		return downloadclients.MoveSource{}, err
 	}
-	dests := map[downloadclients.ID]downloadclients.ID{}
-	if a := u.Torrent.Arriving; a != nil {
-		dests[u.Torrent.Torrent] = *a
-	}
-	err = titled(ctx, r, srcs, dests)
+	err = titled(ctx, r, srcs)
 	return srcs[u.Torrent.Torrent], err
 }
 
@@ -556,29 +553,59 @@ func (m *Moves) UsesClient(ctx context.Context, r storage.Reader[file], client d
 }
 
 // titled names each of srcs, read in r, by its newest Grab's release
-// title: the Grab of the torrent, or of its Move's destination in dests
-// once the switch took its Grabs. One no Grab used keeps its name.
-func titled(ctx context.Context, r storage.Reader[file], srcs map[downloadclients.ID]downloadclients.MoveSource, dests map[downloadclients.ID]downloadclients.ID) error {
-	ids := make([]downloadclients.ID, 0, len(srcs)+len(dests))
+// title: the Grab of the torrent, or of the Torrent that the switches of
+// the Moves since handed its Grabs to. One no Grab used keeps its name.
+func titled(ctx context.Context, r storage.Reader[file], srcs map[downloadclients.ID]downloadclients.MoveSource) error {
+	at := make(map[downloadclients.ID]downloadclients.ID, len(srcs))
 	for id := range srcs {
-		ids = append(ids, id)
+		at[id] = id
 	}
-	for _, id := range dests {
-		ids = append(ids, id)
-	}
-	uses, err := grabs.TorrentUses{}.Of(ctx, r, ids)
-	if err != nil {
-		return err
-	}
-	for id, src := range srcs {
-		us := uses[id]
-		if len(us) == 0 {
-			us = uses[dests[id]]
+	for len(at) > 0 {
+		ids := slices.Collect(maps.Values(at))
+		uses, err := grabs.TorrentUses{}.Of(ctx, r, ids)
+		if err != nil {
+			return err
 		}
-		if len(us) > 0 {
-			src.Name = us[0].Release
-			srcs[id] = src
+		for id, tip := range at {
+			if us := uses[tip]; len(us) > 0 {
+				src := srcs[id]
+				src.Name = us[0].Release
+				srcs[id] = src
+				delete(at, id)
+			}
+		}
+		if len(at) == 0 {
+			return nil
+		}
+		movedTo, err := movedOn(ctx, r, ids)
+		if err != nil {
+			return err
+		}
+		for id, tip := range at {
+			if to, ok := movedTo[tip]; ok {
+				at[id] = to
+			} else {
+				delete(at, id)
+			}
 		}
 	}
 	return nil
+}
+
+// movedOn is the Torrent each of ids handed its Grabs to at a Move's
+// switch, read in r. One no Move switched is absent.
+func movedOn(ctx context.Context, r storage.Reader[file], ids []downloadclients.ID) (map[downloadclients.ID]downloadclients.ID, error) {
+	uuids := make([]storage.UUID, len(ids))
+	for i, id := range ids {
+		uuids[i] = id.UUID
+	}
+	rows, err := db.New(r).ListMovedOn(ctx, uuids)
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[downloadclients.ID]downloadclients.ID, len(rows))
+	for _, row := range rows {
+		out[downloadclients.ID{UUID: row.TorrentID}] = downloadclients.ID{UUID: row.DestTorrentID}
+	}
+	return out, nil
 }

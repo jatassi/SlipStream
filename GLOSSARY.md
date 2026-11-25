@@ -369,8 +369,8 @@ _In UI_: none. Say what the server kept and lost.
 _Avoid_: Move (that is the Admin's job that sends one), restore, migration
 
 **Watch data**:
-What a Media Server records for each of its users about one item: played, play count, resume position, favourite, last played and rating.
-_In UI_: What the server keeps, named one by one: watched, play count, resume position, favourite, rating.
+What a Media Server records for each of its users about one item: played, play count, resume position, favorite, last played and rating.
+_In UI_: What the server keeps, named one by one: watched, play count, resume position, favorite, rating.
 _Avoid_: Watch history, user data
 
 **Play history**:

@@ -38,7 +38,10 @@ type Facts struct {
 
 // Rules are the settings and timings next reads.
 type Rules struct {
-	PlexBound    time.Duration
+	PlexBound time.Duration
+	// CheckBound is how long after its Place a torrent unit waits for its
+	// destination client's check.
+	CheckBound   time.Duration
 	PlayingEvery time.Duration
 	// Guard to DownloadingEvery are a torrent handoff's Timings.
 	Guard, ReplyWait, StopBound, HandoffBound, DownloadingEvery time.Duration
@@ -275,7 +278,8 @@ func waitOfTransfer(v *transfers.View) Wait {
 }
 
 // nextTorrent is next for a torrent unit: its copy and Place, then the
-// handoff, then its source's part.
+// handoff, then its source's part. A Place whose destination reports no
+// check result within CheckBound rolls back.
 func nextTorrent(u Unit, f Facts, now time.Time, r Rules) Action {
 	h := f.Handoff
 	switch s := u.Stage.(type) {
@@ -304,7 +308,15 @@ func nextTorrent(u Unit, f Facts, now time.Time, r Rules) Action {
 		case h.Arrival != nil && *h.Arrival == downloadclients.ArrivalCheckFailed:
 			return Rollback{Code: DestinationCheckFailed, Detail: h.ArrivalWhy}
 		}
-		return Hold{Wait: WaitDownloading, Until: now.Add(r.DownloadingEvery)}
+		bound := s.Since.Add(r.CheckBound)
+		if !now.Before(bound) {
+			return Rollback{Code: DestinationCheckFailed, Detail: checkUnfinished + r.CheckBound.String()}
+		}
+		until := now.Add(r.DownloadingEvery)
+		if bound.Before(until) {
+			until = bound
+		}
+		return Hold{Wait: WaitDownloading, Until: until}
 	case Switching:
 		return nextHandoff(*s.Handoff, f, now, r)
 	case Cleaning:
