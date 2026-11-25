@@ -1,0 +1,293 @@
+{
+ "config": {
+  "argv": [
+   "/usr/bin/node",
+   "/p/node_modules/@playwright/test/cli.js",
+   "test",
+   "--reporter=dot,json",
+   "--project=chromium-desktop"
+  ],
+  "configFile": "/p/playwright.config.ts",
+  "rootDir": "/p",
+  "failOnFlakyTests": false,
+  "forbidOnly": false,
+  "fullyParallel": false,
+  "globalSetup": null,
+  "globalTeardown": null,
+  "globalTimeout": 0,
+  "grep": {},
+  "grepInvert": null,
+  "maxFailures": 0,
+  "metadata": {
+   "actualWorkers": 1
+  },
+  "preserveOutput": "always",
+  "projects": [
+   {
+    "outputDir": "/p/test-results",
+    "repeatEach": 1,
+    "retries": 0,
+    "metadata": {
+     "actualWorkers": 1
+    },
+    "id": "chromium-desktop",
+    "name": "chromium-desktop",
+    "testDir": "/p",
+    "testIgnore": [],
+    "testMatch": [
+     "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+    ],
+    "timeout": 30000
+   },
+   {
+    "outputDir": "/p/test-results",
+    "repeatEach": 1,
+    "retries": 0,
+    "metadata": {
+     "actualWorkers": 1
+    },
+    "id": "webkit-phone",
+    "name": "webkit-phone",
+    "testDir": "/p",
+    "testIgnore": [],
+    "testMatch": [
+     "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+    ],
+    "timeout": 30000
+   }
+  ],
+  "filteredProjects": [
+   {
+    "grep": {},
+    "grepInvert": null,
+    "outputDir": "/p/test-results",
+    "repeatEach": 1,
+    "retries": 0,
+    "metadata": {
+     "actualWorkers": 1
+    },
+    "name": "chromium-desktop",
+    "testDir": "/p",
+    "snapshotDir": "/p",
+    "testIgnore": [],
+    "testMatch": "**/*.@(spec|test).?(c|m)[jt]s?(x)",
+    "timeout": 30000,
+    "use": {},
+    "dependencies": [],
+    "ignoreSnapshots": false,
+    "__projectId": "chromium-desktop"
+   }
+  ],
+  "quiet": false,
+  "reporter": [
+   [
+    "dot"
+   ],
+   [
+    "json"
+   ]
+  ],
+  "reportSlowTests": {
+   "max": 5,
+   "threshold": 300000
+  },
+  "shard": null,
+  "tags": [],
+  "updateSnapshots": "default",
+  "updateSourceMethod": "patch",
+  "version": "1.64.1",
+  "workers": 2,
+  "webServer": null
+ },
+ "suites": [
+  {
+   "title": "work.spec.ts",
+   "file": "work.spec.ts",
+   "column": 0,
+   "line": 0,
+   "specs": [
+    {
+     "title": "Refresh reads the source",
+     "ok": true,
+     "tags": [],
+     "tests": [
+      {
+       "timeout": 30000,
+       "annotations": [],
+       "expectedStatus": "passed",
+       "projectId": "chromium-desktop",
+       "projectName": "chromium-desktop",
+       "results": [
+        {
+         "workerIndex": 0,
+         "parallelIndex": 0,
+         "status": "passed",
+         "duration": 7,
+         "errors": [],
+         "stdout": [],
+         "stderr": [],
+         "retry": 0,
+         "startTime": "2026-11-25T02:10:50.686Z",
+         "annotations": [],
+         "attachments": []
+        }
+       ],
+       "status": "expected"
+      }
+     ],
+     "id": "be04682d07593334d24e-87b489f8fa915bdc2793",
+     "file": "work.spec.ts",
+     "line": 3,
+     "column": 5
+    },
+    {
+     "title": "Search finds the release",
+     "ok": false,
+     "tags": [],
+     "tests": [
+      {
+       "timeout": 30000,
+       "annotations": [],
+       "expectedStatus": "passed",
+       "projectId": "chromium-desktop",
+       "projectName": "chromium-desktop",
+       "results": [
+        {
+         "workerIndex": 0,
+         "parallelIndex": 0,
+         "status": "failed",
+         "duration": 4,
+         "error": {
+          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m3\u001b[39m\nReceived: \u001b[31m2\u001b[39m",
+          "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m3\u001b[39m\nReceived: \u001b[31m2\u001b[39m\n    at /p/work.spec.ts:8:52",
+          "location": {
+           "file": "/p/work.spec.ts",
+           "column": 52,
+           "line": 8
+          },
+          "snippet": "   6 |\n   7 | test(\"Search finds the release\", () => {\n>  8 |   expect(process.env.SECOND === undefined ? 2 : 3).toBe(3);\n     |                                                    ^\n   9 | });\n  10 |\n  11 | test.describe(\"between Nodes\", () => {"
+         },
+         "errors": [
+          {
+           "location": {
+            "file": "/p/work.spec.ts",
+            "column": 52,
+            "line": 8
+           },
+           "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m3\u001b[39m\nReceived: \u001b[31m2\u001b[39m\n\n   6 |\n   7 | test(\"Search finds the release\", () => {\n>  8 |   expect(process.env.SECOND === undefined ? 2 : 3).toBe(3);\n     |                                                    ^\n   9 | });\n  10 |\n  11 | test.describe(\"between Nodes\", () => {\n    at /p/work.spec.ts:8:52"
+          }
+         ],
+         "stdout": [],
+         "stderr": [],
+         "retry": 0,
+         "startTime": "2026-11-25T02:10:50.738Z",
+         "annotations": [],
+         "attachments": [
+          {
+           "name": "error-context",
+           "contentType": "text/markdown",
+           "path": "/p/test-results/work-Search-finds-the-release-chromium-desktop/error-context.md"
+          }
+         ],
+         "errorLocation": {
+          "file": "/p/work.spec.ts",
+          "column": 52,
+          "line": 8
+         }
+        }
+       ],
+       "status": "unexpected"
+      }
+     ],
+     "id": "be04682d07593334d24e-2bb71bd482fec4c7f963",
+     "file": "work.spec.ts",
+     "line": 7,
+     "column": 5
+    }
+   ],
+   "suites": [
+    {
+     "title": "between Nodes",
+     "file": "work.spec.ts",
+     "line": 11,
+     "column": 6,
+     "specs": [
+      {
+       "title": "a Move keeps the files",
+       "ok": false,
+       "tags": [],
+       "tests": [
+        {
+         "timeout": 30000,
+         "annotations": [],
+         "expectedStatus": "passed",
+         "projectId": "chromium-desktop",
+         "projectName": "chromium-desktop",
+         "results": [
+          {
+           "workerIndex": 1,
+           "parallelIndex": 0,
+           "status": "failed",
+           "duration": 9,
+           "error": {
+            "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoEqual\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // deep equality\u001b[22m\n\n\u001b[32m- Expected  - 1\u001b[39m\n\u001b[31m+ Received  + 0\u001b[39m\n\n\u001b[2m  Array [\u001b[22m\n\u001b[2m    \"a\",\u001b[22m\n\u001b[32m-   \"b\",\u001b[39m\n\u001b[2m  ]\u001b[22m",
+            "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoEqual\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // deep equality\u001b[22m\n\n\u001b[32m- Expected  - 1\u001b[39m\n\u001b[31m+ Received  + 0\u001b[39m\n\n\u001b[2m  Array [\u001b[22m\n\u001b[2m    \"a\",\u001b[22m\n\u001b[32m-   \"b\",\u001b[39m\n\u001b[2m  ]\u001b[22m\n    at /p/work.spec.ts:13:19",
+            "location": {
+             "file": "/p/work.spec.ts",
+             "column": 19,
+             "line": 13
+            },
+            "snippet": "  11 | test.describe(\"between Nodes\", () => {\n  12 |   test(\"a Move keeps the files\", () => {\n> 13 |     expect([\"a\"]).toEqual([\"a\", \"b\"]);\n     |                   ^\n  14 |   });\n  15 | });\n  16 |"
+           },
+           "errors": [
+            {
+             "location": {
+              "file": "/p/work.spec.ts",
+              "column": 19,
+              "line": 13
+             },
+             "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoEqual\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // deep equality\u001b[22m\n\n\u001b[32m- Expected  - 1\u001b[39m\n\u001b[31m+ Received  + 0\u001b[39m\n\n\u001b[2m  Array [\u001b[22m\n\u001b[2m    \"a\",\u001b[22m\n\u001b[32m-   \"b\",\u001b[39m\n\u001b[2m  ]\u001b[22m\n\n  11 | test.describe(\"between Nodes\", () => {\n  12 |   test(\"a Move keeps the files\", () => {\n> 13 |     expect([\"a\"]).toEqual([\"a\", \"b\"]);\n     |                   ^\n  14 |   });\n  15 | });\n  16 |\n    at /p/work.spec.ts:13:19"
+            }
+           ],
+           "stdout": [],
+           "stderr": [],
+           "retry": 0,
+           "startTime": "2026-11-25T02:10:51.204Z",
+           "annotations": [],
+           "attachments": [
+            {
+             "name": "error-context",
+             "contentType": "text/markdown",
+             "path": "/p/test-results/work-between-Nodes-a-Move-keeps-the-files-chromium-desktop/error-context.md"
+            }
+           ],
+           "errorLocation": {
+            "file": "/p/work.spec.ts",
+            "column": 19,
+            "line": 13
+           }
+          }
+         ],
+         "status": "unexpected"
+        }
+       ],
+       "id": "be04682d07593334d24e-33299147f15a9ca289f1",
+       "file": "work.spec.ts",
+       "line": 12,
+       "column": 7
+      }
+     ]
+    }
+   ]
+  }
+ ],
+ "errors": [],
+ "stats": {
+  "startTime": "2026-11-25T02:10:50.181Z",
+  "duration": 1085.4340000000002,
+  "expected": 1,
+  "skipped": 0,
+  "unexpected": 2,
+  "flaky": 0
+ }
+}

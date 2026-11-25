@@ -1,0 +1,170 @@
+[
+ {
+  "id": 1,
+  "name": "PR checks",
+  "path": ".github/workflows/pr.yml",
+  "event": "pull_request",
+  "head_branch": "x",
+  "head_sha": "sha1",
+  "conclusion": "success",
+  "status": "completed",
+  "run_attempt": 1,
+  "created_at": "2026-11-20T10:00:00Z",
+  "run_started_at": "2026-11-20T10:00:00Z",
+  "head_commit": {
+   "id": "sha1",
+   "tree_id": "t"
+  },
+  "pull_requests": [
+   {
+    "number": 1,
+    "base": {
+     "ref": "feature/a",
+     "sha": "b"
+    },
+    "head": {
+     "ref": "x",
+     "sha": "sha1"
+    }
+   }
+  ]
+ },
+ {
+  "id": 2,
+  "name": "PR checks",
+  "path": ".github/workflows/pr.yml",
+  "event": "pull_request",
+  "head_branch": "x",
+  "head_sha": "sha2",
+  "conclusion": "success",
+  "status": "completed",
+  "run_attempt": 2,
+  "created_at": "2026-11-20T11:00:00Z",
+  "run_started_at": "2026-11-20T11:00:00Z",
+  "head_commit": {
+   "id": "sha2",
+   "tree_id": "t"
+  },
+  "pull_requests": [
+   {
+    "number": 2,
+    "base": {
+     "ref": "feature/a",
+     "sha": "b"
+    },
+    "head": {
+     "ref": "x",
+     "sha": "sha2"
+    }
+   }
+  ]
+ },
+ {
+  "id": 3,
+  "name": "PR checks",
+  "path": ".github/workflows/pr.yml",
+  "event": "pull_request",
+  "head_branch": "x",
+  "head_sha": "sha3",
+  "conclusion": "success",
+  "status": "completed",
+  "run_attempt": 1,
+  "created_at": "2026-11-20T12:00:00Z",
+  "run_started_at": "2026-11-20T12:00:00Z",
+  "head_commit": {
+   "id": "sha3",
+   "tree_id": "t"
+  },
+  "pull_requests": [
+   {
+    "number": 3,
+    "base": {
+     "ref": "main",
+     "sha": "b"
+    },
+    "head": {
+     "ref": "x",
+     "sha": "sha3"
+    }
+   }
+  ]
+ },
+ {
+  "id": 4,
+  "name": "PR checks",
+  "path": ".github/workflows/pr.yml",
+  "event": "pull_request",
+  "head_branch": "x",
+  "head_sha": "sha4",
+  "conclusion": "failure",
+  "status": "completed",
+  "run_attempt": 1,
+  "created_at": "2026-11-20T13:00:00Z",
+  "run_started_at": "2026-11-20T13:00:00Z",
+  "head_commit": {
+   "id": "sha4",
+   "tree_id": "t"
+  },
+  "pull_requests": [
+   {
+    "number": 4,
+    "base": {
+     "ref": "main",
+     "sha": "b"
+    },
+    "head": {
+     "ref": "x",
+     "sha": "sha4"
+    }
+   }
+  ]
+ },
+ {
+  "id": 5,
+  "name": "PR checks",
+  "path": ".github/workflows/pr.yml",
+  "event": "pull_request",
+  "head_branch": "x",
+  "head_sha": "sha5",
+  "conclusion": "cancelled",
+  "status": "completed",
+  "run_attempt": 1,
+  "created_at": "2026-11-20T14:00:00Z",
+  "run_started_at": "2026-11-20T14:00:00Z",
+  "head_commit": {
+   "id": "sha5",
+   "tree_id": "t"
+  },
+  "pull_requests": [
+   {
+    "number": 5,
+    "base": {
+     "ref": "main",
+     "sha": "b"
+    },
+    "head": {
+     "ref": "x",
+     "sha": "sha5"
+    }
+   }
+  ]
+ },
+ {
+  "id": 6,
+  "name": "Push checks",
+  "path": ".github/workflows/push.yml",
+  "event": "push",
+  "head_branch": "feature/a",
+  "head_sha": "sha6",
+  "conclusion": "failure",
+  "status": "completed",
+  "run_attempt": 1,
+  "created_at": "2026-11-20T15:00:00Z",
+  "run_started_at": "2026-11-20T15:00:00Z",
+  "head_commit": {
+   "id": "sha6",
+   "tree_id": "t"
+  },
+  "pull_requests": []
+ }
+]

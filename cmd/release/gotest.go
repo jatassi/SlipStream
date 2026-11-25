@@ -22,70 +22,107 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 )
+
+const modulePath = "github.com/jatassi/slipstream"
 
 // testbinPath is the package that hands a test the binaries under test, so
 // a package whose tests depend on it belongs to the e2e tier.
-const testbinPath = "github.com/jatassi/slipstream/fakes/testbin"
+const testbinPath = modulePath + "/fakes/testbin"
 
 // testGoPackages runs the go or e2e tier's packages, or this shard's part
 // of them, through go test -json, printing what go test prints without -v.
-func testGoPackages(ctx context.Context, root string, o testOptions, tier string) error {
+func testGoPackages(ctx context.Context, root string, o testOptions, tier string) (results, error) {
 	_, target, bundle, err := goTargetBundle(ctx)
 	if err != nil {
-		return err
+		return results{}, err
 	}
-	env := bundleEnv(bundle)
-	// A simulation package, worksapi's 20,000-Work and 32,767-Item cases,
-	// and the e2e package when no timings split it across shards run for
-	// most of twenty minutes under -race on a busy runner; the e2e job's
-	// own limit is thirty-five.
-	flags := []string{"-race", "-shuffle=on", "-timeout", "25m"}
+	env, err := prepareRunner(ctx, root, tier, target.GOOS, bundleEnv(bundle))
+	if err != nil {
+		return results{}, err
+	}
+	// A simulation package and worksapi's 20,000-Work and 32,767-Item
+	// cases run for most of twenty minutes under -race on a busy runner;
+	// the e2e job's own limit is forty-five.
+	base := []string{"-race", "-shuffle=on", "-timeout", "25m"}
 	if len(o.goArgs) > 0 {
-		return goTest(ctx, root, env, append(flags, o.goArgs...), os.Stdout)
+		return results{}, goTest(ctx, root, env, append(base, o.goArgs...), os.Stdout)
 	}
+	flags := slices.Clone(base)
 	if o.filter != "" {
 		flags = append(flags, "-run", o.filter)
 	}
 	if o.repeat > 1 {
 		flags = append(flags, "-count", strconv.Itoa(o.repeat))
 	}
-	pkgs, err := listGoPackages(ctx, root, env)
-	if err != nil {
-		return err
-	}
-	pkgs = slices.DeleteFunc(pkgs, func(p goPackage) bool { return p.e2e != (tier == "e2e") })
-	past, err := loadTimings(o.timings, target.Name)
-	if err != nil {
-		return err
-	}
 	s := cmp.Or(o.shard, shard{1, 1})
-	runs := partition(pkgs, past, s.count, o.filter == "")[s.index-1]
-	if tier == "e2e" {
-		// An e2e part runs beside the whole packages, and its budget tests
-		// miss under the two heaviest packages started first, so the whole
-		// packages start by name.
-		for _, r := range runs {
-			slices.Sort(r.packages)
+	var runs []goRun
+	if o.onlyQuarantined {
+		runs = onlyQuarantinedRuns(goQuarantine(o.quarantined))
+	} else {
+		pkgs, err := listGoPackages(ctx, root, env)
+		if err != nil {
+			return results{}, err
 		}
+		pkgs = slices.DeleteFunc(pkgs, func(p goPackage) bool { return p.e2e != (tier == "e2e") })
+		past, err := loadTimings(o.timings, target.Name)
+		if err != nil {
+			return results{}, err
+		}
+		// Every shard of the lane runs on the same kind of runner, so each
+		// partitions by the same CPUs.
+		past.CPUs = cmp.Or(past.CPUs, runtime.NumCPU())
+		runs = partition(pkgs, past, s.count, o.filter == "")[s.index-1]
+		if tier == "e2e" {
+			// An e2e part runs beside the whole packages, and its budget
+			// tests miss under the two heaviest packages started first, so
+			// the whole packages start by name.
+			for _, r := range runs {
+				slices.Sort(r.packages)
+			}
+		}
+		runs = skipQuarantined(runs, goQuarantine(o.quarantined))
 	}
 	fmt.Printf("%s tier, shard %s on %s:\n", tier, &s, target.Name)
 	for _, r := range runs {
 		fmt.Print(r.listing())
 	}
-	recorded, err := runShard(ctx, root, env, flags, runs)
+	start := time.Now()
+	recorded, first, err := runShard(ctx, root, env, flags, runs)
 	if o.record != "" {
 		recorded.Target = target.Name
+		recorded.Seconds = time.Since(start).Seconds()
 		if err := recorded.write(o.record); err != nil {
-			return err
+			return results{}, err
 		}
 	}
-	return err
+	failed := rerunFailed(first, func(f []failure) results {
+		_, again, _ := runShard(ctx, root, env, append(slices.Clone(base), "-count=1"), rerunRuns(f))
+		return again
+	})
+	return results{failed: failed, passed: first.passed}, err
+}
+
+// rerunRuns is a go test per package of the failed tests' top-level tests,
+// which run their subtests again with them.
+func rerunRuns(failed []failure) []goRun {
+	tests := map[string][]string{}
+	for _, f := range failed {
+		if !slices.Contains(tests[f.Package], f.selector) {
+			tests[f.Package] = append(tests[f.Package], f.selector)
+		}
+	}
+	var runs []goRun
+	for _, pkg := range slices.Sorted(maps.Keys(tests)) {
+		runs = append(runs, goRun{packages: []string{pkg}, run: testsPattern(tests[pkg])})
+	}
+	return runs
 }
 
 // runShard runs a shard's go tests at once, as go test runs packages, so
 // a package's part runs beside the whole packages rather than after them.
-func runShard(ctx context.Context, root string, env, flags []string, runs []goRun) (timings, error) {
+func runShard(ctx context.Context, root string, env, flags []string, runs []goRun) (timings, results, error) {
 	out := &lockedWriter{w: os.Stdout}
 	errs := make([]error, len(runs))
 	logs := make([]*goTestLog, len(runs))
@@ -98,10 +135,12 @@ func runShard(ctx context.Context, root string, env, flags []string, runs []goRu
 	}
 	wg.Wait()
 	recorded := timings{CPUs: runtime.NumCPU(), Packages: map[string]packageTimings{}}
+	var r results
 	for _, l := range logs {
 		recorded.add(l.timings)
+		r.add(l.results())
 	}
-	return recorded, errors.Join(errs...)
+	return recorded, r, errors.Join(errs...)
 }
 
 type lockedWriter struct {
@@ -256,23 +295,55 @@ type weighed struct {
 // package with no test files weighs nothing. A shard runs its packages on
 // every CPU at once, so it can finish no sooner than its longest
 // package: with splitTests, a package longer than a shard's share spread
-// over the timed runner's CPUs splits by its top-level tests, into a part
-// per such span, on as many shards. The timings may come from other targets,
-// as loadTimings says, which works because only their ratios matter.
+// over the runner's CPUs splits by its top-level tests, into a part per
+// such span, on as many shards. It splits so whether or not the timings
+// have its tests, since a package that runs whole can outlast go test's
+// -timeout. The timings may come from other targets, as loadTimings says,
+// which works because only their ratios matter.
 func partition(pkgs []goPackage, past timings, shards int, splitTests bool) [][]goRun {
 	seconds, total := weigh(pkgs, past)
 	span := total / float64(shards*max(past.CPUs, 1))
 	var items []weighed
 	for _, p := range pkgs {
 		w := seconds[p.path]
-		tests := past.Packages[p.path].Tests
+		tests, covered := testWeights(past.Packages[p.path].Tests, p.testNames)
 		if !splitTests || w <= span || len(tests) < 2 || shards < 2 {
 			items = append(items, weighed{pkg: p.path, seconds: w})
 			continue
 		}
-		items = append(items, splitPackage(p.path, w, tests, p.testNames, min(shards, len(tests), int(math.Ceil(w/span))))...)
+		items = append(items, splitPackage(p.path, w, tests, covered, min(shards, len(tests), int(math.Ceil(w/span))))...)
 	}
 	return packShards(items, shards)
+}
+
+// testWeights weighs each of a package's top-level tests, timed or
+// declared, by its timed seconds. A declared test the timings have not seen
+// weighs as their mean, so a batch of new tests spreads over the parts
+// instead of piling into the rest part; when they have timed none, every
+// test weighs 1. covered sums the weights the package's seconds stand for:
+// the timed tests', or every test's when none is timed.
+func testWeights(timed map[string]float64, declared []string) (weights map[string]float64, covered float64) {
+	for _, name := range slices.Sorted(maps.Keys(timed)) {
+		covered += timed[name]
+	}
+	unseen := 1.0
+	if covered > 0 {
+		unseen = covered / float64(len(timed))
+	}
+	weights = map[string]float64{}
+	maps.Copy(weights, timed)
+	for _, name := range declared {
+		if _, ok := weights[name]; !ok {
+			weights[name] = unseen
+		}
+	}
+	if covered == 0 {
+		for name := range weights {
+			weights[name] = 1
+		}
+		covered = float64(len(weights))
+	}
+	return weights, covered
 }
 
 // weigh gives each package its seconds, or its test-file bytes when the
@@ -350,26 +421,12 @@ func packShards(items []weighed, shards int) [][]goRun {
 	return out
 }
 
-// splitPackage packs a package's top-level tests into n parts, longest
-// first, scaled so the timed tests weigh the package's seconds. A declared
-// test the timings have not seen weighs as their mean, so a batch of new
-// tests spreads over the parts instead of piling into the rest part.
-func splitPackage(pkg string, seconds float64, timed map[string]float64, declared []string, n int) []weighed {
-	var sum float64
-	for _, name := range slices.Sorted(maps.Keys(timed)) {
-		sum += timed[name]
-	}
-	tests := maps.Clone(timed)
-	for _, name := range declared {
-		if _, ok := tests[name]; !ok {
-			tests[name] = sum / float64(len(timed))
-		}
-	}
+// splitPackage packs a package's top-level tests, as testWeights weighs
+// them, into n parts, longest first, scaled so the covered weights weigh
+// the package's seconds.
+func splitPackage(pkg string, seconds float64, tests map[string]float64, covered float64, n int) []weighed {
 	names := slices.SortedFunc(maps.Keys(tests), func(a, b string) int { return cmp.Or(cmp.Compare(tests[b], tests[a]), cmp.Compare(a, b)) })
-	scale := 1.0
-	if sum > 0 {
-		scale = seconds / sum
-	}
+	scale := seconds / covered
 	parts := make([]weighed, n)
 	for i := range parts {
 		parts[i] = weighed{pkg: pkg, tests: []string{}, rest: i == n-1}
@@ -418,6 +475,9 @@ func testsPattern(tests []string) string {
 // go test -json reports them.
 type timings struct {
 	Target string `json:"target"`
+	// Seconds is how long a shard's tests ran, which the plan sizes the
+	// tier's shards by.
+	Seconds float64 `json:"seconds,omitempty"`
 	// CPUs is how many CPUs the runner that took the timings had.
 	CPUs     int                       `json:"cpus"`
 	Packages map[string]packageTimings `json:"packages"`
@@ -565,10 +625,48 @@ type goTestLog struct {
 	// took, as go test reports a test's subtests before the test itself.
 	subtests map[string]float64
 	timings  timings
+	// output holds each running package's output outside its tests.
+	output map[string][]string
+	// timeouts holds the panic and the running tests a package's -timeout
+	// printed. test2json gives them to whichever test wrote last, which
+	// among parallel tests can be one that already passed.
+	timeouts map[string]*goTimeout
+	run      results
+}
+
+// goTimeout is what go test's -timeout panic says: its first line and the
+// tests it lists as running.
+type goTimeout struct {
+	panic   string
+	running []string
+	// listing is true while the lines are the running tests.
+	listing bool
+}
+
+// goRunningTest is a line of the -timeout panic's running tests.
+var goRunningTest = regexp.MustCompile(`^\t\t(\S+) \(`)
+
+// timeout records a -timeout panic's lines as they come.
+func (l *goTestLog) timeout(pkg, output string) {
+	t := l.timeouts[pkg]
+	switch {
+	case strings.HasPrefix(output, "panic: test timed out"):
+		l.timeouts[pkg] = &goTimeout{panic: strings.TrimSpace(output)}
+	case t == nil:
+	case strings.TrimSpace(output) == "running tests:":
+		t.listing = true
+	case t.listing:
+		m := goRunningTest.FindStringSubmatch(output)
+		if m == nil {
+			t.listing = false
+			return
+		}
+		t.running = append(t.running, m[1])
+	}
 }
 
 func newGoTestLog(w io.Writer) *goTestLog {
-	return &goTestLog{w: w, held: map[string][]string{}, subtests: map[string]float64{}, timings: timings{Packages: map[string]packageTimings{}}}
+	return &goTestLog{w: w, held: map[string][]string{}, subtests: map[string]float64{}, timings: timings{Packages: map[string]packageTimings{}}, output: map[string][]string{}, timeouts: map[string]*goTimeout{}}
 }
 
 func (l *goTestLog) Write(p []byte) (int, error) {
@@ -601,6 +699,9 @@ func (l *goTestLog) line(line []byte) error {
 		return l.print(string(line))
 	}
 	key := e.Package + "\x00" + e.Test
+	if e.Action == "output" {
+		l.timeout(e.Package, e.Output)
+	}
 	switch {
 	case e.Action == "build-output":
 		return l.print(e.Output)
@@ -608,28 +709,152 @@ func (l *goTestLog) line(line []byte) error {
 		if e.Output == "PASS\n" {
 			return nil
 		}
+		l.output[e.Package] = append(l.output[e.Package], e.Output)
 		return l.print(e.Output)
 	case e.Action == "output" && !strings.HasPrefix(e.Output, "=== "):
 		l.held[key] = append(l.held[key], e.Output)
 	case e.Test != "" && (e.Action == "pass" || e.Action == "skip"):
 		l.record(e)
+		if e.Action == "pass" {
+			l.run.pass(key)
+		}
 		delete(l.held, key)
 	case e.Test != "" && e.Action == "fail":
 		l.record(e)
+		l.run.failed = append(l.run.failed, goFailure(e.Package, e.Test, l.held[key], true))
 		return l.release(func(k string) bool { return k == key })
 	case e.Test == "" && slices.Contains([]string{"pass", "fail", "skip"}, e.Action):
 		l.record(e)
-		prefix := e.Package + "\x00"
-		if e.Action == "fail" {
-			return l.release(func(k string) bool { return strings.HasPrefix(k, prefix) })
-		}
+		return l.packageEnded(e.Package, e.Action == "fail")
+	}
+	return nil
+}
+
+// packageEnded settles a package's tests once go test reports the package.
+func (l *goTestLog) packageEnded(pkg string, failed bool) error {
+	prefix := pkg + "\x00"
+	output := l.output[pkg]
+	delete(l.output, pkg)
+	timeout := l.timeouts[pkg]
+	delete(l.timeouts, pkg)
+	if !failed {
 		for k := range l.held {
 			if strings.HasPrefix(k, prefix) {
 				delete(l.held, k)
 			}
 		}
+		return nil
 	}
-	return nil
+	if timeout != nil {
+		if err := l.timedOut(pkg, timeout); err != nil {
+			return err
+		}
+	}
+	l.packageFailed(pkg, output)
+	return l.release(func(k string) bool { return strings.HasPrefix(k, prefix) })
+}
+
+// timedOut records each test a package's -timeout panic lists as running,
+// with the panic, and prints them, since their output may have gone to a
+// test that passed.
+func (l *goTestLog) timedOut(pkg string, t *goTimeout) error {
+	for _, test := range t.running {
+		f := failure{Package: pkg, Test: test, Message: t.panic}
+		l.run.failed = slices.DeleteFunc(l.run.failed, func(o failure) bool { return o.key() == f.key() })
+		l.run.failed = append(l.run.failed, f)
+		delete(l.held, f.key())
+	}
+	return l.print(t.panic + "\nrunning tests:\n\t" + strings.Join(t.running, "\n\t") + "\n")
+}
+
+// packageFailed records the tests still running when their package
+// failed, as a timeout or a crash leaves them, or the package itself when
+// none of its tests failed. Neither runs again: a test that hung would hang
+// again past the job's limit.
+func (l *goTestLog) packageFailed(pkg string, output []string) {
+	prefix := pkg + "\x00"
+	var running []string
+	for k := range l.held {
+		if strings.HasPrefix(k, prefix) {
+			running = append(running, k)
+		}
+	}
+	slices.Sort(running)
+	for _, k := range running {
+		l.run.failed = append(l.run.failed, goFailure(pkg, strings.TrimPrefix(k, prefix), l.held[k], false))
+	}
+	if !slices.ContainsFunc(l.run.failed, func(f failure) bool { return f.Package == pkg }) {
+		l.run.failed = append(l.run.failed, failure{Package: pkg, Message: packageMessage(output)})
+	}
+}
+
+// results is the run's failures, each test's failed subtests in its place,
+// and the tests that passed.
+func (l *goTestLog) results() results {
+	r := l.run
+	r.failed = slices.DeleteFunc(slices.Clone(r.failed), func(f failure) bool {
+		return f.Test != "" && slices.ContainsFunc(r.failed, func(o failure) bool {
+			return o.Package == f.Package && strings.HasPrefix(o.Test, f.Test+"/")
+		})
+	})
+	return r
+}
+
+// goFailureLine is a t.Error or t.Fatal line: the test file, the line and
+// the message.
+var goFailureLine = regexp.MustCompile(`^\s+([\w.-]+\.go):(\d+): (.*)`)
+
+// goFailure is a failed test from its output: a panic's first line, or else
+// the last line the test's t methods wrote from a _test.go file, which is a
+// t.Fatal's or the last t.Error's unless a log follows it, or else the last
+// line with a file and line, or else its first line. A helper's own lines,
+// such as the Node logs a sim dumps on failure, follow the t.Fatal that
+// failed the test, so they never outrank it.
+func goFailure(pkg, test string, output []string, rerun bool) failure {
+	f := failure{Package: pkg, Test: test}
+	if rerun {
+		f.selector, _, _ = strings.Cut(test, "/")
+	}
+	fromTest := false
+	for _, line := range output {
+		if t := strings.TrimSpace(line); strings.HasPrefix(t, "panic: ") {
+			f.Message = t
+			return f
+		}
+		m := goFailureLine.FindStringSubmatch(line)
+		if len(m) < 2 {
+			continue
+		}
+		isTest := strings.HasSuffix(m[1], "_test.go")
+		if fromTest && !isTest {
+			continue
+		}
+		f.File = strings.TrimPrefix(strings.TrimPrefix(pkg, modulePath)+"/"+m[1], "/")
+		f.Line, _ = strconv.Atoi(m[2])
+		f.Message = m[3]
+		fromTest = fromTest || isTest
+	}
+	if f.Message == "" {
+		for _, line := range output {
+			if t := strings.TrimSpace(line); t != "" && !strings.HasPrefix(t, "--- ") {
+				f.Message = t
+				break
+			}
+		}
+	}
+	return f
+}
+
+// packageMessage is the first line of a failed package's own output that
+// says more than that it failed.
+func packageMessage(output []string) string {
+	for _, line := range output {
+		t := strings.TrimSpace(line)
+		if t != "" && t != "FAIL" && !strings.HasPrefix(t, "exit status ") {
+			return strings.Join(strings.Fields(t), " ")
+		}
+	}
+	return ""
 }
 
 // record adds a package's seconds, or a top-level test's. A test weighs

@@ -13,8 +13,9 @@ import (
 	"slices"
 )
 
-// Gate says which CI runs build a target: every PR, or only main, nightly,
-// release and PRs that touch native code.
+// Gate says which CI runs build a target: every run, or only the runs that
+// reach every target, such as the daily check and a release, and the pull
+// requests whose change touches the packages.
 type Gate string
 
 const (

@@ -1,0 +1,6 @@
+{
+	"target": "darwin-arm64",
+	"tier": "browser",
+	"seconds": 5194,
+	"packages": {}
+}

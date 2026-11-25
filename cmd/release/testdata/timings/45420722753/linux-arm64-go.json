@@ -1,0 +1,6 @@
+{
+	"target": "linux-arm64",
+	"tier": "go",
+	"seconds": 1262,
+	"packages": {}
+}

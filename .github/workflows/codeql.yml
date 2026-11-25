@@ -1,8 +1,8 @@
 name: codeql
 
+# Pushes to main and a weekly run. The main ruleset requires no CodeQL
+# check, so pull requests run none.
 on:
-  pull_request:
-    branches: [main]
   push:
     branches: [main]
   schedule:
@@ -37,14 +37,14 @@ jobs:
           - language: c-cpp
             build-mode: none
     steps:
-      - name: Check out the repository
+      - name: Check out
         uses: actions/checkout@v7
-      - name: Set up Go and restore the Go caches
+      - name: Set up Go
         if: matrix.build-mode == 'manual'
         uses: ./.github/actions/go
         with:
           cache: go-linux-amd64
-      - name: Restore the native layers cache
+      - name: Restore native libraries
         if: matrix.build-mode == 'manual'
         uses: actions/cache@v6
         with:

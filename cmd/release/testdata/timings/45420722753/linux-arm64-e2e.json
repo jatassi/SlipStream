@@ -1,0 +1,6 @@
+{
+	"target": "linux-arm64",
+	"tier": "e2e",
+	"seconds": 2525,
+	"packages": {}
+}

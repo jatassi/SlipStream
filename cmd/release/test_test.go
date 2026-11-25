@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 )
 
@@ -39,14 +40,15 @@ func TestTestRefusesFlagsTheTierDoesNotTake(t *testing.T) {
 	}{
 		{[]string{"-run", "Foo"}, `go test arguments ["-run" "Foo"] need -tier go, e2e or online`},
 		{[]string{"-tier", "component", "./..."}, `go test arguments ["./..."] need -tier go, e2e or online`},
-		{[]string{"-tier", "lint"}, `-tier "lint" is not one of go, e2e, component, diagram, browser, online, all`},
+		{[]string{"-tier", "lint"}, `-tier "lint" is not one of go, e2e, component, diagram, browser, platform, online, quarantine, all`},
+		{[]string{"-tier", "go", "-results", "r.json"}, "-results needs -tier quarantine"},
 		{[]string{"-shard", "1/2"}, "-shard, -filter and -repeat need -tier go, e2e or browser"},
 		{[]string{"-tier", "component", "-filter", "Foo"}, "-shard, -filter and -repeat need -tier go, e2e or browser"},
 		{[]string{"-tier", "component", "-timings", "t"}, "-timings and -record need -tier go, e2e or browser"},
 		{[]string{"-tier", "go", "-shard", "1/2", "./internal/..."}, `go test arguments ["./internal/..."] pick the tests themselves, so they take none of -shard, -filter, -repeat, -timings or -record`},
 		{[]string{"-tier", "go", "-repeat", "0"}, "-repeat 0 is not a positive count"},
-		{[]string{"-tier", "e2e", "-deadline", "1794600000"}, "-deadline needs -tier browser"},
-		{[]string{"-tier", "browser", "-deadline", "soon"}, `parse flags: invalid value "soon" for flag -deadline: -deadline "soon" is not a Unix time in seconds`},
+		{[]string{"-tier", "e2e", "-deadline", "40m"}, "-deadline needs -tier browser"},
+		{[]string{"-tier", "browser", "-deadline", "soon"}, `parse flags: invalid value "soon" for flag -deadline: -deadline "soon" is not a positive duration such as 40m`},
 		{[]string{"-tier", "go", "-shard", "3/2"}, `parse flags: invalid value "3/2" for flag -shard: shard "3/2" is not i/n with 1 <= i <= n`},
 	} {
 		if err := runTest(t.Context(), c.args); err == nil || err.Error() != c.want {
@@ -189,7 +191,11 @@ func TestRecordBrowserTimingsReadsBackForTheNextRun(t *testing.T) {
 		t.Fatal(err)
 	}
 	// A run that failed before the second report leaves that one missing.
-	if err := recordBrowserTimings(filepath.Join(dir, "timings", "t.json"), []string{report, report + ".missing"}); err != nil {
+	reports, err := readPlaywrightReports([]string{report, report + ".missing"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := recordBrowserTimings(filepath.Join(dir, "timings", "t.json"), reports); err != nil {
 		t.Fatal(err)
 	}
 	past, err := loadTimings(filepath.Join(dir, "timings"), browserTarget())
@@ -198,5 +204,32 @@ func TestRecordBrowserTimingsReadsBackForTheNextRun(t *testing.T) {
 	}
 	if got := past.Packages[browserTimings].Tests[browserTestKey("[p] › a.spec.ts:1:1 › one")]; got != 4 {
 		t.Errorf("the test's seconds = %v, want 4", got)
+	}
+}
+
+// lastValue is the variable's value a process started with env sees, as
+// os/exec keeps the last of duplicate names.
+func lastValue(env []string, name string) (string, bool) {
+	for _, kv := range slices.Backward(env) {
+		if v, ok := strings.CutPrefix(kv, name+"="); ok {
+			return v, true
+		}
+	}
+	return "", false
+}
+
+func TestEachPlaywrightRunKeepsItsOwnOutput(t *testing.T) {
+	runs := filepath.Join(t.TempDir(), "fakeworld-runs")
+	env := []string{"HOME=/home/x", "TEST_FAKEWORLD_RUNS=" + runs}
+	seen := map[string]bool{}
+	for _, run := range []string{"run-1", "run-2", "rerun-1", "rerun-2"} {
+		dir, _ := lastValue(playwrightEnv(env, run, "report.json"), "TEST_FAKEWORLD_RUNS")
+		if rel, err := filepath.Rel(runs, dir); err != nil || rel == "." || strings.HasPrefix(rel, "..") || seen[dir] {
+			t.Errorf("run %s writes its output under %q, want a dir of its own under %q", run, dir, runs)
+		}
+		seen[dir] = true
+	}
+	if dir, ok := lastValue(playwrightEnv([]string{"HOME=/home/x"}, "run-1", "report.json"), "TEST_FAKEWORLD_RUNS"); ok {
+		t.Errorf("a run without TEST_FAKEWORLD_RUNS sets it to %q", dir)
 	}
 }

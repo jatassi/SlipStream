@@ -1,0 +1,6 @@
+{
+	"target": "darwin-arm64",
+	"tier": "go",
+	"seconds": 2269,
+	"packages": {}
+}

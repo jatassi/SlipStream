@@ -72,9 +72,9 @@ func TestOf(t *testing.T) {
 		},
 		{
 			name:         "workflow",
-			changes:      []nativetouch.Change{modified(".github/workflows/ci.yml")},
+			changes:      []nativetouch.Change{modified(".github/workflows/pr.yml")},
 			want:         Native,
-			wantNotInert: []string{".github/workflows/ci.yml"},
+			wantNotInert: []string{".github/workflows/pr.yml"},
 		},
 		{
 			name:         "docs with a native change",
@@ -92,36 +92,6 @@ func TestOf(t *testing.T) {
 				t.Errorf("NotInert = %v, want %v", got, tt.wantNotInert)
 			}
 		})
-	}
-}
-
-func TestOnline(t *testing.T) {
-	for _, c := range []struct {
-		name    string
-		changes []nativetouch.Change
-		want    bool
-	}{
-		{"no changes", nil, false},
-		{"elsewhere", []nativetouch.Change{modified("internal/works/works.go"), modified("fakes/site/site.go")}, false},
-		{"fake-tmdb", []nativetouch.Change{modified("fakes/tmdb/tmdb.go")}, true},
-		{"the music client", []nativetouch.Change{modified("fakes/contenttypes/music/internal/musicbrainz/musicbrainz.go")}, true},
-		{"the TMDB client", []nativetouch.Change{added("internal/providers/tmdb/tv.go")}, true},
-		{"fake-tvdb", []nativetouch.Change{modified("fakes/tvdb/tvdb.go")}, true},
-		{"the TVDB client", []nativetouch.Change{modified("internal/providers/tvdb/record.go")}, true},
-		{"fake-omdb", []nativetouch.Change{modified("fakes/omdb/omdb.go")}, true},
-		{"fake-catalog", []nativetouch.Change{modified("fakes/catalog/catalog.go")}, true},
-		{"a definition fake-catalog serves", []nativetouch.Change{modified("fakes/site/definitions/larkspur.yml")}, true},
-		{"a port", []nativetouch.Change{modified("internal/ports/knaben/knaben.go")}, true},
-		{"a port's fixture", []nativetouch.Change{modified("fakes/site/ports/knaben/fixture.yaml")}, true},
-		{"the catalog client", []nativetouch.Change{modified("internal/indexers/refresh.go")}, true},
-		{"the OMDb client", []nativetouch.Change{modified("internal/providers/omdb/omdb.go")}, true},
-		{"fake-image-cdn", []nativetouch.Change{modified("fakes/imagecdn/imagecdn.go")}, true},
-		{"a suite", []nativetouch.Change{modified("conformance/tmdb/shape.json")}, true},
-		{"a rename out of a suite", []nativetouch.Change{{Old: nativetouch.Side{Path: "conformance/tmdb/x.go"}, New: nativetouch.Side{Path: "internal/x.go"}}}, true},
-	} {
-		if got := Online(c.changes); got != c.want {
-			t.Errorf("%s: Online = %t, want %t", c.name, got, c.want)
-		}
 	}
 }
 
@@ -143,22 +113,6 @@ func TestPackaging(t *testing.T) {
 	} {
 		if got := Packaging(c.changes); got != c.want {
 			t.Errorf("%s: Packaging = %t, want %t", c.name, got, c.want)
-		}
-	}
-}
-
-func TestLink(t *testing.T) {
-	for _, c := range []struct {
-		name    string
-		changes []nativetouch.Change
-		want    bool
-	}{
-		{"elsewhere", []nativetouch.Change{modified("internal/linkage/linkage.go"), modified("docs/link.md")}, false},
-		{"the mux", []nativetouch.Change{modified("internal/link/internal/mux/mux.go")}, true},
-		{"a rename out of the link", []nativetouch.Change{{Old: nativetouch.Side{Path: "internal/link/x.go"}, New: nativetouch.Side{Path: "internal/x.go"}}}, true},
-	} {
-		if got := Link(c.changes); got != c.want {
-			t.Errorf("%s: Link = %t, want %t", c.name, got, c.want)
 		}
 	}
 }

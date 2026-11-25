@@ -1,0 +1,74 @@
+[
+ {
+  "id": 10,
+  "name": "Daily checks",
+  "path": ".github/workflows/daily.yml",
+  "event": "schedule",
+  "head_branch": "main",
+  "head_sha": "sha10",
+  "conclusion": null,
+  "status": "in_progress",
+  "run_attempt": 1,
+  "created_at": "2026-11-25T07:30:00Z",
+  "run_started_at": "2026-11-25T07:30:00Z",
+  "head_commit": {
+   "id": "sha10",
+   "tree_id": "t"
+  },
+  "pull_requests": []
+ },
+ {
+  "id": 9,
+  "name": "Daily checks",
+  "path": ".github/workflows/daily.yml",
+  "event": "schedule",
+  "head_branch": "main",
+  "head_sha": "sha9",
+  "conclusion": "failure",
+  "status": "completed",
+  "run_attempt": 1,
+  "created_at": "2026-11-24T07:30:00Z",
+  "run_started_at": "2026-11-24T07:30:00Z",
+  "head_commit": {
+   "id": "sha9",
+   "tree_id": "t"
+  },
+  "pull_requests": []
+ },
+ {
+  "id": 8,
+  "name": "Daily checks",
+  "path": ".github/workflows/daily.yml",
+  "event": "schedule",
+  "head_branch": "main",
+  "head_sha": "sha8",
+  "conclusion": "failure",
+  "status": "completed",
+  "run_attempt": 1,
+  "created_at": "2026-11-23T07:30:00Z",
+  "run_started_at": "2026-11-23T07:30:00Z",
+  "head_commit": {
+   "id": "sha8",
+   "tree_id": "t"
+  },
+  "pull_requests": []
+ },
+ {
+  "id": 7,
+  "name": "Daily checks",
+  "path": ".github/workflows/daily.yml",
+  "event": "schedule",
+  "head_branch": "main",
+  "head_sha": "sha7",
+  "conclusion": "success",
+  "status": "completed",
+  "run_attempt": 1,
+  "created_at": "2026-11-22T07:30:00Z",
+  "run_started_at": "2026-11-22T07:30:00Z",
+  "head_commit": {
+   "id": "sha7",
+   "tree_id": "t"
+  },
+  "pull_requests": []
+ }
+]

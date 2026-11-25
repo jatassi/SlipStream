@@ -1,0 +1,6 @@
+[
+	{"tier": "browser", "target": "linux-amd64", "package": "web/e2e/work.spec.ts", "file": "web/e2e/work.spec.ts", "line": 7, "test": "[chromium-desktop] › Search finds the release", "message": "expect(received).toBe(expected)", "rerun": "flaky"},
+	{"tier": "browser", "target": "linux-amd64", "package": "web/e2e/work.spec.ts", "file": "web/e2e/work.spec.ts", "line": 7, "test": "[firefox-desktop] › Search finds the release", "message": "expect(received).toBe(expected)", "rerun": "flaky"},
+	{"tier": "go", "target": "linux-amd64", "package": "github.com/jatassi/slipstream/narrow", "file": "narrow/narrow_test.go", "line": 9, "test": "TestNarrow/other", "message": "late", "rerun": "flaky"},
+	{"tier": "online", "target": "linux-amd64", "package": "github.com/jatassi/slipstream/conformance/tmdb", "file": "", "line": 0, "test": "TestTMDB", "message": "429", "rerun": "flaky"}
+]

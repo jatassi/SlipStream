@@ -21,12 +21,14 @@ import (
 )
 
 func init() {
-	register("test", "run the test tiers: -tier go|e2e|component|diagram|browser|online|all (default all, which leaves out online); -tier go and e2e pass the rest to go test -race -shuffle=on, -tier online to go test -tags online ./conformance/...", runTest)
+	register("test", "run the test tiers: -tier go|e2e|component|diagram|browser|platform|online|quarantine|all (default all, which leaves out platform, online and quarantine); the go, e2e, component, browser and platform tiers leave out the tests ci/quarantine.tsv lists for this target, which -tier quarantine runs alone; -tier go and e2e pass the rest to go test -race -shuffle=on, -tier online to go test -tags online ./conformance/...", runTest)
 }
 
 type testTier struct {
 	name string
-	run  func(ctx context.Context, root string, o testOptions) error
+	// run returns the tests that failed, which CI reports, and those that
+	// passed.
+	run func(ctx context.Context, root string, o testOptions) (results, error)
 	// goArgs says the tier hands the arguments after its flags to go test.
 	goArgs bool
 	// sharded tiers take -shard, -filter and -repeat.
@@ -35,15 +37,22 @@ type testTier struct {
 	timed bool
 	// online tiers reach real services, so all leaves them out.
 	online bool
+	// subset tiers run tests the other tiers run in full, so all leaves
+	// them out.
+	subset bool
+	// quarantine tiers leave out the tests the quarantine list names for
+	// them.
+	quarantine bool
 }
 
 var testTiers = []testTier{
-	{name: "go", run: testGo, goArgs: true, sharded: true, timed: true},
-	{name: "e2e", run: testE2E, goArgs: true, sharded: true, timed: true},
-	{name: "component", run: testComponent},
+	{name: "go", run: testGo, goArgs: true, sharded: true, timed: true, quarantine: true},
+	{name: "e2e", run: testE2E, goArgs: true, sharded: true, timed: true, quarantine: true},
+	{name: "component", run: testComponent, quarantine: true},
 	{name: "diagram", run: testDiagram},
-	{name: "browser", run: testBrowser, sharded: true, timed: true},
+	{name: "browser", run: testBrowser, sharded: true, timed: true, quarantine: true},
 	{name: "online", run: testOnline, goArgs: true, online: true},
+	{name: "platform", run: testPlatform, subset: true, quarantine: true},
 }
 
 type testOptions struct {
@@ -59,6 +68,17 @@ type testOptions struct {
 	// split overruns again.
 	deadline time.Time
 	goArgs   []string
+	// failures is where the failed tests go as JSON.
+	failures string
+	// quarantined are the tests the quarantine list names for the tier on
+	// this target, which the tier leaves out, or with onlyQuarantined runs
+	// alone.
+	quarantined     []string
+	onlyQuarantined bool
+	// systemDeps installs the browsers' system libraries with the browsers.
+	systemDeps bool
+	// results is where the quarantine tier writes each test's result.
+	results string
 }
 
 // shard is the index-th of count, from 1. The zero shard is the whole tier.
@@ -81,19 +101,21 @@ func (s *shard) Set(v string) error {
 // go -run Foo ./e2e` hands `-run Foo ./e2e` to go test.
 func runTest(ctx context.Context, args []string) error {
 	fs := flag.NewFlagSet("test", flag.ContinueOnError)
-	tier := fs.String("tier", "all", "go, e2e, component, diagram, browser, online or all")
+	tier := fs.String("tier", "all", "go, e2e, component, diagram, browser, platform, online, quarantine or all")
 	var o testOptions
 	fs.Var(&o.shard, "shard", "run the i-th of n shards of the tier, as i/n")
 	fs.StringVar(&o.filter, "filter", "", "run only the tests that match, as go test -run or playwright --grep")
 	fs.IntVar(&o.repeat, "repeat", 1, "run each test this many times, as go test -count or playwright --repeat-each")
 	fs.StringVar(&o.timings, "timings", "", "directory of earlier runs' timings to split the shards by")
 	fs.StringVar(&o.record, "record", "", "write this run's timings to this file")
-	fs.Func("deadline", "end the browser tier's runs at this Unix time, in seconds, so a shard that outgrows its job still reports", func(v string) error {
-		sec, err := strconv.ParseInt(v, 10, 64)
-		if err != nil {
-			return fmt.Errorf("-deadline %q is not a Unix time in seconds", v)
+	fs.StringVar(&o.failures, "failures", "", "write the failed tests to this file as JSON")
+	fs.StringVar(&o.results, "results", "", "write each quarantined test's result to this file as JSON")
+	fs.Func("deadline", "end the browser tier's runs this long after the command starts, such as 40m, so a shard that outgrows its job still reports", func(v string) error {
+		d, err := time.ParseDuration(v)
+		if err != nil || d <= 0 {
+			return fmt.Errorf("-deadline %q is not a positive duration such as 40m", v)
 		}
-		o.deadline = time.Unix(sec, 0)
+		o.deadline = time.Now().Add(d)
 		return nil
 	})
 	ownArgs, goArgs := splitOwnFlags(fs, args)
@@ -101,11 +123,11 @@ func runTest(ctx context.Context, args []string) error {
 		return fmt.Errorf("parse flags: %w", err)
 	}
 	o.goArgs = goArgs
-	tiers := slices.DeleteFunc(slices.Clone(testTiers), func(t testTier) bool { return t.online })
+	tiers := slices.DeleteFunc(slices.Clone(testTiers), func(t testTier) bool { return t.online || t.subset })
 	if *tier != "all" {
 		i := slices.IndexFunc(testTiers, func(t testTier) bool { return t.name == *tier })
 		if i < 0 {
-			return fmt.Errorf("-tier %q is not one of go, e2e, component, diagram, browser, online, all", *tier)
+			return fmt.Errorf("-tier %q is not one of go, e2e, component, diagram, browser, platform, online, quarantine, all", *tier)
 		}
 		tiers = testTiers[i : i+1]
 	}
@@ -116,17 +138,46 @@ func runTest(ctx context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
+	list, err := loadQuarantine(root)
+	if err != nil {
+		return err
+	}
 	var failed []string
+	var failures []failure
 	for _, t := range tiers {
-		if err := t.run(ctx, root, o); err != nil {
+		r, err := t.run(ctx, root, t.options(o, list))
+		tierFailures := r.failed
+		for i := range tierFailures {
+			tierFailures[i].Tier = cmp.Or(tierFailures[i].Tier, t.name)
+			tierFailures[i].Target = ciTarget()
+		}
+		failures = append(failures, tierFailures...)
+		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s tier: %v\n", t.name, err)
 			failed = append(failed, t.name)
 		}
 	}
+	reportErr := reportFailures(failures, o.failures)
 	if len(failed) > 0 {
-		return fmt.Errorf("failed: %s", strings.Join(failed, ", "))
+		return errors.Join(reportErr, fmt.Errorf("failed: %s", strings.Join(failed, ", ")))
+	}
+	if reportErr != nil {
+		return reportErr
 	}
 	return nil
+}
+
+// options are o with the tests the quarantine list leaves out of the tier
+// on this target, which the tier prints.
+func (t testTier) options(o testOptions, list []quarantined) testOptions {
+	if !t.quarantine {
+		return o
+	}
+	o.quarantined = quarantinedIDs(list, t.name, ciTarget())
+	if len(o.quarantined) > 0 {
+		fmt.Printf("The %s tier leaves out the tests %s lists for %s:\n  %s\n", t.name, quarantinePath, ciTarget(), strings.Join(o.quarantined, "\n  "))
+	}
+	return o
 }
 
 func (o testOptions) fits(tiers []testTier) error {
@@ -142,6 +193,8 @@ func (o testOptions) fits(tiers []testTier) error {
 		return fmt.Errorf("go test arguments %q pick the tests themselves, so they take none of -shard, -filter, -repeat, -timings or -record", o.goArgs)
 	case !o.deadline.IsZero() && (!one || tiers[0].name != "browser"):
 		return errors.New("-deadline needs -tier browser")
+	case o.results != "" && (!one || tiers[0].name != "quarantine"):
+		return errors.New("-results needs -tier quarantine")
 	case o.repeat < 1:
 		return fmt.Errorf("-repeat %d is not a positive count", o.repeat)
 	}
@@ -167,7 +220,7 @@ func splitOwnFlags(fs *flag.FlagSet, args []string) (own, rest []string) {
 	return args[:i], args[i:]
 }
 
-func testGo(ctx context.Context, root string, o testOptions) error {
+func testGo(ctx context.Context, root string, o testOptions) (results, error) {
 	return testGoPackages(ctx, root, o, "go")
 }
 
@@ -175,7 +228,7 @@ func testGo(ctx context.Context, root string, o testOptions) error {
 // and fakeworld binaries through fakes/testbin, which CI hands the build
 // job's dist/ through TEST_SLIPSTREAM_BINARY, TEST_SLIPSTREAM_E2E_BINARY and
 // TEST_FAKEWORLD_BINARY.
-func testE2E(ctx context.Context, root string, o testOptions) error {
+func testE2E(ctx context.Context, root string, o testOptions) (results, error) {
 	return testGoPackages(ctx, root, o, "e2e")
 }
 
@@ -183,23 +236,18 @@ func testE2E(ctx context.Context, root string, o testOptions) error {
 // checks. TEST_ONLINE_TMDB_KEY carries TMDB's key, TEST_ONLINE_TVDB_KEY
 // TVDB's and TEST_ONLINE_OMDB_KEY OMDb's; -update rewrites each suite's
 // shape.json, and runs only the suites that record one, since a test binary
-// that defines no -update fails on it.
-func testOnline(ctx context.Context, root string, o testOptions) error {
+// that defines no -update fails on it. A failure names its suite's package,
+// which the daily check files an issue for.
+func testOnline(ctx context.Context, root string, o testOptions) (results, error) {
 	pkgs := []string{"./conformance/..."}
 	if slices.Contains(o.goArgs, "-update") {
 		var err error
 		if pkgs, err = shapeSuites(ctx, root); err != nil {
-			return err
+			return results{}, err
 		}
 	}
-	args := slices.Concat([]string{"test", "-tags", "online", "-count=1"}, pkgs, o.goArgs)
-	gotest := exec.CommandContext(ctx, "go", args...)
-	gotest.Dir = root
-	gotest.Stdout, gotest.Stderr = os.Stdout, os.Stderr
-	if err := gotest.Run(); err != nil {
-		return fmt.Errorf("go test: %w", err)
-	}
-	return nil
+	_, r, err := runShard(ctx, root, nil, slices.Concat([]string{"-tags", "online", "-count=1"}, o.goArgs), []goRun{{packages: pkgs}})
+	return r, err
 }
 
 // shapeSuites lists the conformance packages whose tests import the shape
@@ -223,36 +271,159 @@ func shapeSuites(ctx context.Context, root string) ([]string, error) {
 	return pkgs, nil
 }
 
-func testComponent(ctx context.Context, root string, _ testOptions) error {
-	return runWithChromium(ctx, root, "test")
+func testComponent(ctx context.Context, root string, o testOptions) (results, error) {
+	if err := installChromium(ctx, root, o.systemDeps); err != nil {
+		return results{}, err
+	}
+	var first results
+	var errs []error
+	for _, args := range vitestRuns(o.quarantined, o.onlyQuarantined) {
+		r, err := runVitest(ctx, root, args)
+		first.add(r)
+		errs = append(errs, err)
+	}
+	failed := rerunFailed(first, func(f []failure) results {
+		again, _ := runVitest(ctx, root, vitestRerunArgs(f))
+		return again
+	})
+	return results{failed: failed, passed: first.passed}, errors.Join(errs...)
 }
 
-func testDiagram(ctx context.Context, root string, _ testOptions) error {
-	return runWithChromium(ctx, root, "diagram:check")
+// vitestRerunArgs picks the failed tests by their files and their full
+// names, which a test's line can't do: the browser mode's transforms move
+// it.
+func vitestRerunArgs(failed []failure) []string {
+	var files, names []string
+	for _, f := range failed {
+		if file := strings.TrimPrefix(f.File, "web/"); !slices.Contains(files, file) {
+			files = append(files, file)
+		}
+		names = append(names, f.selector)
+	}
+	return append(files, "-t", testsPattern(names))
 }
 
-// runWithChromium installs Chromium first, which Vitest's browser mode and
-// the Diagram check launch through Playwright.
-func runWithChromium(ctx context.Context, root, script string) error {
+// runVitest runs the component tests the arguments pick, or every one.
+func runVitest(ctx context.Context, root string, filters []string) (results, error) {
+	dir, err := os.MkdirTemp("", "vitest-")
+	if err != nil {
+		return results{}, fmt.Errorf("make the Vitest report dir: %w", err)
+	}
+	report := filepath.Join(dir, "report.json")
+	args := slices.Concat([]string{"run", "test", "--reporter=default", "--reporter=json", "--outputFile.json=" + report, "--includeTaskLocation"}, filters)
+	runErr := run(ctx, filepath.Join(root, "web"), nil, "bun", args...)
+	r, err := readVitestReport(report, root)
+	return r, errors.Join(runErr, err)
+}
+
+// vitestReport is the part of Vitest's JSON report the failures read.
+type vitestReport struct {
+	TestResults []struct {
+		// Name is the test file's absolute path.
+		Name string `json:"name"`
+		// Message says why a file failed outside its tests.
+		Message          string `json:"message"`
+		Status           string `json:"status"`
+		AssertionResults []struct {
+			AncestorTitles  []string `json:"ancestorTitles"`
+			Title           string   `json:"title"`
+			Status          string   `json:"status"`
+			FailureMessages []string `json:"failureMessages"`
+			Location        *struct {
+				Line int `json:"line"`
+			} `json:"location"`
+		} `json:"assertionResults"`
+	} `json:"testResults"`
+}
+
+// readVitestReport reads the failures of the report at path, which a run
+// that never started leaves missing. A test is named as Vitest's -t
+// matches it, its suites' and its titles joined by " > ".
+func readVitestReport(path, root string) (results, error) {
+	b, err := os.ReadFile(path)
+	if errors.Is(err, os.ErrNotExist) {
+		return results{}, nil
+	}
+	if err != nil {
+		return results{}, fmt.Errorf("read the Vitest report: %w", err)
+	}
+	var report vitestReport
+	if err := json.Unmarshal(b, &report); err != nil {
+		return results{}, fmt.Errorf("%s: %w", path, err)
+	}
+	var r results
+	for _, file := range report.TestResults {
+		rel, err := filepath.Rel(root, file.Name)
+		if err != nil {
+			return results{}, fmt.Errorf("read the Vitest report: %w", err)
+		}
+		rel = filepath.ToSlash(rel)
+		testFailed := false
+		for _, a := range file.AssertionResults {
+			name := strings.Join(slices.Concat(a.AncestorTitles, []string{a.Title}), " > ")
+			f := failure{Package: rel, File: rel, Test: name, selector: name}
+			switch a.Status {
+			case "passed":
+				r.pass(f.key())
+				continue
+			case "failed":
+			default:
+				continue
+			}
+			testFailed = true
+			if len(a.FailureMessages) > 0 {
+				f.Message = firstLine(a.FailureMessages[0])
+			}
+			if a.Location != nil {
+				f.Line = a.Location.Line
+			}
+			r.failed = append(r.failed, f)
+		}
+		if file.Status == "failed" && !testFailed {
+			r.failed = append(r.failed, failure{Package: rel, File: rel, Message: firstLine(file.Message)})
+		}
+	}
+	return r, nil
+}
+
+func testDiagram(ctx context.Context, root string, _ testOptions) (results, error) {
+	if err := installChromium(ctx, root, false); err != nil {
+		return results{}, err
+	}
+	return results{}, run(ctx, filepath.Join(root, "web"), nil, "bun", "run", "diagram:check")
+}
+
+// installChromium installs the web app's packages and Chromium, which
+// Vitest's browser mode and the Diagram check launch through Playwright,
+// and with systemDeps the libraries Chromium needs.
+func installChromium(ctx context.Context, root string, systemDeps bool) error {
 	if err := installWeb(ctx, root); err != nil {
 		return err
 	}
-	web := filepath.Join(root, "web")
-	if err := run(ctx, web, nil, "bun", "x", "playwright", "install", "chromium"); err != nil {
-		return err
+	args := []string{"x", "playwright", "install", "chromium"}
+	if systemDeps {
+		args = append(args, "--with-deps")
 	}
-	return run(ctx, web, nil, "bun", "run", script)
+	return run(ctx, filepath.Join(root, "web"), nil, "bun", args...)
 }
 
-// testBrowser needs Go only to find or build a binary the variables leave
+func testBrowser(ctx context.Context, root string, o testOptions) (results, error) {
+	env, err := prepareRunner(ctx, root, "browser", runtime.GOOS, os.Environ())
+	if err != nil {
+		return results{}, err
+	}
+	return runBrowserTier(ctx, root, env, o)
+}
+
+// runBrowserTier needs Go only to find or build a binary the variables leave
 // out, so CI's browser shards run it from the build job's dist/ alone.
-func testBrowser(ctx context.Context, root string, o testOptions) error {
+func runBrowserTier(ctx context.Context, root string, env []string, o testOptions) (results, error) {
 	slipstream, haveSlipstream := testBinary(root, "TEST_SLIPSTREAM_BINARY")
 	fakeworld, haveFakeworld := testBinary(root, "TEST_FAKEWORLD_BINARY")
 	if !haveSlipstream || !haveFakeworld {
 		_, target, bundle, err := goTargetBundle(ctx)
 		if err != nil {
-			return err
+			return results{}, err
 		}
 		dist := filepath.Join(root, "dist")
 		if !haveSlipstream {
@@ -261,52 +432,106 @@ func testBrowser(ctx context.Context, root string, o testOptions) error {
 		if !haveFakeworld {
 			fakeworld = executable(target, dist, "fakeworld")
 			if err := run(ctx, root, bundleEnv(bundle), "go", "build", "-o", fakeworld, "./cmd/fakeworld"); err != nil {
-				return err
+				return results{}, err
 			}
 		}
 	}
 	if _, err := os.Stat(slipstream); errors.Is(err, os.ErrNotExist) {
-		return fmt.Errorf("%s: run release build first: the browser tier needs the web app embedded", slipstream)
+		return results{}, fmt.Errorf("%s: run release build first: the browser tier needs the web app embedded", slipstream)
 	} else if err != nil {
-		return fmt.Errorf("release binary: %w", err)
+		return results{}, fmt.Errorf("release binary: %w", err)
 	}
 	if err := installWeb(ctx, root); err != nil {
-		return err
+		return results{}, err
 	}
 	web := filepath.Join(root, "web")
-	env := append(os.Environ(), "TEST_SLIPSTREAM_BINARY="+slipstream, "TEST_FAKEWORLD_BINARY="+fakeworld)
-	if err := run(ctx, web, env, "bun", "run", "e2e:install"); err != nil {
-		return err
+	env = append(slices.Clone(env), "TEST_SLIPSTREAM_BINARY="+slipstream, "TEST_FAKEWORLD_BINARY="+fakeworld)
+	install := []string{"run", "e2e:install"}
+	if o.systemDeps {
+		install = append(install, "--with-deps")
+	}
+	if err := run(ctx, web, env, "bun", install...); err != nil {
+		return results{}, err
 	}
 	selected, err := selectBrowserTests(ctx, web, env, o)
 	if err != nil {
-		return err
+		return results{}, err
 	}
-	return runPlaywright(ctx, web, env, o, selected)
+	first, err := runPlaywright(ctx, web, env, o, selected, "run")
+	if !o.deadline.IsZero() && time.Now().After(o.deadline) {
+		return first, err
+	}
+	failed := rerunFailed(first, func(f []failure) results {
+		again, _ := rerunPlaywright(ctx, web, env, o, f)
+		return again
+	})
+	return results{failed: failed, passed: first.passed}, err
 }
 
-func runPlaywright(ctx context.Context, web string, env []string, o testOptions, selected string) error {
+// rerunPlaywright runs the failed tests once, each by its project, file and
+// titles in a test list.
+func rerunPlaywright(ctx context.Context, web string, env []string, o testOptions, failed []failure) (results, error) {
+	dir, err := os.MkdirTemp("", "browser-rerun-")
+	if err != nil {
+		return results{}, fmt.Errorf("write the rerun's test list: %w", err)
+	}
+	list := filepath.Join(dir, "tests.txt")
+	var lines []string
+	for _, f := range failed {
+		lines = append(lines, f.selector)
+	}
+	if err := os.WriteFile(list, []byte(strings.Join(lines, "\n")+"\n"), 0o644); err != nil {
+		return results{}, fmt.Errorf("write the rerun's test list: %w", err)
+	}
+	return runPlaywright(ctx, web, env, testOptions{repeat: 1, deadline: o.deadline}, list, "rerun")
+}
+
+// runPlaywright runs the tests in the list selected and records their
+// timings when o asks for them. label names its runs' output dirs.
+func runPlaywright(ctx context.Context, web string, env []string, o testOptions, selected, label string) (results, error) {
+	reporter := "list"
+	if inCI() {
+		reporter = "dot"
+	}
 	var reports []string
 	var err error
 	for i, args := range playwrightRuns(o, selected) {
 		if !o.deadline.IsZero() {
 			args = append(args, "--global-timeout="+strconv.FormatInt(max(time.Until(o.deadline).Milliseconds(), 1), 10))
 		}
-		runEnv := env
-		if o.record != "" {
-			report := filepath.Join(filepath.Dir(selected), "report-"+strconv.Itoa(i)+".json")
-			reports = append(reports, report)
-			runEnv = append(slices.Clone(env), "PLAYWRIGHT_JSON_OUTPUT_FILE="+report)
-			args = append([]string{"--reporter=dot,json"}, args...)
-		}
+		report := filepath.Join(filepath.Dir(selected), "report-"+strconv.Itoa(i)+".json")
+		reports = append(reports, report)
+		runEnv := playwrightEnv(env, label+"-"+strconv.Itoa(i+1), report)
+		args = append([]string{"--reporter=" + reporter + ",json"}, args...)
 		if err = run(ctx, web, runEnv, "bun", append([]string{"run", "e2e"}, args...)...); err != nil {
 			break
 		}
 	}
-	if o.record != "" {
-		return errors.Join(err, recordBrowserTimings(o.record, reports))
+	parsed, readErr := readPlaywrightReports(reports)
+	var r results
+	for _, p := range parsed {
+		r.add(p.results())
 	}
-	return err
+	var recordErr error
+	if o.record != "" {
+		recordErr = recordBrowserTimings(o.record, parsed)
+	}
+	return r, errors.Join(err, readErr, recordErr)
+}
+
+// playwrightEnv is env for one Playwright run, which writes its report to
+// report. Playwright empties its outputDir, under TEST_FAKEWORLD_RUNS, as
+// each run starts, so each run gets its own dir there: a later run, such as
+// the rerun of a failed test, would otherwise delete the run dirs that the
+// failed tests left for CI to upload.
+func playwrightEnv(env []string, run, report string) []string {
+	env = append(slices.Clone(env), "PLAYWRIGHT_JSON_OUTPUT_FILE="+report)
+	for _, kv := range slices.Backward(env) {
+		if runs, ok := strings.CutPrefix(kv, "TEST_FAKEWORLD_RUNS="); ok {
+			return append(env, "TEST_FAKEWORLD_RUNS="+filepath.Join(runs, run))
+		}
+	}
+	return env
 }
 
 // browserTimings names the browser tier's entry in the timings, beside the
@@ -323,10 +548,11 @@ func selectBrowserTests(ctx context.Context, web string, env []string, o testOpt
 	if o.filter != "" {
 		filter = []string{"--grep=" + o.filter}
 	}
-	all, err := listBrowserTests(ctx, web, env, filter)
+	listed, err := listBrowserTests(ctx, web, env, filter)
 	if err != nil {
 		return "", err
 	}
+	all := filterQuarantined(listed, o.quarantined, o.onlyQuarantined)
 	past, err := loadTimings(o.timings, browserTarget())
 	if err != nil {
 		return "", err
@@ -447,31 +673,85 @@ type playwrightSuite struct {
 	Title  string            `json:"title"`
 	Suites []playwrightSuite `json:"suites"`
 	Specs  []struct {
-		Title string `json:"title"`
-		File  string `json:"file"`
-		Tests []struct {
-			ProjectName string `json:"projectName"`
-			Results     []struct {
-				Duration float64 `json:"duration"`
-			} `json:"results"`
-		} `json:"tests"`
+		Title string           `json:"title"`
+		File  string           `json:"file"`
+		Line  int              `json:"line"`
+		Tests []playwrightTest `json:"tests"`
 	} `json:"specs"`
 }
 
-// addMilliseconds adds each test's milliseconds, by the name browserTestKey
-// gives it. describes holds the suites between the file and s.
-func (s playwrightSuite) addMilliseconds(describes []string, ms map[string]float64) {
+type playwrightTest struct {
+	ProjectName string `json:"projectName"`
+	// Status is expected, unexpected, flaky or skipped.
+	Status  string `json:"status"`
+	Results []struct {
+		Duration float64 `json:"duration"`
+		Status   string  `json:"status"`
+		Errors   []struct {
+			Message string `json:"message"`
+		} `json:"errors"`
+	} `json:"results"`
+}
+
+// e2eDir is where Playwright's config sits, which the report's files are
+// relative to.
+const e2eDir = "web/e2e"
+
+// eachTest calls fn with each test, its spec's file and line, and the
+// titles under its project: describes holds the suites between the file
+// and s.
+func (s playwrightSuite) eachTest(describes []string, fn func(test playwrightTest, file string, line int, titles []string)) {
 	for _, spec := range s.Specs {
 		for _, test := range spec.Tests {
-			path := slices.Concat([]string{"[" + test.ProjectName + "]", spec.File}, describes, []string{spec.Title})
-			for _, r := range test.Results {
-				ms[strings.Join(path, " › ")] += r.Duration
-			}
+			fn(test, spec.File, spec.Line, slices.Concat(describes, []string{spec.Title}))
 		}
 	}
 	for _, sub := range s.Suites {
-		sub.addMilliseconds(append(slices.Clip(describes), sub.Title), ms)
+		sub.eachTest(append(slices.Clip(describes), sub.Title), fn)
 	}
+}
+
+// addMilliseconds adds each test's milliseconds, by the name browserTestKey
+// gives it.
+func (s playwrightSuite) addMilliseconds(ms map[string]float64) {
+	s.eachTest(nil, func(test playwrightTest, file string, _ int, titles []string) {
+		path := slices.Concat([]string{"[" + test.ProjectName + "]", file}, titles)
+		for _, r := range test.Results {
+			ms[strings.Join(path, " › ")] += r.Duration
+		}
+	})
+}
+
+// results names each failed test by its project and titles, and selects it
+// for a rerun by the test list line that names it.
+func (r playwrightReport) results() results {
+	var out results
+	for _, s := range r.Suites {
+		s.eachTest(nil, func(test playwrightTest, file string, line int, titles []string) {
+			project := "[" + test.ProjectName + "]"
+			f := failure{
+				Package:  e2eDir + "/" + file,
+				File:     e2eDir + "/" + file,
+				Line:     line,
+				Test:     strings.Join(slices.Concat([]string{project}, titles), " › "),
+				selector: strings.Join(slices.Concat([]string{project, file}, titles), " › "),
+			}
+			switch test.Status {
+			case "expected", "flaky":
+				out.pass(f.key())
+			case "unexpected":
+				if n := len(test.Results); n > 0 {
+					last := test.Results[n-1]
+					f.Message = fmt.Sprintf("The test ended with the result %s and no error message.", last.Status)
+					if len(last.Errors) > 0 {
+						f.Message = firstLine(last.Errors[0].Message)
+					}
+				}
+				out.failed = append(out.failed, f)
+			}
+		})
+	}
+	return out
 }
 
 // seconds shares the run's wall time among its tests by their durations, so
@@ -481,7 +761,7 @@ func (s playwrightSuite) addMilliseconds(describes []string, ms map[string]float
 func (r playwrightReport) seconds() map[string]float64 {
 	ms := map[string]float64{}
 	for _, s := range r.Suites {
-		s.addMilliseconds(nil, ms)
+		s.addMilliseconds(ms)
 	}
 	var sum float64
 	for _, d := range ms {
@@ -497,26 +777,36 @@ func (r playwrightReport) seconds() map[string]float64 {
 	return seconds
 }
 
-func recordBrowserTimings(path string, reports []string) error {
-	recorded := packageTimings{Tests: map[string]float64{}}
-	for _, f := range reports {
+// readPlaywrightReports reads each report a run wrote. A run that failed
+// before another started leaves that one's report missing.
+func readPlaywrightReports(paths []string) ([]playwrightReport, error) {
+	var reports []playwrightReport
+	for _, f := range paths {
 		b, err := os.ReadFile(f)
 		if errors.Is(err, os.ErrNotExist) {
 			continue
 		}
 		if err != nil {
-			return fmt.Errorf("read the browser report: %w", err)
+			return nil, fmt.Errorf("read the browser report: %w", err)
 		}
 		var r playwrightReport
 		if err := json.Unmarshal(b, &r); err != nil {
-			return fmt.Errorf("%s: %w", f, err)
+			return nil, fmt.Errorf("%s: %w", f, err)
 		}
+		reports = append(reports, r)
+	}
+	return reports, nil
+}
+
+func recordBrowserTimings(path string, reports []playwrightReport) error {
+	recorded := packageTimings{Tests: map[string]float64{}}
+	for _, r := range reports {
 		for name, s := range r.seconds() {
 			recorded.Tests[name] += s
 		}
 		recorded.Seconds += r.Stats.Duration / 1000
 	}
-	t := timings{Target: browserTarget(), CPUs: runtime.NumCPU(), Packages: map[string]packageTimings{browserTimings: recorded}}
+	t := timings{Target: browserTarget(), Seconds: recorded.Seconds, CPUs: runtime.NumCPU(), Packages: map[string]packageTimings{browserTimings: recorded}}
 	return t.write(path)
 }
 

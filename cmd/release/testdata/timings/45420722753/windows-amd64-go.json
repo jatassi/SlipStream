@@ -1,0 +1,6 @@
+{
+	"target": "windows-amd64",
+	"tier": "go",
+	"seconds": 2000,
+	"packages": {}
+}

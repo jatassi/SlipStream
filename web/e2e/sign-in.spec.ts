@@ -2,7 +2,7 @@ import { expect, expectAccessible, test } from "./fixtures.ts";
 import { declinePasskeyPrompt, submitPin } from "../harness/sign-in.ts";
 import { signOut } from "./shell.ts";
 
-test("sign-in returns to the page asked for and sign-out ends the session", async ({
+test("sign-in returns to the page asked for and sign-out ends the session @platform", async ({
   page,
   world,
 }) => {

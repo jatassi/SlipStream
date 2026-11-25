@@ -379,6 +379,46 @@ func TestPartitionSpreadsHeavyPackagesOnATargetWithoutTimings(t *testing.T) {
 	}
 }
 
+// TestPartitionSplitsHeavyPackagesByTheirTestsWithoutTimings partitions
+// the e2e tier as PR #708's merge checks did, with no timings, on 4 CPUs:
+// a package that runs whole, as fakes/world/sim's 167 tests did in shard 2,
+// outlasts go test's -timeout.
+func TestPartitionSplitsHeavyPackagesByTheirTestsWithoutTimings(t *testing.T) {
+	pkgs := []goPackage{
+		{path: "e2e", tests: true, testBytes: 435882, testNames: testNames(121)},
+		{path: "fakes/world/sim", tests: true, testBytes: 424642, testNames: testNames(167)},
+		{path: "cmd/release", tests: true, testBytes: 98024, testNames: testNames(63)},
+		{path: "fakes/tracker", tests: true, testBytes: 67111, testNames: testNames(24)},
+		{path: "fakes/world/internal/proc", tests: true, testBytes: 1874, testNames: testNames(2)},
+	}
+	for _, n := range []int{2, 3, 4} {
+		parts := map[string][]goRun{}
+		for _, part := range splitParts(t, partition(pkgs, timings{CPUs: 4}, n, true)) {
+			parts[part.packages[0]] = append(parts[part.packages[0]], part)
+		}
+		for _, heavy := range []string{"e2e", "fakes/world/sim"} {
+			if len(parts[heavy]) != n {
+				t.Errorf("%d shards: %s runs in %d parts, want %d", n, heavy, len(parts[heavy]), n)
+			}
+		}
+		for _, p := range pkgs {
+			for _, name := range p.testNames {
+				if got := timesRun(parts[p.path], name); len(parts[p.path]) > 0 && got != 1 {
+					t.Errorf("%d shards: the parts of %s run %s %d times, want once", n, p.path, name, got)
+				}
+			}
+		}
+	}
+}
+
+func testNames(n int) []string {
+	names := make([]string, n)
+	for i := range names {
+		names[i] = fmt.Sprintf("Test%03d", i)
+	}
+	return names
+}
+
 func writeTimings(t *testing.T, dir, name, content string) {
 	t.Helper()
 	if err := os.WriteFile(filepath.Join(dir, name), []byte(content), 0o600); err != nil {

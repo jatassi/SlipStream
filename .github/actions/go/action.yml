@@ -1,5 +1,5 @@
 name: go
-description: Install go.mod's Go and restore the Go caches saved by pushes to main
+description: Install go.mod's Go and restore the Go caches that the daily check saves on main and the train on feature branches
 inputs:
   cache:
     description: Cache key prefix; the key adds the commit
@@ -28,13 +28,17 @@ runs:
         echo "SLIPSTREAM_NATIVE_CACHE=$RUNNER_TEMP/slipstream-native" >> "$GITHUB_ENV"
         echo "GOLANGCI_LINT_CACHE=$RUNNER_TEMP/golangci-lint" >> "$GITHUB_ENV"
     # Go's caches are content-addressed, so an older cache is never wrong,
-    # only less complete.
+    # only less complete. The paths are the temp dir's, relative to the
+    # workspace: an entry restores only for the paths it was saved with, and
+    # in a job container the runner rewrites an input's first absolute path
+    # to the container's and leaves the rest. Every job that saves these
+    # caches names them the same way.
     - name: Restore the Go caches
       id: restore
       uses: actions/cache/restore@v6
       with:
         path: |
-          ${{ runner.temp }}/go-build
-          ${{ runner.temp }}/go-mod
+          ../../_temp/go-build
+          ../../_temp/go-mod
         key: ${{ inputs.cache }}-${{ github.sha }}
         restore-keys: ${{ inputs.cache }}-
