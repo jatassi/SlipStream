@@ -3542,6 +3542,7 @@ export const FirstrunStepID = zod.enum([
   "roots",
   "downloads",
   "targets",
+  "remote-access",
 ]);
 
 export type FirstrunStepID = zod.input<typeof FirstrunStepID>;
@@ -5839,6 +5840,7 @@ export const HealthCategoryID = zod.enum([
   "nodes",
   "download-clients",
   "media-servers",
+  "remote-access",
   "seeding",
   "indexers",
   "subtitles",
@@ -10893,6 +10895,419 @@ export const PullInputBody = zod.object({
 export type PullInputBody = zod.input<typeof PullInputBody>;
 export type PullInputBodyOutput = zod.output<typeof PullInputBody>;
 
+export const ReachabilityActionView = zod.object({
+  kind: zod.enum(["pair-node", "map-ports"]),
+  label: zod.string(),
+  nodeId: zod.uuid().exactOptional(),
+});
+
+export type ReachabilityActionView = zod.input<typeof ReachabilityActionView>;
+export type ReachabilityActionViewOutput = zod.output<typeof ReachabilityActionView>;
+
+export const ReachabilityFixID = zod.enum([
+  "forward-not-seen",
+  "manual-forward",
+  "no-gateway",
+  "mappable",
+  "mappable-plex",
+  "cgnat",
+  "double-nat",
+  "vpn",
+  "firewall",
+  "firewall-unknown",
+  "firewall-docker",
+  "bind",
+  "bind-program",
+  "bind-family",
+  "bind-unknown",
+  "plain-http",
+  "private-address",
+  "stale-a",
+  "extra-a",
+  "private-a",
+  "dns-failed",
+  "no-a",
+  "aaaa-off-origin",
+  "prefix-change",
+  "aaaa-failed",
+  "private-aaaa",
+  "broken-aaaa",
+  "untested-ipv6",
+  "proxy-port",
+  "proxy-forward",
+  "custom-url",
+  "certificate",
+  "identity",
+  "sign-in-server",
+  "sign-in-ui",
+  "echo-unconfirmed",
+  "not-tested",
+]);
+
+export type ReachabilityFixID = zod.input<typeof ReachabilityFixID>;
+export type ReachabilityFixIDOutput = zod.output<typeof ReachabilityFixID>;
+
+export const ReachabilityFixView = zod.object({
+  action: zod
+    .union([ReachabilityActionView, zod.null()])
+    .describe("The fix's button, null with none"),
+  command: zod.string().exactOptional().describe("The firewall command, when the fix carries one"),
+  details: zod.string().exactOptional(),
+  id: ReachabilityFixID,
+  step: zod.string(),
+  title: zod.string(),
+});
+
+export type ReachabilityFixView = zod.input<typeof ReachabilityFixView>;
+export type ReachabilityFixViewOutput = zod.output<typeof ReachabilityFixView>;
+
+export const ReachabilityCard = zod.object({
+  exposureId: zod.uuid(),
+  fix: ReachabilityFixView,
+  kind: zod.enum(["untested", "warn", "fail"]),
+  subject: zod.string(),
+  verdict: zod.enum(["reachable", "fixable", "needs-relay"]),
+});
+
+export type ReachabilityCard = zod.input<typeof ReachabilityCard>;
+export type ReachabilityCardOutput = zod.output<typeof ReachabilityCard>;
+
+export const ReachabilityChanged = zod.object({
+  exposureIds: zod.array(zod.uuid()),
+});
+
+export type ReachabilityChanged = zod.input<typeof ReachabilityChanged>;
+export type ReachabilityChangedOutput = zod.output<typeof ReachabilityChanged>;
+
+export const ReachabilityCheckID = zod.enum([
+  "dns.a",
+  "dns.aaaa",
+  "origin.bind",
+  "origin.firewall",
+  "origin.class",
+  "outside.connect",
+  "outside.connect-back",
+  "tls.certificate",
+  "identity",
+  "http.plain",
+  "plex.custom-url",
+  "plex.mapping",
+]);
+
+export type ReachabilityCheckID = zod.input<typeof ReachabilityCheckID>;
+export type ReachabilityCheckIDOutput = zod.output<typeof ReachabilityCheckID>;
+
+export const ReachabilityCheckView = zod.object({
+  by: zod.string().exactOptional().describe("The Node that saw it"),
+  fact: zod.boolean().describe("Shown, never pointing: an overruled local guess or a connect-back"),
+  family: zod.enum(["ipv4", "ipv6"]).exactOptional(),
+  fix: zod.union([ReachabilityFixView, zod.null()]),
+  found: zod.string().exactOptional().describe("What a fact check that doesn't pass found"),
+  id: ReachabilityCheckID,
+  meaning: zod.string(),
+  observed: zod.string().exactOptional(),
+  points: zod
+    .enum(["reachable", "fixable", "needs-relay"])
+    .exactOptional()
+    .describe("What a failing or untested result points to"),
+  result: zod.enum(["passes", "fails", "not-tested", "not-used", "not-reached"]),
+});
+
+export type ReachabilityCheckView = zod.input<typeof ReachabilityCheckView>;
+export type ReachabilityCheckViewOutput = zod.output<typeof ReachabilityCheckView>;
+
+export const ReachabilityClassLine = zod.object({
+  line: zod.string(),
+  name: zod.string(),
+  nodeId: zod.uuid(),
+});
+
+export type ReachabilityClassLine = zod.input<typeof ReachabilityClassLine>;
+export type ReachabilityClassLineOutput = zod.output<typeof ReachabilityClassLine>;
+
+export const ReachabilityCounts = zod.object({
+  fix: zod.int().describe("Fixable, resting on a failing check"),
+  lookRight: zod.int().describe("Reachable by what SlipStream sees here, not tested from outside"),
+  relay: zod.int().describe("Needs a relay"),
+  untested: zod.int().describe("Fixable, resting on Not tested"),
+  work: zod.int().describe("Reachable and tested from outside"),
+});
+
+export type ReachabilityCounts = zod.input<typeof ReachabilityCounts>;
+export type ReachabilityCountsOutput = zod.output<typeof ReachabilityCounts>;
+
+export const ReachabilityExposurePublic = zod.object({
+  public: zod.string().describe("The address players outside the home use"),
+});
+
+export type ReachabilityExposurePublic = zod.input<typeof ReachabilityExposurePublic>;
+export type ReachabilityExposurePublicOutput = zod.output<typeof ReachabilityExposurePublic>;
+
+export const ReachabilityExposureView = zod.object({
+  id: zod.uuid(),
+  kind: zod.enum(["ui-portal", "media-server"]),
+  public: zod
+    .string()
+    .describe("The address players outside the home use; the UI and portal's is Address"),
+  subject: zod.string().describe("SlipStream UI and portal, or the Media Server's name"),
+});
+
+export type ReachabilityExposureView = zod.input<typeof ReachabilityExposureView>;
+export type ReachabilityExposureViewOutput = zod.output<typeof ReachabilityExposureView>;
+
+export const ReachabilityFactID = zod.enum([
+  "split-horizon",
+  "tested-through-proxy",
+  "proxy-leg",
+  "sign-in-page",
+  "ipv6-viewers-direct",
+  "ipv6-skips-proxy",
+  "address-churn",
+  "tester-away",
+  "same-network",
+  "at-address",
+  "serves-it",
+  "tester-dns",
+  "claim-contradicted",
+  "link-unconfirmed",
+  "plex-relay-quality",
+  "plex-mapping",
+  "plex-tested",
+  "other-program",
+  "own-bind",
+  "echo-through-program",
+  "echo-own-stream",
+  "echo-tester-address",
+  "echo-source",
+  "class",
+  "class-from-reaching",
+  "mapping-permanent",
+  "stun-varies-port",
+  "stun-varies-address",
+  "firewalld-partial",
+  "connect-back",
+]);
+
+export type ReachabilityFactID = zod.input<typeof ReachabilityFactID>;
+export type ReachabilityFactIDOutput = zod.output<typeof ReachabilityFactID>;
+
+export const ReachabilityFactView = zod.object({
+  id: ReachabilityFactID,
+  text: zod.string(),
+});
+
+export type ReachabilityFactView = zod.input<typeof ReachabilityFactView>;
+export type ReachabilityFactViewOutput = zod.output<typeof ReachabilityFactView>;
+
+export const ReachabilityGatewayView = zod.object({
+  address: zod.string(),
+  wan: zod
+    .string()
+    .exactOptional()
+    .describe("The address the router says it has on the internet, empty when it said none"),
+});
+
+export type ReachabilityGatewayView = zod.input<typeof ReachabilityGatewayView>;
+export type ReachabilityGatewayViewOutput = zod.output<typeof ReachabilityGatewayView>;
+
+export const ReachabilityHopView = zod.object({
+  checks: zod.array(ReachabilityCheckView),
+  facts: zod.array(ReachabilityFactView),
+  kind: zod.enum(["player", "dns", "proxy", "relay", "tls", "node-link", "origin", "media-server"]),
+  worst: zod.enum(["passes", "fails", "not-tested", "not-used", "not-reached"]),
+});
+
+export type ReachabilityHopView = zod.input<typeof ReachabilityHopView>;
+export type ReachabilityHopViewOutput = zod.output<typeof ReachabilityHopView>;
+
+export const ReachabilityIfaceView = zod.object({
+  addresses: zod.array(zod.string()),
+  name: zod.string(),
+  tunnel: zod.boolean(),
+});
+
+export type ReachabilityIfaceView = zod.input<typeof ReachabilityIfaceView>;
+export type ReachabilityIfaceViewOutput = zod.output<typeof ReachabilityIfaceView>;
+
+export const ReachabilityNodeName = zod.object({
+  name: zod.string(),
+  nodeId: zod.uuid(),
+});
+
+export type ReachabilityNodeName = zod.input<typeof ReachabilityNodeName>;
+export type ReachabilityNodeNameOutput = zod.output<typeof ReachabilityNodeName>;
+
+export const ReachabilityLastRun = zod.object({
+  at: zod.iso.datetime({ offset: true }),
+  testers: zod.array(ReachabilityNodeName),
+});
+
+export type ReachabilityLastRun = zod.input<typeof ReachabilityLastRun>;
+export type ReachabilityLastRunOutput = zod.output<typeof ReachabilityLastRun>;
+
+export const ReachabilityListenView = zod.object({
+  ipv4: zod.enum(["unknown", "yes", "no"]),
+  ipv6: zod.enum(["unknown", "yes", "no"]),
+  loopback: zod.boolean(),
+  port: zod.int(),
+  program: zod.string().describe("Empty when SlipStream couldn't see the owner"),
+});
+
+export type ReachabilityListenView = zod.input<typeof ReachabilityListenView>;
+export type ReachabilityListenViewOutput = zod.output<typeof ReachabilityListenView>;
+
+export const ReachabilityMappingView = zod.object({
+  expires: zod.iso.datetime({ offset: true }).nullable(),
+  external: zod.int(),
+  internal: zod.int(),
+  permanent: zod.boolean().describe("The router took the mapping only with no expiry"),
+});
+
+export type ReachabilityMappingView = zod.input<typeof ReachabilityMappingView>;
+export type ReachabilityMappingViewOutput = zod.output<typeof ReachabilityMappingView>;
+
+export const ReachabilityNewExposure = zod.object({
+  kind: zod.enum(["ui-portal", "media-server"]),
+  public: zod
+    .string()
+    .exactOptional()
+    .describe("The address players outside the home use, for kind media-server"),
+  serverId: zod.uuid().exactOptional().describe("The Media Server, for kind media-server"),
+});
+
+export type ReachabilityNewExposure = zod.input<typeof ReachabilityNewExposure>;
+export type ReachabilityNewExposureOutput = zod.output<typeof ReachabilityNewExposure>;
+
+export const ReachabilityRuleView = zod.object({
+  family: zod.enum(["ipv4", "ipv6"]),
+  policy: zod.enum(["unknown", "allows", "blocks"]),
+  port: zod.int(),
+});
+
+export type ReachabilityRuleView = zod.input<typeof ReachabilityRuleView>;
+export type ReachabilityRuleViewOutput = zod.output<typeof ReachabilityRuleView>;
+
+export const ReachabilityNodeNetwork = zod.object({
+  firewall: zod.array(ReachabilityRuleView),
+  gateway: zod
+    .union([ReachabilityGatewayView, zod.null()])
+    .describe("Null when no router was asked"),
+  interfaces: zod.array(ReachabilityIfaceView),
+  line: zod.string().describe("The Node's class, in no signal color"),
+  listeners: zod.array(ReachabilityListenView),
+  mappings: zod.array(ReachabilityMappingView),
+  name: zod.string(),
+  nodeId: zod.uuid(),
+  now: zod
+    .boolean()
+    .describe("Read on opening; false is the last stored look, for a Node that is away"),
+  observedAt: zod.iso.datetime({ offset: true }).nullable(),
+});
+
+export type ReachabilityNodeNetwork = zod.input<typeof ReachabilityNodeNetwork>;
+export type ReachabilityNodeNetworkOutput = zod.output<typeof ReachabilityNodeNetwork>;
+
+export const ReachabilityRoute = zod.object({
+  card: zod.enum(["none", "untested", "warn", "fail"]),
+  checked: zod.boolean().describe("False until the first check of this route finished"),
+  exposure: ReachabilityExposureView,
+  facts: zod.array(ReachabilityFactView),
+  families: zod.string().exactOptional().describe("The families the route offers, as its tag"),
+  fix: zod
+    .union([ReachabilityFixView, zod.null()])
+    .describe("The step that fixes the deciding check, null with none"),
+  folded: zod.boolean().describe("Reachable and tested: the route shows as one line"),
+  hops: zod.array(ReachabilityHopView),
+  judgedAt: zod.iso.datetime({ offset: true }).nullable(),
+  route: zod.enum(["direct", "own-proxy", "through-relay", "unplaced"]).exactOptional(),
+  skipped: zod
+    .string()
+    .nullable()
+    .describe(
+      "Why the route wasn't checked since its last result, null while the Node that serves it is online",
+    ),
+  tested: zod.boolean().describe("Every offered family was tested from outside"),
+  testedBy: zod.string().exactOptional(),
+  verdict: zod.enum(["reachable", "fixable", "needs-relay"]).exactOptional(),
+});
+
+export type ReachabilityRoute = zod.input<typeof ReachabilityRoute>;
+export type ReachabilityRouteOutput = zod.output<typeof ReachabilityRoute>;
+
+export const ReachabilityStatusPart = zod.object({
+  exposureId: zod.uuid().exactOptional().describe("The route the part is about, which it links to"),
+  text: zod.string(),
+  tone: zod.enum(["ok", "neutral", "warn", "fail"]),
+});
+
+export type ReachabilityStatusPart = zod.input<typeof ReachabilityStatusPart>;
+export type ReachabilityStatusPartOutput = zod.output<typeof ReachabilityStatusPart>;
+
+export const ReachabilityStatus = zod.object({
+  counts: ReachabilityCounts,
+  parts: zod
+    .array(ReachabilityStatusPart)
+    .describe("The status sentence's parts, joined with · on screen"),
+});
+
+export type ReachabilityStatus = zod.input<typeof ReachabilityStatus>;
+export type ReachabilityStatusOutput = zod.output<typeof ReachabilityStatus>;
+
+export const ReachabilitySuggestionView = zod.object({
+  addressPrivate: zod
+    .boolean()
+    .describe("The UI and portal has no Address outsiders can use: set one first"),
+  kind: zod.enum(["ui-portal", "media-server"]),
+  public: zod.string().describe("The prefilled public address, empty when none is known"),
+  serverId: zod.uuid().exactOptional(),
+  subject: zod.string(),
+});
+
+export type ReachabilitySuggestionView = zod.input<typeof ReachabilitySuggestionView>;
+export type ReachabilitySuggestionViewOutput = zod.output<typeof ReachabilitySuggestionView>;
+
+export const ReachabilityRemoteAccess = zod.object({
+  card: zod
+    .union([ReachabilityCard, zod.null()])
+    .describe("The one recommendation, null when every route works and was tested"),
+  lastRun: zod.union([ReachabilityLastRun, zod.null()]).describe("Null before the first check"),
+  nodes: zod
+    .array(ReachabilityClassLine)
+    .describe("One line per Node, the Controller first; empty while nothing is set up"),
+  nothingWanted: zod
+    .boolean()
+    .describe("Nothing is set up for use away from home: the page shows its Empty state"),
+  routes: zod.array(ReachabilityRoute),
+  status: ReachabilityStatus,
+  suggestions: zod.array(ReachabilitySuggestionView),
+});
+
+export type ReachabilityRemoteAccess = zod.input<typeof ReachabilityRemoteAccess>;
+export type ReachabilityRemoteAccessOutput = zod.output<typeof ReachabilityRemoteAccess>;
+
+export const ReachabilityRunStarted = zod.object({
+  runId: zod.int().describe("The Scheduled task run the routes were queued in"),
+});
+
+export type ReachabilityRunStarted = zod.input<typeof ReachabilityRunStarted>;
+export type ReachabilityRunStartedOutput = zod.output<typeof ReachabilityRunStarted>;
+
+export const ReachabilitySettingsBody = zod.object({
+  settings: zod.array(SettingField),
+});
+
+export type ReachabilitySettingsBody = zod.input<typeof ReachabilitySettingsBody>;
+export type ReachabilitySettingsBodyOutput = zod.output<typeof ReachabilitySettingsBody>;
+
+export const ReachabilitySettingsValues = zod.object({
+  values: zod
+    .record(zod.string(), zod.unknown())
+    .describe("Each setting's new value by key, all or none; null resets one to its default"),
+});
+
+export type ReachabilitySettingsValues = zod.input<typeof ReachabilitySettingsValues>;
+export type ReachabilitySettingsValuesOutput = zod.output<typeof ReachabilitySettingsValues>;
+
 export const ReconcilingChanged = zod.object({});
 
 export type ReconcilingChanged = zod.input<typeof ReconcilingChanged>;
@@ -15561,6 +15976,14 @@ export const LiveEventNotificationsSeen = zod.object({
 export type LiveEventNotificationsSeen = zod.input<typeof LiveEventNotificationsSeen>;
 export type LiveEventNotificationsSeenOutput = zod.output<typeof LiveEventNotificationsSeen>;
 
+export const LiveEventReachabilityChanged = zod.object({
+  event: zod.enum(["reachability.changed"]),
+  data: ReachabilityChanged,
+});
+
+export type LiveEventReachabilityChanged = zod.input<typeof LiveEventReachabilityChanged>;
+export type LiveEventReachabilityChangedOutput = zod.output<typeof LiveEventReachabilityChanged>;
+
 export const LiveEventReconcilingChanged = zod.object({
   event: zod.enum(["reconciling.changed"]),
   data: ReconcilingChanged,
@@ -15754,6 +16177,7 @@ export const LiveEvent = zod.discriminatedUnion("event", [
   LiveEventNodesTraffic,
   LiveEventNotificationsChanged,
   LiveEventNotificationsSeen,
+  LiveEventReachabilityChanged,
   LiveEventReconcilingChanged,
   LiveEventRootsChanged,
   LiveEventSubtitlesAttempt,

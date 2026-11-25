@@ -24,13 +24,30 @@ function saving() {
   return vi.fn<(value: unknown) => Promise<unknown>>(() => Promise.resolve());
 }
 
-test("a list shows each entry as a chip, its default and its fewest entries", async () => {
+test("a list shows each entry as a chip and saves nothing unchanged", async () => {
   renderKit(<SettingField field={videoExtensions} onSave={saving()} />);
   const chips = page.getByRole("list", { name: "Video file extensions" }).getByRole("listitem");
   await expect.element(chips.nth(0)).toHaveTextContent("mkv");
   await expect.element(chips.nth(1)).toHaveTextContent("mp4");
-  await expect.element(page.getByText("Default mkv, mp4. At least 1 extension.")).toBeVisible();
   await expect.element(page.getByRole("button", { name: "Save" })).not.toBeInTheDocument();
+});
+
+test.each([
+  { field: videoExtensions, hint: "Default mkv, mp4. At least 1 extension." },
+  {
+    field: {
+      ...videoExtensions,
+      value: [],
+      running: [],
+      default: [],
+      min: 0,
+      defaultFrom: "each Node's own STUN servers",
+    },
+    hint: "Default from each Node's own STUN servers.",
+  },
+])("a list's default reads $hint", async ({ field, hint }) => {
+  renderKit(<SettingField field={field} onSave={saving()} />);
+  await expect.element(page.getByText(hint)).toBeVisible();
 });
 
 test("typed extensions are written lowercase with no dot and saved in order", async () => {

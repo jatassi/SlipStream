@@ -52,10 +52,11 @@ const lowScrypt = 15
 // its own address, loopback peers counting for its listen port, the
 // timings the Scenario sets, a low scrypt work factor, 127.0.0.1 as a
 // trusted proxy in a Scenario with a network, where the outside dialer
-// connects from it, and the endpoints the fakes moved. A world of
+// connects from it, the scripted readers' file script there, and the
+// endpoints the fakes moved. A world of
 // fronts passes the Node's link front, which the Node advertises. The
 // simulation tier, which has no fronts, passes the zero link.
-func Config(s scenario.Scenario, i int, listen []string, link netip.AddrPort, endpoints node.EndpointsBlock) ([]byte, error) {
+func Config(s scenario.Scenario, i int, listen []string, link netip.AddrPort, script string, endpoints node.EndpointsBlock) ([]byte, error) {
 	root := &yaml.Node{Kind: yaml.MappingNode}
 	set(root, "seed", scalar(s.Seed+"/"+s.Nodes[i].Name))
 	set(root, "name", scalar(s.Nodes[i].Name))
@@ -75,6 +76,7 @@ func Config(s scenario.Scenario, i int, listen []string, link netip.AddrPort, en
 	}
 	if s.Network != nil {
 		set(root, "http.trusted_proxies", &yaml.Node{Kind: yaml.SequenceNode, Content: []*yaml.Node{scalar("127.0.0.1")}})
+		set(root, "network.script", scalar(script))
 	}
 	timings := s.Timings
 	if timings.Backups.Scrypt == 0 {

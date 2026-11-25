@@ -4,6 +4,7 @@ export type HealthCategoryID =
   | "nodes"
   | "download-clients"
   | "media-servers"
+  | "remote-access"
   | "seeding"
   | "indexers"
   | "subtitles"

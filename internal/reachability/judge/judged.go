@@ -125,7 +125,10 @@ type Check struct {
 	Points   Verdict // what a Fails or NotTested result points to
 	Observed Value
 	Fix      *Fix
-	By       role.NodeID
+	// Found is what a fact check that doesn't pass found: a connect-back's
+	// failure.
+	Found *Fact
+	By    role.NodeID
 }
 
 type Hop struct {
@@ -152,13 +155,13 @@ type FamilyVerdict struct {
 	Family  netmodel.Family
 	Verdict Verdict
 	Tested  bool
-	Tester  role.NodeID // the Node whose test proved it, zero when Plex's check did
+	Tester  role.NodeID // the Node that tested it, zero when Plex's check did
 	ByPlex  bool
 }
 
 // Version is the Judged codec's version. A change to Judged's shape or
 // meaning raises it, and a row of another version reads as not judged yet.
-const Version = 1
+const Version = 2
 
 type Judged struct {
 	V        int
@@ -167,10 +170,17 @@ type Judged struct {
 	Hops     []Hop
 	Families []FamilyVerdict
 	Verdict  Verdict
-	Tested   bool      // every offered family was tested from outside
+	Tested   bool      // every offered family was tested from outside, passing or failing
 	Deciding *CheckRef // nil exactly when Verdict is Reachable and Tested
 	Facts    []Fact    // for the Exposure: ipv6-viewers-direct
+	// Forward is what "Open router ports automatically" maps on the
+	// origin's router for this route; nil when mapping can't serve it.
+	Forward *PortForward
 }
+
+// PortForward is a TCP forward on a router, from External on its internet
+// side to Internal on the origin.
+type PortForward struct{ External, Internal uint16 }
 
 // Check is the check ref names; the zero Check when there is none.
 func (j Judged) Check(ref CheckRef) Check {

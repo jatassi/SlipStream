@@ -91,6 +91,9 @@ type Forward struct {
 	External uint16
 	Client   netip.Addr
 	Internal uint16
+	// Description is the entry's own name. It stays on the Node, where
+	// the mapper knows its own entries by it, and isn't on the wire.
+	Description string
 }
 
 type Gateway struct {

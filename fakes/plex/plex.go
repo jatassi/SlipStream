@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"net"
 	"net/netip"
+	"net/url"
 	"strconv"
 	"time"
 
@@ -100,9 +101,12 @@ type Server struct {
 	// or C:\Media.
 	Root     string
 	Sections []Section
-	// Remote is Remote Access. Custom is customConnections and Published
-	// the connections plex.tv lists beside each Node's front. Mapping is
-	// where Plex's own check left it: mapped, failed, pending or empty.
+	// Node is the Node the server runs on. Remote is Remote Access. Custom
+	// is customConnections and Published the connections plex.tv lists
+	// beside each Node's front; a URL with no port names the port the
+	// fake listens on for Node, since the world draws every port. Mapping
+	// is where Plex's own check left it: mapped, failed, pending or empty.
+	Node              string
 	Remote            bool
 	Custom, Published []string
 	Mapping           string
@@ -139,7 +143,7 @@ func newServer(s scenario.Scenario, env fake.Env) (fake.Server, error) {
 	}
 	srv := &Server{
 		Name: p.Name, Version: p.Version, Identifier: p.ID(40), Owner: plexAdmin, PlexPass: true, Root: p.Root,
-		Remote: p.Remote, Custom: p.Custom, Published: p.Published, Mapping: p.Mapping,
+		Node: cmp.Or(p.RunsOn, p.Node), Remote: p.Remote, Custom: p.Custom, Published: p.Published, Mapping: p.Mapping,
 	}
 	for i, l := range p.Libraries {
 		title, typ, ok := sectionOf(l.ContentType)
@@ -176,9 +180,18 @@ type server struct {
 func serve(env fake.Env, srv *Server) (fake.Server, error) {
 	s := &server{env: env, srv: srv, account: plexaccount.Of(env.Shared)}
 	if srv != nil {
+		custom, published := srv.Custom, srv.Published
+		// With no front drawn for its Node, a URL with no port keeps its
+		// scheme's default.
+		if listen, ok := env.Fronts.Find(fault.Target(env.Name), srv.Node); ok {
+			custom, published = withPort(custom, listen.AddrPort.Port()), withPort(published, listen.AddrPort.Port())
+		}
 		s.account.Claim(plexaccount.Server{
-			Target: fault.Target(env.Name), Name: srv.Name, Identifier: srv.Identifier, Version: srv.Version,
-			Remote: plexaccount.Remote{On: srv.Remote, Custom: srv.Custom, Published: srv.Published, Mapping: plexaccount.MappingOf(srv.Mapping, netip.AddrPort{})},
+			Target: fault.Target(env.Name), Name: srv.Name, Identifier: srv.Identifier, Version: srv.Version, Node: srv.Node,
+			Remote: plexaccount.Remote{
+				On: srv.Remote, Custom: custom, Published: published,
+				Mapping: plexaccount.MappingOf(srv.Mapping, netip.AddrPort{}),
+			},
 		})
 		core, err := newCore(env, srv)
 		if err != nil {
@@ -269,4 +282,18 @@ func (s *server) recordItem(ctx context.Context, e mediaserver.Event) {
 		rec.Files = append(rec.Files, p.File.String())
 	}
 	s.items.Record(ctx, rec)
+}
+
+// withPort is urls with port on each that names none.
+func withPort(urls []string, port uint16) []string {
+	out := make([]string, len(urls))
+	for i, u := range urls {
+		p, err := url.Parse(u)
+		if err == nil && p.Port() == "" {
+			p.Host = net.JoinHostPort(p.Hostname(), strconv.Itoa(int(port)))
+			u = p.String()
+		}
+		out[i] = u
+	}
+	return out
 }

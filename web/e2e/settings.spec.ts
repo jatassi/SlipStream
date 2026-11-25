@@ -7,7 +7,7 @@ const groups = [
   ["Metadata and subtitles", ["Metadata", "Subtitles"]],
   ["Targets and Profiles", ["Targets", "Profiles", "Custom Formats", "Editions"]],
   ["Search and download", ["Indexers", "Automatic search", "Trackers", "Download Clients"]],
-  ["Access", ["Address", "Sign-in", "API key"]],
+  ["Access", ["Address", "Remote access", "Sign-in", "API key"]],
   ["System", ["Nodes", "Backups", "Email", "Media Servers", "Notifications"]],
 ] as const;
 

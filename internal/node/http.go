@@ -25,12 +25,21 @@ import (
 // startHTTP binds http.listen, or a later port, and serves every operation
 // on it. Its stop ends every stream and log read first, so Shutdown never
 // waits out the stop deadline on one.
-func (n *Node) startHTTP(_ context.Context, cfg Config, l *Listeners, s surface.Services, gate *identity.Gate) error {
-	lns, err := bindHTTP(n.env.Net.Listen, cfg.HTTP.Listen, cfg.HTTP.PortsToTry)
+func (n *Node) startHTTP(ctx context.Context, cfg Config, l *Listeners, s surface.Services, gate *identity.Gate) error {
+	loopback6 := false
+	if cfg.HTTP.Listen.Addr() == setting.ThisMachine {
+		var err error
+		if loopback6, err = hasLoopback6(ctx, n.env.Network.Interfaces); err != nil {
+			return err
+		}
+	}
+	lns, err := bindHTTP(n.env.Net.Listen, cfg.HTTP.Listen, cfg.HTTP.PortsToTry, loopback6)
 	if err != nil {
 		return err
 	}
 	l.HTTP = boundTCP(lns[0])
+	own := webListener(lns)
+	n.web.Store(&own)
 	log := n.rootLog.With("subsystem", "http")
 	for _, ln := range lns {
 		logFamilies(log, ln)
@@ -113,13 +122,17 @@ func logFamilies(log *slog.Logger, ln net.Listener) {
 
 // bindHTTP listens on addr's port, then each next port, tries ports in
 // all, and keeps the first that binds. This machine only binds ::1 and
-// 127.0.0.1 on one port free on both. Any listen error moves on, since
+// 127.0.0.1 on one port free on both, or 127.0.0.1 alone on a host
+// without loopback6, one with IPv6 turned off. Any listen error moves on, since
 // the error for a taken port differs by OS and network. Port 0 binds any
 // free port in one try, and the ports end at 65535.
-func bindHTTP(listen func(network, address string) (net.Listener, error), addr netip.AddrPort, tries int) ([]net.Listener, error) {
+func bindHTTP(listen func(network, address string) (net.Listener, error), addr netip.AddrPort, tries int, loopback6 bool) ([]net.Listener, error) {
 	hosts := []netip.Addr{addr.Addr()}
 	if addr.Addr() == setting.ThisMachine {
-		hosts = append(hosts, netip.AddrFrom4([4]byte{127, 0, 0, 1}))
+		hosts = []netip.Addr{netip.AddrFrom4([4]byte{127, 0, 0, 1})}
+		if loopback6 {
+			hosts = []netip.Addr{setting.ThisMachine, hosts[0]}
+		}
 	}
 	port := addr.Port()
 	for tried := 1; ; tried++ {

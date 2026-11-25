@@ -132,8 +132,20 @@ func (in *familyIn) plexCounts() bool {
 	return pub.Port() == in.publicPort && slices.Contains(in.route.Dialed, pub.Addr())
 }
 
-func (in *familyIn) refusedOtherPort() bool {
-	return slices.ContainsFunc(in.o.facts.Mappings, func(m netmodel.Mapping) bool { return m.Refused == netmodel.OtherPort })
+// mappingRefused is SlipStream's mapping refused, granted on another
+// port or unanswered, so the step falls back to the manual forward.
+func (in *familyIn) mappingRefused() bool {
+	return slices.ContainsFunc(in.o.facts.Mappings, func(m netmodel.Mapping) bool { return m.Refused != netmodel.RefusedNone })
+}
+
+// forward is the forward SlipStream may map for this route on the origin's
+// router: a Direct IPv4 route from the machine that serves it, not a
+// reaching Node standing in, whose Media Server doesn't map its own port.
+func (in *familyIn) forward() *PortForward {
+	if in.fam != netmodel.IPv4 || !in.direct() || in.pl.Origin.IsZero() || in.pl.OriginLabel == Reaching || in.plexCounts() {
+		return nil
+	}
+	return &PortForward{External: in.publicPort, Internal: in.port}
 }
 
 // untestedPoints is what an untested family points to: Reachable on a
@@ -154,30 +166,34 @@ func (in *familyIn) forwardParams() Params {
 // cause is the first local reason a connection would fail, the same Fix
 // the row naming it returns, so two rows that name one cause give one
 // step.
-func (in *familyIn) cause() *Fix {
+func (in *familyIn) cause() (Verdict, *Fix) {
 	if !in.direct() {
 		switch {
 		case in.proxyLeg != nil && in.proxyLeg.Stage >= Connected:
-			return fix(FixProxyPort, Params{Port: in.publicPort, Addr: in.route.Proxy})
+			return Fixable, fix(FixProxyPort, Params{Port: in.publicPort, Addr: in.route.Proxy})
 		case in.listener.Loopback:
-			return in.bindFix()
+			return Fixable, in.bindFix()
 		}
-		return fix(FixProxyForward, Params{Addr: in.route.Proxy, Node: in.o.node, Port: in.port})
+		return Fixable, fix(FixProxyForward, Params{Addr: in.route.Proxy, Node: in.o.node, Port: in.port})
 	}
-	for _, r := range []row{rowBind, rowFirewall, rowClass} {
+	dns := rowDNSA
+	if in.fam == netmodel.IPv6 {
+		dns = rowDNSAAAA
+	}
+	for _, r := range []row{dns, rowBind, rowFirewall, rowClass} {
 		if r.Applies(in) {
 			if o := r.Eval(in); o.Result != Passes && o.Fix != nil {
-				return o.Fix
+				return o.Points, o.Fix
 			}
 		}
 	}
 	switch {
 	case in.fam == netmodel.IPv6:
-		return fix(FixBrokenAAAA, Params{Host: in.host, Addr: in.route.Dialed[0], Port: in.publicPort, Node: in.o.node})
+		return Fixable, fix(FixBrokenAAAA, Params{Host: in.host, Addr: in.route.Dialed[0], Port: in.publicPort, Node: in.o.node})
 	case in.o.facts.Gateway.Addr.IsValid():
-		return fix(FixManualForward, in.forwardParams())
+		return Fixable, fix(FixManualForward, in.forwardParams())
 	}
-	return fix(FixNoGateway, Params{Node: in.o.node, Port: in.publicPort})
+	return Fixable, fix(FixNoGateway, Params{Node: in.o.node, Port: in.publicPort})
 }
 
 func (in *familyIn) bindFix() *Fix {

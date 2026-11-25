@@ -25,7 +25,7 @@ var ops = []func(b *B, x byte) *B{
 	func(b *B, x byte) *B { return b.STUNVaries(x%2 == 0) },
 	func(b *B, _ byte) *B { return b.Caddy() },
 	func(b *B, x byte) *B { return b.Mapped(time.Duration(x%2) * time.Hour) },
-	func(b *B, _ byte) *B { return b.RefusedOtherPort() },
+	func(b *B, x byte) *B { return b.Refused(netmodel.MapRefusal(1 + x%3)) },
 	func(b *B, x byte) *B {
 		if b.f.Server == nil {
 			return b

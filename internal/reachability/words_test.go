@@ -117,6 +117,9 @@ func emitted(j judge.Judged) ([]judge.Fix, []judge.Fact) {
 			if c.Fix != nil {
 				fxs = append(fxs, *c.Fix)
 			}
+			if c.Found != nil {
+				fcs = append(fcs, *c.Found)
+			}
 		}
 	}
 	return fxs, fcs

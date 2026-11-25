@@ -2,6 +2,7 @@ package judge_test
 
 import (
 	"errors"
+	"fmt"
 	"net/netip"
 	"reflect"
 	"slices"
@@ -70,6 +71,7 @@ func decidingProps(t *testing.T, name string, j judge.Judged) {
 
 func checkProps(t *testing.T, name string, j judge.Judged) {
 	t.Helper()
+	oneFixPointsOneWay(t, name, j)
 	for _, h := range j.Hops {
 		for _, c := range h.Checks {
 			if c.Family == nil {
@@ -78,16 +80,46 @@ func checkProps(t *testing.T, name string, j judge.Judged) {
 			if *c.Family == netmodel.IPv6 && c.Points > judge.Fixable {
 				t.Errorf("%s: IPv6 check %s points %v", name, c.ID, c.Points)
 			}
-			if slices.Contains(localGuesses, c.ID) && !c.Fact && tested(j, *c.Family) {
-				t.Errorf("%s: %s of a tested family isn't a fact", name, c.ID)
+			if slices.Contains(localGuesses, c.ID) && !c.Fact && proven(j, *c.Family) {
+				t.Errorf("%s: %s of a proven family isn't a fact", name, c.ID)
 			}
 		}
 	}
 }
 
-func tested(j judge.Judged, fam netmodel.Family) bool {
+// oneFixPointsOneWay: two checks naming one fix point to one verdict.
+func oneFixPointsOneWay(t *testing.T, name string, j judge.Judged) {
+	t.Helper()
+	points := map[string]judge.Verdict{}
+	for _, h := range j.Hops {
+		for _, c := range h.Checks {
+			if c.Fact || c.Fix == nil || c.Result != judge.Fails && c.Result != judge.NotTested {
+				continue
+			}
+			key := fmt.Sprintf("%v %s %+v", c.Family != nil && *c.Family == netmodel.IPv6, c.Fix.ID, c.Fix.Params)
+			if v, ok := points[key]; ok && v != c.Points {
+				t.Errorf("%s: %s points %v, and another check with its fix %s points %v", name, c.ID, c.Points, c.Fix.ID, v)
+			}
+			points[key] = c.Points
+		}
+	}
+}
+
+// proven is a family tested from outside with none of the tester's checks failing.
+func proven(j judge.Judged, fam netmodel.Family) bool {
 	i := slices.IndexFunc(j.Families, func(f judge.FamilyVerdict) bool { return f.Family == fam })
-	return i >= 0 && j.Families[i].Tested
+	if i < 0 || !j.Families[i].Tested {
+		return false
+	}
+	for _, h := range j.Hops {
+		for _, c := range h.Checks {
+			tester := c.ID == judge.CheckOutsideConnect || c.ID == judge.CheckTLSCertificate || c.ID == judge.CheckIdentity
+			if tester && c.Result == judge.Fails && c.Family != nil && *c.Family == fam {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 func TestDecodeOtherVersion(t *testing.T) {

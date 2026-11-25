@@ -14,7 +14,8 @@ import (
 // skipped, and adds link-unconfirmed for a kept Worker whose link couldn't
 // confirm its claim. A Direct route takes only testers outside the
 // origin's network, because a connection from inside can pass through
-// hairpin NAT and prove nothing.
+// hairpin NAT and prove nothing; until the origin's STUN answer is read,
+// no IPv4 tester can be shown outside it.
 func Testers(f Facts, pl Placement, fam netmodel.Family) ([]role.NodeID, []Fact) {
 	fr, ok := pl.Routes[fam]
 	if !ok || fr.Kind == Unplaced {
@@ -45,6 +46,7 @@ func eligible(f Facts, pl Placement, fam netmodel.Family, c Candidate) (Fact, bo
 	fr := pl.Routes[fam]
 	nf := f.Nodes[c.Node]
 	public4 := f.Rules.Public4(nf.Observed())
+	origin4, _ := f.Rules.Classify(f.Nodes[pl.Origin].Observed())
 	switch {
 	case c.Serves && !c.Self:
 		return Fact{ID: FactServesIt, Params: Params{Tester: c.Node}}, false
@@ -56,6 +58,8 @@ func eligible(f Facts, pl Placement, fam netmodel.Family, c Candidate) (Fact, bo
 		return Fact{}, false
 	case slices.ContainsFunc(fr.Dialed, nf.Holds):
 		return Fact{ID: FactAtAddress, Params: Params{Tester: c.Node, Addr: fr.Dialed[0]}}, false
+	case fr.Kind == Direct && fam == netmodel.IPv4 && origin4 == netmodel.Class4Unknown:
+		return Fact{}, false
 	case fr.Kind == Direct && sameNetwork(f, pl.Origin, c.Node):
 		return Fact{ID: FactSameNetwork, Params: Params{Tester: c.Node, Node: pl.Origin}}, false
 	}

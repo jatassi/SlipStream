@@ -49,10 +49,10 @@ func TestRegisteredPanicsUnlessTheCategoriesAreIDs(t *testing.T) {
 	}
 	cases := map[string][]Category{
 		"one missing":    {cat(StorageID), cat(LibraryID), cat(NodesID), cat(ScheduledTasksID)},
-		"one unknown":    {cat(StorageID), cat(LibraryID), cat(NodesID), cat(DownloadClientsID), cat(MediaServersID), cat(SeedingID), cat(IndexersID), cat(SubtitlesID), cat(ScheduledTasksID), cat(BackupsID), cat(NotificationsID), cat("other")},
-		"out of order":   {cat(StorageID), cat(NodesID), cat(LibraryID), cat(DownloadClientsID), cat(MediaServersID), cat(SeedingID), cat(IndexersID), cat(ScheduledTasksID), cat(NotificationsID)},
-		"listed twice":   {cat(StorageID), cat(LibraryID), cat(NodesID), cat(NodesID), cat(DownloadClientsID), cat(MediaServersID), cat(SeedingID), cat(IndexersID), cat(ScheduledTasksID), cat(NotificationsID)},
-		"with no answer": {cat(StorageID), cat(LibraryID), cat(NodesID), cat(DownloadClientsID), cat(MediaServersID), cat(SeedingID), cat(IndexersID), cat(SubtitlesID), cat(ScheduledTasksID), cat(BackupsID), {About: About{ID: NotificationsID, Label: "N", Phrase: "n"}}},
+		"one unknown":    {cat(StorageID), cat(LibraryID), cat(NodesID), cat(DownloadClientsID), cat(MediaServersID), cat(RemoteAccessID), cat(SeedingID), cat(IndexersID), cat(SubtitlesID), cat(ScheduledTasksID), cat(BackupsID), cat(NotificationsID), cat("other")},
+		"out of order":   {cat(StorageID), cat(NodesID), cat(LibraryID), cat(DownloadClientsID), cat(MediaServersID), cat(RemoteAccessID), cat(SeedingID), cat(IndexersID), cat(ScheduledTasksID), cat(NotificationsID)},
+		"listed twice":   {cat(StorageID), cat(LibraryID), cat(NodesID), cat(NodesID), cat(DownloadClientsID), cat(MediaServersID), cat(RemoteAccessID), cat(SeedingID), cat(IndexersID), cat(ScheduledTasksID), cat(NotificationsID)},
+		"with no answer": {cat(StorageID), cat(LibraryID), cat(NodesID), cat(DownloadClientsID), cat(MediaServersID), cat(RemoteAccessID), cat(SeedingID), cat(IndexersID), cat(SubtitlesID), cat(ScheduledTasksID), cat(BackupsID), {About: About{ID: NotificationsID, Label: "N", Phrase: "n"}}},
 	}
 	for name, all := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -64,5 +64,5 @@ func TestRegisteredPanicsUnlessTheCategoriesAreIDs(t *testing.T) {
 			registered(all)
 		})
 	}
-	registered([]Category{cat(StorageID), cat(LibraryID), cat(NodesID), cat(DownloadClientsID), cat(MediaServersID), cat(SeedingID), cat(IndexersID), cat(SubtitlesID), cat(ScheduledTasksID), cat(BackupsID), cat(NotificationsID)})
+	registered([]Category{cat(StorageID), cat(LibraryID), cat(NodesID), cat(DownloadClientsID), cat(MediaServersID), cat(RemoteAccessID), cat(SeedingID), cat(IndexersID), cat(SubtitlesID), cat(ScheduledTasksID), cat(BackupsID), cat(NotificationsID)})
 }

@@ -25,6 +25,7 @@ var (
 	stunURI  = regexp.MustCompile(`(?i)\b(?:stuns?|turns?):([^\s/?#"'<>]+)`)
 	urlRef   = regexp.MustCompile(`(?i)\b[a-z][a-z0-9+.-]*://([^\s/?#"'<>]*)`)
 	hostPort = regexp.MustCompile(`(\[[0-9A-Fa-f:.]+\]|[A-Za-z0-9.-]+):\d{1,5}\b`)
+	xmlName  = regexp.MustCompile(`(?i)\b(?:xmlns(?::[a-z0-9_-]+)?|[a-z0-9_-]+:encodingStyle)="[^"]*"`)
 	dnsName  = regexp.MustCompile(`^(?i:[a-z0-9]([a-z0-9-]*[a-z0-9])?)(\.(?i:[a-z0-9]([a-z0-9-]*[a-z0-9])?))*\.?$`)
 )
 
@@ -94,6 +95,8 @@ func isDefaultEndpoints(fn *ast.FuncDecl) bool {
 }
 
 func externalHost(s string) (string, bool) {
+	// An XML namespace is a name, never fetched.
+	s = xmlName.ReplaceAllString(s, " ")
 	for _, m := range stunURI.FindAllStringSubmatchIndex(s, -1) {
 		if host := splitHost(s[m[2]:m[3]]); hostIsExternal(host, anyHostname) {
 			return host, true
@@ -135,7 +138,7 @@ func splitHost(hostport string) string {
 func hostIsExternal(host string, kind hostKind) bool {
 	if addr, err := netip.ParseAddr(host); err == nil {
 		addr = addr.Unmap()
-		return !addr.IsLoopback() && !addr.IsUnspecified()
+		return !addr.IsLoopback() && !addr.IsUnspecified() && !addr.IsMulticast()
 	}
 	if !dnsName.MatchString(host) {
 		return false

@@ -1,0 +1,45 @@
+# yaml-language-server: $schema=../scenario.schema.json
+description: >-
+  S51 (Reachability diagnostic) on the shape of a recorded home: the
+  Controller atlas alone, behind a router at 203.0.113.9 that speaks UPnP
+  and forwards nothing, and the Admin's own proxy the-vps at 198.51.100.8,
+  which serves slipstream.proxy.fake.localhost and
+  plex.proxy.fake.localhost over HTTPS and forwards them to atlas. atlas
+  runs Plex with Remote Access on and the proxy's name as its custom URL,
+  so atlas tests both routes through the proxy. The proxy also serves
+  Plex at media.proxy.fake.localhost, a name Plex doesn't list.
+seed: remote-own-proxy
+admin:
+  email: ada@example.test
+  display_name: Ada Okafor
+  pin: "2468"
+nodes:
+  - name: atlas
+    setup: controller
+    site: home
+    media_servers:
+      - kind: plex
+        name: Plex
+        runs_on: atlas
+        remote: true
+        custom: ["https://plex.proxy.fake.localhost:443"]
+network:
+  sites:
+    - {name: home, wan: public, address: 203.0.113.9, mapping: [upnp]}
+  proxies:
+    - name: the-vps
+      address: 198.51.100.8
+      routes:
+        - {host: slipstream.proxy.fake.localhost, node: atlas, service: http}
+        - {host: plex.proxy.fake.localhost, node: atlas, service: plex}
+        - {host: media.proxy.fake.localhost, node: atlas, service: plex}
+  dns:
+    - {name: slipstream.proxy.fake.localhost, a: [198.51.100.8]}
+    - {name: plex.proxy.fake.localhost, a: [198.51.100.8]}
+    - {name: media.proxy.fake.localhost, a: [198.51.100.8]}
+timings:
+  node:
+    stop_deadline: 15s
+library:
+  storage_levels: {warn_below: 0B, error_below: 0B}
+  roots: [{content_type: movie, folder: movies}]

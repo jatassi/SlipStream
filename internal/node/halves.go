@@ -38,6 +38,8 @@ import (
 	"github.com/jatassi/slipstream/internal/metadata/artwork"
 	"github.com/jatassi/slipstream/internal/moves"
 	"github.com/jatassi/slipstream/internal/naming"
+	"github.com/jatassi/slipstream/internal/netfacts"
+	"github.com/jatassi/slipstream/internal/netmodel"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/nodesystem"
 	"github.com/jatassi/slipstream/internal/notifications"
@@ -51,6 +53,7 @@ import (
 	msv1 "github.com/jatassi/slipstream/internal/pb/slipstream/mediaserver/v1"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/mediaserver/v1/mediaserverv1connect"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/metadata/v1/metadatav1connect"
+	"github.com/jatassi/slipstream/internal/pb/slipstream/network/v1/networkv1connect"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/notify/v1/notifyv1connect"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/search/v1/searchv1connect"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/storage/v1/storagev1connect"
@@ -64,6 +67,7 @@ import (
 	"github.com/jatassi/slipstream/internal/providers/subsource"
 	"github.com/jatassi/slipstream/internal/providers/tmdb"
 	"github.com/jatassi/slipstream/internal/providers/tvdb"
+	"github.com/jatassi/slipstream/internal/reachability"
 	"github.com/jatassi/slipstream/internal/reconciling"
 	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/role"
@@ -128,6 +132,9 @@ type half struct {
 	// mediaServersHealth is the Media Servers' Health category, on a
 	// Controller.
 	mediaServersHealth health.Source
+
+	// reachability is Remote access, on a Controller.
+	reachability *reachability.Reachability
 
 	// notifications is the Admin's notification connections and the bell,
 	// on a Controller.
@@ -331,6 +338,26 @@ func (n *Node) startController(ctx context.Context) error {
 		Log:   n.rootLog.With("subsystem", "mediaservers"),
 	})
 	linked = mediaserverlink.Def.Serve(servers.Intent, servers.Apply)
+	reach := reachability.New(reachability.Config{
+		Library: lib.db,
+		Hub:     n.hub,
+		Log:     n.rootLog.With("subsystem", "reachability"),
+		Roster:  reachRoster{openedRoster{&side}},
+		Tasks:   lateTasks{&scheduler},
+		Network: func(id role.NodeID) networkv1connect.NodeNetworkServiceHandler {
+			return networkv1connect.NodeNetworkService.On(cluster, id)
+		},
+		MediaServers: servers,
+		Rules:        netmodel.RulesOf(n.cfg.Network),
+		LinkSource:   n.linkSource(),
+		WebPort:      n.webPort,
+		Timings:      n.cfg.Timings.Reachability,
+		Zone:         n.zone(),
+		Changed:      reachability.ChangedEvent.Bind(n.hub),
+		Now:          time.Now,
+	})
+	network := netmodel.Def.Serve(reach.Intent, reach.Apply)
+	reach.Serve(network)
 	cat := entry.NewCatalog()
 	n.notifications = notifications.New(notifications.Config{
 		Library:   lib.db,
@@ -393,7 +420,7 @@ func (n *Node) startController(ctx context.Context) error {
 		Traffic: nodes.TrafficEvent.Bind(n.hub),
 
 		SettingsChanged: nodes.SettingsChangedEvent.Bind(n.hub),
-		Served:          append([]role.Served{downloads, stored, transferring, linked}, n.env.Test.Served...),
+		Served:          append([]role.Served{downloads, stored, transferring, linked, network}, n.env.Test.Served...),
 		Owners:          owners(clients, servers, n.notifications),
 		Kept:            grabs.Kept,
 		Torrents:        clients,
@@ -406,6 +433,7 @@ func (n *Node) startController(ctx context.Context) error {
 			clients.Arrived(id, scope)
 			copies.Noted(id, scope)
 			servers.Noted(id, scope)
+			reach.Noted(id, scope)
 		},
 		Applied: func(id role.NodeID, scope string) {
 			clients.Applied(id, scope)
@@ -438,7 +466,7 @@ func (n *Node) startController(ctx context.Context) error {
 	dispatch := rpc.NewDispatch(n.link, self, self, func(r role.Name) bool { return holding.Holds(r) })
 	cluster = rpc.NewCluster(dispatch, side)
 	n.mediaLink = n.newMediaLink()
-	holding, local, copier, err := n.startHolding(ctx, role.InProcess(controls), dispatch, nil, nil)
+	holding, local, copier, err := n.startHolding(ctx, side.Self(), role.InProcess(controls), dispatch, nil, nil)
 	if err != nil {
 		return err
 	}
@@ -455,6 +483,7 @@ func (n *Node) startController(ctx context.Context) error {
 	downloadingv1connect.DownloadingService.Mount(dispatch, n.downloading)
 	mediaserverv1connect.MediaServerLinkService.Mount(dispatch, n.mediaLink.Service())
 	n.serveSystem(dispatch)
+	networkv1connect.NodeNetworkService.Mount(dispatch, netfacts.NewService(n.network))
 	providers := make([]calls.Provider, len(holder.Testers))
 	for i, t := range holder.Testers {
 		providers[i] = t.Provider()
@@ -781,7 +810,7 @@ func (n *Node) startController(ctx context.Context) error {
 			Types:    contenttype.Project(opened, func(t contenttype.Library) metadata.Refreshing { return t }),
 			Today:    n.today,
 			Log:      n.rootLog.With("subsystem", "metadata-refresh"),
-		}, found, kept), append(append(append(registry.Tasks(), seeding.Task(), servers.RenewalTask(), subtitler.Task()), pipeline.Tasks()...), n.env.Test.tasks(started)...)...),
+		}, found, kept), append(append(append(registry.Tasks(), seeding.Task(), servers.RenewalTask(), subtitler.Task(), reach.Task()), pipeline.Tasks()...), n.env.Test.tasks(started)...)...),
 		Roster:      side,
 		Zone:        n.zone(),
 		Rand:        n.tasksRand,
@@ -812,6 +841,8 @@ func (n *Node) startController(ctx context.Context) error {
 
 		mediaServersHealth: servers.HealthSource(),
 
+		reachability: reach,
+
 		notifications: n.notifications,
 
 		calendar: dates,
@@ -840,6 +871,7 @@ func (n *Node) startController(ctx context.Context) error {
 	n.claimed.Go("transfers", copies.Run)
 	n.claimed.Go("backup copies", kept.Run)
 	n.claimed.Go("media servers", servers.Run)
+	n.claimed.Go("reachability", reach.Run)
 	n.claimed.Go("files", shelf.Run)
 	n.claimed.Go("moves", mover.Run)
 	n.claimed.Go("subtitles", subtitler.Run)
@@ -942,6 +974,10 @@ func (t lateTasks) EveryIn(ctx context.Context, r storage.Reader[storage.Library
 
 func (t lateTasks) Next(ctx context.Context, id tasks.TaskID) (time.Time, error) {
 	return (*t.tasks).Next(ctx, id)
+}
+
+func (t lateTasks) Start(ctx context.Context, st tasks.Start) (tasks.Started, error) {
+	return (*t.tasks).Start(ctx, st)
 }
 
 func (t lateTasks) SetCadence(ctx context.Context, id tasks.TaskID, v setting.Stored[int64]) error {
@@ -1110,7 +1146,8 @@ func (n *Node) startWorker(ctx context.Context) error {
 	var holding *role.Holding
 	dispatch := rpc.NewDispatch(n.link, n.key.Public(), controller.Key, func(r role.Name) bool { return holding.Holds(r) })
 	n.mediaLink = n.newMediaLink()
-	holding, local, copier, err := n.startHolding(ctx, role.OverLink(n.link, controller.Key, n.cfg.Timings.Link), dispatch, []role.Held{role.HoldRun(role.Serving, front.Run, front.Release)}, side.Remember)
+	rec, _ := side.Record()
+	holding, local, copier, err := n.startHolding(ctx, rec.NodeID, role.OverLink(n.link, controller.Key, n.cfg.Timings.Link), dispatch, []role.Held{role.HoldRun(role.Serving, front.Run, front.Release)}, side.Remember)
 	if err != nil {
 		return err
 	}
@@ -1128,9 +1165,9 @@ func (n *Node) startWorker(ctx context.Context) error {
 	downloadingv1connect.DownloadingService.Mount(dispatch, n.downloading)
 	mediaserverv1connect.MediaServerLinkService.Mount(dispatch, n.mediaLink.Service())
 	n.serveSystem(dispatch)
+	networkv1connect.NodeNetworkService.Mount(dispatch, netfacts.NewService(n.network))
 	housekeepingv1connect.HousekeepingService.Mount(dispatch, housekeeping.Service{Local: local})
 	n.lockstep.Handle("/", dispatch)
-	rec, _ := side.Record()
 	n.setHalf(&half{self: rec.NodeID, peers: side, dispatch: dispatch, holding: holding, serving: front, copier: copier})
 	n.link.Keep(controller)
 	n.claimed.Go("pairing", side.Run)
@@ -1142,9 +1179,13 @@ func (n *Node) startWorker(ctx context.Context) error {
 
 // removed answers the Controller's removal of this Worker: the holder
 // half forgets its cached intents, so its Roles stop and a later Join
-// can't resume them, and the Node restarts Unclaimed.
+// can't resume them, waits a bounded time for its Node-wide channels to
+// let go, such as the network channel deleting its router mappings, and
+// the Node restarts Unclaimed.
 func (n *Node) removed(ctx context.Context) {
 	if h := n.half.Load(); h != nil {
+		ctx, cancel := context.WithTimeout(ctx, n.cfg.Timings.Role.Release)
+		defer cancel()
 		if err := h.holding.Reset(ctx); err != nil {
 			n.log.Error("forget the removed Worker's Roles", "err", err.Error())
 		}
@@ -1167,13 +1208,15 @@ func (n *Node) mountSidecars(ctx context.Context, dispatch *rpc.Dispatch, local 
 // holding the half's own Roles beside every Node's, and the Node's
 // Transfers engine over local.db. Its Roles call the Controller through
 // dispatch. A Worker's holder hands superseded each Controller key its
-// node-scope intent names as replaced.
-func (n *Node) startHolding(ctx context.Context, upstream role.Upstream, dispatch *rpc.Dispatch, own []role.Held, superseded func([]link.SupersededProof)) (*role.Holding, *storage.DB[storage.Local], *transfers.Node, error) {
+// node-scope intent names as replaced. It builds the Node's network facts
+// over local.db, which keeps self's router mappings.
+func (n *Node) startHolding(ctx context.Context, self role.NodeID, upstream role.Upstream, dispatch *rpc.Dispatch, own []role.Held, superseded func([]link.SupersededProof)) (*role.Holding, *storage.DB[storage.Local], *transfers.Node, error) {
 	local, err := storage.OpenLocal(ctx, n.env.DataDir.LocalDB(), localSchemas(), n.cfg.Timings.Storage, n.rootLog.With("subsystem", "storage"))
 	if err != nil {
 		return nil, nil, nil, err
 	}
 	n.claimed.OnStop("local.db", func(context.Context) error { return local.Close() })
+	n.network = n.newNetwork(self, local)
 	n.claimed.OnStop("torrent resume data", n.downloads.Shutdown(local))
 	copier := transfers.NewNode(transfers.NodeConfig{
 		Local:     local,
@@ -1256,6 +1299,7 @@ func (n *Node) heldRoles(local *storage.DB[storage.Local], dispatch *rpc.Dispatc
 		storing.Def.Hold(n.store.Run, n.store.Release),
 		transfers.Def.Hold(copier.Run, copier.Release),
 		mediaserverlink.Def.Hold(n.mediaLink.Run(local, mediaserverv1connect.MediaServerControlService.Call(dispatch)), n.mediaLink.Release),
+		netmodel.Def.Hold(n.network.Watch, n.network.Release),
 	}
 }
 

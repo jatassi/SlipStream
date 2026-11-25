@@ -747,6 +747,14 @@ func TestSubtitlingSides(t *testing.T) {
 	})
 }
 
+func TestNetfactsSides(t *testing.T) {
+	const node = " imported by a Node's network facts; take what a Node needs from the call or the intent"
+	assertFindings(t, check(t, "netfacts-sides", fixtureRepo(t, "netfacts-sides")), []string{
+		"internal/netfacts/gateway/gateway.go:3: [netfacts-sides] internal/nodes" + node,
+		"internal/netfacts/netfacts.go:4: [netfacts-sides] internal/reachability" + node,
+	})
+}
+
 func TestSidecarWriter(t *testing.T) {
 	const outside = " outside the Keeper and the map drain; write rows for the Keeper to settle"
 	assertFindings(t, check(t, "sidecar-writer", fixtureRepo(t, "sidecar-writer")), []string{

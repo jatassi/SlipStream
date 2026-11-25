@@ -33,6 +33,7 @@ import (
 	"github.com/jatassi/slipstream/fakes/events"
 	"github.com/jatassi/slipstream/fakes/fake"
 	"github.com/jatassi/slipstream/fakes/fault"
+	"github.com/jatassi/slipstream/fakes/gateway"
 	"github.com/jatassi/slipstream/fakes/internal/ca"
 	"github.com/jatassi/slipstream/fakes/internal/clientfake"
 	"github.com/jatassi/slipstream/fakes/internal/front"
@@ -537,7 +538,7 @@ func (r *Run) prepareNodes(ctx context.Context, _ *unwind) error {
 		if err != nil {
 			return err
 		}
-		config, err := setup.Config(r.scenario, i, listen, r.linkFront(name).Addr(), endpoints)
+		config, err := setup.Config(r.scenario, i, listen, r.linkFront(name).Addr(), gateway.ScriptPath(r.fakeDir(gateway.Fake.Name), name), endpoints)
 		if err != nil {
 			return fmt.Errorf("node %s: %w", name, err)
 		}

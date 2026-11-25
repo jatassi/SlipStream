@@ -40,7 +40,7 @@ var Fake = fake.Spec{
 				return
 			}
 			src := site.Source(fake.OriginOf(r.Context()))
-			(&httputil.ReverseProxy{Rewrite: func(pr *httputil.ProxyRequest) {
+			(&httputil.ReverseProxy{Transport: transport, Rewrite: func(pr *httputil.ProxyRequest) {
 				pr.SetURL(&url.URL{Scheme: "http", Host: at.String()})
 				pr.Out.Host = pr.In.Host
 				pr.Out.Header.Set("X-Forwarded-For", src.String())
@@ -50,6 +50,8 @@ var Fake = fake.Spec{
 	Endpoints: func(*node.EndpointsBlock, fake.Address) {},
 	Online:    fake.NoOnlineRun("the Admin's own proxy is theirs, and the Fake world's names under .localhost reach no real one"),
 }
+
+var transport = &http.Transport{DialContext: netsite.Dialer.DialContext}
 
 func hostOf(r *http.Request) string {
 	if host, _, err := net.SplitHostPort(r.Host); err == nil {

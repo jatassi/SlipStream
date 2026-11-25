@@ -14,6 +14,7 @@ func firstRunSteps(lib *libraryDB, h *half) []firstrun.Step {
 		h.roots.RootsStep(),
 		h.clients.DownloadsStep(),
 		h.targets.TargetsStep(),
+		h.reachability.Step(),
 	}
 }
 

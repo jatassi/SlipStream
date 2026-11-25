@@ -51,7 +51,8 @@ func TestTheNetworkFakesPlayOnlyAScenarioWithANetwork(t *testing.T) {
 }
 
 // checkNetworkWorld checks m runs the network fakes, trusts the outside
-// dialer and holds a script per Node only when network says so.
+// dialer, and has each Node read a script of its own only when network
+// says so.
 func checkNetworkWorld(t *testing.T, m world.Manifest, network bool) {
 	t.Helper()
 	var played []string
@@ -63,8 +64,10 @@ func checkNetworkWorld(t *testing.T, m world.Manifest, network bool) {
 	if want := map[bool][]string{true: networkFakes}[network]; !slices.Equal(played, want) {
 		t.Errorf("network fakes = %v, want %v", played, want)
 	}
-	if got := slices.Contains(m.Divergences, "outside-dialer"); got != network {
-		t.Errorf("divergences %v name outside-dialer: %t, want %t", m.Divergences, got, network)
+	for _, id := range []string{"outside-dialer", "scripted-network"} {
+		if got := slices.Contains(m.Divergences, id); got != network {
+			t.Errorf("divergences %v name %s: %t, want %t", m.Divergences, id, got, network)
+		}
 	}
 	if !network {
 		return

@@ -28,6 +28,7 @@ type outcome struct {
 	Observed Value
 	Fix      *Fix
 	Facts    []Fact // added to the check's hop
+	Found    *Fact
 	byPlex   bool
 }
 
@@ -186,12 +187,17 @@ var rowClass = row{ID: CheckOriginClass, Hop: OriginHop, Only: ptr(netmodel.IPv4
 			switch {
 			case in.liveMapping():
 				return passes()
-			case in.refusedOtherPort():
+			case in.mappingRefused():
 				return notTested(Fixable, fix(FixManualForward, in.forwardParams()))
-			case in.plex():
-				return notTested(Fixable, fix(FixMappablePlex, Params{Node: node}))
 			}
-			return notTested(Fixable, fix(FixMappable, Params{Node: node, Port: in.publicPort}))
+			fx := fix(FixMappable, Params{Node: node, Port: in.publicPort})
+			if in.plex() {
+				fx = fix(FixMappablePlex, Params{Node: node})
+			}
+			if in.forward() != nil {
+				fx.action(Action{Kind: MapPorts, Node: node})
+			}
+			return notTested(Fixable, fx)
 		case netmodel.CGNAT:
 			o := fails(NeedsRelay, fix(FixCGNAT, Params{Node: node, Program: in.subject()}))
 			if in.plex() {
@@ -237,7 +243,7 @@ var rowConnect = row{ID: CheckOutsideConnect, Hop: PlayerHop, Applies: always,
 		case d == nil:
 			return notTested(in.untestedPoints(), fix(FixNotTested, Params{}).action(Action{Kind: PairNode}))
 		}
-		return fails(Fixable, in.cause()).seen(Value{Text: d.Addr.String()})
+		return fails(in.cause()).seen(Value{Text: d.Addr.String()})
 	}}
 
 // rowConnectBack places a failure for cause. It is a fact with a result,
@@ -252,7 +258,7 @@ var rowConnectBack = row{ID: CheckConnectBack, Hop: OriginHop,
 		o := outcome{Result: Passes, Fact: true, Observed: Value{Text: d.Addr.String()}}
 		if d.Stage < Connected {
 			o.Result = Fails
-			o.Facts = []Fact{{ID: FactConnectBack, Params: Params{Tester: d.Tester, Addr: d.Addr.Addr(), Port: d.Addr.Port()}}}
+			o.Found = &Fact{ID: FactConnectBack, Params: Params{Tester: d.Tester, Addr: d.Addr.Addr(), Port: d.Addr.Port()}}
 		}
 		return o
 	}}
@@ -333,7 +339,7 @@ var exposureRows = []row{
 }
 
 func (in *familyIn) check(r row, o outcome, perFamily bool) Check {
-	c := Check{ID: r.ID, Hop: r.Hop, Result: o.Result, Fact: o.Fact, Points: o.Points, Observed: o.Observed, Fix: o.Fix}
+	c := Check{ID: r.ID, Hop: r.Hop, Result: o.Result, Fact: o.Fact, Points: o.Points, Observed: o.Observed, Fix: o.Fix, Found: o.Found}
 	if !perFamily {
 		return c
 	}
@@ -342,6 +348,8 @@ func (in *familyIn) check(r row, o outcome, perFamily bool) Check {
 		c.Hop = MediaServerHop
 	}
 	switch {
+	case r.ID == CheckConnectBack && in.connectBack != nil:
+		c.By = in.connectBack.Tester
 	case c.Hop == OriginHop && r.ID != CheckIdentity:
 		c.By = in.o.node
 	case in.player != nil:

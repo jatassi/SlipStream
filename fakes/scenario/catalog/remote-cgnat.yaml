@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=../scenario.schema.json
+description: >-
+  S51 (Reachability diagnostic) behind carrier-grade NAT. The Controller
+  atlas's router answers 100.64.12.7 as its internet side, and STUN sees
+  the carrier's 203.0.113.50, so no connection from outside reaches atlas.
+  atlas runs Plex with Remote Access on at plex.cgnat.localhost. The
+  Worker seedbox at 192.0.2.44 tests from outside.
+seed: remote-cgnat
+admin:
+  email: ada@example.test
+  display_name: Ada Okafor
+  pin: "2468"
+nodes:
+  - name: atlas
+    setup: controller
+    site: home
+    firewall: [{service: plex, family: ipv4, policy: allows}]
+    media_servers:
+      - kind: plex
+        name: Plex
+        runs_on: atlas
+        remote: true
+        custom: ["http://plex.cgnat.localhost"]
+  - name: seedbox
+    setup: join
+    site: ams
+network:
+  sites:
+    - {name: home, wan: cgnat, address: 203.0.113.50, gateway: 100.64.12.7, mapping: [upnp]}
+    - {name: ams, wan: none, address: 192.0.2.44}
+  dns:
+    - {name: plex.cgnat.localhost, a: [203.0.113.50]}
+timings:
+  node:
+    stop_deadline: 15s
+library:
+  storage_levels: {warn_below: 0B, error_below: 0B}
+  roots: [{content_type: movie, folder: movies}]

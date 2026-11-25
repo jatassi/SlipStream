@@ -34,4 +34,7 @@ var exempt = []string{
 	"1.2:3",
 	"return: fmt.Errorf",
 	"tracker:6969",
+	"239.255.255.250:1900",
+	"[ff02::c]:1900",
+	`<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">`,
 }

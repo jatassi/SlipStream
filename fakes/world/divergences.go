@@ -81,6 +81,12 @@ var divergences = []divergence{
 		spec:        "#174",
 	},
 	{
+		id:          "scripted-network",
+		keyPatterns: []string{"network.script"},
+		reason:      "In a Scenario with a network, each Node reads its interfaces, route, own listener's scope and firewall from fake-gateway's script, so it sits on its site's TEST-NET addresses, which it classes as global.",
+		spec:        "#176",
+	},
+	{
 		id:          "outside-dialer",
 		keyPatterns: []string{"http.trusted_proxies"},
 		reason:      "In a Scenario with a network, Nodes trust 127.0.0.1 as a proxy, so the X-Forwarded-For the outside dialer adds gives a Node the tester's scripted address.",

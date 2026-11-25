@@ -71,7 +71,7 @@ func (s linkService) saved(ctx context.Context, server []byte, version int64) (l
 	id := link.ServerID{UUID: u}
 	t, ok := s.l.target(id)
 	if !ok {
-		return link.ServerRef{}, nil, rpc.Errorf(rpc.CodeFailedPrecondition, "this Node doesn't reach Media Server %s", id)
+		return link.ServerRef{}, nil, rpc.Errorf(rpc.CodeFailedPrecondition, "Media Server %s doesn't connect from this Node", id)
 	}
 	t.ref.SettingsVersion = max(t.ref.SettingsVersion, version)
 	h, err := s.l.credential(ctx, t.ref)
