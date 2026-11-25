@@ -1,0 +1,10 @@
+{{define "body"}}<p style="margin:0 0 16px;">{{.Server}} is shared with your Plex account {{.PlexUsername}}. To watch:</p>
+<ol style="margin:0 0 16px;padding-left:24px;">
+<li>Get the Plex app</li>
+<li>Sign in as {{.PlexUsername}}</li>
+<li>Pick {{.Server}}</li>
+</ol>
+<p style="margin:0 0 16px;">Your SlipStream PIN doesn't work in Plex.</p>
+<p style="margin:0 0 16px;">{{if .Accepted}}You may get an email from Plex about the share. You don't need to do anything with it.{{else}}Open the email from Plex and accept the share.{{end}}</p>
+{{if .PlexPassLine}}{{callout "Away from home, you need your own Plex Pass or Remote Watch Pass to play videos in Plex."}}{{end}}{{end}}
+{{define "footer"}}<p style="margin:0;">SlipStream sends this when an Admin shares a server with your Plex account.</p>{{end}}

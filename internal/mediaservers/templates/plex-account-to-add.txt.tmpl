@@ -1,0 +1,6 @@
+{{define "subject"}}{{.Member}} wants to watch on {{.Server}}{{end}}
+{{define "body"}}{{.Member}} signed in with Plex as {{.PlexUsername}} ({{.PlexEmail}}). Share {{.Server}} with them from SlipStream.
+
+{{button "Open Accounts" .AccountsURL}}{{end}}
+{{define "footer"}}
+SlipStream sends this to every Admin when a Member signs in with Plex.{{end}}

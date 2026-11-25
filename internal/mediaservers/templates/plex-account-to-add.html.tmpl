@@ -1,0 +1,4 @@
+{{define "body"}}<p style="margin:0 0 16px;">{{.Member}} signed in with Plex as {{.PlexUsername}} ({{.PlexEmail}}). Share {{.Server}} with them from SlipStream.</p>
+{{button "Open Accounts" .AccountsURL}}{{end}}
+{{define "footer"}}<p style="margin:0 0 8px;">If the button doesn't work, open this address: <a href="{{.AccountsURL}}" style="color:#6b6862;word-break:break-all;">{{.AccountsURL}}</a></p>
+<p style="margin:0;">SlipStream sends this to every Admin when a Member signs in with Plex.</p>{{end}}

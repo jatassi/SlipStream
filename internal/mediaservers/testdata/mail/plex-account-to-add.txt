@@ -1,0 +1,7 @@
+Subject: Grace Hopper wants to watch on Den
+
+Grace Hopper signed in with Plex as gracehopper (grace@plex.example). Share Den with them from SlipStream.
+
+Open Accounts: https://slipstream.example.com/accounts
+
+SlipStream sends this to every Admin when a Member signs in with Plex.

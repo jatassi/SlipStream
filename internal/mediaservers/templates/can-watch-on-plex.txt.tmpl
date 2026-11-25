@@ -1,0 +1,15 @@
+{{define "subject"}}You can watch {{.Server}} on Plex{{end}}
+{{define "body"}}{{.Server}} is shared with your Plex account {{.PlexUsername}}. To watch:
+
+1. Get the Plex app
+2. Sign in as {{.PlexUsername}}
+3. Pick {{.Server}}
+
+Your SlipStream PIN doesn't work in Plex.
+
+{{if .Accepted}}You may get an email from Plex about the share. You don't need to do anything with it.{{else}}Open the email from Plex and accept the share.{{end}}
+{{if .PlexPassLine}}
+{{callout "Away from home, you need your own Plex Pass or Remote Watch Pass to play videos in Plex."}}
+{{end}}{{end}}
+{{define "footer"}}
+SlipStream sends this when an Admin shares a server with your Plex account.{{end}}
