@@ -6,6 +6,7 @@ import (
 	"errors"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/identity"
@@ -100,7 +101,7 @@ func (r *Reachability) RemoteAccess(ctx context.Context, _ identity.Admin) (Page
 	if len(in.wanted) > 0 {
 		p.Nodes = r.nodeLines(named, in.origins, in.wanted, in.stored)
 	}
-	p.Suggestions = r.suggestions(ctx, in.wanted, in.dismissed, in.recs, in.addr)
+	p.Suggestions = r.suggestions(in.wanted, in.dismissed, in.recs, in.addr)
 	return p, nil
 }
 
@@ -211,69 +212,148 @@ type mediaSuggestion struct {
 
 // suggestions are the UI and portal when its Address is public, and each
 // Media Server that has remote access on or publishes a public address.
-// Each lookup is kept for timings.reachability.suggest.
-func (r *Reachability) suggestions(ctx context.Context, wanted []Exposure, dismissed []db.ReachabilityDismissed, recs []mediaservers.Record, addr identity.Address) []Suggestion {
+// They read only what lookUp kept, so a page or first setup never waits on
+// a resolver or a Media Server: a lookup missing or older than
+// timings.reachability.suggest wakes lookUp, which publishes Changed when
+// it learns something new.
+func (r *Reachability) suggestions(wanted []Exposure, dismissed []db.ReachabilityDismissed, recs []mediaservers.Record, addr identity.Address) []Suggestion {
+	want := canSuggest(wanted, dismissed, recs, addr)
+	now := r.now()
+	stale := false
+	var out []Suggestion
+	if want.ui {
+		if addr.IsZero() {
+			out = append(out, Suggestion{Kind: judge.UIPortal, Subject: uiSubject, AddressPrivate: true})
+		} else {
+			public, known, fresh := r.public.get(addr.String(), now, r.cfg.Timings.Suggest)
+			stale = stale || !fresh
+			if known {
+				out = append(out, Suggestion{Kind: judge.UIPortal, Subject: uiSubject, Public: addr.String(), AddressPrivate: !public})
+			}
+		}
+	}
+	for _, rec := range want.servers {
+		s, known, fresh := r.exposed.get(rec.ID, now, r.cfg.Timings.Suggest)
+		stale = stale || !fresh
+		if known && s.ok {
+			out = append(out, Suggestion{Kind: judge.MediaServer, Server: rec.ID, Subject: rec.Name, Public: s.public})
+		}
+	}
+	if stale {
+		r.wakeLookUp()
+	}
+	return out
+}
+
+// suggestable is what could be suggested: the UI and portal unless it is
+// wanted or dismissed, and each Media Server that is neither.
+type suggestable struct {
+	ui      bool
+	addr    identity.Address
+	servers []mediaservers.Record
+}
+
+func canSuggest(wanted []Exposure, dismissed []db.ReachabilityDismissed, recs []mediaservers.Record, addr identity.Address) suggestable {
 	skip := map[link.ServerID]bool{}
-	ui := false
+	ui := true
 	for _, e := range wanted {
 		skip[e.Server] = true
-		ui = ui || e.Kind == judge.UIPortal
+		ui = ui && e.Kind != judge.UIPortal
 	}
 	for _, d := range dismissed {
 		skip[d.ServerID] = true
-		ui = ui || d.Kind == KindName(judge.UIPortal)
+		ui = ui && d.Kind != KindName(judge.UIPortal)
 	}
-	var out []Suggestion
-	if !ui {
-		out = append(out, Suggestion{Kind: judge.UIPortal, Subject: uiSubject, Public: addr.String(), AddressPrivate: !r.addressPublic(ctx, addr)})
-	}
+	out := suggestable{ui: ui, addr: addr}
 	for _, rec := range recs {
-		if skip[rec.ID] {
-			continue
-		}
-		if s := r.mediaSuggestion(ctx, rec); s.ok {
-			out = append(out, Suggestion{Kind: judge.MediaServer, Server: rec.ID, Subject: rec.Name, Public: s.public})
+		if !skip[rec.ID] {
+			out.servers = append(out.servers, rec)
 		}
 	}
 	return out
 }
 
-// addressPublic is whether the Controller resolves Address to a Global
-// IPv4 address: it is decided by resolution, never by the name.
-func (r *Reachability) addressPublic(ctx context.Context, addr identity.Address) bool {
-	if addr.IsZero() {
-		return false
+func (r *Reachability) wakeLookUp() {
+	select {
+	case r.lookups <- struct{}{}:
+	default:
 	}
-	now := r.now()
-	if v, ok := r.public.get(addr.String(), now, r.cfg.Timings.Suggest); ok {
-		return v
-	}
-	a, err := r.resolve(ctx, r.cfg.Roster.Self(), addr.URL().Hostname())
-	if err != nil {
-		return false
-	}
-	public := slices.ContainsFunc(a.A, r.cfg.Rules.Global)
-	r.public.put(addr.String(), public, now)
-	return public
 }
 
-func (r *Reachability) mediaSuggestion(ctx context.Context, rec mediaservers.Record) mediaSuggestion {
-	now := r.now()
-	if v, ok := r.exposed.get(rec.ID, now, r.cfg.Timings.Suggest); ok {
-		return v
+// lookUps runs each lookUp a read or an event asked for, one at a time.
+func (r *Reachability) lookUps(ctx context.Context) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-r.lookups:
+			r.lookUp(ctx)
+		}
 	}
-	x, err := r.cfg.MediaServers.Exposure(ctx, rec.ID)
+}
+
+// lookUp asks again, side by side, whatever a suggestion needs that is
+// missing or older than timings.reachability.suggest: the Controller's
+// resolution of Address, and each Media Server's Exposure.
+func (r *Reachability) lookUp(ctx context.Context) {
+	var want suggestable
+	err := r.cfg.Library.Read(ctx, func(ctx context.Context, rd storage.Reader[storage.Library]) error {
+		in, err := r.pageRowsIn(ctx, rd)
+		want = canSuggest(in.wanted, in.dismissed, in.recs, in.addr)
+		return err
+	})
 	if err != nil {
-		return mediaSuggestion{}
+		r.cfg.Log.WarnContext(ctx, "read what Remote access could suggest", "err", err)
+		return
 	}
-	doc := serverDocFrom(x, rec)
-	s := mediaSuggestion{public: prefill(doc.Facts)}
-	s.ok = x.Exposed != nil && x.Exposed.Remote == link.Yes
-	for _, c := range doc.Facts.Published {
-		s.ok = s.ok || (!c.Local && !c.Relay && r.cfg.Rules.Global(c.Addr))
+	var wg sync.WaitGroup
+	if want.ui && !want.addr.IsZero() {
+		wg.Go(func() {
+			if r.lookUpAddress(ctx, want.addr) {
+				r.changed(ctx)
+			}
+		})
 	}
-	r.exposed.put(rec.ID, s, now)
-	return s
+	for _, rec := range want.servers {
+		wg.Go(func() {
+			if r.lookUpServer(ctx, rec) {
+				r.changed(ctx)
+			}
+		})
+	}
+	wg.Wait()
+}
+
+// lookUpAddress keeps whether the Controller resolves Address to a Global
+// IPv4 address: it is decided by resolution, never by the name. It is
+// whether the answer is new.
+func (r *Reachability) lookUpAddress(ctx context.Context, addr identity.Address) bool {
+	before, known, fresh := r.public.get(addr.String(), r.now(), r.cfg.Timings.Suggest)
+	if fresh {
+		return false
+	}
+	a, err := r.resolve(ctx, r.cfg.Roster.Self(), addr.URL().Hostname())
+	public := err == nil && slices.ContainsFunc(a.A, r.cfg.Rules.Global)
+	r.public.put(addr.String(), public, r.now())
+	return !known || before != public
+}
+
+func (r *Reachability) lookUpServer(ctx context.Context, rec mediaservers.Record) bool {
+	before, known, fresh := r.exposed.get(rec.ID, r.now(), r.cfg.Timings.Suggest)
+	if fresh {
+		return false
+	}
+	var s mediaSuggestion
+	if x, err := r.cfg.MediaServers.Exposure(ctx, rec.ID); err == nil {
+		doc := serverDocFrom(x, rec)
+		s = mediaSuggestion{public: prefill(doc.Facts)}
+		s.ok = x.Exposed != nil && x.Exposed.Remote == link.Yes
+		for _, c := range doc.Facts.Published {
+			s.ok = s.ok || (!c.Local && !c.Relay && r.cfg.Rules.Global(c.Addr))
+		}
+	}
+	r.exposed.put(rec.ID, s, r.now())
+	return !known || before != s
 }
 
 // prefill is the public address a suggestion offers: the first https

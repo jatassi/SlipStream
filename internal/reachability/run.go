@@ -16,12 +16,14 @@ import (
 )
 
 // Run follows what moves a route besides the network: Address, the Media
-// Server records and the Nodes. On start it checks again every route a
-// release judged with another version.
+// Server records and the Nodes, and looks up what a suggestion needs. On
+// start it checks again every route a release judged with another version.
 func (r *Reachability) Run(ctx context.Context) error {
 	address := r.cfg.Hub.Watch(ctx, identity.AddressChangedEvent)
 	servers := r.cfg.Hub.Watch(ctx, mediaservers.ChangedEvent)
 	roster := r.cfg.Hub.Watch(ctx, nodes.ChangedEvent)
+	go r.lookUps(ctx)
+	r.wakeLookUp()
 	r.rejudge(ctx)
 	r.serversChanged(ctx)
 	r.nodesChanged(ctx)
@@ -31,8 +33,10 @@ func (r *Reachability) Run(ctx context.Context) error {
 			return nil
 		case <-address:
 			r.addressChanged(ctx)
+			r.wakeLookUp()
 		case <-servers:
 			r.serversChanged(ctx)
+			r.wakeLookUp()
 		case <-roster:
 			r.nodesChanged(ctx)
 		}

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { Suspense, useState } from "react";
 
 import type { ReachabilitySuggestionView } from "../../api/gen/model";
 import {
@@ -9,6 +9,7 @@ import {
 import { Button } from "../../ui/button";
 import { useAppForm } from "../../ui/form";
 import { type SubmitErrors, submitErrors } from "../../ui/form-context";
+import { Skeleton } from "../../ui/skeleton";
 import { Switch } from "../../ui/switch";
 import { StepFooter, type StepNav } from "./frame";
 import type { StepBodyProps } from "./screens";
@@ -133,7 +134,7 @@ function SuggestionRow({
 }
 
 /** Each suggestion with a switch. A UI and portal outsiders can't use yet waits for the Address step. */
-export function RemoteAccessStep({ nav }: StepBodyProps) {
+function Suggestions({ nav }: StepBodyProps) {
   const suggestions = useGetRemoteAccessSuspense().data.suggestions.filter(
     (suggestion) => !suggestion.addressPrivate,
   );
@@ -176,5 +177,14 @@ export function RemoteAccessStep({ nav }: StepBodyProps) {
         />
       </form.AppForm>
     </form>
+  );
+}
+
+/** The step's frame shows while its suggestions load. */
+export function RemoteAccessStep(props: StepBodyProps) {
+  return (
+    <Suspense fallback={<Skeleton label="Loading the suggestions" shape="rows" lines={2} />}>
+      <Suggestions {...props} />
+    </Suspense>
   );
 }

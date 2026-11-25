@@ -42,5 +42,5 @@ func (r *Reachability) stepShows(ctx context.Context, rd storage.Reader[storage.
 	if err != nil {
 		return false, err
 	}
-	return slices.ContainsFunc(r.suggestions(ctx, nil, dismissed, recs, addr), func(s Suggestion) bool { return !s.AddressPrivate }), nil
+	return slices.ContainsFunc(r.suggestions(nil, dismissed, recs, addr), func(s Suggestion) bool { return !s.AddressPrivate }), nil
 }

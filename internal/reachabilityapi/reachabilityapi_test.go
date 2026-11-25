@@ -12,6 +12,7 @@ import (
 	"strings"
 	"testing"
 	"testing/synctest"
+	"time"
 
 	"github.com/jatassi/slipstream/internal/api"
 	"github.com/jatassi/slipstream/internal/api/ownertest"
@@ -141,6 +142,56 @@ func TestEveryOperationAndProblem(t *testing.T) {
 func fixed(s string) func() string { return func() string { return s } }
 
 func none() string { return "" }
+
+// The page answers at once while the Controller's resolver hasn't answered
+// for Address, and suggests the UI and portal once it has.
+func TestThePageNeverWaitsOnTheResolver(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		w := world(t, judgetest.Open())
+		o := ownertest.Serve(t, w.Lib, func(r *api.Router) { reachabilityapi.Routes(r, controller{w.Reach}) })
+		answer := make(chan struct{})
+		w.Site(judgetest.Atlas, func(s *reachabilitytest.Site) { s.Resolving = answer })
+		err := w.Lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+			_, err := tx.ExecContext(ctx, "UPDATE identity_settings SET address = 'https://slipstream.example.org' WHERE id = 1")
+			return err
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		plex(t, w)
+		kinds := func() []string {
+			start := time.Now()
+			status, reply := o.Call(t, http.MethodGet, "/api/v1/remote-access", "")
+			if status != http.StatusOK || time.Since(start) != 0 {
+				t.Fatalf("GET /remote-access: %d after %s, want 200 at once", status, time.Since(start))
+			}
+			var page struct {
+				Suggestions []struct {
+					Kind string `json:"kind"`
+				} `json:"suggestions"`
+			}
+			if err := json.Unmarshal([]byte(reply), &page); err != nil {
+				t.Fatal(err)
+			}
+			var out []string
+			for _, s := range page.Suggestions {
+				out = append(out, s.Kind)
+			}
+			slices.Sort(out)
+			return out
+		}
+		kinds()
+		synctest.Wait()
+		if got := kinds(); !slices.Equal(got, []string{"media-server"}) {
+			t.Errorf("suggestions while the resolver hasn't answered = %v, want the Media Server alone", got)
+		}
+		close(answer)
+		synctest.Wait()
+		if got := kinds(); !slices.Equal(got, []string{"media-server", "ui-portal"}) {
+			t.Errorf("suggestions once it answered = %v, want the Media Server and the UI and portal", got)
+		}
+	})
+}
 
 // Every operation but the echo refuses a Member; the echo answers anyone.
 func TestOnlyTheEchoAnswersBelowAdmin(t *testing.T) {

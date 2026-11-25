@@ -6,7 +6,6 @@ import {
   getGetTopologySuspenseQueryOptions,
   getListNodesSuspenseQueryOptions,
 } from "../../../api/gen/query/nodes/nodes";
-import { getGetRemoteAccessSuspenseQueryOptions } from "../../../api/gen/query/reachability/reachability";
 import { ensureQuery } from "../../../api/query-client";
 import { PagePending } from "../../../shell/page";
 import { NodesLanding } from "./-landing/landing";
@@ -19,7 +18,6 @@ export const Route = createFileRoute("/_app/nodes/")({
       ensureQuery(context.queryClient, getGetTopologySuspenseQueryOptions()),
       ensureQuery(context.queryClient, getGetRoleBoardSuspenseQueryOptions()),
       ensureQuery(context.queryClient, getListNodesSuspenseQueryOptions()),
-      ensureQuery(context.queryClient, getGetRemoteAccessSuspenseQueryOptions()),
     ]);
   },
   pendingComponent: () => <PagePending label="Loading Nodes" shape="rows" lines={2} />,

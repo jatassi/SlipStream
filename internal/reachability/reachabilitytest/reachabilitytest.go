@@ -50,6 +50,9 @@ type Site struct {
 	Claims role.NodeID
 	// Stamp is the observed time its Read answer claims, nil for now.
 	Stamp *time.Time
+	// Resolving, when set, holds each Resolve until it closes: a resolver
+	// that hasn't answered yet.
+	Resolving <-chan struct{}
 }
 
 // Call is one request the Controller sent a Node.
@@ -316,10 +319,17 @@ func (n node) Read(_ context.Context, _ *netv1.ReadRequest) (*netv1.ReadResponse
 	return &netv1.ReadResponse{Facts: netmodel.FactsOnWire(nf)}, nil
 }
 
-func (n node) Resolve(_ context.Context, _ *netv1.ResolveRequest) (*netv1.ResolveResponse, error) {
+func (n node) Resolve(ctx context.Context, _ *netv1.ResolveRequest) (*netv1.ResolveResponse, error) {
 	s, err := n.w.site(n.id, "Resolve")
 	if err != nil {
 		return nil, err
+	}
+	if s.Resolving != nil {
+		select {
+		case <-s.Resolving:
+		case <-ctx.Done():
+			return nil, fmt.Errorf("resolve: %w", ctx.Err())
+		}
 	}
 	resp := &netv1.ResolveResponse{}
 	for _, a := range s.A {

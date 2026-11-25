@@ -5,8 +5,7 @@ import (
 	"time"
 )
 
-// memo keeps an answer for a while, so the suggestions an open page asks
-// for don't send a lookup on every read.
+// memo keeps the last answer to a lookup and when it came.
 type memo[K comparable, V any] struct {
 	mu   sync.Mutex
 	kept map[K]memoized[V]
@@ -17,15 +16,13 @@ type memoized[V any] struct {
 	at time.Time
 }
 
-func (m *memo[K, V]) get(k K, now time.Time, life time.Duration) (V, bool) {
+// get is the last answer, whether there is one, and whether it is younger
+// than life.
+func (m *memo[K, V]) get(k K, now time.Time, life time.Duration) (v V, known, fresh bool) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	e, ok := m.kept[k]
-	if !ok || now.Sub(e.at) >= life {
-		var zero V
-		return zero, false
-	}
-	return e.v, true
+	return e.v, ok, ok && now.Sub(e.at) < life
 }
 
 func (m *memo[K, V]) put(k K, v V, now time.Time) {
