@@ -331,13 +331,13 @@ func (w accessWorld) plexInUse(account identity.AccountID) bool {
 }
 
 func (m *MediaServers) actions(w accessWorld, a db.MediaserversMemberAccess, by access.By) []access.Event {
-	facts := m.cfg.PlexFacts
+	shares, home := m.plexWorks(w.plexPass)
 	return access.Actions(access.Facts{
 		State: a.State, Way: a.Way, PlexHome: a.PlexHome,
 		MakesAccounts: m.kind(w.server(a.ServerID).Kind).About().Access == link.AccessUsers,
 		PlexInUse:     w.plexInUse(a.AccountID),
-		SharesWork:    facts.AdminShares,
-		HomeWorks:     facts.AdminInvitesHome && (w.plexPass || !facts.HomeNeedsPlexPass),
+		SharesWork:    shares,
+		HomeWorks:     home,
 	}, by)
 }
 

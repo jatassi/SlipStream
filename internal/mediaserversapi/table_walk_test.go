@@ -7,8 +7,10 @@ import (
 	"strings"
 	"testing"
 	"testing/synctest"
+	"time"
 
 	"github.com/jatassi/slipstream/fakes/fake/faketest"
+	"github.com/jatassi/slipstream/fakes/fault"
 	"github.com/jatassi/slipstream/fakes/jellyfin"
 	fakeplextv "github.com/jatassi/slipstream/fakes/plextv"
 	"github.com/jatassi/slipstream/internal/identity"
@@ -52,6 +54,9 @@ type walkRow struct {
 	Server struct {
 		ID string `json:"id"`
 	} `json:"server"`
+	Member struct {
+		AccountID string `json:"accountId"`
+	} `json:"member"`
 	Plex *struct {
 		PlexHome bool `json:"plexHome"`
 	} `json:"plex"`
@@ -166,11 +171,23 @@ var presses = map[access.Event]func(t *testing.T, r walkRig, way access.Way){
 			t.Fatalf("Sam's Plex sign-in is %+v", state)
 		}
 	},
+	access.ShareFriend: func(t *testing.T, r walkRig, way access.Way) { r.onRow(t, way, "/share", `{"as":"friend"}`) },
+	access.ShareHome:   func(t *testing.T, r walkRig, way access.Way) { r.onRow(t, way, "/share", `{"as":"home"}`) },
+	access.MarkAdded:   func(t *testing.T, r walkRig, way access.Way) { r.onRow(t, way, "/mark-added", "") },
+	access.Check:       func(t *testing.T, r walkRig, way access.Way) { r.onRow(t, way, "/check", "") },
 	access.AnotherPlex: func(t *testing.T, r walkRig, _ access.Way) {
 		if status, body := r.o.CallAs(t, http.MethodDelete, "/api/v1/account/media-servers/plex", "", r.member.Session); status != http.StatusNoContent {
 			t.Fatalf("use another Plex account = %d %s", status, body)
 		}
 	},
+}
+
+// onRow posts to the Admin's operation at suffix on way's row. Its answer
+// is the row the walk reads back, or a refusal the walk expects.
+func (r walkRig) onRow(t *testing.T, way access.Way, suffix, body string) {
+	t.Helper()
+	row, _ := r.row(t, way)
+	r.o.CallSignedIn(t, http.MethodPost, servers+"/access/"+row.ID+suffix, body)
 }
 
 // sharesSam shares the Plex server with Sam's Plex account in Plex.
@@ -187,13 +204,15 @@ func sharedSam(t *testing.T, r walkRig) {
 }
 
 // step is one press and the Table entries it walks, in order. fail is
-// Den's routes whose next call answers 500, and gone deletes Sam's user on
-// Den first.
+// Den's routes whose next call answers 500, plexDown has plex.tv answer
+// 503 to every call through the press, and gone deletes Sam's user on Den
+// first.
 type step struct {
-	on    access.Event
-	fail  []string
-	gone  bool
-	walks []access.Transition
+	on       access.Event
+	fail     []string
+	plexDown bool
+	gone     bool
+	walks    []access.Transition
 	// before runs first, for a state Plex holds.
 	before func(t *testing.T, r walkRig)
 }
@@ -211,6 +230,29 @@ func walk(ts ...access.Transition) step { return step{walks: ts} }
 func failing(s step, routes ...string) step { s.fail = routes; return s }
 
 func after(before func(t *testing.T, r walkRig), s step) step { s.before = before; return s }
+
+func plexDown(s step) step { s.plexDown = true; return s }
+
+// failed is whether the step's last entry records a call that failed.
+func (s step) failed() bool {
+	last := s.walks[len(s.walks)-1]
+	return last.Mark&access.KeepProblem != 0 && (len(s.fail) > 0 || s.plexDown || last.When == access.Refused)
+}
+
+// checkLater waits out Check again's pacing, then runs each of and.
+func checkLater(and ...func(t *testing.T, r walkRig)) func(t *testing.T, r walkRig) {
+	return func(t *testing.T, r walkRig) {
+		time.Sleep(checkAgain)
+		for _, f := range and {
+			f(t, r)
+		}
+	}
+}
+
+// cue has plex.tv play cue at the next call it names.
+func cue(name string) func(t *testing.T, r walkRig) {
+	return func(t *testing.T, r walkRig) { r.plex.TV.Cue(t, name, map[string]string{}) }
+}
 
 // samOnDen is the user Sam's access leaves on Den.
 type samOnDen uint8
@@ -234,89 +276,164 @@ var (
 	removeFailing = failing(walk(onUsers(access.Active, access.Remove, access.Failed)), "user")
 	offerPlex     = walk(onPlex(access.None, access.Offer, access.NoIdentity))
 	signInPlex    = walk(onPlex(access.Offered, access.PlexSignIn, access.NotThere))
+	// waitingPlex is Sam signed in to Plex, waiting for the Admin's share.
+	waitingPlex = []step{offerPlex, signInPlex}
+	shareFriend = walk(onPlex(access.Waiting, access.ShareFriend, access.Accepted))
+	shareHome   = walk(onPlex(access.Waiting, access.ShareHome, access.Accepted))
+	// shareUnaccepted is a share whose accept plex.tv refused.
+	shareUnaccepted = after(cue(fakeplextv.RefuseNextAccept.Name), walk(onPlex(access.Waiting, access.ShareFriend, access.NotAccepted)))
+	removePlexDown  = plexDown(walk(onPlex(access.Active, access.Remove, access.Failed)))
 )
 
-// TestTheTableWalk drives Table entries at the API seam: each case
+// then is steps followed by more.
+func then(steps []step, more ...step) []step { return append(slices.Clone(steps), more...) }
+
+// TestTheTableWalk drives every Table entry at the API seam: each case
 // presses its steps in order, and after each reads the row back in the
 // To of the last entry the step walks, with the problem recorded only
-// after a failed call. An offer asks for Plex Home on Plex. Den's user
-// for Sam is then checked as Den holds it.
+// after a failed call and no Account once a Leave couldn't finish. An
+// offer asks for Plex Home on Plex. Den's user for Sam is then checked as
+// Den holds it, and plex.tv keeps no share, invite or Plex Home place of
+// Sam's once the Plex row is gone.
 func TestTheTableWalk(t *testing.T) {
-	for _, c := range []struct {
-		name  string
-		way   access.Way
-		steps []step
-		sam   samOnDen
-	}{
-		{"offer Plex", access.WayPlexTV, []step{walk(onPlex(access.None, access.Offer, access.NoIdentity))}, unchecked},
-		{"offer Plex again", access.WayPlexTV, []step{walk(onPlex(access.None, access.Offer, access.NoIdentity)), walk(onPlex(access.Offered, access.Offer, access.Done))}, unchecked},
-		{"remove an offered Plex", access.WayPlexTV, []step{walk(onPlex(access.None, access.Offer, access.NoIdentity)), walk(onPlex(access.Offered, access.Remove, access.Done))}, unchecked},
-		{"leave an offered Plex", access.WayPlexTV, []step{walk(onPlex(access.None, access.Offer, access.NoIdentity)), walk(onPlex(access.Offered, access.Leave, access.Done))}, unchecked},
-
-		{"sign in to an offered Plex", access.WayPlexTV, []step{offerPlex, signInPlex}, unchecked},
-		{"sign in where Plex already shares", access.WayPlexTV, []step{offerPlex, after(func(t *testing.T, r walkRig) { sharesSam(t, r) },
-			walk(onPlex(access.Offered, access.PlexSignIn, access.AlreadyThere)))}, unchecked},
-		{"sign in again", access.WayPlexTV, []step{offerPlex, signInPlex, walk(onPlex(access.Waiting, access.PlexSignIn, access.NotThere))}, unchecked},
-		{"sign in again once Plex shares", access.WayPlexTV, []step{offerPlex, signInPlex, after(func(t *testing.T, r walkRig) { sharesSam(t, r) },
-			walk(onPlex(access.Waiting, access.PlexSignIn, access.AlreadyThere)))}, unchecked},
-		{"sign in again accepts the share", access.WayPlexTV, []step{offerPlex, signInPlex, after(sharedSam,
-			walk(onPlex(access.Shared, access.PlexSignIn, access.Accepted)))}, unchecked},
-		{"sign in again with the accept refused", access.WayPlexTV, []step{offerPlex, signInPlex, after(func(t *testing.T, r walkRig) {
-			sharedSam(t, r)
-			r.plex.TV.Cue(t, fakeplextv.RefuseNextAccept.Name, map[string]string{})
-		}, walk(onPlex(access.Shared, access.PlexSignIn, access.NotAccepted)))}, unchecked},
-		{"use another Plex account", access.WayPlexTV, []step{offerPlex, signInPlex, walk(onPlex(access.Waiting, access.AnotherPlex, access.Done))}, unchecked},
-
-		{"offer Den", access.WayUsers, []step{offerDen}, noUser},
-		{"remove an offered Den", access.WayUsers, []step{offerDen, walk(onUsers(access.Offered, access.Remove, access.Done))}, noUser},
-		{"leave an offered Den", access.WayUsers, []step{offerDen, walk(onUsers(access.Offered, access.Leave, access.Done))}, noUser},
-		{"make", access.WayUsers, []step{offerDen, makeOnDen}, enabled},
-		{"a make whose create fails", access.WayUsers, []step{offerDen, failing(walk(
-			onUsers(access.Offered, access.MakeAccount, access.Done), onUsers(access.Making, access.Unmake, access.Done),
-		), "create-user")}, noUser},
-		{"a make whose password fails", access.WayUsers, []step{offerDen, failing(walk(
-			onUsers(access.Offered, access.MakeAccount, access.Done), onUsers(access.Making, access.Created, access.Done), onUsers(access.Making, access.Unmake, access.Done),
-		), "user-password")}, noUser},
-		{"the start unmakes a make left making", access.WayUsers, []step{offerDen, leftMaking, walk(onUsers(access.Making, access.Unmake, access.Done))}, noUser},
-		{"a retried make unmakes first", access.WayUsers, []step{offerDen, leftMaking, {on: access.MakeAccount, walks: []access.Transition{
-			onUsers(access.Making, access.Unmake, access.Done), onUsers(access.Offered, access.MakeAccount, access.Done),
-			onUsers(access.Making, access.Created, access.Done), onUsers(access.Making, access.Finish, access.Done),
-		}}}, enabled},
-		{"leave a making Den", access.WayUsers, []step{offerDen, leftMaking, walk(onUsers(access.Making, access.Leave, access.Done))}, noUser},
-		{"leave a making Den unreached, then start", access.WayUsers, []step{
-			offerDen, leftMaking, failing(walk(onUsers(access.Making, access.Leave, access.Failed)), "delete-user"),
-			walk(onUsers(access.Making, access.Unmake, access.Left)),
-		}, noUser},
-		{"link", access.WayUsers, []step{offerDen, walk(onUsers(access.Offered, access.Link, access.Done))}, noUser},
-		{"remove", access.WayUsers, []step{offerDen, makeOnDen, walk(onUsers(access.Active, access.Remove, access.Done))}, disabled},
-		{"remove failing, then try again", access.WayUsers, []step{offerDen, makeOnDen, removeFailing, walk(onUsers(access.Removing, access.RetryRemove, access.Done))}, disabled},
-		{"try again failing", access.WayUsers, []step{offerDen, makeOnDen, removeFailing, failing(walk(onUsers(access.Removing, access.RetryRemove, access.Failed)), "user")}, enabled},
-		{"offer again", access.WayUsers, []step{offerDen, makeOnDen, walk(onUsers(access.Active, access.Remove, access.Done)), walk(onUsers(access.Removed, access.Offer, access.Done))}, enabled},
-		{"offer again failing", access.WayUsers, []step{offerDen, makeOnDen, walk(onUsers(access.Active, access.Remove, access.Done)), failing(walk(onUsers(access.Removed, access.Offer, access.Failed)), "user")}, disabled},
-		{"offer again once Den deleted the user", access.WayUsers, []step{
-			offerDen, makeOnDen, walk(onUsers(access.Active, access.Remove, access.Done)), {gone: true, walks: []access.Transition{onUsers(access.Removed, access.Offer, access.Gone)}},
-		}, noUser},
-		{"leave a removed Den", access.WayUsers, []step{offerDen, makeOnDen, walk(onUsers(access.Active, access.Remove, access.Done)), walk(onUsers(access.Removed, access.Leave, access.Done))}, disabled},
-		{"leave an active Den", access.WayUsers, []step{offerDen, makeOnDen, walk(onUsers(access.Active, access.Leave, access.Done))}, disabled},
-		{"leave an active Den failing, then try again", access.WayUsers, []step{
-			offerDen, makeOnDen, failing(walk(onUsers(access.Active, access.Leave, access.Failed)), "user"), walk(onUsers(access.Removing, access.RetryRemove, access.Left)),
-		}, disabled},
-		{"leave a removing Den", access.WayUsers, []step{offerDen, makeOnDen, removeFailing, walk(onUsers(access.Removing, access.Leave, access.Done))}, disabled},
-		{"leave a removing Den failing", access.WayUsers, []step{offerDen, makeOnDen, removeFailing, failing(walk(onUsers(access.Removing, access.Leave, access.Failed)), "user")}, enabled},
-	} {
-		t.Run(c.name, func(t *testing.T) {
-			synctest.Test(t, func(t *testing.T) {
-				r := newWalkRig(t)
-				for _, s := range c.steps {
-					r.press(t, c.way, s)
-				}
-				r.expectSam(t, c.sam)
-			})
-		})
+	walked := map[access.Transition]bool{}
+	for _, c := range walkCases {
+		for _, s := range c.steps {
+			for _, tr := range s.walks {
+				walked[tr] = true
+			}
+		}
+		t.Run(c.name, func(t *testing.T) { synctest.Test(t, c.run) })
+	}
+	for _, tr := range access.Table {
+		if !walked[tr] {
+			t.Errorf("no case walks %+v", tr)
+		}
 	}
 }
 
-func (r walkRig) press(t *testing.T, way access.Way, s step) {
+// walkCase presses its steps on way's row, then checks Den's user for Sam.
+type walkCase struct {
+	name  string
+	way   access.Way
+	steps []step
+	sam   samOnDen
+}
+
+var walkCases = []walkCase{
+	{"offer Plex", access.WayPlexTV, []step{walk(onPlex(access.None, access.Offer, access.NoIdentity))}, unchecked},
+	{"offer Plex again", access.WayPlexTV, []step{walk(onPlex(access.None, access.Offer, access.NoIdentity)), walk(onPlex(access.Offered, access.Offer, access.Done))}, unchecked},
+	{"remove an offered Plex", access.WayPlexTV, []step{walk(onPlex(access.None, access.Offer, access.NoIdentity)), walk(onPlex(access.Offered, access.Remove, access.Done))}, unchecked},
+	{"leave an offered Plex", access.WayPlexTV, []step{walk(onPlex(access.None, access.Offer, access.NoIdentity)), walk(onPlex(access.Offered, access.Leave, access.Done))}, unchecked},
+
+	{"sign in to an offered Plex", access.WayPlexTV, []step{offerPlex, signInPlex}, unchecked},
+	{"sign in where Plex already shares", access.WayPlexTV, []step{offerPlex, after(func(t *testing.T, r walkRig) { sharesSam(t, r) },
+		walk(onPlex(access.Offered, access.PlexSignIn, access.AlreadyThere)))}, unchecked},
+	{"sign in again", access.WayPlexTV, []step{offerPlex, signInPlex, walk(onPlex(access.Waiting, access.PlexSignIn, access.NotThere))}, unchecked},
+	{"sign in again once Plex shares", access.WayPlexTV, []step{offerPlex, signInPlex, after(func(t *testing.T, r walkRig) { sharesSam(t, r) },
+		walk(onPlex(access.Waiting, access.PlexSignIn, access.AlreadyThere)))}, unchecked},
+	{"sign in again accepts the share", access.WayPlexTV, []step{offerPlex, signInPlex, after(sharedSam,
+		walk(onPlex(access.Shared, access.PlexSignIn, access.Accepted)))}, unchecked},
+	{"sign in again with the accept refused", access.WayPlexTV, []step{offerPlex, signInPlex, after(func(t *testing.T, r walkRig) {
+		sharedSam(t, r)
+		r.plex.TV.Cue(t, fakeplextv.RefuseNextAccept.Name, map[string]string{})
+	}, walk(onPlex(access.Shared, access.PlexSignIn, access.NotAccepted)))}, unchecked},
+	{"use another Plex account", access.WayPlexTV, []step{offerPlex, signInPlex, walk(onPlex(access.Waiting, access.AnotherPlex, access.Done))}, unchecked},
+	{"offer a waiting Plex again", access.WayPlexTV, then(waitingPlex, walk(onPlex(access.Waiting, access.Offer, access.Done))), unchecked},
+	{"offer Plex once Sam signed in", access.WayPlexTV, then(waitingPlex, walk(onPlex(access.Waiting, access.Remove, access.Done)),
+		walk(onPlex(access.None, access.Offer, access.IdentityHeld))), unchecked},
+
+	{"share", access.WayPlexTV, then(waitingPlex, shareFriend), unchecked},
+	{"share, accept refused", access.WayPlexTV, then(waitingPlex, shareUnaccepted), unchecked},
+	{"share refused", access.WayPlexTV, then(waitingPlex, after(cue(fakeplextv.RefuseNextShare.Name),
+		walk(onPlex(access.Waiting, access.ShareFriend, access.Refused)))), unchecked},
+	{"add to Plex Home", access.WayPlexTV, then(waitingPlex, shareHome), unchecked},
+	{"add to Plex Home, accept refused", access.WayPlexTV, then(waitingPlex, after(cue(fakeplextv.RefuseNextAccept.Name),
+		walk(onPlex(access.Waiting, access.ShareHome, access.NotAccepted)))), unchecked},
+	{"add to a full Plex Home", access.WayPlexTV, then(waitingPlex, after(cue(fakeplextv.HomeFull.Name),
+		walk(onPlex(access.Waiting, access.ShareHome, access.Refused)))), unchecked},
+	{"mark as added", access.WayPlexTV, then(waitingPlex, walk(onPlex(access.Waiting, access.MarkAdded, access.Done))), unchecked},
+	{"check accepts the share", access.WayPlexTV, then(waitingPlex, shareUnaccepted, after(checkLater(),
+		walk(onPlex(access.Shared, access.Check, access.Accepted)))), unchecked},
+	{"check with the accept refused", access.WayPlexTV, then(waitingPlex, shareUnaccepted, after(checkLater(cue(fakeplextv.RefuseNextAccept.Name)),
+		walk(onPlex(access.Shared, access.Check, access.NotAccepted)))), unchecked},
+
+	{"remove a waiting Plex failing, then try again", access.WayPlexTV, then(waitingPlex, plexDown(walk(onPlex(access.Waiting, access.Remove, access.Failed))),
+		walk(onPlex(access.Removing, access.RetryRemove, access.Done))), unchecked},
+	{"remove a shared Plex", access.WayPlexTV, then(waitingPlex, shareUnaccepted, walk(onPlex(access.Shared, access.Remove, access.Done))), unchecked},
+	{"remove a shared Plex failing", access.WayPlexTV, then(waitingPlex, shareUnaccepted, plexDown(walk(onPlex(access.Shared, access.Remove, access.Failed)))), unchecked},
+	{"remove an active Plex", access.WayPlexTV, then(waitingPlex, shareFriend, walk(onPlex(access.Active, access.Remove, access.Done))), unchecked},
+	{"remove a Plex Home share", access.WayPlexTV, then(waitingPlex, shareHome, walk(onPlex(access.Active, access.Remove, access.Done))), unchecked},
+	{"try again failing on Plex", access.WayPlexTV, then(waitingPlex, shareFriend, removePlexDown,
+		plexDown(walk(onPlex(access.Removing, access.RetryRemove, access.Failed)))), unchecked},
+
+	{"leave a waiting Plex", access.WayPlexTV, then(waitingPlex, walk(onPlex(access.Waiting, access.Leave, access.Done))), unchecked},
+	{"leave a waiting Plex failing", access.WayPlexTV, then(waitingPlex, plexDown(walk(onPlex(access.Waiting, access.Leave, access.Failed)))), unchecked},
+	{"leave a shared Plex", access.WayPlexTV, then(waitingPlex, shareUnaccepted, walk(onPlex(access.Shared, access.Leave, access.Done))), unchecked},
+	{"leave a shared Plex failing", access.WayPlexTV, then(waitingPlex, shareUnaccepted, plexDown(walk(onPlex(access.Shared, access.Leave, access.Failed)))), unchecked},
+	{"leave an active Plex", access.WayPlexTV, then(waitingPlex, shareFriend, walk(onPlex(access.Active, access.Leave, access.Done))), unchecked},
+	{"leave an active Plex failing, then try again", access.WayPlexTV, then(waitingPlex, shareFriend,
+		plexDown(walk(onPlex(access.Active, access.Leave, access.Failed))), walk(onPlex(access.Removing, access.RetryRemove, access.Done))), unchecked},
+	{"leave a removing Plex", access.WayPlexTV, then(waitingPlex, shareFriend, removePlexDown, walk(onPlex(access.Removing, access.Leave, access.Done))), unchecked},
+	{"leave a removing Plex failing", access.WayPlexTV, then(waitingPlex, shareFriend, removePlexDown,
+		plexDown(walk(onPlex(access.Removing, access.Leave, access.Failed)))), unchecked},
+
+	{"offer Den", access.WayUsers, []step{offerDen}, noUser},
+	{"remove an offered Den", access.WayUsers, []step{offerDen, walk(onUsers(access.Offered, access.Remove, access.Done))}, noUser},
+	{"leave an offered Den", access.WayUsers, []step{offerDen, walk(onUsers(access.Offered, access.Leave, access.Done))}, noUser},
+	{"make", access.WayUsers, []step{offerDen, makeOnDen}, enabled},
+	{"a make whose create fails", access.WayUsers, []step{offerDen, failing(walk(
+		onUsers(access.Offered, access.MakeAccount, access.Done), onUsers(access.Making, access.Unmake, access.Done),
+	), "create-user")}, noUser},
+	{"a make whose password fails", access.WayUsers, []step{offerDen, failing(walk(
+		onUsers(access.Offered, access.MakeAccount, access.Done), onUsers(access.Making, access.Created, access.Done), onUsers(access.Making, access.Unmake, access.Done),
+	), "user-password")}, noUser},
+	{"the start unmakes a make left making", access.WayUsers, []step{offerDen, leftMaking, walk(onUsers(access.Making, access.Unmake, access.Done))}, noUser},
+	{"a retried make unmakes first", access.WayUsers, []step{offerDen, leftMaking, {on: access.MakeAccount, walks: []access.Transition{
+		onUsers(access.Making, access.Unmake, access.Done), onUsers(access.Offered, access.MakeAccount, access.Done),
+		onUsers(access.Making, access.Created, access.Done), onUsers(access.Making, access.Finish, access.Done),
+	}}}, enabled},
+	{"leave a making Den", access.WayUsers, []step{offerDen, leftMaking, walk(onUsers(access.Making, access.Leave, access.Done))}, noUser},
+	{"leave a making Den unreached, then start", access.WayUsers, []step{
+		offerDen, leftMaking, failing(walk(onUsers(access.Making, access.Leave, access.Failed)), "delete-user"),
+		walk(onUsers(access.Making, access.Unmake, access.Left)),
+	}, noUser},
+	{"link", access.WayUsers, []step{offerDen, walk(onUsers(access.Offered, access.Link, access.Done))}, noUser},
+	{"remove", access.WayUsers, []step{offerDen, makeOnDen, walk(onUsers(access.Active, access.Remove, access.Done))}, disabled},
+	{"remove failing, then try again", access.WayUsers, []step{offerDen, makeOnDen, removeFailing, walk(onUsers(access.Removing, access.RetryRemove, access.Done))}, disabled},
+	{"try again failing", access.WayUsers, []step{offerDen, makeOnDen, removeFailing, failing(walk(onUsers(access.Removing, access.RetryRemove, access.Failed)), "user")}, enabled},
+	{"offer again", access.WayUsers, []step{offerDen, makeOnDen, walk(onUsers(access.Active, access.Remove, access.Done)), walk(onUsers(access.Removed, access.Offer, access.Done))}, enabled},
+	{"offer again failing", access.WayUsers, []step{offerDen, makeOnDen, walk(onUsers(access.Active, access.Remove, access.Done)), failing(walk(onUsers(access.Removed, access.Offer, access.Failed)), "user")}, disabled},
+	{"offer again once Den deleted the user", access.WayUsers, []step{
+		offerDen, makeOnDen, walk(onUsers(access.Active, access.Remove, access.Done)), {gone: true, walks: []access.Transition{onUsers(access.Removed, access.Offer, access.Gone)}},
+	}, noUser},
+	{"leave a removed Den", access.WayUsers, []step{offerDen, makeOnDen, walk(onUsers(access.Active, access.Remove, access.Done)), walk(onUsers(access.Removed, access.Leave, access.Done))}, disabled},
+	{"leave an active Den", access.WayUsers, []step{offerDen, makeOnDen, walk(onUsers(access.Active, access.Leave, access.Done))}, disabled},
+	{"leave an active Den failing, then try again", access.WayUsers, []step{
+		offerDen, makeOnDen, failing(walk(onUsers(access.Active, access.Leave, access.Failed)), "user"), walk(onUsers(access.Removing, access.RetryRemove, access.Left)),
+	}, disabled},
+	{"leave a removing Den", access.WayUsers, []step{offerDen, makeOnDen, removeFailing, walk(onUsers(access.Removing, access.Leave, access.Done))}, disabled},
+	{"leave a removing Den failing", access.WayUsers, []step{offerDen, makeOnDen, removeFailing, failing(walk(onUsers(access.Removing, access.Leave, access.Failed)), "user")}, enabled},
+}
+
+func (c walkCase) run(t *testing.T) {
+	r := newWalkRig(t)
+	home := true
+	for _, s := range c.steps {
+		for _, tr := range s.walks {
+			home = (home || tr.Mark&access.SetPlexHome != 0) && tr.Mark&access.ClearPlexHome == 0
+		}
+		r.press(t, c.way, s, home)
+	}
+	r.expectSam(t, c.sam)
+	if _, kept := r.row(t, c.way); c.way == access.WayPlexTV && !kept {
+		if holds := r.holdsFor(t, samOnPlex.Username); holds != (plexHolds{}) {
+			t.Errorf("plex.tv holds %+v for Sam once the row is gone", holds)
+		}
+	}
+}
+
+func (r walkRig) press(t *testing.T, way access.Way, s step, home bool) {
 	t.Helper()
 	on := s.on
 	if on == "" {
@@ -331,8 +448,14 @@ func (r walkRig) press(t *testing.T, way access.Way, s step) {
 	for _, route := range s.fail {
 		r.den.Cue(t, "jellyfin-fail-next", jellyfin.FailNext{Route: route})
 	}
+	if s.plexDown {
+		if _, err := r.plex.TV.Faults.Set(fault.Rule{ID: "plex-down", Target: fault.Target(fakeplextv.Fake.Name), Fault: fault.Status{Code: http.StatusServiceUnavailable}}); err != nil {
+			t.Fatal(err)
+		}
+	}
 	presses[on](t, r, way)
 	synctest.Wait()
+	r.plex.TV.Faults.Clear("plex-down")
 	last := s.walks[len(s.walks)-1]
 	row, ok := r.row(t, way)
 	switch {
@@ -341,10 +464,12 @@ func (r walkRig) press(t *testing.T, way access.Way, s step) {
 	case last.To == access.None:
 	case !ok || row.State != last.To:
 		t.Fatalf("after %s the row is %+v, want %s", on, row, last.To)
-	case (row.Problem != nil) != (len(s.fail) > 0 && last.Mark&access.KeepProblem != 0):
+	case (row.Problem != nil) != s.failed():
 		t.Errorf("after %s the row's problem is %+v", on, row.Problem)
-	case way == access.WayPlexTV && (row.Plex == nil || !row.Plex.PlexHome):
-		t.Errorf("the Plex row is %+v, want it offered as Plex Home", row.Plex)
+	case (row.Member.AccountID == "") != (last.Mark&access.ClearAccount != 0):
+		t.Errorf("after %s the row's Account is %q", on, row.Member.AccountID)
+	case way == access.WayPlexTV && (row.Plex == nil || row.Plex.PlexHome != home):
+		t.Errorf("the Plex row is %+v, want Plex Home %t", row.Plex, home)
 	}
 }
 
