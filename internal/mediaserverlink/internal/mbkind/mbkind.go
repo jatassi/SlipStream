@@ -28,6 +28,9 @@ type family struct {
 	// favoriteApart is Emby's: a UserData write keeps the favorite the item
 	// had, and only FavoriteItems sets it (online run 2026-11-14).
 	favoriteApart bool
+	// foldersByGUID is Emby's: a policy's EnabledFolders names a library
+	// by its Guid, not its ItemId.
+	foldersByGUID bool
 	// details is the web app's route to an item page, after its address.
 	details string
 	exposed exposedFacts
@@ -45,6 +48,7 @@ var (
 		about:         link.About{Name: "emby", Label: "Emby", Form: link.SignInKeyOrAdmin, Browser: true, Floor: link.MustVersion("4.10"), MovedHold: link.StepSnapshotted, Access: link.AccessUsers},
 		flavor:        jellyfin.Emby,
 		favoriteApart: true,
+		foldersByGUID: true,
 		details:       "/web/index.html#!/item",
 		exposed:       embyExposed,
 	}
