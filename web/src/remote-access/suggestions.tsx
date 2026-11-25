@@ -58,7 +58,7 @@ function InterfaceForm({ suggestion }: { suggestion: ReachabilitySuggestionView 
     return (
       <div className="flex flex-col gap-3">
         <p className="text-ink-2">
-          Outsiders can&apos;t use your Address. Set it to the https:// name they use.
+          People outside your home need an https:// Address they can reach. Enter the name they use.
         </p>
         <AddressForm onSaved={add}>
           <div className="flex flex-wrap gap-2">
