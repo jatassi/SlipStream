@@ -1,0 +1,101 @@
+{
+ "numTotalTestSuites": 3,
+ "numPassedTestSuites": 0,
+ "numFailedTestSuites": 3,
+ "numPendingTestSuites": 0,
+ "numTotalTests": 3,
+ "numPassedTests": 1,
+ "numFailedTests": 2,
+ "numPendingTests": 0,
+ "numTodoTests": 0,
+ "snapshot": {
+  "added": 0,
+  "failure": false,
+  "filesAdded": 0,
+  "filesRemoved": 0,
+  "filesRemovedList": [],
+  "filesUnmatched": 0,
+  "filesUpdated": 0,
+  "matched": 0,
+  "total": 0,
+  "unchecked": 0,
+  "uncheckedKeysByFile": [],
+  "unmatched": 0,
+  "updated": 0,
+  "didUpdate": false
+ },
+ "startTime": 1795572693568,
+ "success": false,
+ "testResults": [
+  {
+   "assertionResults": [],
+   "startTime": 1795572693568,
+   "endTime": 1795572693568,
+   "status": "failed",
+   "message": "Cannot find module './missing-module' imported from /r/web/src/broken.test.ts",
+   "name": "/r/web/src/broken.test.ts"
+  },
+  {
+   "assertionResults": [
+    {
+     "ancestorTitles": [
+      "Queue"
+     ],
+     "fullName": "Queue lists the grabs",
+     "status": "passed",
+     "title": "lists the grabs",
+     "duration": 4.077800999999994,
+     "failureMessages": [],
+     "location": {
+      "line": 4,
+      "column": 3
+     },
+     "meta": {},
+     "tags": [],
+     "benchmarks": []
+    },
+    {
+     "ancestorTitles": [
+      "Queue"
+     ],
+     "fullName": "Queue orders by age",
+     "status": "failed",
+     "title": "orders by age",
+     "duration": 7.137636999999984,
+     "failureMessages": [
+      "AssertionError: expected [ 2, 1 ] to deeply equal [ 1, 2 ]\n    at /r/web/src/queue.test.ts:9:64\n    at file:///r/web/node_modules/vitest/dist/chunks/run.BPv-BBRv.js:1632:35\n    at file:///r/web/node_modules/vitest/dist/chunks/run.BPv-BBRv.js:2801:26\n    at file:///r/web/node_modules/vitest/dist/chunks/run.BPv-BBRv.js:3338:20\n    at new Promise (<anonymous>)\n    at runWithCancel (file:///r/web/node_modules/vitest/dist/chunks/run.BPv-BBRv.js:3333:10)\n    at file:///r/web/node_modules/vitest/dist/chunks/run.BPv-BBRv.js:3318:20\n    at new Promise (<anonymous>)\n    at runWithTimeout (file:///r/web/node_modules/vitest/dist/chunks/run.BPv-BBRv.js:3276:10)\n    at file:///r/web/node_modules/vitest/dist/chunks/run.BPv-BBRv.js:3904:64"
+     ],
+     "location": {
+      "line": 8,
+      "column": 3
+     },
+     "meta": {},
+     "tags": [],
+     "benchmarks": []
+    },
+    {
+     "ancestorTitles": [],
+     "fullName": "drops a finished grab",
+     "status": "failed",
+     "title": "drops a finished grab",
+     "duration": 1.5558619999999905,
+     "failureMessages": [
+      "AssertionError: expected 'done' to be 'gone' // Object.is equality\n    at /r/web/src/queue.test.ts:14:18\n    at file:///r/web/node_modules/vitest/dist/chunks/run.BPv-BBRv.js:1632:35\n    at file:///r/web/node_modules/vitest/dist/chunks/run.BPv-BBRv.js:2801:26\n    at file:///r/web/node_modules/vitest/dist/chunks/run.BPv-BBRv.js:3338:20\n    at new Promise (<anonymous>)\n    at runWithCancel (file:///r/web/node_modules/vitest/dist/chunks/run.BPv-BBRv.js:3333:10)\n    at file:///r/web/node_modules/vitest/dist/chunks/run.BPv-BBRv.js:3318:20\n    at new Promise (<anonymous>)\n    at runWithTimeout (file:///r/web/node_modules/vitest/dist/chunks/run.BPv-BBRv.js:3276:10)\n    at file:///r/web/node_modules/vitest/dist/chunks/run.BPv-BBRv.js:3904:64"
+     ],
+     "location": {
+      "line": 13,
+      "column": 1
+     },
+     "meta": {},
+     "tags": [],
+     "benchmarks": []
+    }
+   ],
+   "startTime": 1795572693760,
+   "endTime": 1795572693772.556,
+   "status": "failed",
+   "message": "",
+   "name": "/r/web/src/queue.test.ts"
+  }
+ ]
+}

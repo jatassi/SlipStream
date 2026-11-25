@@ -6,6 +6,9 @@ import (
 	"flag"
 	"fmt"
 	"maps"
+	"os"
+	"path/filepath"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -28,6 +31,9 @@ type lane struct {
 	onlyWhen func(touched) bool
 	// savesCaches says the lane's jobs save caches on a push to main.
 	savesCaches bool
+	// playwright runs the lane's Linux jobs in Playwright's container, which
+	// ships the browsers and their system libraries.
+	playwright bool
 }
 
 // touched says what the change touches that a lane or the packages
@@ -68,9 +74,9 @@ var lanes = []lane{
 	{kind: "lint-repo", tier: "lint", shards: map[string]int{"linux-amd64": 1}},
 	{kind: "go", tier: "go", shards: map[string]int{"linux-amd64": 2, "linux-arm64": 2, "windows-amd64": 3, "darwin-arm64": 3}},
 	{kind: "e2e", tier: "e2e", shards: map[string]int{"linux-amd64": 4, "linux-arm64": 4, "windows-amd64": 5, "darwin-arm64": 5}},
-	{kind: "browser", tier: "browser", shards: map[string]int{"linux-amd64": 6, "linux-arm64": 2, "windows-amd64": 4, "darwin-arm64": 7}},
-	{kind: "component", tier: "component", shards: map[string]int{"linux-amd64": 1}},
-	{kind: "diagram", tier: "component", shards: map[string]int{"linux-amd64": 1}, onlyWhen: func(t touched) bool { return t.diagram }},
+	{kind: "browser", tier: "browser", playwright: true, shards: map[string]int{"linux-amd64": 6, "linux-arm64": 2, "windows-amd64": 4, "darwin-arm64": 7}},
+	{kind: "component", tier: "component", playwright: true, shards: map[string]int{"linux-amd64": 1}},
+	{kind: "diagram", tier: "component", playwright: true, shards: map[string]int{"linux-amd64": 1}, onlyWhen: func(t touched) bool { return t.diagram }},
 }
 
 // lanesOnBuild run against the build job's dist/.
@@ -121,6 +127,8 @@ type MatrixEntry struct {
 	Xcode  string `json:"xcode,omitempty"`
 	Shard  int    `json:"shard"`
 	Shards int    `json:"shards"`
+	// Container is the image the job runs in, empty to run on the runner.
+	Container string `json:"container"`
 }
 
 type Matrix struct {
@@ -152,7 +160,7 @@ func init() {
 	register("plan", "print the CI matrix of each lane for an event: build, lint, lint-repo, go, e2e, browser, component and diagram", runPlan)
 }
 
-func runPlan(_ context.Context, args []string) error {
+func runPlan(ctx context.Context, args []string) error {
 	names := slices.Sorted(maps.Keys(events))
 	fs := flag.NewFlagSet("plan", flag.ContinueOnError)
 	eventName := fs.String("event", "", "CI event: "+strings.Join(names, ", "))
@@ -178,7 +186,19 @@ func runPlan(_ context.Context, args []string) error {
 	if *targets != "" {
 		keep = strings.Split(*targets, ",")
 	}
-	p, err := plan(in, e, scope, t, keep, *tier)
+	root, err := repoRoot(ctx)
+	if err != nil {
+		return err
+	}
+	packageJSON, err := os.ReadFile(filepath.Join(root, "web", "package.json"))
+	if err != nil {
+		return fmt.Errorf("read the web app's package.json: %w", err)
+	}
+	image, err := playwrightImage(packageJSON)
+	if err != nil {
+		return err
+	}
+	p, err := plan(in, e, scope, t, keep, *tier, image)
 	if err != nil {
 		return err
 	}
@@ -212,6 +232,25 @@ func runPlan(_ context.Context, args []string) error {
 	}
 	return githubOutput("package", strconv.FormatBool(p.Package))
 }
+
+// playwrightImage is the tag of Playwright's container for the
+// @playwright/test version that package.json pins, so the browsers in the
+// container are the ones that version drives.
+func playwrightImage(packageJSON []byte) (string, error) {
+	var pkg struct {
+		DevDependencies map[string]string `json:"devDependencies"`
+	}
+	if err := json.Unmarshal(packageJSON, &pkg); err != nil {
+		return "", fmt.Errorf("read the web app's package.json: %w", err)
+	}
+	v := pkg.DevDependencies["@playwright/test"]
+	if !exactVersion.MatchString(v) {
+		return "", fmt.Errorf("@playwright/test %q in the web app's package.json isn't an exact version, which Playwright's image tags need", v)
+	}
+	return "mcr.microsoft.com/playwright:v" + v + "-noble", nil
+}
+
+var exactVersion = regexp.MustCompile(`^\d+\.\d+\.\d+$`)
 
 func laneTiers() []string {
 	var tiers []string
@@ -252,7 +291,8 @@ func (p Plan) Targets() TargetMatrix {
 	return m
 }
 
-func plan(in native.Inputs, e event, scope changescope.Scope, t touched, keep []string, tier string) (Plan, error) {
+// plan runs the Linux jobs of the playwright lanes in image.
+func plan(in native.Inputs, e event, scope changescope.Scope, t touched, keep []string, tier, image string) (Plan, error) {
 	if tier != "all" && !slices.Contains(laneTiers(), tier) {
 		return Plan{}, fmt.Errorf("-tier %q is not one of all, %s", tier, strings.Join(laneTiers(), ", "))
 	}
@@ -269,7 +309,7 @@ func plan(in native.Inputs, e event, scope changescope.Scope, t touched, keep []
 		m := Matrix{Include: []MatrixEntry{}}
 		if l.selected(tier, packaging) && (e.everyTarget || l.onlyWhen == nil || l.onlyWhen(t)) && (!e.cachesOnly || l.savesCaches) && !slices.Contains(e.skips, l.kind) {
 			for _, target := range targets {
-				m.Include = append(m.Include, l.entries(target)...)
+				m.Include = append(m.Include, l.entries(target, image)...)
 			}
 		}
 		p.Lanes[l.kind] = m
@@ -315,11 +355,14 @@ func (l lane) selected(tier string, packaging bool) bool {
 	}
 }
 
-func (l lane) entries(t plannedTarget) []MatrixEntry {
+func (l lane) entries(t plannedTarget, image string) []MatrixEntry {
 	n := l.shards[t.Name]
+	if !l.playwright || t.GOOS != "linux" {
+		image = ""
+	}
 	entries := make([]MatrixEntry, n)
 	for i := range entries {
-		entries[i] = MatrixEntry{t.Name, t.Runner, t.GOOS, t.GOARCH, t.xcode, i + 1, n}
+		entries[i] = MatrixEntry{t.Name, t.Runner, t.GOOS, t.GOARCH, t.xcode, i + 1, n, image}
 	}
 	return entries
 }

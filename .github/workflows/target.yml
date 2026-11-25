@@ -176,8 +176,8 @@ jobs:
         uses: actions/cache/save@v6
         with:
           path: |
-            ${{ runner.temp }}/go-build
-            ${{ runner.temp }}/go-mod
+            ../../_temp/go-build
+            ../../_temp/go-mod
           key: ${{ steps.go.outputs.cache-key }}
       - name: Delete this target's older Go caches
         if: ${{ !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
@@ -257,7 +257,7 @@ jobs:
         run: '"dist/fakeworld$EXE" fixtures --binary "dist/slipstream$EXE"'
       - name: Run end-to-end test shard
         id: test
-        run: go run ./cmd/release test -tier e2e -shard "$SHARD" -filter "$FILTER" -repeat "$REPEAT" -timings .timings -record "$RUNNER_TEMP/timings/${{ matrix.target }}-e2e-${{ matrix.shard }}.json"
+        run: go run ./cmd/release test -tier e2e -shard "$SHARD" -filter "$FILTER" -repeat "$REPEAT" -timings .timings -record "$RUNNER_TEMP/timings/${{ matrix.target }}-e2e-${{ matrix.shard }}.json" -failures "$RUNNER_TEMP/failures/${{ matrix.target }}-e2e-${{ matrix.shard }}.json"
         env:
           TEST_SLIPSTREAM_BINARY: ${{ github.workspace }}/dist/slipstream${{ env.EXE }}
           TEST_SLIPSTREAM_E2E_BINARY: ${{ github.workspace }}/dist/slipstream-e2e${{ env.EXE }}
@@ -283,6 +283,13 @@ jobs:
           path: ${{ runner.temp }}/timings
           retention-days: 1
           if-no-files-found: ignore
+      - name: Upload this shard's failed tests
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: failures-${{ matrix.target }}-e2e-${{ matrix.shard }}
+          path: ${{ runner.temp }}/failures
+          if-no-files-found: ignore
 
   # The browser tier runs the build job's dist/ and needs no Go.
   browser:
@@ -294,11 +301,24 @@ jobs:
       fail-fast: false
       matrix: ${{ fromJSON(inputs.browser) }}
     runs-on: ${{ matrix.runner }}
+    # On Linux the plan names Playwright's container, which ships the
+    # browsers and their system libraries; elsewhere the image is empty and
+    # the job runs on the runner. User 1001 is the runner's own, so files the
+    # job writes to the workspace stay the runner's. Playwright's Docker
+    # guide asks for the host's IPC namespace, since a browser can run out of
+    # the 64 MB of shared memory Docker gives a container.
+    container:
+      image: ${{ matrix.container }}
+      options: --user 1001 --ipc=host
     env:
       SHARD: ${{ matrix.shard }}/${{ matrix.shards }}
       FILTER: ${{ inputs.filter }}
       REPEAT: ${{ inputs.repeat }}
       EXE: ${{ matrix.goos == 'windows' && '.exe' || '' }}
+      # A cache entry holds its paths relative to the workspace, and the
+      # container's home sits elsewhere from it than the runner's, so an
+      # entry restores only where it was saved.
+      CACHE_SIDE: ${{ matrix.container && 'container-' || '' }}
     steps:
       # The test step ends its Playwright runs 2 minutes before the job's
       # limit, so a shard that runs long still reports and records timings.
@@ -320,26 +340,33 @@ jobs:
         uses: actions/cache@v6
         with:
           path: ${{ runner.os == 'Windows' && '~\AppData\Local\slipstream-fixtures' || runner.os == 'macOS' && '~/Library/Caches/slipstream-fixtures' || '~/.cache/slipstream-fixtures' }}
-          key: fixtures-${{ matrix.target }}-${{ hashFiles('native/lock.json', 'fakes/internal/mediafix/recipe.go', 'fakes/internal/releases/releases.go', 'fakes/scenario/catalog/*.yaml') }}
-          restore-keys: fixtures-${{ matrix.target }}-
-      # Playwright runs under Node through bun run.
+          key: fixtures-${{ env.CACHE_SIDE }}${{ matrix.target }}-${{ hashFiles('native/lock.json', 'fakes/internal/mediafix/recipe.go', 'fakes/internal/releases/releases.go', 'fakes/scenario/catalog/*.yaml') }}
+          restore-keys: fixtures-${{ env.CACHE_SIDE }}${{ matrix.target }}-
+      # Playwright runs under Node through bun run. The container has its own.
       - name: Set up Node
+        if: ${{ !matrix.container }}
         uses: actions/setup-node@v7
         with:
           node-version: 24
       - name: Set up Bun
+        if: ${{ !matrix.container }}
         uses: oven-sh/setup-bun@v2
         with:
           bun-version-file: web/package.json
+      - name: Set up Bun in the container
+        if: matrix.container
+        uses: ./.github/actions/bun
       - name: Cache Bun's install cache
         if: runner.os != 'Windows'
         uses: actions/cache@v6
         with:
           path: ~/.bun/install/cache
-          key: bun-${{ runner.os }}-${{ hashFiles('web/bun.lock') }}
+          key: bun-${{ env.CACHE_SIDE }}${{ runner.os }}-${{ hashFiles('web/bun.lock') }}
       - name: Keep Playwright browsers in the runner temp dir
+        if: ${{ !matrix.container }}
         run: echo "PLAYWRIGHT_BROWSERS_PATH=$RUNNER_TEMP/ms-playwright" >> "$GITHUB_ENV"
       - name: Cache the Playwright browsers
+        if: ${{ !matrix.container }}
         uses: actions/cache@v6
         with:
           path: ${{ runner.temp }}/ms-playwright
@@ -353,14 +380,6 @@ jobs:
         with:
           name: ${{ inputs.timings }}
           path: .timings
-      # The browsers' system libraries are not in the cache, so Linux
-      # installs them on every run.
-      - name: Install the Playwright browsers and their system libraries
-        if: runner.os == 'Linux'
-        uses: ./.github/actions/playwright
-        with:
-          cache: playwright-debs-${{ matrix.target }}
-          save: ${{ matrix.shard == 1 }}
       - name: Point TEMP at the fast drive
         if: runner.os == 'Windows'
         run: |
@@ -373,19 +392,22 @@ jobs:
       - name: Run browser test shard
         id: test
         run: |
-          "dist/release$EXE" test -tier browser -shard "$SHARD" -filter "$FILTER" -repeat "$REPEAT" -timings .timings -record "$RUNNER_TEMP/timings/${{ matrix.target }}-browser-${{ matrix.shard }}.json" -deadline "$DEADLINE"
+          "dist/release$EXE" test -tier browser -shard "$SHARD" -filter "$FILTER" -repeat "$REPEAT" -timings .timings -record "$RUNNER_TEMP/timings/${{ matrix.target }}-browser-${{ matrix.shard }}.json" -deadline "$DEADLINE" -failures "$RUNNER_TEMP/failures/${{ matrix.target }}-browser-${{ matrix.shard }}.json"
         env:
           TEST_SLIPSTREAM_BINARY: ${{ github.workspace }}/dist/slipstream${{ env.EXE }}
           TEST_FAKEWORLD_BINARY: ${{ github.workspace }}/dist/fakeworld${{ env.EXE }}
-          TEST_FAKEWORLD_RUNS: ${{ runner.temp }}/fakeworld-runs
+          TEST_FAKEWORLD_RUNS: ${{ github.workspace }}/fakeworld-runs
+      # The runs sit in the workspace because the runner maps a host path in
+      # a step's input to the container's only when the path starts the
+      # input, and the second line here must match too.
       - name: Upload fakeworld replay bundles on failure
         if: failure() && steps.test.outcome == 'failure'
         uses: actions/upload-artifact@v7
         with:
           name: fakeworld-runs-browser-${{ matrix.target }}-${{ matrix.shard }}
           path: |
-            ${{ runner.temp }}/fakeworld-runs
-            !${{ runner.temp }}/fakeworld-runs/**/bin/**
+            fakeworld-runs
+            !fakeworld-runs/**/bin/**
           if-no-files-found: ignore
       - name: Upload this shard's test timings
         if: ${{ !cancelled() && inputs.record-timings == 'true' }}
@@ -394,4 +416,11 @@ jobs:
           name: timings-${{ matrix.target }}-browser-${{ matrix.shard }}
           path: ${{ runner.temp }}/timings
           retention-days: 1
+          if-no-files-found: ignore
+      - name: Upload this shard's failed tests
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: failures-${{ matrix.target }}-browser-${{ matrix.shard }}
+          path: ${{ runner.temp }}/failures
           if-no-files-found: ignore

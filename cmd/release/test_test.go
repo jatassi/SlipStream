@@ -189,7 +189,11 @@ func TestRecordBrowserTimingsReadsBackForTheNextRun(t *testing.T) {
 		t.Fatal(err)
 	}
 	// A run that failed before the second report leaves that one missing.
-	if err := recordBrowserTimings(filepath.Join(dir, "timings", "t.json"), []string{report, report + ".missing"}); err != nil {
+	reports, err := readPlaywrightReports([]string{report, report + ".missing"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := recordBrowserTimings(filepath.Join(dir, "timings", "t.json"), reports); err != nil {
 		t.Fatal(err)
 	}
 	past, err := loadTimings(filepath.Join(dir, "timings"), browserTarget())

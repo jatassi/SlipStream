@@ -1,0 +1,40 @@
+{"Time":"2026-11-25T02:10:39.151776967Z","Action":"start","Package":"github.com/jatassi/slipstream/widget"}
+{"Time":"2026-11-25T02:10:39.155633428Z","Action":"run","Package":"github.com/jatassi/slipstream/widget","Test":"TestCounts"}
+{"Time":"2026-11-25T02:10:39.15569601Z","Action":"output","Package":"github.com/jatassi/slipstream/widget","Test":"TestCounts","Output":"=== RUN   TestCounts\n","OutputType":"frame"}
+{"Time":"2026-11-25T02:10:39.155719934Z","Action":"output","Package":"github.com/jatassi/slipstream/widget","Test":"TestCounts","Output":"    widget_test.go:11: counting\n"}
+{"Time":"2026-11-25T02:10:39.155729102Z","Action":"output","Package":"github.com/jatassi/slipstream/widget","Test":"TestCounts","Output":"--- PASS: TestCounts (0.00s)\n","OutputType":"frame"}
+{"Time":"2026-11-25T02:10:39.155731685Z","Action":"pass","Package":"github.com/jatassi/slipstream/widget","Test":"TestCounts","Elapsed":0}
+{"Time":"2026-11-25T02:10:39.155739391Z","Action":"run","Package":"github.com/jatassi/slipstream/widget","Test":"TestShapes"}
+{"Time":"2026-11-25T02:10:39.15574085Z","Action":"output","Package":"github.com/jatassi/slipstream/widget","Test":"TestShapes","Output":"=== RUN   TestShapes\n","OutputType":"frame"}
+{"Time":"2026-11-25T02:10:39.155744385Z","Action":"run","Package":"github.com/jatassi/slipstream/widget","Test":"TestShapes/square"}
+{"Time":"2026-11-25T02:10:39.155746043Z","Action":"output","Package":"github.com/jatassi/slipstream/widget","Test":"TestShapes/square","Output":"=== RUN   TestShapes/square\n","OutputType":"frame"}
+{"Time":"2026-11-25T02:10:39.155784645Z","Action":"output","Package":"github.com/jatassi/slipstream/widget","Test":"TestShapes/square","Output":"--- PASS: TestShapes/square (0.00s)\n","OutputType":"frame"}
+{"Time":"2026-11-25T02:10:39.155810891Z","Action":"pass","Package":"github.com/jatassi/slipstream/widget","Test":"TestShapes/square","Elapsed":0}
+{"Time":"2026-11-25T02:10:39.15582888Z","Action":"run","Package":"github.com/jatassi/slipstream/widget","Test":"TestShapes/circle"}
+{"Time":"2026-11-25T02:10:39.155831642Z","Action":"output","Package":"github.com/jatassi/slipstream/widget","Test":"TestShapes/circle","Output":"=== RUN   TestShapes/circle\n","OutputType":"frame"}
+{"Time":"2026-11-25T02:10:39.155914888Z","Action":"output","Package":"github.com/jatassi/slipstream/widget","Test":"TestShapes/circle","Output":"    widget_test.go:19: radius = 0, want 1\n","OutputType":"error"}
+{"Time":"2026-11-25T02:10:39.155934174Z","Action":"output","Package":"github.com/jatassi/slipstream/widget","Test":"TestShapes/circle","Output":"--- FAIL: TestShapes/circle (0.00s)\n","OutputType":"frame"}
+{"Time":"2026-11-25T02:10:39.155950894Z","Action":"fail","Package":"github.com/jatassi/slipstream/widget","Test":"TestShapes/circle","Elapsed":0}
+{"Time":"2026-11-25T02:10:39.155954145Z","Action":"output","Package":"github.com/jatassi/slipstream/widget","Test":"TestShapes","Output":"--- FAIL: TestShapes (0.00s)\n","OutputType":"frame"}
+{"Time":"2026-11-25T02:10:39.155972837Z","Action":"fail","Package":"github.com/jatassi/slipstream/widget","Test":"TestShapes","Elapsed":0}
+{"Time":"2026-11-25T02:10:39.155990008Z","Action":"run","Package":"github.com/jatassi/slipstream/widget","Test":"TestPanics"}
+{"Time":"2026-11-25T02:10:39.155993271Z","Action":"output","Package":"github.com/jatassi/slipstream/widget","Test":"TestPanics","Output":"=== RUN   TestPanics\n","OutputType":"frame"}
+{"Time":"2026-11-25T02:10:39.155996099Z","Action":"output","Package":"github.com/jatassi/slipstream/widget","Test":"TestPanics","Output":"--- FAIL: TestPanics (0.00s)\n","OutputType":"frame"}
+{"Time":"2026-11-25T02:10:39.158148276Z","Action":"output","Package":"github.com/jatassi/slipstream/widget","Test":"TestPanics","Output":"panic: assignment to entry in nil map [recovered, repanicked]\n"}
+{"Time":"2026-11-25T02:10:39.158174839Z","Action":"output","Package":"github.com/jatassi/slipstream/widget","Test":"TestPanics","Output":"\n"}
+{"Time":"2026-11-25T02:10:39.15817806Z","Action":"output","Package":"github.com/jatassi/slipstream/widget","Test":"TestPanics","Output":"goroutine 23 [running]:\n"}
+{"Time":"2026-11-25T02:10:39.158191463Z","Action":"output","Package":"github.com/jatassi/slipstream/widget","Test":"TestPanics","Output":"testing.tRunner.func1.2({0x6be970, 0x6f5f30})\n"}
+{"Time":"2026-11-25T02:10:39.158193956Z","Action":"output","Package":"github.com/jatassi/slipstream/widget","Test":"TestPanics","Output":"\t/root/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.27.2.linux-amd64/src/testing/testing.go:2125 +0x232\n"}
+{"Time":"2026-11-25T02:10:39.158196026Z","Action":"output","Package":"github.com/jatassi/slipstream/widget","Test":"TestPanics","Output":"testing.tRunner.func1()\n"}
+{"Time":"2026-11-25T02:10:39.158197751Z","Action":"output","Package":"github.com/jatassi/slipstream/widget","Test":"TestPanics","Output":"\t/root/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.27.2.linux-amd64/src/testing/testing.go:2128 +0x329\n"}
+{"Time":"2026-11-25T02:10:39.158199419Z","Action":"output","Package":"github.com/jatassi/slipstream/widget","Test":"TestPanics","Output":"panic({0x6be970?, 0x6f5f30?})\n"}
+{"Time":"2026-11-25T02:10:39.158201069Z","Action":"output","Package":"github.com/jatassi/slipstream/widget","Test":"TestPanics","Output":"\t/root/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.27.2.linux-amd64/src/runtime/panic.go:859 +0x125\n"}
+{"Time":"2026-11-25T02:10:39.15820582Z","Action":"output","Package":"github.com/jatassi/slipstream/widget","Test":"TestPanics","Output":"github.com/jatassi/slipstream/widget.TestPanics(0x1b61e7e5eb48?)\n"}
+{"Time":"2026-11-25T02:10:39.158207568Z","Action":"output","Package":"github.com/jatassi/slipstream/widget","Test":"TestPanics","Output":"\t/src/widget/widget_test.go:24 +0x28\n"}
+{"Time":"2026-11-25T02:10:39.158209448Z","Action":"output","Package":"github.com/jatassi/slipstream/widget","Test":"TestPanics","Output":"testing.tRunner(0x1b61e7e5eb48, 0x6dc410)\n"}
+{"Time":"2026-11-25T02:10:39.158211012Z","Action":"output","Package":"github.com/jatassi/slipstream/widget","Test":"TestPanics","Output":"\t/root/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.27.2.linux-amd64/src/testing/testing.go:2195 +0xea\n"}
+{"Time":"2026-11-25T02:10:39.15821242Z","Action":"output","Package":"github.com/jatassi/slipstream/widget","Test":"TestPanics","Output":"created by testing.(*T).Run in goroutine 1\n"}
+{"Time":"2026-11-25T02:10:39.158213933Z","Action":"output","Package":"github.com/jatassi/slipstream/widget","Test":"TestPanics","Output":"\t/root/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.27.2.linux-amd64/src/testing/testing.go:2260 +0x4d4\n"}
+{"Time":"2026-11-25T02:10:39.158643229Z","Action":"fail","Package":"github.com/jatassi/slipstream/widget","Test":"TestPanics","Elapsed":0}
+{"Time":"2026-11-25T02:10:39.15866594Z","Action":"output","Package":"github.com/jatassi/slipstream/widget","Output":"FAIL\tgithub.com/jatassi/slipstream/widget\t0.006s\n","OutputType":"frame"}
+{"Time":"2026-11-25T02:10:39.158677432Z","Action":"fail","Package":"github.com/jatassi/slipstream/widget","Elapsed":0.007}

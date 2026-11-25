@@ -24,6 +24,8 @@ var planInputs = native.Inputs{
 	Toolchains: []native.Toolchain{{Name: "musl-cross"}, {Name: "llvm-mingw-ucrt"}, {Name: "xcode", Xcode: "16.4"}},
 }
 
+const testImage = "mcr.microsoft.com/playwright:v1.64.1-noble"
+
 func laneTargets(m Matrix) []string {
 	var targets []string
 	for _, e := range m.Include {
@@ -58,7 +60,7 @@ func TestPlanTargets(t *testing.T) {
 		{"tag", changescope.Docs, false, all, true},
 	}
 	for _, tt := range tests {
-		got, err := plan(planInputs, events[tt.event], tt.scope, touched{packages: tt.touched}, nil, "all")
+		got, err := plan(planInputs, events[tt.event], tt.scope, touched{packages: tt.touched}, nil, "all", testImage)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -87,7 +89,7 @@ func TestOnlyPullRequestsIntoMainRunTheE2EAndBrowserTiers(t *testing.T) {
 		{"stacked", changescope.PR, false},
 		{"stacked", changescope.Native, false},
 	} {
-		got, err := plan(planInputs, events[tt.event], tt.scope, touched{}, nil, "all")
+		got, err := plan(planInputs, events[tt.event], tt.scope, touched{}, nil, "all", testImage)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -103,7 +105,7 @@ func TestOnlyPullRequestsIntoMainRunTheE2EAndBrowserTiers(t *testing.T) {
 }
 
 func TestPlanShardsEachLanePerTarget(t *testing.T) {
-	got, err := plan(planInputs, events["dispatch"], changescope.PR, touched{}, nil, "all")
+	got, err := plan(planInputs, events["dispatch"], changescope.PR, touched{}, nil, "all", testImage)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -125,6 +127,39 @@ func TestPlanShardsEachLanePerTarget(t *testing.T) {
 	}
 }
 
+func TestPlanRunsLinuxBrowserJobsInPlaywrightsContainer(t *testing.T) {
+	got, err := plan(planInputs, events["dispatch"], changescope.Native, touched{}, nil, "all", testImage)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for kind, m := range got.Lanes {
+		for _, e := range m.Include {
+			want := ""
+			if e.GOOS == "linux" && slices.Contains([]string{"browser", "component", "diagram"}, kind) {
+				want = testImage
+			}
+			if e.Container != want {
+				t.Errorf("%s job on %s runs in %q, want %q", kind, e.Target, e.Container, want)
+			}
+		}
+	}
+}
+
+func TestPlaywrightImage(t *testing.T) {
+	for _, c := range []struct {
+		packageJSON, want string
+	}{
+		{`{"devDependencies": {"@playwright/test": "1.64.1"}}`, testImage},
+		{`{"devDependencies": {"@playwright/test": "^1.64.1"}}`, ""},
+		{`{"dependencies": {"@playwright/test": "1.64.1"}}`, ""},
+	} {
+		got, err := playwrightImage([]byte(c.packageJSON))
+		if got != c.want || (err == nil) != (c.want != "") {
+			t.Errorf("playwrightImage(%s) = %q, %v, want %q", c.packageJSON, got, err, c.want)
+		}
+	}
+}
+
 func TestPlanDispatchKeepsTargetsAndTier(t *testing.T) {
 	for _, tt := range []struct {
 		keep []string
@@ -138,7 +173,7 @@ func TestPlanDispatchKeepsTargetsAndTier(t *testing.T) {
 		{[]string{"darwin-arm64"}, "lint", map[string]bool{"lint": true}},
 		{[]string{"windows-amd64"}, "all", map[string]bool{"build": true, "lint": true, "go": true, "e2e": true, "browser": true}},
 	} {
-		got, err := plan(planInputs, events["dispatch"], changescope.Native, touched{}, tt.keep, tt.tier)
+		got, err := plan(planInputs, events["dispatch"], changescope.Native, touched{}, tt.keep, tt.tier, testImage)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -155,16 +190,16 @@ func TestPlanDispatchKeepsTargetsAndTier(t *testing.T) {
 			t.Errorf("dispatch of %v on %s: target planned %t, want %t", tt.keep, tt.tier, planned, tt.want["build"])
 		}
 	}
-	if _, err := plan(planInputs, events["dispatch"], changescope.Native, touched{}, []string{"plan9-amd64"}, "all"); err == nil {
+	if _, err := plan(planInputs, events["dispatch"], changescope.Native, touched{}, []string{"plan9-amd64"}, "all", testImage); err == nil {
 		t.Error("a dispatch of an unknown target planned")
 	}
-	if _, err := plan(planInputs, events["dispatch"], changescope.Native, touched{}, nil, "build"); err == nil {
+	if _, err := plan(planInputs, events["dispatch"], changescope.Native, touched{}, nil, "build", testImage); err == nil {
 		t.Error("a dispatch of an unknown tier planned")
 	}
 }
 
 func TestPlanPushOnlyRefreshesTheCaches(t *testing.T) {
-	got, err := plan(planInputs, events["push"], changescope.Native, touched{packages: true, diagram: true}, nil, "all")
+	got, err := plan(planInputs, events["push"], changescope.Native, touched{packages: true, diagram: true}, nil, "all", testImage)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -195,7 +230,7 @@ func TestPlanDiagramWhenTouched(t *testing.T) {
 		{"schedule", changescope.Docs, touched{}, true},
 		{"tag", changescope.Docs, touched{}, true},
 	} {
-		got, err := plan(planInputs, events[tt.event], tt.scope, tt.touched, nil, "all")
+		got, err := plan(planInputs, events[tt.event], tt.scope, tt.touched, nil, "all", testImage)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -257,7 +292,7 @@ func TestLintRunsOncePerOS(t *testing.T) {
 }
 
 func TestPlanTargetsSplitsEachLaneByTarget(t *testing.T) {
-	got, err := plan(planInputs, events["dispatch"], changescope.Native, touched{}, nil, "browser")
+	got, err := plan(planInputs, events["dispatch"], changescope.Native, touched{}, nil, "browser", testImage)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -284,7 +319,7 @@ func TestPlanTargetsSplitsEachLaneByTarget(t *testing.T) {
 }
 
 func TestPlanTargetsEmptyWithoutABuild(t *testing.T) {
-	got, err := plan(planInputs, events["dispatch"], changescope.Native, touched{}, nil, "go")
+	got, err := plan(planInputs, events["dispatch"], changescope.Native, touched{}, nil, "go", testImage)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -298,7 +333,10 @@ func TestPlanTargetsEmptyWithoutABuild(t *testing.T) {
 }
 
 type ciJob struct {
-	If       string            `yaml:"if"`
+	If        string `yaml:"if"`
+	Container struct {
+		Image string `yaml:"image"`
+	} `yaml:"container"`
 	Needs    any               `yaml:"needs"`
 	Uses     string            `yaml:"uses"`
 	Outputs  map[string]string `yaml:"outputs"`
@@ -324,6 +362,19 @@ func readWorkflow(t *testing.T, name string) map[string]ciJob {
 		t.Fatal(err)
 	}
 	return w.Jobs
+}
+
+// checkContainer checks that a job runs in the container its plan entries
+// name, and only then.
+func checkContainer(t *testing.T, l lane, j ciJob) {
+	t.Helper()
+	want := ""
+	if l.playwright {
+		want = "${{ matrix.container }}"
+	}
+	if j.Container.Image != want {
+		t.Errorf("job %s container image = %q, want %q", l.kind, j.Container.Image, want)
+	}
 }
 
 func TestCICallsTargetWorkflowPerTarget(t *testing.T) {
@@ -357,6 +408,7 @@ func TestTargetWorkflowRunsItsLanesOnItsBuild(t *testing.T) {
 		if want := fmt.Sprintf("${{ fromJSON(inputs.%s) }}", l.kind); j.Strategy.Matrix != want {
 			t.Errorf("job %s matrix = %v, want %q", l.kind, j.Strategy.Matrix, want)
 		}
+		checkContainer(t, l, j)
 		if l.kind == "build" {
 			continue
 		}
@@ -385,6 +437,7 @@ func TestCIRunsEveryLane(t *testing.T) {
 		if want := fmt.Sprintf("${{ fromJSON(needs.plan.outputs.%s) }}", l.kind); j.Strategy.Matrix != want {
 			t.Errorf("job %s matrix = %v, want %q", l.kind, j.Strategy.Matrix, want)
 		}
+		checkContainer(t, l, j)
 		if want := fmt.Sprintf("fromJSON(needs.plan.outputs.planned)['%s']", l.kind); j.If != want {
 			t.Errorf("job %s if = %q, want %q", l.kind, j.If, want)
 		}

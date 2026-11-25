@@ -1,0 +1,10 @@
+name: bun
+description: Install web/package.json's Bun in Playwright's container, which has no unzip for setup-bun to unpack Bun's release with
+runs:
+  using: composite
+  steps:
+    - name: Install Bun from npm
+      shell: bash
+      run: |
+        npm install --global --prefix "$HOME/.local" "$(node -p 'require("./web/package.json").packageManager')"
+        echo "$HOME/.local/bin" >> "$GITHUB_PATH"
