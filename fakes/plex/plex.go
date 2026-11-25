@@ -155,6 +155,14 @@ func newServer(s scenario.Scenario, env fake.Env) (fake.Server, error) {
 	return serve(env, srv)
 }
 
+func claimed(sections []Section) []plexaccount.Section {
+	out := make([]plexaccount.Section, len(sections))
+	for i, sec := range sections {
+		out[i] = plexaccount.Section{Key: sec.Key, Title: sec.Title, Type: sec.Type}
+	}
+	return out
+}
+
 // plexAdmin is the plex.tv account fake-plex-tv signs a world in to.
 const plexAdmin = "plex-admin"
 
@@ -192,6 +200,7 @@ func serve(env fake.Env, srv *Server) (fake.Server, error) {
 				On: srv.Remote, Custom: custom, Published: published,
 				Mapping: plexaccount.MappingOf(srv.Mapping, netip.AddrPort{}),
 			},
+			Sections: claimed(srv.Sections),
 		})
 		core, err := newCore(env, srv)
 		if err != nil {

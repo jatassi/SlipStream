@@ -6,6 +6,8 @@
 // JSON. Written against plex.tv as the recorded run of 2026-11-14 met it:
 // the PIN poll needs no nonce, the PIN answers authToken and the renewal
 // auth_token, and a server's resources token works only on that server.
+// The Admin's sharing calls and a Member's own device are as the Plex run
+// of 2026-11-25 met them (recorded/plex-members-run-2026-11-25.md).
 package plextv
 
 import (
@@ -31,6 +33,8 @@ import (
 
 type Endpoints struct {
 	API endpoint.URL `yaml:"api"`
+	// Web is plex.tv, where the run of 2026-11-25 measured the share POST.
+	Web endpoint.URL `yaml:"web"`
 	// Auth is the sign-in page, opened in the browser only.
 	Auth endpoint.URL `yaml:"auth"`
 	// Desktop is Plex's web app, which Open in links to in the browser only.
@@ -40,6 +44,7 @@ type Endpoints struct {
 func DefaultEndpoints() Endpoints {
 	return Endpoints{
 		API:     endpoint.MustParseURL("https://clients.plex.tv"),
+		Web:     endpoint.MustParseURL("https://plex.tv"),
 		Auth:    endpoint.MustParseURL("https://app.plex.tv/auth"),
 		Desktop: endpoint.MustParseURL("https://app.plex.tv/desktop"),
 	}
@@ -132,7 +137,8 @@ type Error struct {
 	Status int
 	// RetryAfter is the wait a 429 asked for, zero when it named none.
 	RetryAfter time.Duration
-	// Detail is plex.tv's first error message, or the start of the body.
+	// Detail is plex.tv's first error message, the status of an XML
+	// <Response>, or the start of the body.
 	Detail string
 }
 
@@ -153,6 +159,14 @@ func status(err error) int {
 func Refused(err error) bool {
 	s := status(err)
 	return s == http.StatusUnauthorized || s == http.StatusUnprocessableEntity
+}
+
+// Declined is whether plex.tv said no to a sharing call, with its reason
+// in Error.Detail: a Home invite without Plex Pass or into a full Home is
+// 403, a second share to one account 400.
+func Declined(err error) bool {
+	s := status(err)
+	return s == http.StatusBadRequest || s == http.StatusForbidden || s == http.StatusUnprocessableEntity
 }
 
 // Expired is whether a PIN poll found the PIN gone: past its expiresIn,
@@ -266,6 +280,13 @@ func responseError(resp *http.Response, raw []byte) *Error {
 	}
 	if json.Unmarshal(raw, &b) == nil && len(b.Errors) > 0 {
 		e.Detail = b.Errors[0].Message
+		return e
+	}
+	var x struct {
+		Status string `xml:"status,attr"`
+	}
+	if xml.Unmarshal(raw, &x) == nil && x.Status != "" {
+		e.Detail = x.Status
 		return e
 	}
 	e.Detail = strings.TrimSpace(string(raw))
