@@ -64,35 +64,45 @@ var routes = map[call]route{
 	legacyPin:     {api, "POST", "/api/v2/pins?strong=true", formatJSON},
 	pollLegacyPin: {api, "GET", "/api/v2/pins/{pin}", formatJSON},
 	signOut:       {api, "DELETE", "/api/v2/users/signout", formatJSON},
-	// The Admin's JWT on the sharing routes, from the Plex run of
-	// 2026-11-25 (recorded/plex-members-run-2026-11-25.md), whose q1 got
-	// 200 on clients.plex.tv and plex.tv for every listing below. Bodies
-	// and parameters are the run's RUNBOOK's.
-	sections:      {api, "GET", "/api/servers/{machine}", formatXML},
+	// The Admin's JWT on the sharing routes, measured 2026-11-25
+	// (recorded/plex-members-run-2026-11-25.md, and each answer's shape in
+	// recorded/response-shapes-2026-11-25.md). v1 routes answer XML
+	// whatever Accept asks, their errors <Response code status>.
+	sections: {api, "GET", "/api/servers/{machine}", formatXML},
+	// Measured 2026-11-25: a JSON array, [] when none, with invited{id,
+	// uuid} per share. owned/pending is the only listing with a pending
+	// share's id.
 	ownedAccepted: {api, "GET", "/api/v2/shared_servers/owned/accepted", formatJSON},
-	// q2: the only listing that carries a pending share's id.
-	ownedPending: {api, "GET", "/api/v2/shared_servers/owned/pending", formatJSON},
-	// q1: 200 on plex.tv, the only host tried. q5: a second share to the
-	// same account is 400 "You're already sharing this server".
-	share: {web, "POST", "/api/servers/{machine}/shared_servers", formatJSON},
-	// q7: 200 before and after accept. The report doesn't name the host
-	// that answered; plex.tv is the RUNBOOK's.
-	deleteShare: {web, "DELETE", "/api/servers/{machine}/shared_servers/{share}", formatJSON},
-	// q2: lists the invite without the share id. q7: a share deleted
-	// before accept leaves its invite here.
+	ownedPending:  {api, "GET", "/api/v2/shared_servers/owned/pending", formatJSON},
+	// Measured 2026-11-25 on plex.tv: 200 <SharedServer id>, whose id is
+	// the share's. A second share to one account is 400 "You're already
+	// sharing this server with {user}".
+	share: {web, "POST", "/api/servers/{machine}/shared_servers", formatXML},
+	// Measured 2026-11-25: 200 empty. After accept plex.tv answered and
+	// clients.plex.tv wasn't tried; before accept clients.plex.tv answered
+	// and plex.tv wasn't tried.
+	deleteShare: {web, "DELETE", "/api/servers/{machine}/shared_servers/{share}", formatXML},
+	// Measured 2026-11-25: <Invite id> is the invitee's account id, with
+	// friend, home and server flags and a <Server> per pending share. A
+	// share deleted before accept leaves its Invite with server="0" and no
+	// <Server>.
 	invites: {api, "GET", "/api/invites/requested", formatXML},
-	// q7: 200, with friend, server and home copied from the invite. The
-	// report doesn't name the host that answered; plex.tv is the RUNBOOK's.
-	cancelInvite: {web, "DELETE", "/api/invites/requested/{invite}", formatJSON},
-	homeUsers:    {api, "GET", "/api/home/users", formatXML},
-	// q6: 403 "Invite a user requires a Plex Pass" without Plex Pass, and
-	// 403 "You have reached the 15 person Home limit" at 15 people.
-	// [unverified] past those: the run's Admin had no Plex Pass.
-	inviteHome: {web, "POST", "/api/home/users", formatJSON},
+	// Measured 2026-11-25 on plex.tv: 200 <Response status="Canceled
+	// invitation to ...">, with friend, home and server echoing the
+	// Invite's.
+	cancelInvite: {web, "DELETE", "/api/invites/requested/{invite}", formatXML},
+	// Measured 2026-11-25: <User id uuid> per Home user.
+	homeUsers: {api, "GET", "/api/home/users", formatXML},
+	// Measured 2026-11-25: 403 "Invite a user requires a Plex Pass"
+	// without Plex Pass, and 403 "You have reached the 15 person Home
+	// limit" at 15 people. [unverified] past those: the run's Admin had no
+	// Plex Pass.
+	inviteHome: {web, "POST", "/api/home/users", formatXML},
 	// [unverified]: the RUNBOOK's form, never called on a Home user.
-	leaveHome: {web, "DELETE", "/api/home/users/{member}", formatJSON},
-	// The Member's own token. Measured by #74 and q4: the pending invite's
-	// id is the share's, and accepting it answers 204.
+	leaveHome: {web, "DELETE", "/api/home/users/{member}", formatXML},
+	// The Member's own token, measured 2026-11-25 on clients.plex.tv: a
+	// JSON array of invites, each with sharedServers[].id the share's id,
+	// and accepting one by that id answers 204.
 	pendingReceived: {api, "GET", "/api/v2/shared_servers/invites/received/pending", formatJSON},
 	accept:          {api, "POST", "/api/v2/shared_servers/{share}/accept", formatJSON},
 }

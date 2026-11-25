@@ -137,7 +137,8 @@ type Error struct {
 	Status int
 	// RetryAfter is the wait a 429 asked for, zero when it named none.
 	RetryAfter time.Duration
-	// Detail is plex.tv's first error message, or the start of the body.
+	// Detail is plex.tv's first error message, the status of an XML
+	// <Response>, or the start of the body.
 	Detail string
 }
 
@@ -279,6 +280,13 @@ func responseError(resp *http.Response, raw []byte) *Error {
 	}
 	if json.Unmarshal(raw, &b) == nil && len(b.Errors) > 0 {
 		e.Detail = b.Errors[0].Message
+		return e
+	}
+	var x struct {
+		Status string `xml:"status,attr"`
+	}
+	if xml.Unmarshal(raw, &x) == nil && x.Status != "" {
+		e.Detail = x.Status
 		return e
 	}
 	e.Detail = strings.TrimSpace(string(raw))

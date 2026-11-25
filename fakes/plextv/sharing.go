@@ -59,20 +59,22 @@ const homeLimit = 15
 // share is one server shared with one account. Its id is also the id of
 // the pending invite the account accepts.
 type share struct {
-	id       int64
-	machine  string
-	member   *person
-	sections []string
-	accepted bool
+	id          int64
+	machine     string
+	member      *person
+	sections    []string
+	inviteToken string
+	invitedAt   time.Time
+	acceptedAt  time.Time
+	accepted    bool
 }
 
-// invite is what invites/requested lists for one account: a server for
-// each share made while the account hadn't accepted it, which stays after
-// the share is deleted until the invite is canceled, as the run of
-// 2026-11-25 saw.
+// invite is what invites/requested lists for one account until it is
+// accepted or canceled. It stays after a pending share is deleted, as the
+// run of 2026-11-25 saw.
 type invite struct {
-	member   *person
-	machines []string
+	member  *person
+	created time.Time
 }
 
 // sharing is the Admin's shares, invites and Plex Home, which s.mu
@@ -197,12 +199,27 @@ func (s *state) asMember(h func(http.ResponseWriter, *http.Request, *person)) ht
 }
 
 func writeXML(w http.ResponseWriter, v any) {
+	writeXMLStatus(w, http.StatusOK, v)
+}
+
+func writeXMLStatus(w http.ResponseWriter, status int, v any) {
 	b, err := xml.Marshal(v)
 	if err != nil {
 		panic(err)
 	}
 	w.Header().Set("Content-Type", "application/xml; charset=utf-8")
+	w.WriteHeader(status)
 	_, _ = w.Write(append([]byte(xml.Header), b...))
+}
+
+// writeResponse is a v1 route's <Response code status>, which carries
+// its errors and an invite's cancel, as the run of 2026-11-25 met it.
+func writeResponse(w http.ResponseWriter, status int, message string) {
+	writeXMLStatus(w, status, struct {
+		XMLName xml.Name `xml:"Response"`
+		Code    int      `xml:"code,attr"`
+		Status  string   `xml:"status,attr"`
+	}{Code: status, Status: message})
 }
 
 // sectionID is plex.tv's id of a server's section, which a share names
@@ -225,7 +242,7 @@ type xmlSection struct {
 func (s *state) sections(w http.ResponseWriter, r *http.Request) {
 	srv, ok := s.owned.Server(r.PathValue("machine"))
 	if !ok {
-		writeError(w, http.StatusNotFound, 1020, "Server not found")
+		writeResponse(w, http.StatusNotFound, "Server not found")
 		return
 	}
 	type server struct {
@@ -243,12 +260,75 @@ func (s *state) sections(w http.ResponseWriter, r *http.Request) {
 	}{Server: out})
 }
 
-func (p *person) wire() map[string]any {
-	return map[string]any{"id": p.id, "uuid": p.uuid, "username": p.Username, "title": p.Username, "email": p.Email, "friendlyName": p.Username}
+const avatar = "https://plex.invalid/users/fake/avatar"
+
+// myPlex and myPlexMachine are plex.tv's own identifier and machine
+// identifier, which its v1 containers carry.
+const (
+	myPlex        = "com.plexapp.plugins.myplex"
+	myPlexMachine = "fake-plex-tv"
+)
+
+// wire is an account as the shared_servers listings name it, its email
+// only once the share is accepted.
+func (p *person) wire(accepted bool) map[string]any {
+	out := map[string]any{
+		"id": p.id, "uuid": p.uuid, "username": p.Username, "title": p.Username, "thumb": avatar,
+		"friendlyName": nil, "restricted": false, "subscription": nil,
+	}
+	if accepted {
+		out["email"] = p.Email
+	}
+	return out
 }
 
-// ownedShares lists the Admin's accepted shares, or the pending ones with the
-// share's id on the top-level entry, as the run's q2 found.
+func sharingSettings() map[string]any {
+	return map[string]any{
+		"allowCameraUpload": false, "allowChannels": false, "allowSubtitleAdmin": false, "allowSync": false, "allowTuners": 0,
+		"filterAll": nil, "filterMovies": nil, "filterMusic": nil, "filterPhotos": nil, "filterTelevision": nil,
+	}
+}
+
+func timeOrNil(t time.Time) any {
+	if t.IsZero() {
+		return nil
+	}
+	return t.UTC().Format(time.RFC3339)
+}
+
+// serverID is plex.tv's number for a server, which a share carries beside
+// its machine identifier.
+func serverID(machine string) int64 {
+	h := fnv.New32a()
+	_, _ = h.Write([]byte(machine))
+	return 1_000_000 + int64(h.Sum32()%9_000_000)
+}
+
+// wire is the share as shared_servers lists it, without invited and
+// owner, as the run of 2026-11-25 met it.
+func (s *state) wire(sh *share, owned bool) map[string]any {
+	srv, _ := s.owned.Server(sh.machine)
+	libraries := []map[string]any{}
+	for _, sec := range srv.Sections {
+		if id := sectionID(srv.Identifier, sec.Key); slices.Contains(sh.sections, id) {
+			libraries = append(libraries, map[string]any{"id": json.Number(id), "key": json.Number(sec.Key), "title": sec.Title, "type": sec.Type})
+		}
+	}
+	out := map[string]any{
+		"id": sh.id, "accepted": sh.accepted, "acceptedAt": timeOrNil(sh.acceptedAt), "allLibraries": false, "deletedAt": nil,
+		"invitedEmail": nil, "invitedId": sh.member.id, "lastSeenAt": sh.invitedAt.UTC().Format(time.RFC3339), "leftAt": nil,
+		"machineIdentifier": sh.machine, "name": srv.Name, "numLibraries": len(libraries), "owned": owned, "ownerId": s.admin().id,
+		"searchEnabled": true, "serverId": serverID(sh.machine), "libraries": libraries, "sharingSettings": sharingSettings(),
+	}
+	if owned {
+		out["inviteToken"] = sh.inviteToken
+	}
+	return out
+}
+
+// ownedShares lists the Admin's accepted shares, or the pending ones,
+// each with the share's id and the invited account, as the run of
+// 2026-11-25 met them.
 func (s *state) ownedShares(accepted bool) http.HandlerFunc {
 	return func(w http.ResponseWriter, _ *http.Request) {
 		out := []map[string]any{}
@@ -256,14 +336,14 @@ func (s *state) ownedShares(accepted bool) http.HandlerFunc {
 			if sh.accepted != accepted {
 				continue
 			}
-			libraries := []map[string]any{}
-			for _, id := range sh.sections {
-				libraries = append(libraries, map[string]any{"id": json.Number(id)})
+			invited := sh.member.wire(accepted)
+			invited["home"], invited["status"], invited["sharingSettings"] = slices.Contains(s.home, sh.member), "pending", sharingSettings()
+			if accepted {
+				invited["status"] = "accepted"
 			}
-			out = append(out, map[string]any{
-				"id": sh.id, "machineIdentifier": sh.machine, "invitedId": sh.member.id, "invited": sh.member.wire(),
-				"invitedEmail": sh.member.Email, "libraries": libraries, "allLibraries": false,
-			})
+			e := s.wire(sh, true)
+			e["invited"], e["owner"] = invited, s.admin().wire(accepted)
+			out = append(out, e)
 		}
 		writeJSON(w, http.StatusOK, out)
 	}
@@ -279,48 +359,89 @@ func (s *state) share(w http.ResponseWriter, r *http.Request) {
 		} `json:"shared_server"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		writeError(w, http.StatusBadRequest, 1000, "The request body isn't a share")
+		writeResponse(w, http.StatusBadRequest, "The request body isn't a share")
 		return
 	}
 	srv, ok := s.owned.Server(r.PathValue("machine"))
 	if !ok {
-		writeError(w, http.StatusNotFound, 1020, "Server not found")
+		writeResponse(w, http.StatusNotFound, "Server not found")
 		return
 	}
 	i := slices.IndexFunc(s.accounts, func(p *person) bool { return p.id == body.SharedServer.InvitedID })
 	if i < 0 || s.accounts[i] == s.admin() {
-		writeError(w, http.StatusBadRequest, 1000, "User not found")
+		writeResponse(w, http.StatusBadRequest, "User not found")
 		return
 	}
 	member := s.accounts[i]
 	if s.refuse.share {
 		s.refuse.share = false
-		writeError(w, http.StatusBadRequest, 1999, "The server couldn't be shared with this user")
+		writeResponse(w, http.StatusBadRequest, "The server couldn't be shared with this user")
 		return
 	}
 	if slices.ContainsFunc(s.shares, func(sh *share) bool { return sh.machine == srv.Identifier && sh.member == member }) {
-		writeError(w, http.StatusBadRequest, 1999, "You're already sharing this server with "+member.Username+". Please edit your existing share.")
+		writeResponse(w, http.StatusBadRequest, "You're already sharing this server with "+member.Username+". Please edit your existing share.")
 		return
 	}
 	sections, ok := sectionsOf(srv, body.SharedServer.Sections)
 	if !ok {
-		writeError(w, http.StatusBadRequest, 1000, "A library section isn't the server's")
+		writeResponse(w, http.StatusBadRequest, "A library section isn't the server's")
 		return
 	}
-	sh := &share{id: 100_000_000 + s.draw.Int64N(900_000_000), machine: srv.Identifier, member: member, sections: sections}
-	s.shares = append(s.shares, sh)
-	inv := s.inviteOf(member)
-	if inv == nil {
-		inv = &invite{member: member}
-		s.invites = append(s.invites, inv)
+	now := time.Now()
+	sh := &share{
+		id: 100_000_000 + s.draw.Int64N(900_000_000), machine: srv.Identifier, member: member, sections: sections,
+		inviteToken: s.word(32), invitedAt: now,
 	}
-	if !slices.Contains(inv.machines, srv.Identifier) {
-		inv.machines = append(inv.machines, srv.Identifier)
+	s.shares = append(s.shares, sh)
+	if s.inviteOf(member) == nil {
+		s.invites = append(s.invites, &invite{member: member, created: now})
 	}
 	s.mails.Record(r.Context(), map[string]any{"to": member.Email, "server": srv.Name})
-	writeJSON(w, http.StatusOK, map[string]any{
-		"id": sh.id, "machineIdentifier": sh.machine, "invitedId": member.id, "invited": member.wire(), "acceptedAt": nil,
-	})
+	writeXML(w, sharedServerOf(srv, sh))
+}
+
+type xmlSharedSection struct {
+	xmlSection
+	Shared int `xml:"shared,attr"`
+}
+
+type xmlSharedServer struct {
+	ID                 int64              `xml:"id,attr"`
+	UserID             int64              `xml:"userID,attr"`
+	Username           string             `xml:"username,attr"`
+	Email              string             `xml:"email,attr"`
+	Name               string             `xml:"name,attr"`
+	Owned              int                `xml:"owned,attr"`
+	InvitedAt          int64              `xml:"invitedAt,attr"`
+	AcceptedAt         int64              `xml:"acceptedAt,attr"`
+	AccessToken        string             `xml:"accessToken,attr"`
+	AllowSync          int                `xml:"allowSync,attr"`
+	AllowCameraUpload  int                `xml:"allowCameraUpload,attr"`
+	AllowChannels      int                `xml:"allowChannels,attr"`
+	AllowTuners        int                `xml:"allowTuners,attr"`
+	AllowSubtitleAdmin int                `xml:"allowSubtitleAdmin,attr"`
+	Sections           []xmlSharedSection `xml:"Section"`
+}
+
+// sharedServerOf is the share POST's answer, as the run of 2026-11-25
+// met it.
+func sharedServerOf(srv plexaccount.Server, sh *share) any {
+	out := xmlSharedServer{
+		ID: sh.id, UserID: sh.member.id, Username: sh.member.Username, Email: sh.member.Email, Name: srv.Name, InvitedAt: sh.invitedAt.Unix(),
+	}
+	for _, sec := range srv.Sections {
+		if id := sectionID(srv.Identifier, sec.Key); slices.Contains(sh.sections, id) {
+			out.Sections = append(out.Sections, xmlSharedSection{xmlSection{ID: id, Key: sec.Key, Title: sec.Title, Type: sec.Type}, 1})
+		}
+	}
+	return struct {
+		XMLName           xml.Name        `xml:"MediaContainer"`
+		FriendlyName      string          `xml:"friendlyName,attr"`
+		Identifier        string          `xml:"identifier,attr"`
+		MachineIdentifier string          `xml:"machineIdentifier,attr"`
+		Size              int             `xml:"size,attr"`
+		SharedServer      xmlSharedServer `xml:"SharedServer"`
+	}{FriendlyName: "myPlex", Identifier: myPlex, MachineIdentifier: myPlexMachine, Size: 1, SharedServer: out}
 }
 
 // sectionsOf is ids when each is a plex.tv id of srv's sections.
@@ -350,34 +471,48 @@ func (s *state) deleteShare(w http.ResponseWriter, r *http.Request) {
 	n := len(s.shares)
 	s.shares = slices.DeleteFunc(s.shares, func(sh *share) bool { return sh.id == id && sh.machine == r.PathValue("machine") })
 	if len(s.shares) == n {
-		writeError(w, http.StatusNotFound, 1020, "Shared server not found")
+		writeResponse(w, http.StatusNotFound, "Shared server not found")
 		return
 	}
 	w.WriteHeader(http.StatusOK)
 }
 
+type xmlInviteServer struct {
+	Name         string `xml:"name,attr"`
+	NumLibraries int    `xml:"numLibraries,attr"`
+}
+
 type xmlInvite struct {
-	ID       int64  `xml:"id,attr"`
-	Username string `xml:"username,attr"`
-	Email    string `xml:"email,attr"`
-	Friend   int    `xml:"friend,attr"`
-	Server   int    `xml:"server,attr"`
-	Home     int    `xml:"home,attr"`
-	Servers  []struct {
-		MachineIdentifier string `xml:"machineIdentifier,attr"`
-	} `xml:"Server"`
+	ID           int64             `xml:"id,attr"`
+	Username     string            `xml:"username,attr"`
+	Email        string            `xml:"email,attr"`
+	FriendlyName string            `xml:"friendlyName,attr"`
+	Thumb        string            `xml:"thumb,attr"`
+	CreatedAt    int64             `xml:"createdAt,attr"`
+	Friend       int               `xml:"friend,attr"`
+	Home         int               `xml:"home,attr"`
+	Server       int               `xml:"server,attr"`
+	Servers      []xmlInviteServer `xml:"Server"`
 }
 
 // invitesRequested lists each invite by the account's id, with a Server
-// per machine and no share id, as PLEXAPI reads it and the run's q2 saw.
+// per pending share and no share id, as the run of 2026-11-25 met it.
+// An invite whose pending shares were deleted is server="0" with none.
 func (s *state) invitesRequested(w http.ResponseWriter, _ *http.Request) {
 	out := []xmlInvite{}
 	for _, inv := range s.invites {
-		x := xmlInvite{ID: inv.member.id, Username: inv.member.Username, Email: inv.member.Email, Friend: 1, Server: 1}
-		for _, m := range inv.machines {
-			x.Servers = append(x.Servers, struct {
-				MachineIdentifier string `xml:"machineIdentifier,attr"`
-			}{m})
+		x := xmlInvite{
+			ID: inv.member.id, Username: inv.member.Username, Email: inv.member.Email, Thumb: avatar,
+			CreatedAt: inv.created.Unix(), Friend: 1,
+		}
+		for _, sh := range s.shares {
+			if sh.member == inv.member && !sh.accepted {
+				srv, _ := s.owned.Server(sh.machine)
+				x.Servers = append(x.Servers, xmlInviteServer{Name: srv.Name, NumLibraries: len(sh.sections)})
+			}
+		}
+		if len(x.Servers) > 0 {
+			x.Server = 1
 		}
 		out = append(out, x)
 	}
@@ -390,25 +525,34 @@ func (s *state) invitesRequested(w http.ResponseWriter, _ *http.Request) {
 // cancelInvite removes the account's invite and leaves its shares.
 func (s *state) cancelInvite(w http.ResponseWriter, r *http.Request) {
 	id, _ := strconv.ParseInt(r.PathValue("invite"), 10, 64)
-	n := len(s.invites)
-	s.invites = slices.DeleteFunc(s.invites, func(inv *invite) bool { return inv.member.id == id })
-	if len(s.invites) == n {
-		writeError(w, http.StatusNotFound, 1020, "Invite not found")
+	i := slices.IndexFunc(s.invites, func(inv *invite) bool { return inv.member.id == id })
+	if i < 0 {
+		writeResponse(w, http.StatusNotFound, "Invite not found")
 		return
 	}
-	w.WriteHeader(http.StatusOK)
+	member := s.invites[i].member
+	s.invites = slices.Delete(s.invites, i, i+1)
+	writeResponse(w, http.StatusOK, "Canceled invitation to "+member.Username)
 }
 
 type xmlUser struct {
-	ID       int64  `xml:"id,attr"`
-	UUID     string `xml:"uuid,attr"`
-	Title    string `xml:"title,attr"`
-	Username string `xml:"username,attr"`
-	Email    string `xml:"email,attr"`
-	Admin    int    `xml:"admin,attr"`
+	ID                 int64  `xml:"id,attr"`
+	UUID               string `xml:"uuid,attr"`
+	Username           string `xml:"username,attr"`
+	Email              string `xml:"email,attr"`
+	Title              string `xml:"title,attr"`
+	Thumb              string `xml:"thumb,attr"`
+	Admin              int    `xml:"admin,attr"`
+	Guest              int    `xml:"guest,attr"`
+	HasPassword        int    `xml:"hasPassword,attr"`
+	Protected          int    `xml:"protected,attr"`
+	Restricted         int    `xml:"restricted,attr"`
+	RestrictionProfile string `xml:"restrictionProfile,attr"`
 }
 
-// homeUsers is the Plex Home, the Admin first.
+// homeUsers is the Plex Home, the Admin first, as the run of 2026-11-25
+// met it less guestUserID and totalSize, which plex.tv sometimes leaves
+// out.
 func (s *state) homeUsers(w http.ResponseWriter, _ *http.Request) {
 	var out []xmlUser
 	for _, p := range append([]*person{s.admin()}, s.home...) {
@@ -416,13 +560,19 @@ func (s *state) homeUsers(w http.ResponseWriter, _ *http.Request) {
 		if p == s.admin() {
 			admin = 1
 		}
-		out = append(out, xmlUser{ID: p.id, UUID: p.uuid, Title: p.Username, Username: p.Username, Email: p.Email, Admin: admin})
+		out = append(out, xmlUser{
+			ID: p.id, UUID: p.uuid, Username: p.Username, Email: p.Email, Title: p.Username, Thumb: avatar,
+			Admin: admin, HasPassword: 1, Protected: 1,
+		})
 	}
 	writeXML(w, struct {
-		XMLName xml.Name  `xml:"MediaContainer"`
-		Size    int       `xml:"size,attr"`
-		Users   []xmlUser `xml:"User"`
-	}{Size: len(out), Users: out})
+		XMLName           xml.Name  `xml:"MediaContainer"`
+		FriendlyName      string    `xml:"friendlyName,attr"`
+		Identifier        string    `xml:"identifier,attr"`
+		MachineIdentifier string    `xml:"machineIdentifier,attr"`
+		Size              int       `xml:"size,attr"`
+		Users             []xmlUser `xml:"User"`
+	}{FriendlyName: "myPlex", Identifier: myPlex, MachineIdentifier: myPlexMachine, Size: len(out), Users: out})
 }
 
 // inviteHome is the run's q6: 403 while the Admin has no Plex Pass, and
@@ -431,22 +581,22 @@ func (s *state) homeUsers(w http.ResponseWriter, _ *http.Request) {
 func (s *state) inviteHome(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case !s.admin().PlexPass:
-		writeError(w, http.StatusForbidden, 1999, "Invite a user requires a Plex Pass")
+		writeResponse(w, http.StatusForbidden, "Invite a user requires a Plex Pass")
 		return
 	case s.homeFull || 1+len(s.home) >= homeLimit:
-		writeError(w, http.StatusForbidden, 1999, "You have reached the 15 person Home limit")
+		writeResponse(w, http.StatusForbidden, "You have reached the 15 person Home limit")
 		return
 	}
 	p := s.named(r.URL.Query().Get("invitedEmail"))
 	if p == nil || p == s.admin() {
-		writeError(w, http.StatusNotFound, 1020, "User not found")
+		writeResponse(w, http.StatusNotFound, "User not found")
 		return
 	}
 	if !slices.Contains(s.home, p) {
 		s.home = append(s.home, p)
 		s.mails.Record(r.Context(), map[string]any{"to": p.Email, "home": true})
 	}
-	writeJSON(w, http.StatusOK, p.wire())
+	w.WriteHeader(http.StatusOK)
 }
 
 // leaveHome removes the account from the Home, [unverified].
@@ -455,27 +605,26 @@ func (s *state) leaveHome(w http.ResponseWriter, r *http.Request) {
 	n := len(s.home)
 	s.home = slices.DeleteFunc(s.home, func(p *person) bool { return p.id == id })
 	if len(s.home) == n {
-		writeError(w, http.StatusNotFound, 1020, "User not found")
+		writeResponse(w, http.StatusNotFound, "User not found")
 		return
 	}
 	w.WriteHeader(http.StatusOK)
 }
 
-// pendingReceived is the Member's invites from the Admin with each
-// pending share's id, as #74 read them.
+// pendingReceived is the Member's invites from the Admin, each pending
+// share's id in sharedServers, as the run of 2026-11-25 met them.
 func (s *state) pendingReceived(w http.ResponseWriter, _ *http.Request, member *person) {
 	out := []map[string]any{}
-	var servers []map[string]any
+	servers := []map[string]any{}
 	for _, sh := range s.shares {
 		if sh.member == member && !sh.accepted {
-			srv, _ := s.owned.Server(sh.machine)
-			servers = append(servers, map[string]any{"id": sh.id, "machineIdentifier": sh.machine, "name": srv.Name})
+			servers = append(servers, s.wire(sh, false))
 		}
 	}
 	if len(servers) > 0 {
-		owner := s.admin().wire()
 		out = append(out, map[string]any{
-			"id": s.admin().id, "owner": owner, "friendshipStatus": "pending", "createdAt": time.Now().UTC().Format(time.RFC3339), "sharedServers": servers,
+			"type": "received", "friendshipStatus": "pending", "invitedId": member.id, "ownerId": s.admin().id,
+			"invited": member.wire(false), "owner": s.admin().wire(false), "sharedServers": servers,
 		})
 	}
 	writeJSON(w, http.StatusOK, out)
@@ -496,12 +645,9 @@ func (s *state) accept(w http.ResponseWriter, r *http.Request, member *person) {
 		return
 	}
 	sh := s.shares[i]
-	sh.accepted = true
-	if inv := s.inviteOf(member); inv != nil {
-		inv.machines = slices.DeleteFunc(inv.machines, func(m string) bool { return m == sh.machine })
-		if len(inv.machines) == 0 {
-			s.invites = slices.DeleteFunc(s.invites, func(x *invite) bool { return x == inv })
-		}
+	sh.accepted, sh.acceptedAt = true, time.Now()
+	if !slices.ContainsFunc(s.shares, func(o *share) bool { return o.member == member && !o.accepted }) {
+		s.invites = slices.DeleteFunc(s.invites, func(inv *invite) bool { return inv.member == member })
 	}
 	w.WriteHeader(http.StatusNoContent)
 }

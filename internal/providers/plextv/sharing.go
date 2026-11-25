@@ -102,11 +102,13 @@ func (c *Client) Share(ctx context.Context, admin, machine string, member Accoun
 		"sharing_settings": map[string]any{},
 	}
 	var out struct {
-		ID wireID `json:"id"`
+		SharedServer struct {
+			ID string `xml:"id,attr"`
+		} `xml:"SharedServer"`
 	}
 	err := c.t.do(ctx, request{route: routes[share], vars: machineVars(machine), token: admin, body: body}, &out)
 	if err == nil {
-		return ShareID(out.ID), nil
+		return ShareID(out.SharedServer.ID), nil
 	}
 	if !alreadySharing(err) {
 		return "", err
@@ -133,18 +135,15 @@ func (c *Client) InviteHome(ctx context.Context, admin string, member Invitee) e
 }
 
 type invite struct {
-	ID      string `xml:"id,attr"`
-	Friend  string `xml:"friend,attr"`
-	Server  string `xml:"server,attr"`
-	Home    string `xml:"home,attr"`
-	Servers []struct {
-		MachineIdentifier string `xml:"machineIdentifier,attr"`
-	} `xml:"Server"`
+	ID     string `xml:"id,attr"`
+	Friend string `xml:"friend,attr"`
+	Server string `xml:"server,attr"`
+	Home   string `xml:"home,attr"`
 }
 
 // Unshare deletes that one share, keeping the friendship, then cancels
-// any invite to member for machine still listed in invites/requested,
-// which a share deleted before accept leaves. A 404 is nil.
+// member's invite when invites/requested still lists it with no pending
+// share, as a share deleted before accept leaves it. A 404 is nil.
 func (c *Client) Unshare(ctx context.Context, admin, machine string, share ShareID, member Who) error {
 	vars := append(machineVars(machine), "{share}", string(share))
 	if err := c.t.do(ctx, request{route: routes[deleteShare], vars: vars, token: admin}, nil); status(err) != http.StatusNotFound && err != nil {
@@ -157,7 +156,7 @@ func (c *Client) Unshare(ctx context.Context, admin, machine string, share Share
 		return err
 	}
 	for _, inv := range out.Invites {
-		if !member.is(inv.ID, "") || !inv.names(machine) {
+		if !member.is(inv.ID, "") || inv.Server != "0" {
 			continue
 		}
 		q := url.Values{"friend": {inv.Friend}, "server": {inv.Server}, "home": {inv.Home}}
@@ -167,15 +166,6 @@ func (c *Client) Unshare(ctx context.Context, admin, machine string, share Share
 		}
 	}
 	return nil
-}
-
-func (inv invite) names(machine string) bool {
-	for _, s := range inv.Servers {
-		if s.MachineIdentifier == machine {
-			return true
-		}
-	}
-	return false
 }
 
 // LeaveHome removes member from the Admin's Plex Home. Not in the Home is

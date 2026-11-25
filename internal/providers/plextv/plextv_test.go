@@ -536,8 +536,15 @@ func (w sharing) share(t *testing.T, member plextv.User) plextv.ShareID {
 	return id
 }
 
-// invited are the account ids invites/requested lists.
-func (w sharing) invited(t *testing.T) []string {
+// listedInvite is an invite as invites/requested lists it: the account's
+// id, its server flag and how many pending shares it names.
+type listedInvite struct {
+	id, server string
+	servers    int
+}
+
+// invited are the invites invites/requested lists.
+func (w sharing) invited(t *testing.T) []listedInvite {
 	t.Helper()
 	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "https://plextv.fake.localhost/api/invites/requested", http.NoBody)
 	if err != nil {
@@ -551,17 +558,28 @@ func (w sharing) invited(t *testing.T) []string {
 	defer func() { _ = resp.Body.Close() }()
 	var out struct {
 		Invites []struct {
-			ID string `xml:"id,attr"`
+			ID      string     `xml:"id,attr"`
+			Server  string     `xml:"server,attr"`
+			Servers []struct{} `xml:"Server"`
 		} `xml:"Invite"`
 	}
 	if err := xml.NewDecoder(resp.Body).Decode(&out); err != nil {
 		t.Fatal(err)
 	}
-	var ids []string
+	var invites []listedInvite
 	for _, inv := range out.Invites {
-		ids = append(ids, inv.ID)
+		invites = append(invites, listedInvite{inv.ID, inv.Server, len(inv.Servers)})
 	}
-	return ids
+	return invites
+}
+
+// detailOf is the reason plex.tv gave with err.
+func detailOf(err error) string {
+	e, ok := errors.AsType[*plextv.Error](err)
+	if !ok {
+		return ""
+	}
+	return e.Detail
 }
 
 func idOf(u plextv.User) string { return strconv.FormatInt(int64(u.ID), 10) }
@@ -611,8 +629,15 @@ var wireSteps = []struct {
 	}, func(r *wireRun) []sent {
 		return []sent{
 			{"DELETE", "web", "/api/servers/" + r.machine + "/shared_servers/" + string(r.boShare), ""}, {"GET", "api", "/api/invites/requested", ""},
-			{"DELETE", "web", "/api/invites/requested/" + idOf(r.bo) + "?friend=1&home=0&server=1", ""},
+			{"DELETE", "web", "/api/invites/requested/" + idOf(r.bo) + "?friend=1&home=0&server=0", ""},
 		}
+	}},
+	{"unshare after accept", func(t *testing.T, r *wireRun) {
+		if err := r.client.Unshare(t.Context(), r.admin, r.machine, r.anaShare, who(r.ana)); err != nil {
+			t.Fatal(err)
+		}
+	}, func(r *wireRun) []sent {
+		return []sent{{"DELETE", "web", "/api/servers/" + r.machine + "/shared_servers/" + string(r.anaShare), ""}, {"GET", "api", "/api/invites/requested", ""}}
 	}},
 	{"invite into the Home", func(t *testing.T, r *wireRun) {
 		if err := r.client.InviteHome(t.Context(), r.admin, plextv.Invitee{Who: who(r.ana), Username: "ana", Email: "ana@example.test"}); err != nil {
@@ -683,14 +708,14 @@ var sharingAnswers = []struct {
 	}},
 	{"a Home invite without Plex Pass is declined", false, func(t *testing.T, w sharing) {
 		err := w.client.InviteHome(t.Context(), w.admin, plextv.Invitee{Who: who(w.ana), Email: "ana@example.test"})
-		if !plextv.Declined(err) || plextv.Refused(err) || statusOf(err) != http.StatusForbidden || !strings.Contains(err.Error(), "requires a Plex Pass") {
+		if !plextv.Declined(err) || plextv.Refused(err) || statusOf(err) != http.StatusForbidden || detailOf(err) != "Invite a user requires a Plex Pass" {
 			t.Fatalf("invite = %v, want the Plex Pass 403 declined", err)
 		}
 	}},
 	{"a Home invite into a full Home is declined", true, func(t *testing.T, w sharing) {
 		w.api.Cue(t, fakeplextv.HomeFull.Name, struct{}{})
 		err := w.client.InviteHome(t.Context(), w.admin, plextv.Invitee{Who: who(w.ana), Email: "ana@example.test"})
-		if !plextv.Declined(err) || plextv.Refused(err) || !strings.Contains(err.Error(), "15 person Home limit") {
+		if !plextv.Declined(err) || plextv.Refused(err) || statusOf(err) != http.StatusForbidden || detailOf(err) != "You have reached the 15 person Home limit" {
 			t.Fatalf("invite = %v, want the Home limit 403 declined", err)
 		}
 	}},
@@ -734,14 +759,14 @@ var sharingAnswers = []struct {
 	}},
 	{"an unshare before accept leaves no invite", true, func(t *testing.T, w sharing) {
 		id := w.share(t, w.ana)
-		if got := w.invited(t); !slices.Equal(got, []string{idOf(w.ana)}) {
-			t.Fatalf("invited after share = %v", got)
+		if got := w.invited(t); !slices.Equal(got, []listedInvite{{idOf(w.ana), "1", 1}}) {
+			t.Fatalf("invited after share = %+v, want ana's with the share", got)
 		}
 		if err := w.client.Unshare(t.Context(), w.admin, w.machine, id, who(w.ana)); err != nil {
 			t.Fatal(err)
 		}
 		if got := w.invited(t); len(got) != 0 {
-			t.Errorf("invited after unshare = %v, want none", got)
+			t.Errorf("invited after unshare = %+v, want none", got)
 		}
 		if ok, err := w.member.Accept(t.Context(), w.anaTok, id); ok || err != nil {
 			t.Errorf("accept after unshare = %v, %v, want not pending", ok, err)
