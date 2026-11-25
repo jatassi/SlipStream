@@ -22,7 +22,7 @@ export function NothingWanted({
       >
         {suggested
           ? "Nothing is set up for use away from home."
-          : "Nothing is set up for use away from home. SlipStream suggests the UI and portal once Address is a public https:// name, and each Media Server with remote access on."}
+          : "Nothing is set up for use away from home, and nothing is suggested. SlipStream suggests a Media Server once its remote access is on."}
       </Empty>
     </div>
   );
