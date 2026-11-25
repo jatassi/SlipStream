@@ -2,12 +2,10 @@ import { useState } from "react";
 
 import type { ReachabilityRemoteAccess } from "../api/gen/model";
 import { Section } from "../ui/section";
-import { ClassLines } from "./class-lines";
 import { HopInspector, type SelectedHop } from "./hop-inspector";
 import { Recommendation } from "./recommendation";
 import { RouteCard } from "./route";
 import { StatusHead, routesAnchor } from "./status";
-import { Suggestions } from "./suggestions";
 
 type Selection = { readonly exposureId: string; readonly hop: number };
 
@@ -22,7 +20,7 @@ function selectedOf(
     : { subject: route.exposure.subject, hop, judgedAt: route.judgedAt };
 }
 
-/** The page once something is set up: the sentence, the card, the routes, the suggestions and each Node's line. */
+/** The head of the page once something is set up: the sentence, the card and the routes. */
 export function Wanted({ page, pair }: { page: ReachabilityRemoteAccess; pair: () => void }) {
   const [selection, setSelection] = useState<Selection>();
   return (
@@ -46,14 +44,6 @@ export function Wanted({ page, pair }: { page: ReachabilityRemoteAccess; pair: (
             />
           ))}
         </div>
-      </Section>
-      {page.suggestions.length > 0 && (
-        <Section title="Suggested">
-          <Suggestions suggestions={page.suggestions} />
-        </Section>
-      )}
-      <Section title="Each Node's network">
-        <ClassLines nodes={page.nodes} />
       </Section>
       <HopInspector
         selected={selectedOf(page, selection)}
