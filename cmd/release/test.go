@@ -21,7 +21,7 @@ import (
 )
 
 func init() {
-	register("test", "run the test tiers: -tier go|e2e|component|diagram|browser|online|all (default all, which leaves out online); -tier go and e2e pass the rest to go test -race -shuffle=on, -tier online to go test -tags online ./conformance/...", runTest)
+	register("test", "run the test tiers: -tier go|e2e|component|diagram|browser|platform|online|all (default all, which leaves out platform and online); -tier go and e2e pass the rest to go test -race -shuffle=on, -tier online to go test -tags online ./conformance/...", runTest)
 }
 
 type testTier struct {
@@ -36,6 +36,9 @@ type testTier struct {
 	timed bool
 	// online tiers reach real services, so all leaves them out.
 	online bool
+	// subset tiers run tests the other tiers run in full, so all leaves
+	// them out.
+	subset bool
 }
 
 var testTiers = []testTier{
@@ -45,6 +48,7 @@ var testTiers = []testTier{
 	{name: "diagram", run: testDiagram},
 	{name: "browser", run: testBrowser, sharded: true, timed: true},
 	{name: "online", run: testOnline, goArgs: true, online: true},
+	{name: "platform", run: testPlatform, subset: true},
 }
 
 type testOptions struct {
@@ -84,7 +88,7 @@ func (s *shard) Set(v string) error {
 // go -run Foo ./e2e` hands `-run Foo ./e2e` to go test.
 func runTest(ctx context.Context, args []string) error {
 	fs := flag.NewFlagSet("test", flag.ContinueOnError)
-	tier := fs.String("tier", "all", "go, e2e, component, diagram, browser, online or all")
+	tier := fs.String("tier", "all", "go, e2e, component, diagram, browser, platform, online or all")
 	var o testOptions
 	fs.Var(&o.shard, "shard", "run the i-th of n shards of the tier, as i/n")
 	fs.StringVar(&o.filter, "filter", "", "run only the tests that match, as go test -run or playwright --grep")
@@ -105,11 +109,11 @@ func runTest(ctx context.Context, args []string) error {
 		return fmt.Errorf("parse flags: %w", err)
 	}
 	o.goArgs = goArgs
-	tiers := slices.DeleteFunc(slices.Clone(testTiers), func(t testTier) bool { return t.online })
+	tiers := slices.DeleteFunc(slices.Clone(testTiers), func(t testTier) bool { return t.online || t.subset })
 	if *tier != "all" {
 		i := slices.IndexFunc(testTiers, func(t testTier) bool { return t.name == *tier })
 		if i < 0 {
-			return fmt.Errorf("-tier %q is not one of go, e2e, component, diagram, browser, online, all", *tier)
+			return fmt.Errorf("-tier %q is not one of go, e2e, component, diagram, browser, platform, online, all", *tier)
 		}
 		tiers = testTiers[i : i+1]
 	}

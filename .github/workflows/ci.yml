@@ -17,7 +17,7 @@ on:
       tier:
         description: Lanes to run
         type: choice
-        options: [all, go, e2e, browser, component, lint]
+        options: [all, go, e2e, browser, component, lint, platform]
         default: all
       filter:
         description: Run only the tests that match, as go test -run and playwright --grep

@@ -1,7 +1,9 @@
 import { expect, expectAccessible, test } from "./fixtures.ts";
 import { isPhone, navigate, shellNav } from "./shell.ts";
 
-test("the shell reaches every destination and titles each tab", async ({ adminPage: page }) => {
+test("the shell reaches every destination and titles each tab @platform", async ({
+  adminPage: page,
+}) => {
   await expect(shellNav(page)).toBeVisible();
   await expect(page).toHaveTitle("Home · SlipStream");
 

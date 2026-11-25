@@ -377,3 +377,77 @@ jobs:
         uses: ./.github/actions/prune-cache
         with:
           prefix: go-${{ matrix.target }}-
+
+  # The platform suite on a target that runs no go or e2e lane: the Go tests
+  # that cmd/release/internal/platform lists, and on darwin the WebKit specs
+  # tagged @platform. The job builds what its tests run, so it waits for no
+  # other job.
+  platform:
+    name: Platform tests (${{ matrix.target }})
+    if: fromJSON(inputs.plan).planned['platform']
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(inputs.plan)['platform'] }}
+    runs-on: ${{ matrix.runner }}
+    env:
+      GOARCH: ${{ matrix.goarch }}
+      DEVELOPER_DIR: ${{ matrix.xcode && format('/Applications/Xcode_{0}.app/Contents/Developer', matrix.xcode) || '' }}
+      EXE: ${{ matrix.goos == 'windows' && '.exe' || '' }}
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+      - name: Set up Go
+        uses: ./.github/actions/go
+        with:
+          cache: go-${{ matrix.target }}
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: web/package.json
+      - name: Restore native libraries
+        uses: actions/cache@v6
+        with:
+          path: ${{ runner.temp }}/slipstream-native
+          key: native-${{ matrix.target }}-${{ hashFiles('native/lock.json') }}
+      - name: Restore fixtures
+        uses: actions/cache@v6
+        with:
+          path: ${{ runner.os == 'Windows' && '~\AppData\Local\slipstream-fixtures' || runner.os == 'macOS' && '~/Library/Caches/slipstream-fixtures' || '~/.cache/slipstream-fixtures' }}
+          key: fixtures-${{ matrix.target }}-${{ hashFiles('native/lock.json', 'fakes/internal/mediafix/recipe.go', 'fakes/internal/releases/releases.go', 'fakes/scenario/catalog/*.yaml') }}
+          restore-keys: fixtures-${{ matrix.target }}-
+      - name: Restore the Bun cache
+        uses: actions/cache@v6
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('web/bun.lock') }}
+      - name: Build release binaries
+        run: |
+          go run ./cmd/release build
+          eval "$(go run ./cmd/release deps env)"
+          go build -o dist/ ./cmd/fakeworld ./cmd/release
+      # On CI the tier readies the runner for its worlds first, as the e2e
+      # job's own steps do.
+      - name: Run platform tests
+        run: '"dist/release$EXE" test -tier platform -failures "$RUNNER_TEMP/failures/${{ matrix.target }}-platform.json"'
+        env:
+          TEST_SLIPSTREAM_BINARY: ${{ github.workspace }}/dist/slipstream${{ env.EXE }}
+          TEST_SLIPSTREAM_E2E_BINARY: ${{ github.workspace }}/dist/slipstream-e2e${{ env.EXE }}
+          TEST_FAKEWORLD_BINARY: ${{ github.workspace }}/dist/fakeworld${{ env.EXE }}
+          TEST_FAKEWORLD_RUNS: ${{ runner.temp }}/fakeworld-runs
+      # Each failed run dir is a replay bundle. The run's copies of the
+      # binaries stay out of it.
+      - name: Upload test results
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: results-${{ matrix.target }}-platform
+          path: |
+            ${{ runner.temp }}/failures
+            ${{ runner.temp }}/fakeworld-runs
+            !${{ runner.temp }}/fakeworld-runs/**/bin/**
+          if-no-files-found: ignore

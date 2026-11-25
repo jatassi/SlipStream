@@ -51,11 +51,15 @@ type touched struct {
 	diagram  bool
 }
 
-// lanes is the source of truth for what CI runs where. The build, go, e2e
-// and browser lanes run on each target, since cgo and the OS change what
-// they prove. Gofmt, go vet and golangci-lint run once per OS: no Go file
-// is built for one architecture only, and lint compiles the cgo shim, so
-// one OS cannot lint another's. Everything else runs once.
+// lanes is the source of truth for what CI can run where. The build, go
+// and e2e lanes run on each target, since cgo and the OS change what they
+// prove. Gofmt, go vet and golangci-lint run once per OS: no Go file is
+// built for one architecture only, and lint compiles the cgo shim, so one
+// OS cannot lint another's. The browser lane runs Chromium and Firefox on
+// linux-amd64 and WebKit on both it and darwin, whose WebKit is the only
+// one that paints as Safari does, so no other target adds an engine. The
+// platform lane runs the platform suite where a run skips the go and e2e
+// lanes. Everything else runs once.
 // The go lane's shard time keeps a wave's critical path short. An e2e
 // shard runs its heaviest packages for most of its test step, so its shard
 // time stays clear of go test's 25 minute -timeout. A browser shard ends
@@ -66,10 +70,11 @@ var lanes = []lane{
 	{kind: "lint-repo", tier: "lint", targets: []string{"linux-amd64"}},
 	{kind: "go", tier: "go", shardTime: 10 * time.Minute, defaultShards: 4},
 	{kind: "e2e", tier: "e2e", shardTime: 20 * time.Minute, defaultShards: 4},
-	{kind: "browser", tier: "browser", playwright: true, shardTime: 30 * time.Minute, defaultShards: 4},
+	{kind: "browser", tier: "browser", targets: []string{"linux-amd64", "darwin-arm64"}, playwright: true, shardTime: 30 * time.Minute, defaultShards: 4},
 	{kind: "component", tier: "component", playwright: true, targets: []string{"linux-amd64"}},
 	{kind: "diagram", tier: "component", playwright: true, targets: []string{"linux-amd64"}, onlyWhen: func(t touched) bool { return t.diagram }},
 	{kind: "go-cache"},
+	{kind: "platform", tier: "platform", targets: []string{"windows-amd64", "darwin-arm64", "linux-arm64"}},
 }
 
 // lanesOnBuild run against the build job's dist/.
@@ -83,41 +88,87 @@ func (l lane) runsOn(target string) bool {
 	return l.targets == nil || slices.Contains(l.targets, target)
 }
 
+// reach is which targets a run kind runs a lane on, before the lane's own
+// targets narrow them.
+type reach int
+
+const (
+	// prTargets are the targets every pull request tests.
+	prTargets reach = iota
+	// nativeTargets are every target when the change touches the native
+	// libraries or the packages, and the pull request targets otherwise.
+	nativeTargets
+	allTargets
+)
+
+// gates are the gates of the targets the reach takes a change of scope to.
+func (r reach) gates(scope changescope.Scope) []native.Gate {
+	switch {
+	case scope == changescope.Docs:
+		return nil
+	case r == allTargets || r == nativeTargets && scope == changescope.Native:
+		return []native.Gate{native.GatePR, native.GateNative}
+	default:
+		return []native.Gate{native.GatePR}
+	}
+}
+
 // runKind is what starts a CI run, as it decides which lanes run where.
 type runKind struct {
-	// lanes are the lanes the run kind runs.
-	lanes []string
-	// everyTarget runs every target whatever the change touches.
+	// lanes maps each lane the run kind runs to its reach.
+	lanes map[string]reach
+	// everyTarget runs the lanes whatever the change touches.
 	everyTarget bool
 	packages    bool
-	// widest caps the scope a change can widen the run to.
-	widest changescope.Scope
 	// budget caps the jobs the run's lanes take; zero leaves them uncapped.
 	budget int
+}
+
+func reaching(r reach, kinds ...string) map[string]reach {
+	m := map[string]reach{}
+	for _, k := range kinds {
+		m[k] = r
+	}
+	return m
 }
 
 var testLanes = []string{"build", "lint", "lint-repo", "go", "e2e", "browser", "component", "diagram"}
 
 // A wave is a pull request into a feature branch, which the train tests
 // further after it merges: each push to a feature branch runs the e2e and
-// browser lanes, and saves the Go cache the branch's waves restore. A merge
-// is a pull request into main. A push to main ran its tests on its pull
-// request, so it only saves the caches pull requests restore. The budgets
-// keep a wave and a train inside GitHub Free's 20 concurrent jobs.
+// browser lanes on linux-amd64 and the platform suite on the other
+// targets, and saves the Go cache the branch's waves restore. A merge is a
+// pull request into main, which runs the lanes of both and lints on each
+// OS. A change to the native libraries or the packages builds the packages
+// on every target. A push to main ran its tests on its pull request, so it
+// only saves the caches pull requests restore. The daily check runs each
+// lane on each of its targets, and a tag the same but with linux-amd64's
+// browsers alone. The budgets keep a wave and a train inside GitHub Free's
+// 20 concurrent jobs.
 var runKinds = map[string]runKind{
-	"wave":     {lanes: []string{"build", "lint", "lint-repo", "go", "component", "diagram"}, widest: changescope.PR, budget: 8},
-	"train":    {lanes: []string{"build", "e2e", "browser", "go-cache"}, widest: changescope.PR, budget: 12},
-	"merge":    {lanes: testLanes, widest: changescope.Native},
-	"push":     {lanes: []string{"lint", "go-cache"}, everyTarget: true, widest: changescope.Native},
-	"dispatch": {lanes: testLanes, everyTarget: true, widest: changescope.Native},
-	"schedule": {lanes: testLanes, everyTarget: true, packages: true, widest: changescope.Native},
-	"tag":      {lanes: testLanes, everyTarget: true, packages: true, widest: changescope.Native},
-}
-
-var scopeGates = map[changescope.Scope][]native.Gate{
-	changescope.Docs:   nil,
-	changescope.PR:     {native.GatePR},
-	changescope.Native: {native.GatePR, native.GateNative},
+	"wave": {lanes: reaching(prTargets, "build", "lint", "lint-repo", "go", "component", "diagram"), budget: 8},
+	"train": {
+		lanes:  map[string]reach{"build": prTargets, "e2e": prTargets, "browser": prTargets, "go-cache": prTargets, "platform": allTargets},
+		budget: 12,
+	},
+	"merge": {
+		lanes: map[string]reach{
+			"build": nativeTargets, "lint": allTargets, "lint-repo": prTargets, "go": prTargets, "e2e": prTargets,
+			"browser": prTargets, "component": prTargets, "diagram": prTargets, "platform": allTargets,
+		},
+		budget: 16,
+	},
+	"push":     {lanes: reaching(allTargets, "lint", "go-cache"), everyTarget: true},
+	"dispatch": {lanes: reaching(allTargets, append(testLanes, "platform")...), everyTarget: true},
+	"schedule": {lanes: reaching(allTargets, testLanes...), everyTarget: true, packages: true},
+	"tag": {
+		lanes: map[string]reach{
+			"build": allTargets, "lint": allTargets, "lint-repo": allTargets, "go": allTargets, "e2e": allTargets,
+			"browser": prTargets, "component": allTargets, "diagram": allTargets,
+		},
+		everyTarget: true,
+		packages:    true,
+	},
 }
 
 type MatrixEntry struct {
@@ -162,7 +213,7 @@ type TargetMatrix struct {
 }
 
 func init() {
-	register("plan", "print the CI matrix of each lane for a run kind: build, lint, lint-repo, go, e2e, browser, component, diagram and go-cache", runPlan)
+	register("plan", "print the CI matrix of each lane for a run kind: build, lint, lint-repo, go, e2e, browser, component, diagram, go-cache and platform", runPlan)
 }
 
 func runPlan(ctx context.Context, args []string) error {
@@ -436,21 +487,23 @@ func plan(in native.Inputs, k runKind, scope changescope.Scope, t touched, keep 
 	if k.everyTarget || packaging {
 		scope = changescope.Native
 	}
-	targets, err := planTargets(in, scopeGates[min(scope, k.widest)], keep)
-	if err != nil {
-		return Plan{}, err
-	}
 	var runs []sized
 	for _, l := range lanes {
-		if !slices.Contains(k.lanes, l.kind) || !l.selected(tier, packaging) || (!k.everyTarget && l.onlyWhen != nil && !l.onlyWhen(t)) {
+		r, ok := k.lanes[l.kind]
+		if !ok || (!k.everyTarget && l.onlyWhen != nil && !l.onlyWhen(t)) {
 			continue
 		}
+		targets, err := planTargets(in, r.gates(scope), keep)
+		if err != nil {
+			return Plan{}, err
+		}
 		for _, target := range targets {
-			if l.runsOn(target.Name) {
+			if l.runsOn(target.Name) && l.selected(tier, packaging, target.Name) {
 				runs = append(runs, l.sized(target, rec[laneTarget{l.kind, target.Name}]))
 			}
 		}
 	}
+	runs = withoutCoveredPlatform(runs)
 	fit(runs, k.budget)
 	p := Plan{Lanes: map[string]Matrix{}, Package: packaging}
 	for _, l := range lanes {
@@ -462,6 +515,18 @@ func plan(in native.Inputs, k runKind, scope changescope.Scope, t touched, keep 
 		p.Lanes[s.lane.kind] = m
 	}
 	return p, nil
+}
+
+// withoutCoveredPlatform drops the platform lane from each target that runs
+// the go and e2e lanes, since the platform suite is a part of them.
+func withoutCoveredPlatform(runs []sized) []sized {
+	full := map[string]int{}
+	for _, s := range runs {
+		if s.lane.kind == "go" || s.lane.kind == "e2e" {
+			full[s.target.Name]++
+		}
+	}
+	return slices.DeleteFunc(runs, func(s sized) bool { return s.lane.kind == "platform" && full[s.target.Name] == 2 })
 }
 
 // sized gives a timed lane the shards its recorded test time on the target
@@ -527,14 +592,16 @@ func planTargets(in native.Inputs, gates []native.Gate, keep []string) ([]planne
 	return targets, nil
 }
 
-// selected says whether a run of tier runs the lane. The build lane runs
-// for packaging and for the lanes that run against its dist/.
-func (l lane) selected(tier string, packaging bool) bool {
+// selected says whether a run of tier runs the lane on target. The build
+// lane runs for packaging and for the lanes that run against its dist/.
+func (l lane) selected(tier string, packaging bool, target string) bool {
 	switch {
 	case tier == "all":
 		return true
 	case l.kind == "build":
-		return packaging || slices.ContainsFunc(lanes, func(o lane) bool { return o.tier == tier && slices.Contains(lanesOnBuild, o.kind) })
+		return packaging || slices.ContainsFunc(lanes, func(o lane) bool {
+			return o.tier == tier && slices.Contains(lanesOnBuild, o.kind) && o.runsOn(target)
+		})
 	default:
 		return l.tier == tier
 	}

@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
 	"math"
 	"os"
 	"path/filepath"
@@ -18,6 +19,7 @@ import (
 var planInputs = native.Inputs{
 	Targets: []native.Target{
 		{Name: "linux-amd64", GOOS: "linux", GOARCH: "amd64", Runner: "ubuntu-24.04", Toolchain: "musl-cross", Gate: native.GatePR},
+		{Name: "linux-arm64", GOOS: "linux", GOARCH: "arm64", Runner: "ubuntu-24.04-arm", Toolchain: "musl-cross", Gate: native.GateNative},
 		{Name: "windows-amd64", GOOS: "windows", GOARCH: "amd64", Runner: "windows-2025", Toolchain: "llvm-mingw-ucrt", Gate: native.GateNative},
 		{Name: "darwin-arm64", GOOS: "darwin", GOARCH: "arm64", Runner: "macos-15", Toolchain: "xcode", Gate: native.GateNative},
 	},
@@ -37,71 +39,70 @@ func laneTargets(m Matrix) []string {
 }
 
 func TestPlanTargets(t *testing.T) {
-	prOnly := []string{"linux-amd64"}
-	all := []string{"linux-amd64", "windows-amd64", "darwin-arm64"}
+	linux := []string{"linux-amd64"}
+	all := []string{"linux-amd64", "linux-arm64", "windows-amd64", "darwin-arm64"}
+	perOS := []string{"linux-amd64", "windows-amd64", "darwin-arm64"}
+	others := []string{"linux-arm64", "windows-amd64", "darwin-arm64"}
+	webkit := []string{"linux-amd64", "darwin-arm64"}
+	wave := map[string][]string{"build": linux, "lint": linux, "lint-repo": linux, "go": linux, "component": linux, "diagram": linux}
+	train := map[string][]string{"build": linux, "e2e": linux, "browser": linux, "go-cache": linux, "platform": others}
+	merge := map[string][]string{
+		"build": linux, "lint": perOS, "lint-repo": linux, "go": linux, "e2e": linux,
+		"browser": linux, "component": linux, "diagram": linux, "platform": others,
+	}
+	full := map[string][]string{
+		"build": all, "lint": perOS, "lint-repo": linux, "go": all, "e2e": all,
+		"browser": webkit, "component": linux, "diagram": linux,
+	}
+	with := func(m map[string][]string, lane string, targets []string) map[string][]string {
+		m = maps.Clone(m)
+		m[lane] = targets
+		return m
+	}
+	windows := []string{"windows-amd64"}
 	tests := []struct {
 		kind    string
 		scope   changescope.Scope
 		touched bool
-		want    []string
+		tier    string
+		keep    []string
+		want    map[string][]string
 		pack    bool
 	}{
-		{"merge", changescope.Docs, false, nil, false},
-		{"merge", changescope.PR, false, prOnly, false},
-		{"merge", changescope.Native, false, all, false},
-		{"merge", changescope.PR, true, all, true},
-		{"wave", changescope.Docs, false, nil, false},
-		{"wave", changescope.PR, false, prOnly, false},
-		{"wave", changescope.Native, false, prOnly, false},
-		{"wave", changescope.PR, true, prOnly, true},
-		{"train", changescope.PR, false, prOnly, false},
-		{"train", changescope.Native, false, prOnly, false},
-		{"push", changescope.Docs, false, all, false},
-		{"dispatch", changescope.Docs, false, all, false},
-		{"dispatch", changescope.Native, false, all, false},
-		{"schedule", changescope.Docs, false, all, true},
-		{"tag", changescope.Docs, false, all, true},
+		{"merge", changescope.Docs, false, "all", nil, nil, false},
+		{"merge", changescope.PR, false, "all", nil, merge, false},
+		{"merge", changescope.Native, false, "all", nil, with(merge, "build", all), false},
+		{"merge", changescope.PR, true, "all", nil, with(merge, "build", all), true},
+		{"merge", changescope.PR, false, "all", linux, map[string][]string{
+			"build": linux, "lint": linux, "lint-repo": linux, "go": linux, "e2e": linux, "browser": linux, "component": linux, "diagram": linux,
+		}, false},
+		{"wave", changescope.Docs, false, "all", nil, nil, false},
+		{"wave", changescope.PR, false, "all", nil, wave, false},
+		{"wave", changescope.Native, false, "all", nil, wave, false},
+		{"wave", changescope.PR, true, "all", nil, wave, true},
+		{"train", changescope.Docs, false, "all", nil, nil, false},
+		{"train", changescope.PR, false, "all", nil, train, false},
+		{"train", changescope.Native, false, "all", nil, train, false},
+		{"push", changescope.Docs, false, "all", nil, map[string][]string{"lint": perOS, "go-cache": all}, false},
+		{"dispatch", changescope.Docs, false, "all", nil, full, false},
+		{"dispatch", changescope.Docs, false, "platform", nil, map[string][]string{"platform": others}, false},
+		{"dispatch", changescope.Docs, false, "platform", windows, map[string][]string{"platform": windows}, false},
+		{"dispatch", changescope.Docs, false, "all", windows, map[string][]string{"build": windows, "lint": windows, "go": windows, "e2e": windows}, false},
+		{"schedule", changescope.Docs, false, "all", nil, full, true},
+		{"tag", changescope.Docs, false, "all", nil, with(full, "browser", linux), true},
 	}
 	for _, tt := range tests {
-		got, err := plan(planInputs, runKinds[tt.kind], tt.scope, touched{packages: tt.touched, diagram: true}, nil, "all", testImage, nil)
+		got, err := plan(planInputs, runKinds[tt.kind], tt.scope, touched{packages: tt.touched, diagram: true}, tt.keep, tt.tier, testImage, nil)
 		if err != nil {
 			t.Fatal(err)
 		}
 		for _, l := range lanes {
-			if !slices.Contains(runKinds[tt.kind].lanes, l.kind) {
-				continue
-			}
-			want := slices.DeleteFunc(slices.Clone(tt.want), func(target string) bool { return !l.runsOn(target) })
-			if targets := laneTargets(got.Lanes[l.kind]); !slices.Equal(targets, want) {
-				t.Errorf("plan(%s, %s, touched %t) runs %s on %v, want %v", tt.kind, tt.scope, tt.touched, l.kind, targets, want)
+			if targets := laneTargets(got.Lanes[l.kind]); !slices.Equal(targets, tt.want[l.kind]) {
+				t.Errorf("plan(%s, %s, touched %t, tier %s, targets %v) runs %s on %v, want %v", tt.kind, tt.scope, tt.touched, tt.tier, tt.keep, l.kind, targets, tt.want[l.kind])
 			}
 		}
 		if got.Package != tt.pack {
 			t.Errorf("plan(%s, %s, touched %t) packages %t, want %t", tt.kind, tt.scope, tt.touched, got.Package, tt.pack)
-		}
-	}
-}
-
-func TestEachRunKindRunsItsLanes(t *testing.T) {
-	for kind, want := range map[string][]string{
-		"wave":     {"build", "lint", "lint-repo", "go", "component", "diagram"},
-		"train":    {"build", "e2e", "browser", "go-cache"},
-		"merge":    {"build", "lint", "lint-repo", "go", "e2e", "browser", "component", "diagram"},
-		"push":     {"lint", "go-cache"},
-		"dispatch": {"build", "lint", "lint-repo", "go", "e2e", "browser", "component", "diagram"},
-	} {
-		got, err := plan(planInputs, runKinds[kind], changescope.Native, touched{diagram: true}, nil, "all", testImage, nil)
-		if err != nil {
-			t.Fatal(err)
-		}
-		var planned []string
-		for _, l := range lanes {
-			if len(got.Lanes[l.kind].Include) > 0 {
-				planned = append(planned, l.kind)
-			}
-		}
-		if !slices.Equal(planned, want) {
-			t.Errorf("a %s plans %v, want %v", kind, planned, want)
 		}
 	}
 }
@@ -133,13 +134,13 @@ func TestPlanShardsEachTimedLaneByItsRecordedTime(t *testing.T) {
 		t.Fatal(err)
 	}
 	for name, rec := range map[string]map[laneTarget]recorded{"testdata": testRecords(t), "no timings": missing} {
-		got, err := plan(planInputs, runKinds["merge"], changescope.Native, touched{}, nil, "all", testImage, rec)
+		got, err := plan(planInputs, runKinds["dispatch"], changescope.Native, touched{}, nil, "all", testImage, rec)
 		if err != nil {
 			t.Fatal(err)
 		}
 		for _, l := range slices.DeleteFunc(slices.Clone(lanes), func(l lane) bool { return l.shardTime == 0 }) {
 			want := Matrix{}
-			for _, target := range planInputs.Targets {
+			for _, target := range slices.DeleteFunc(slices.Clone(planInputs.Targets), func(t native.Target) bool { return !l.runsOn(t.Name) }) {
 				r := rec[laneTarget{l.kind, target.Name}]
 				n := l.defaultShards
 				if r.run != "" {
@@ -220,7 +221,7 @@ func testInputs(t *testing.T) native.Inputs {
 
 func TestLanesCoverEveryTarget(t *testing.T) {
 	in := testInputs(t)
-	everywhere := []string{"build", "go", "e2e", "browser", "go-cache"}
+	everywhere := []string{"build", "go", "e2e", "go-cache"}
 	for _, l := range lanes {
 		for _, name := range l.targets {
 			if _, err := in.Target(name); err != nil {
@@ -231,7 +232,7 @@ func TestLanesCoverEveryTarget(t *testing.T) {
 			t.Errorf("lane %s has shard time %s and %d default shards, want both or neither", l.kind, l.shardTime, l.defaultShards)
 		}
 		switch {
-		case l.kind == "lint":
+		case l.kind == "lint" || l.kind == "browser" || l.kind == "platform":
 		case slices.Contains(everywhere, l.kind) && l.targets != nil:
 			t.Errorf("lane %s runs on %v, want every target", l.kind, l.targets)
 		case !slices.Contains(everywhere, l.kind) && len(l.targets) != 1:

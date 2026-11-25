@@ -11,7 +11,7 @@ import { clickWhenStill } from "./still.ts";
 const posterCards = (page: Page) =>
   page.getByRole("main").getByRole("listitem").and(page.locator("[data-work-id]"));
 
-test("an Admin adds a movie from the catalog and sees its missing cell", async ({
+test("an Admin adds a movie from the catalog and sees its missing cell @platform", async ({
   adminPage: page,
 }) => {
   await navigate(page, "Library");

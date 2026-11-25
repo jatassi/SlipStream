@@ -28,7 +28,7 @@ async function choose(page: Page, node: string, item: string): Promise<void> {
   await page.getByRole("menuitem", { name: item }).click();
 }
 
-test("Nodes opens on the Diagram on a desktop browser and on the Roster on a phone, and a Roster row opens its Node", async ({
+test("Nodes opens on the Diagram on a desktop browser and on the Roster on a phone, and a Roster row opens its Node @platform", async ({
   adminPage: page,
 }) => {
   await page.goto("/nodes");
