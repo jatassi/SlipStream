@@ -67,7 +67,7 @@ func done(w http.ResponseWriter, status int, message string) {
 // query string added, as the recorded run saw.
 func forward(w http.ResponseWriter, r *http.Request, message string) {
 	if to := r.PostFormValue("forwardUrl"); to != "" {
-		http.Redirect(w, r, to, http.StatusSeeOther) //nolint:gosec // plex.tv returns to whatever forwardUrl the app named, and so does the fake
+		http.Redirect(w, r, to, http.StatusSeeOther)
 		return
 	}
 	done(w, http.StatusOK, message)

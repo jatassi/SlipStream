@@ -29,6 +29,13 @@ type Server struct {
 	// public address.
 	Node   string
 	Remote Remote
+	// Sections are its library sections, which plex.tv lists for a share.
+	Sections []Section
+}
+
+// Section is a library section by the key the server gives it.
+type Section struct {
+	Key, Title, Type string
 }
 
 // Remote is what a server publishes for use away from home.
