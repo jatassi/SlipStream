@@ -6,8 +6,11 @@ package db
 
 import (
 	"github.com/jatassi/slipstream/internal/files"
+	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/mediaserverlink/link"
+	"github.com/jatassi/slipstream/internal/mediaservers/access"
 	"github.com/jatassi/slipstream/internal/mediaservers/queue"
+	"github.com/jatassi/slipstream/internal/providers/plextv"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/secret"
@@ -83,6 +86,44 @@ type MediaserversMapping struct {
 	ScanStartedAt   storage.Time
 }
 
+type MediaserversMemberAccess struct {
+	ID             AccessID
+	ServerID       link.ServerID
+	Way            access.Way
+	AccountID      identity.AccountID
+	MemberName     string
+	State          access.State
+	ChangedAt      storage.Time
+	OfferedBy      identity.AccountID
+	OfferedAt      storage.Time
+	PlexID         *plextv.AccountID
+	PlexUuid       *string
+	SharedServerID *plextv.ShareID
+	ByHand         bool
+	PlexHome       bool
+	ServerUserID   *string
+	Username       *string
+	ProblemCode    *ProblemCode
+	ProblemDetail  *string
+}
+
+type MediaserversMemberLibrary struct {
+	ServerID   link.ServerID
+	LibraryKey string
+	Name       string
+}
+
+type MediaserversMemberPlex struct {
+	AccountID        identity.AccountID
+	ClientIdentifier string
+	PlexID           *plextv.AccountID
+	PlexUuid         *string
+	Username         *string
+	Email            *string
+	SignedInAt       storage.Time
+	TokenSealed      secret.Sealed
+}
+
 type MediaserversPlay struct {
 	ServerID   link.ServerID
 	ID         link.PlayID
@@ -111,6 +152,7 @@ type MediaserversPlexAccount struct {
 	SignedInAt       storage.Time
 	RenewedAt        storage.Time
 	RefusedAt        storage.Time
+	PlexID           *plextv.AccountID
 }
 
 type MediaserversServer struct {
@@ -141,6 +183,8 @@ type MediaserversServer struct {
 	UnhealthyReason *string
 	CreatedAt       storage.Time
 	UpdatedAt       storage.Time
+	MembersSee      bool
+	MemberAddress   *string
 }
 
 type MediaserversSetting struct {

@@ -27,7 +27,7 @@ func (q *Queries) DeleteServer(ctx context.Context, id link.ServerID) (int64, er
 }
 
 const getServer = `-- name: GetServer :one
-SELECT id, kind, name, address, fallback_address, browser_address, identity, version, monitor_delay_ms, reaching_node_id, runs_on_node_id, device_id, secrets_sealed, settings_version, fallback, checked_at, contact, contact_since, contact_found, last_contact_at, sends, sends_since, last_send_at, unhealthy_since, unhealthy_reason, created_at, updated_at FROM mediaservers_server WHERE id = ?1
+SELECT id, kind, name, address, fallback_address, browser_address, identity, version, monitor_delay_ms, reaching_node_id, runs_on_node_id, device_id, secrets_sealed, settings_version, fallback, checked_at, contact, contact_since, contact_found, last_contact_at, sends, sends_since, last_send_at, unhealthy_since, unhealthy_reason, created_at, updated_at, members_see, member_address FROM mediaservers_server WHERE id = ?1
 `
 
 func (q *Queries) GetServer(ctx context.Context, id link.ServerID) (MediaserversServer, error) {
@@ -61,6 +61,8 @@ func (q *Queries) GetServer(ctx context.Context, id link.ServerID) (Mediaservers
 		&i.UnhealthyReason,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.MembersSee,
+		&i.MemberAddress,
 	)
 	return i, err
 }
@@ -153,7 +155,7 @@ func (q *Queries) ListHolders(ctx context.Context, serverID link.ServerID) ([]Li
 }
 
 const listServers = `-- name: ListServers :many
-SELECT id, kind, name, address, fallback_address, browser_address, identity, version, monitor_delay_ms, reaching_node_id, runs_on_node_id, device_id, secrets_sealed, settings_version, fallback, checked_at, contact, contact_since, contact_found, last_contact_at, sends, sends_since, last_send_at, unhealthy_since, unhealthy_reason, created_at, updated_at FROM mediaservers_server ORDER BY name, id
+SELECT id, kind, name, address, fallback_address, browser_address, identity, version, monitor_delay_ms, reaching_node_id, runs_on_node_id, device_id, secrets_sealed, settings_version, fallback, checked_at, contact, contact_since, contact_found, last_contact_at, sends, sends_since, last_send_at, unhealthy_since, unhealthy_reason, created_at, updated_at, members_see, member_address FROM mediaservers_server ORDER BY name, id
 `
 
 func (q *Queries) ListServers(ctx context.Context) ([]MediaserversServer, error) {
@@ -193,6 +195,8 @@ func (q *Queries) ListServers(ctx context.Context) ([]MediaserversServer, error)
 			&i.UnhealthyReason,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.MembersSee,
+			&i.MemberAddress,
 		); err != nil {
 			return nil, err
 		}
