@@ -3,6 +3,7 @@ package mediaserverlink_test
 import (
 	"context"
 	"errors"
+	"net/netip"
 	"reflect"
 	"testing"
 	"time"
@@ -112,6 +113,36 @@ func TestACheckCrossesTheWireUnchanged(t *testing.T) {
 	}
 	if _, err := mediaserverlink.CheckedOf(m); !problemIs(err, refused) {
 		t.Errorf("a refused check crossed as %v, want %v", err, refused)
+	}
+}
+
+// TestExposedCrossesTheWireUnchanged carries the recorded run's Plex, a
+// server that reports nothing beyond its address, and a refusal.
+func TestExposedCrossesTheWireUnchanged(t *testing.T) {
+	for name, x := range map[string]link.Exposed{
+		"Plex, as recorded": {
+			Local: netip.MustParseAddrPort("10.0.0.5:32400"), Remote: link.Yes, MappingRoot: "mapped",
+			Mapping: &link.PlexMapping{State: "mapped", Pending: true, Public: netip.MustParseAddrPort("203.0.113.9:32400")},
+			Custom:  []string{"http://5.161.67.8:32400", "https://plex.atassi.org:443"}, IPv6: link.Yes,
+		},
+		"remote off, nothing mapped": {Remote: link.No, Mapping: &link.PlexMapping{State: "unknown"}, IPv6: link.No},
+		"unmeasured Jellyfin":        {Local: netip.MustParseAddrPort("[fd72::5]:8096")},
+	} {
+		m, err := mediaserverlink.ExposedOnWire(x, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got, err := mediaserverlink.ExposedOf(m); err != nil || !reflect.DeepEqual(got, x) {
+			t.Errorf("%s crossed as %+v, %v, want %+v", name, got, err, x)
+		}
+	}
+	refused := &link.ServerError{Problem: link.Problem{Reason: link.ReasonRefused, Status: 401}}
+	m, err := mediaserverlink.ExposedOnWire(link.Exposed{}, refused)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := mediaserverlink.ExposedOf(m); !problemIs(err, refused) {
+		t.Errorf("a refused Exposed crossed as %v, want %v", err, refused)
 	}
 }
 

@@ -3,6 +3,7 @@ package nodes_test
 import (
 	"context"
 	"io"
+	"net/netip"
 	"slices"
 	"testing"
 	"testing/synctest"
@@ -72,6 +73,9 @@ func TestTheTopologyFollowsTheLinkAndTheBoard(t *testing.T) {
 		synctest.Wait()
 
 		expectInSession(t, c.topology(t), id)
+		if addr, controllerDialed, ok := c.svc.Remote(id); !ok || controllerDialed || addr.Addr() != netip.MustParseAddr("127.0.0.3") {
+			t.Errorf("Remote(seedbox) = %s, %t, %t; want seedbox's own address, dialed by seedbox", addr, controllerDialed, ok)
+		}
 
 		stop()
 		w.Drop(c.node.Key)
@@ -85,6 +89,9 @@ func TestTheTopologyFollowsTheLinkAndTheBoard(t *testing.T) {
 		}
 		if l := onlyLink(t, topo); l.State != nodes.Down || !l.Dialer.IsZero() {
 			t.Errorf("with seedbox gone the link reads %+v, want down with no dialer", l)
+		}
+		if _, _, ok := c.svc.Remote(id); ok {
+			t.Error("Remote(seedbox) is known with seedbox gone")
 		}
 		if topo.Nodes[1].Standing != nodes.LapsedNode {
 			t.Errorf("seedbox stands %s, want lapsed", topo.Nodes[1].Standing)

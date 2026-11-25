@@ -33,4 +33,5 @@ export type Scenario =
   | "gone-with-rss"
   | "five-indexers-one-late"
   | "limited-tracker"
-  | "subtitles";
+  | "subtitles"
+  | "remote-own-proxy";

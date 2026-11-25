@@ -1,8 +1,10 @@
+import { HttpResponse, http } from "msw";
 import { expect, test } from "vitest";
 import { type Locator, page, userEvent } from "vitest/browser";
 
 import { joinCodeServer } from "../../../test/join-codes";
 import { ids, manageServer, threeNodes } from "../../../test/landing";
+import { nothingSetUp } from "../../../test/remote-access";
 import { renderApp } from "../../../test/render-app";
 import { outcome, refusal } from "../../../test/roles";
 import { resize } from "../../../test/viewport";
@@ -31,6 +33,31 @@ test("below 1000px Nodes opens on the Roster, and the Diagram is there to look a
     .toHaveAttribute("aria-current", "page");
   await userEvent.click(views().getByRole("link", { name: "Diagram" }));
   await expect.element(diagram()).toHaveAttribute("data-takes-drags", "false");
+});
+
+test("Nodes shows its Roster and the Remote access link while Remote access hasn't answered", async () => {
+  let answer: (() => void) | undefined;
+  const answered = new Promise<void>((resolve) => {
+    answer = resolve;
+  });
+  renderApp({
+    path: "/nodes?view=roster",
+    handlers: [
+      ...threeNodes,
+      http.get("*/api/v1/remote-access", async () => {
+        await answered;
+        return HttpResponse.json(nothingSetUp);
+      }),
+    ],
+  });
+  await expect.element(rowOf("home")).toBeVisible();
+  await expect
+    .element(page.getByRole("link", { name: "Remote access" }))
+    .toHaveAttribute("href", "/nodes/remote-access");
+  answer?.();
+  await expect
+    .element(page.getByRole("link", { name: "Remote access · Nothing set up" }))
+    .toBeVisible();
 });
 
 test("each Roster row says the Node's state, when it was last seen, how it is reached, its Roles and what its probes found", async () => {

@@ -25,7 +25,7 @@ import (
 // never restated here. A row applies live when it has an applier, and on
 // restart otherwise.
 var nodeSettings = []settingRow{
-	portRow{desc: setting.Port{Key: "http.listen", Label: "Port"}, rowOf: rowOf[netip.AddrPort]{at: func(c *Config) *netip.AddrPort { return &c.HTTP.Listen }}},
+	listenRow{desc: setting.Listen{Key: "http.listen", Label: "Listen on"}, rowOf: rowOf[netip.AddrPort]{at: func(c *Config) *netip.AddrPort { return &c.HTTP.Listen }}},
 	countRow{
 		desc:  setting.Count{Key: "http.ports_to_try", Label: "Ports to try", Min: 1, Max: 100, Unit: setting.Noun{One: "port", Many: "ports"}},
 		rowOf: rowOf[int]{at: func(c *Config) *int { return &c.HTTP.PortsToTry }},
@@ -198,56 +198,57 @@ func refused(err error) error {
 
 func wrongForm(key, sentence string) error { return &setting.RangeError{Key: key, Sentence: sentence} }
 
-// portRow edits http.listen's port. The API sends the port and keeps the
-// saved address; the CLI sends a whole address.
-type portRow struct {
+// listenRow edits http.listen. A number is the port and keeps the saved
+// host; text is a whole address.
+type listenRow struct {
 	rowOf[netip.AddrPort]
-	desc setting.Port
+	desc setting.Listen
 }
 
-func (r portRow) key() string { return r.desc.Key }
+func (r listenRow) key() string { return r.desc.Key }
 
-func (r portRow) field(v view) setting.Field {
+func (r listenRow) field(v view) setting.Field {
 	d := r.desc
-	d.Default = r.at(v.defaults).Port()
-	saved := r.at(v.saved).Port()
+	d.Default = *r.at(v.defaults)
+	saved := *r.at(v.saved)
 	f := d.Field(&saved)
-	f.Running = int64(r.at(v.running).Port())
 	f.About = r.about(v, f.About)
+	running := *r.at(v.running)
 	if v.boundHTTP != 0 {
-		f.Running = int64(v.boundHTTP)
-		f.PendingRestart = f.PendingRestart && saved != v.boundHTTP
+		running = netip.AddrPortFrom(running.Addr(), v.boundHTTP)
+		f.PendingRestart = f.PendingRestart && saved != running
 	}
+	f.Running = setting.ListenOn(running)
 	return f
 }
 
-func (r portRow) text(_ context.Context, v nodesystem.Value, e edit) (*string, error) {
+func (r listenRow) text(_ context.Context, v nodesystem.Value, e edit) (*string, error) {
 	if v.IsReset() {
 		return nil, nil
 	}
-	addr := *r.at(e.saved)
+	host := r.at(e.saved).Addr()
 	port, ok := v.Number()
-	if s, isText := v.Text(); isText {
+	if s, isText := textOf(v); isText {
 		parsed, err := netip.ParseAddrPort(s)
 		if err != nil {
 			return nil, wrongForm(r.key(), "An address and port, such as [::]:8484.")
 		}
-		addr, port, ok = parsed, int64(parsed.Port()), true
+		host, port, ok = parsed.Addr(), int64(parsed.Port()), true
 	}
 	if !ok {
-		return nil, wrongForm(r.key(), "A port number.")
+		return nil, wrongForm(r.key(), "A port number, or an address and port.")
 	}
-	stored, err := r.desc.Parse(&port)
+	stored, err := r.desc.Parse(host, port)
 	if err != nil {
 		return nil, err
 	}
-	s := netip.AddrPortFrom(addr.Addr(), *stored.Override()).String()
+	s := stored.Override().String()
 	return &s, nil
 }
 
 // check passes port 0, which binds any free port, since only a hand edit
 // or the environment can set it.
-func (r portRow) check(*Config) error { return nil }
+func (r listenRow) check(*Config) error { return nil }
 
 type countRow struct {
 	rowOf[int]

@@ -33,6 +33,7 @@ import (
 	"github.com/jatassi/slipstream/fakes/events"
 	"github.com/jatassi/slipstream/fakes/fake"
 	"github.com/jatassi/slipstream/fakes/fault"
+	"github.com/jatassi/slipstream/fakes/gateway"
 	"github.com/jatassi/slipstream/fakes/internal/ca"
 	"github.com/jatassi/slipstream/fakes/internal/clientfake"
 	"github.com/jatassi/slipstream/fakes/internal/front"
@@ -86,6 +87,7 @@ type Run struct {
 	fronts    *front.Set
 	listeners []*front.Front
 	table     fake.Fronts
+	sink      *sink
 	releases  *releases.Catalog
 	seeders   *seeders.Seeders
 	nodes     []*nodeRun
@@ -229,6 +231,7 @@ func launch(ctx context.Context, opts Options, fakes []fake.Spec) (_ *Run, err e
 		r.mintCA,
 		r.probeBinary,
 		func(ctx context.Context, undo *unwind) error { return r.bindFronts(ctx, undo, fakes) },
+		r.bindSink,
 		r.buildReleases,
 		r.writeFolders,
 		r.serveFakes,
@@ -440,6 +443,7 @@ func (r *Run) serveFakes(_ context.Context, undo *unwind) error {
 	for _, f := range r.fakes {
 		f.env = fake.NewEnv(r.scenario, f.spec, r.log, r.faults, r.events)
 		f.env.Releases, f.env.Fronts, f.env.Files, f.env.Dir, f.env.Media, f.env.Shared = r.releases, r.table, r.runDir, r.fakeDir(f.spec.Name), r.mediaDir(), shared
+		f.env.Listeners = r.listening
 		if f.spec.TLS == fake.OwnTLS {
 			leaf, err := r.leaf(f.spec)
 			if err != nil {
@@ -462,6 +466,16 @@ func (r *Run) serveFakes(_ context.Context, undo *unwind) error {
 		})
 	}
 	return nil
+}
+
+// listening is where the Node named name listens as it runs now.
+func (r *Run) listening(name string) (node.Listeners, error) {
+	i := slices.IndexFunc(r.nodes, func(n *nodeRun) bool { return n.spec.Name == name })
+	if i < 0 {
+		return node.Listeners{}, fmt.Errorf("no node %s", name)
+	}
+	ready, err := r.nodes[i].life.Live()
+	return ready.Listeners, err
 }
 
 // server builds f and serves its fronts, or hands it its sockets.
@@ -524,7 +538,7 @@ func (r *Run) prepareNodes(ctx context.Context, _ *unwind) error {
 		if err != nil {
 			return err
 		}
-		config, err := setup.Config(r.scenario, i, listen, r.linkFront(name).Addr(), endpoints)
+		config, err := setup.Config(r.scenario, i, listen, r.linkFront(name).Addr(), gateway.ScriptPath(r.fakeDir(gateway.Fake.Name), name), endpoints)
 		if err != nil {
 			return fmt.Errorf("node %s: %w", name, err)
 		}
@@ -568,6 +582,12 @@ func (r *Run) resolve(ctx context.Context, name, dir string, env []string) (node
 }
 
 func (r *Run) admit(name string, resolved node.Resolved, worldEnv []string) error {
+	for _, k := range resolved.Keys {
+		if i := slices.IndexFunc(emptyIsReal, func(e emptyEntry) bool { return e.key == k.Key }); i >= 0 && k.Value == "" {
+			e := emptyIsReal[i]
+			return fmt.Errorf("node %s: %s is empty, which means %s; add fake-%s or the world's sink", name, e.key, e.means, e.fake)
+		}
+	}
 	if len(resolved.Census) > 0 {
 		values := map[string]string{}
 		for _, k := range resolved.Keys {

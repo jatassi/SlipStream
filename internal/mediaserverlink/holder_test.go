@@ -57,6 +57,8 @@ func (fakeConn) SignIn(context.Context, string, string) (link.Credential, error)
 	return link.Credential{}, nil
 }
 
+func (fakeConn) Exposed(context.Context) (link.Exposed, error) { return link.Exposed{}, nil }
+
 func (c fakeConn) Advance(_ context.Context, j link.Job) (link.Advanced, error) {
 	c.k.mu.Lock()
 	defer c.k.mu.Unlock()

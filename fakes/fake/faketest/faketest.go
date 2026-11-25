@@ -22,6 +22,7 @@ import (
 	"github.com/jatassi/slipstream/fakes/fake"
 	"github.com/jatassi/slipstream/fakes/fault"
 	"github.com/jatassi/slipstream/fakes/internal/ca"
+	"github.com/jatassi/slipstream/fakes/internal/front"
 	"github.com/jatassi/slipstream/fakes/internal/releases"
 	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/internal/node"
@@ -37,13 +38,18 @@ import (
 // Media Server fake reads.
 type Served struct {
 	Address fake.Address
+	// Sockets are a UDP fake's sockets, by origin.
+	Sockets map[string]netip.AddrPort
 	Client  *http.Client
 	Roots   *x509.CertPool
 	Faults  *fault.Plan
 	RunDir  string
 	Media   string
-	env     fake.Env
-	from    func(origin string) *http.Client
+	// Dir is the fake's own folder for files a Node reads.
+	Dir  string
+	env  fake.Env
+	from func(origin string) *http.Client
+	dial func(ctx context.Context, origin string) (net.Conn, error)
 }
 
 // From is a client whose requests arrive through origin's front, which
@@ -55,6 +61,13 @@ func (s Served) From(t testing.TB, origin string) *http.Client {
 		t.Fatal("faketest: From needs a fake served InMemory")
 	}
 	return s.from(origin)
+}
+
+// Dial is a connection that arrives through origin's front, which
+// WithOrigins declared, for a client of another protocol than HTTP. A
+// refuse rule on that front refuses it. InMemory only.
+func (s Served) Dial(ctx context.Context, origin string) (net.Conn, error) {
+	return s.dial(ctx, origin)
 }
 
 // Cue plays the fake's cue name with args, as fakeworld cue does, and
@@ -83,13 +96,14 @@ func (s Served) Records(t testing.TB) []events.Record {
 }
 
 type options struct {
-	releases *releases.Catalog
-	rules    []fault.Rule
-	fronts   fake.Fronts
-	origin   string
-	origins  []string
-	media    string
-	shared   *fake.Shared
+	releases  *releases.Catalog
+	rules     []fault.Rule
+	fronts    fake.Fronts
+	origin    string
+	origins   []string
+	media     string
+	shared    *fake.Shared
+	listeners func(string) (node.Listeners, error)
 }
 
 type Option func(*options)
@@ -147,6 +161,11 @@ func WithShared(shared *fake.Shared) Option {
 	return func(o *options) { o.shared = shared }
 }
 
+// WithListeners hands the fake where each Node listens, as the world does.
+func WithListeners(listeners func(name string) (node.Listeners, error)) Option {
+	return func(o *options) { o.listeners = listeners }
+}
+
 // As has every request arrive from origin, as through that Node's front.
 func As(origin string) Option {
 	return func(o *options) { o.origin = origin }
@@ -185,15 +204,15 @@ func InMemory(t testing.TB, spec fake.Spec, s scenario.Scenario, opts ...Option)
 		DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) { return l.dial(ctx, "") },
 	}, newCA(t), opts...)
 	tr, _ := served.Client.Transport.(*http.Transport)
+	served.dial = func(ctx context.Context, origin string) (net.Conn, error) {
+		if served.Faults.Refused(fault.Front{Target: fault.Target(spec.Name), Origin: origin, Layers: fault.Conn | fault.HTTP}) {
+			return nil, &net.OpError{Op: "dial", Net: "tcp", Addr: l.Addr(), Err: fault.ErrRefused}
+		}
+		return l.dial(ctx, origin)
+	}
 	served.from = func(origin string) *http.Client {
 		via := tr.Clone()
-		front := fault.Front{Target: fault.Target(spec.Name), Origin: origin, Layers: fault.Conn | fault.HTTP}
-		via.DialContext = func(ctx context.Context, _, _ string) (net.Conn, error) {
-			if served.Faults.Refused(front) {
-				return nil, &net.OpError{Op: "dial", Net: "tcp", Addr: l.Addr(), Err: fault.ErrRefused}
-			}
-			return l.dial(ctx, origin)
-		}
+		via.DialContext = func(ctx context.Context, _, _ string) (net.Conn, error) { return served.dial(ctx, origin) }
 		return &http.Client{Transport: via}
 	}
 	return served
@@ -214,15 +233,18 @@ func serve(t testing.TB, spec fake.Spec, s scenario.Scenario, l net.Listener, tr
 	for _, opt := range opts {
 		opt(&o)
 	}
-	fronts := map[string]fault.Front{"": {Target: fault.Target(spec.Name), Origin: o.origin, Layers: fault.Conn | fault.HTTP}}
+	layers := fault.Conn | fault.HTTP
+	if spec.TLS == fake.FrontTLS {
+		layers |= fault.TLS
+	}
+	fronts := map[string]fault.Front{"": {Target: fault.Target(spec.Name), Origin: o.origin, Layers: layers}}
 	all := []fault.Front{fronts[""]}
 	for _, origin := range o.origins {
-		fronts[origin] = fault.Front{Target: fault.Target(spec.Name), Origin: origin, Layers: fault.Conn | fault.HTTP}
+		fronts[origin] = fault.Front{Target: fault.Target(spec.Name), Origin: origin, Layers: layers}
 		all = append(all, fronts[origin])
 	}
 	plan := fault.NewPlan(all, nil)
 	at := fake.Address{AddrPort: netip.MustParseAddrPort(l.Addr().String()), TLS: spec.TLS == fake.FrontTLS}
-	l = fronted{Listener: l, plan: plan, fronts: fronts}
 	if spec.Endpoints != nil {
 		var e node.EndpointsBlock
 		spec.Endpoints(&e, at)
@@ -233,24 +255,14 @@ func serve(t testing.TB, spec fake.Spec, s scenario.Scenario, l net.Listener, tr
 		t.Fatal(err)
 	}
 	served := &tls.Config{Certificates: []tls.Certificate{leaf}, MinVersion: tls.VersionTLS12}
+	fr := fronted{Listener: l, plan: plan, fronts: fronts}
 	if spec.TLS == fake.FrontTLS {
-		l = tls.NewListener(l, served)
+		bad := badLeaves(t, authority, spec)
+		fr.tls = func(f fault.Front) *tls.Config { return front.TLS(plan, f, leaf, bad) }
 		tr.TLSClientConfig = &tls.Config{RootCAs: authority.Pool(), MinVersion: tls.VersionTLS12}
 	}
-	runDir := t.TempDir()
-	log, err := events.Create(runDir, func(events.Record) []events.Record { return nil })
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = log.Close() })
-	env := fake.NewEnv(s, spec, slog.New(slog.NewTextHandler(t.Output(), nil)), plan, log)
-	if o.media == "" {
-		o.media = t.TempDir()
-	}
-	env.Releases, env.Fronts, env.Files, env.Dir, env.Media = o.releases, o.fronts, runDir, t.TempDir(), o.media
-	if o.shared != nil {
-		env.Shared = o.shared
-	}
+	l = fr
+	env := newEnv(t, spec, s, plan, o)
 	if spec.TLS == fake.OwnTLS {
 		env.Leaf = served
 	}
@@ -271,7 +283,64 @@ func serve(t testing.TB, spec fake.Spec, s scenario.Scenario, l net.Listener, tr
 			t.Errorf("fake %s: %v", spec.Name, err)
 		}
 	})
-	return Served{Address: at, Client: &http.Client{Transport: tr}, Roots: authority.Pool(), Faults: plan, RunDir: runDir, Media: o.media, env: env}
+	return Served{Address: at, Client: &http.Client{Transport: tr}, Roots: authority.Pool(), Faults: plan, RunDir: env.Files, Media: env.Media, Dir: env.Dir, env: env}
+}
+
+// newEnv is the Env the world hands spec, with an event log of its own.
+func newEnv(t testing.TB, spec fake.Spec, s scenario.Scenario, plan *fault.Plan, o options) fake.Env {
+	t.Helper()
+	runDir := t.TempDir()
+	log, err := events.Create(runDir, func(events.Record) []events.Record { return nil })
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = log.Close() })
+	env := fake.NewEnv(s, spec, slog.New(slog.NewTextHandler(t.Output(), nil)), plan, log)
+	if o.media == "" {
+		o.media = t.TempDir()
+	}
+	env.Releases, env.Fronts, env.Files, env.Dir, env.Media, env.Listeners = o.releases, o.fronts, runDir, t.TempDir(), o.media, o.listeners
+	if o.shared != nil {
+		env.Shared = o.shared
+	}
+	return env
+}
+
+// UDP serves the UDP spec on one loopback socket for each origin
+// WithOrigins declared, as the world binds one per Node. It stops when
+// the test ends.
+func UDP(t testing.TB, spec fake.Spec, s scenario.Scenario, opts ...Option) Served {
+	t.Helper()
+	var o options
+	for _, opt := range opts {
+		opt(&o)
+	}
+	if len(o.origins) == 0 {
+		t.Fatal("faketest: UDP needs WithOrigins")
+	}
+	env := newEnv(t, spec, s, fault.NewPlan(nil, nil), o)
+	sockets, at := map[string]*net.UDPConn{}, map[string]netip.AddrPort{}
+	for _, origin := range o.origins {
+		conn, err := net.ListenUDP("udp", net.UDPAddrFromAddrPort(netip.MustParseAddrPort("127.0.0.1:0")))
+		if err != nil {
+			t.Fatal(err)
+		}
+		sockets[origin], at[origin] = conn, netip.MustParseAddrPort(conn.LocalAddr().String())
+	}
+	server, err := spec.NewUDP(s, env)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.WithoutCancel(t.Context()))
+	done := make(chan error, 1)
+	go func() { done <- server.ServeUDP(ctx, sockets) }()
+	t.Cleanup(func() {
+		cancel()
+		if err := <-done; err != nil {
+			t.Errorf("fake %s: %v", spec.Name, err)
+		}
+	})
+	return Served{Sockets: at, RunDir: env.Files, Media: env.Media, Dir: env.Dir, env: env}
 }
 
 // ownRules are the Scenario's fault rules whose Target is spec's fake, as
@@ -288,12 +357,33 @@ func ownRules(s scenario.Scenario, spec fake.Spec) []fault.Rule {
 
 // pipeListener hands each dial's far end of a fault.Pipe to Accept. Every
 // block is on a channel, so a bubble's goroutines block durably.
+// badLeaves are the leaves a FrontTLS front presents for each TLS rule,
+// as the world's fronts do.
+func badLeaves(t testing.TB, authority *ca.CA, spec fake.Spec) map[fault.TLSFailure]tls.Certificate {
+	t.Helper()
+	expired, err := authority.ExpiredLeaf(spec.LeafNames()...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wrongName, err := authority.Leaf("wrong-name.fake.localhost")
+	if err != nil {
+		t.Fatal(err)
+	}
+	untrusted, err := newCA(t).Leaf(spec.LeafNames()...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return map[fault.TLSFailure]tls.Certificate{fault.Untrusted: untrusted, fault.Expired: expired, fault.WrongName: wrongName}
+}
+
 // fronted wraps each accepted connection in its origin's front, the
-// default front for a connection from no origin.
+// default front for a connection from no origin, and terminates TLS for
+// a FrontTLS fake with the leaf that front's TLS rules pick.
 type fronted struct {
 	net.Listener
 	plan   *fault.Plan
 	fronts map[string]fault.Front
+	tls    func(fault.Front) *tls.Config
 }
 
 func (l fronted) Accept() (net.Conn, error) {
@@ -305,7 +395,12 @@ func (l fronted) Accept() (net.Conn, error) {
 	if o, ok := c.(originConn); ok {
 		c, origin = o.Conn, o.origin
 	}
-	return l.plan.Conn(c, l.fronts[origin]), nil
+	f := l.fronts[origin]
+	c = l.plan.Conn(c, f)
+	if l.tls != nil {
+		c = tls.Server(c, l.tls(f))
+	}
+	return c, nil
 }
 
 // originConn is the fake's end of an in-memory connection From dialed.

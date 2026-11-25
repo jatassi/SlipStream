@@ -1,4 +1,4 @@
-import type { FilesCell, WorksContentType, WorksWorkView } from "../../api/gen/model";
+import type { WorksContentType, WorksWorkView } from "../../api/gen/model";
 import { useStartSearch } from "../../grabs/search";
 import { openManualSearch } from "../../manual/sheet-state";
 import { useGrabNow } from "../page/grab-now";
@@ -11,13 +11,11 @@ import type { useMonitorParts } from "./use-monitored";
 export function useHeaderActions({
   type,
   work,
-  cells,
   toggle,
   monitor,
 }: {
   type: WorksContentType;
   work: WorksWorkView;
-  cells: readonly FilesCell[];
   toggle: (level: LevelView) => void;
   monitor: ReturnType<typeof useMonitorParts>;
 }): HeaderActions {
@@ -29,17 +27,7 @@ export function useHeaderActions({
       monitor({ levelIds: [level.id], itemIds: [], on });
     },
     search: (level) => {
-      const inLevel = new Set(
-        work.items.filter(({ levelId }) => levelId === level.id).map(({ id }) => id),
-      );
-      search.start(
-        work.id,
-        searchedOf(type, work.label, cells, (id) => inLevel.has(id)),
-        {
-          levelIds: [level.id],
-          itemIds: [],
-        },
-      );
+      search.start(work.id, searchedOf(type, work.label), { levelIds: [level.id], itemIds: [] });
     },
     grabNow: (_, { waits }) => {
       grab.grab(waits);

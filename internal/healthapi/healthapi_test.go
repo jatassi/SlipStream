@@ -54,6 +54,7 @@ func serve(t *testing.T) *ownertest.Owner {
 			{About: health.About{ID: health.NodesID, Label: "Nodes", Phrase: "Nodes"}, Source: health.Source{Answer: answer(health.Answer{})}},
 			{About: health.About{ID: health.DownloadClientsID, Label: "Download Clients", Phrase: "download clients"}, Source: health.Source{Answer: answer(health.Answer{})}},
 			{About: health.About{ID: health.MediaServersID, Label: "Media Servers", Phrase: "Media Servers"}, Source: health.Source{Answer: answer(health.Answer{})}},
+			{About: health.About{ID: health.RemoteAccessID, Label: "Remote access", Phrase: "remote access"}, Source: health.Source{Answer: answer(health.Answer{})}},
 			{About: health.About{ID: health.SeedingID, Label: "Seeding", Phrase: "torrents that still need seeding"}, Source: health.Source{Answer: answer(health.Answer{})}},
 			{About: health.About{ID: health.IndexersID, Label: "Indexers", Phrase: "Indexers"}, Source: health.Source{Answer: answer(health.Answer{})}},
 			{About: health.About{ID: health.SubtitlesID, Label: "Subtitles", Phrase: "subtitles"}, Source: health.Source{Answer: answer(health.Answer{})}},
@@ -98,6 +99,7 @@ func TestTheReportListsEachCategoryWithItsItems(t *testing.T) {
 			`{"id":"nodes","label":"Nodes","phrase":"Nodes","level":null,"canCheck":false,"items":[]},`+
 			`{"id":"download-clients","label":"Download Clients","phrase":"download clients","level":null,"canCheck":false,"items":[]},`+
 			`{"id":"media-servers","label":"Media Servers","phrase":"Media Servers","level":null,"canCheck":false,"items":[]},`+
+			`{"id":"remote-access","label":"Remote access","phrase":"remote access","level":null,"canCheck":false,"items":[]},`+
 			`{"id":"seeding","label":"Seeding","phrase":"torrents that still need seeding","level":null,"canCheck":false,"items":[]},`+
 			`{"id":"indexers","label":"Indexers","phrase":"Indexers","level":null,"canCheck":false,"items":[]},`+
 			`{"id":"subtitles","label":"Subtitles","phrase":"subtitles","level":null,"canCheck":false,"items":[]},`+

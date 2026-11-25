@@ -507,7 +507,8 @@ func TestARoleWithNoIntentRunsWhileHeld(t *testing.T) {
 // TestANodeWideChannelRunsFromClaimUntilReset holds the wide probe on the
 // Controller and a Worker that hold no Role: it runs on both from their
 // first intent, whatever Roles the Worker then holds or drains, never shows
-// in their facts, and is released by a reset but not by a shutdown.
+// in their facts, and is released by a reset, before the reset returns,
+// but not by a shutdown.
 func TestANodeWideChannelRunsFromClaimUntilReset(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		c := newCluster(t, "", "")
@@ -538,9 +539,8 @@ func TestANodeWideChannelRunsFromClaimUntilReset(t *testing.T) {
 		if err := w.Reset(t.Context()); err != nil {
 			t.Fatal(err)
 		}
-		synctest.Wait()
 		if starts, releases := w.wide.Starts(), w.wide.Releases(); starts != 1 || releases != 1 {
-			t.Errorf("after the reset the Worker's wide probe started %d times and was released %d times, want once each", starts, releases)
+			t.Errorf("once the reset returned the Worker's wide probe started %d times and was released %d times, want once each", starts, releases)
 		}
 		self.stop()
 		if got := self.wide.Releases(); got != 0 {
@@ -654,8 +654,8 @@ func TestAReturningWorkerStartsNoRoleItsControllerTookAway(t *testing.T) {
 }
 
 // TestAResetWorkerForgetsItsCachedIntent resets a Worker cut off from its
-// Controller: the probe stops and is released, and a restart on the same
-// local.db holds nothing until a Controller sends it an intent.
+// Controller: the probe stops and keeps what it holds, and a restart on
+// the same local.db holds nothing until a Controller sends it an intent.
 func TestAResetWorkerForgetsItsCachedIntent(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		c := newCluster(t, "", "")
@@ -674,8 +674,8 @@ func TestAResetWorkerForgetsItsCachedIntent(t *testing.T) {
 			t.Fatal(err)
 		}
 		synctest.Wait()
-		if w.Holds(roletest.Name) || w.probe.Releases() != 1 {
-			t.Fatalf("after the reset the Worker holds the probe %v and released it %d times, want not held and released once", w.Holds(roletest.Name), w.probe.Releases())
+		if w.Holds(roletest.Name) || w.probe.Releases() != 0 {
+			t.Fatalf("after the reset the Worker holds the probe %v and released it %d times, want not held and never released", w.Holds(roletest.Name), w.probe.Releases())
 		}
 		w.stop()
 		again := c.startWorker(t, local)

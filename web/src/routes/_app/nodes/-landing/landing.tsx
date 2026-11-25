@@ -2,11 +2,11 @@ import { useState } from "react";
 
 import { diagramQuery, useMedia } from "../../../../shell/media";
 import { Page } from "../../../../shell/page";
-import { StatusSentence } from "../../../../ui/status-sentence";
 import { AddNodeButton, useAddNode } from "../-add-node/add-node";
 import { type Acting, NodeDialogs } from "../-manage/dialogs";
 import { Diagram } from "./diagram";
 import { Roster } from "./roster";
+import { LandingStatus } from "./status";
 import { type View, ViewTabs } from "./tabs";
 import { useLanding } from "./use-landing";
 
@@ -23,9 +23,7 @@ export function NodesLanding({ view }: { view: View | undefined }) {
   const [acting, setActing] = useState<Acting>();
   return (
     <Page beside={<ViewTabs current={shown} />} action={<AddNodeButton adding={adding} />}>
-      <div className="mb-4">
-        <StatusSentence parts={[{ kind: "plain", text: landing.sentence }]} />
-      </div>
+      <LandingStatus sentence={landing.sentence} />
       {shown === "diagram" ? (
         <Diagram landing={landing} takesDrags={wide} adding={adding} act={setActing} />
       ) : (

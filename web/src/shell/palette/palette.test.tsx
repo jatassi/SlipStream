@@ -46,6 +46,7 @@ test("at rest the palette lists the commands, and Esc returns focus to the capsu
       "Go to Overviewhome",
       "Go to Roleshome",
       "Go to Web and APIhome",
+      "Go to Networkhome",
       "Go to Torrent clienthome",
       "Go to Searchinghome",
       "Go to Backupshome",

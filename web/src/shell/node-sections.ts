@@ -9,6 +9,7 @@ import {
   Settings02Icon,
   TextAlignLeftIcon,
   Tv01Icon,
+  Wifi01Icon,
 } from "@hugeicons/core-free-icons";
 import type { IconSvgElement } from "@hugeicons/react";
 import { useQuery } from "@tanstack/react-query";
@@ -42,6 +43,7 @@ export const nodeSections = [
   { id: "overview", label: "Overview", icon: InformationCircleIcon, to: "/nodes/$nodeId" },
   { id: "roles", label: "Roles", icon: Layers01Icon, to: "/nodes/$nodeId/roles" },
   { id: "web", label: "Web and API", icon: Globe02Icon, to: "/nodes/$nodeId/web" },
+  { id: "network", label: "Network", icon: Wifi01Icon, to: "/nodes/$nodeId/network" },
   {
     id: "torrent-client",
     label: "Torrent client",

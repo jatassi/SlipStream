@@ -15,6 +15,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/netip"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -22,9 +23,16 @@ import (
 	"strings"
 	"time"
 
+	"github.com/miekg/dns"
+	"github.com/pion/stun/v4"
+
+	fakedns "github.com/jatassi/slipstream/fakes/dns"
 	"github.com/jatassi/slipstream/fakes/events"
 	"github.com/jatassi/slipstream/fakes/fault"
+	"github.com/jatassi/slipstream/fakes/gateway"
+	"github.com/jatassi/slipstream/fakes/internal/netsite"
 	"github.com/jatassi/slipstream/fakes/scenario"
+	fakestun "github.com/jatassi/slipstream/fakes/stun"
 	"github.com/jatassi/slipstream/fakes/tracker"
 	"github.com/jatassi/slipstream/fakes/world/internal/control"
 	"github.com/jatassi/slipstream/fakes/world/internal/nodeapi"
@@ -93,6 +101,8 @@ type doctor struct {
 	tls      *tls.Config
 
 	system *systemReply
+	// site is the run's network, nil for a Scenario without one.
+	site *netsite.Model
 }
 
 type systemReply struct {
@@ -154,7 +164,36 @@ func (d *doctor) load(runDir string) error {
 	}
 	d.tls = &tls.Config{RootCAs: roots, MinVersion: tls.VersionTLS12}
 	d.client = &http.Client{Transport: &http.Transport{TLSClientConfig: d.tls}}
+	data, err := os.ReadFile(filepath.Join(runDir, "scenario.yaml"))
+	if err != nil {
+		return fmt.Errorf("the run's scenario: %w", err)
+	}
+	s, err := scenario.Parse(d.m.Scenario.Name, data)
+	if err != nil {
+		return err
+	}
+	if netsite.Plays(s) {
+		if d.site, err = netsite.New(s, nil); err != nil {
+			return err
+		}
+	}
 	return nil
+}
+
+// silent is the play that keeps the UDP front f from answering a ping, if
+// any: a site's STUN timeout, or a router that speaks no NAT-PMP.
+func (d *doctor) silent(f Front) (string, bool) {
+	if d.site == nil {
+		return "", false
+	}
+	stunAnswers, natPMP := d.site.Answers(f.Node)
+	switch {
+	case (f.Target == fakestun.Fake.Name || f.Target == fakestun.Second.Name) && !stunAnswers:
+		return "a STUN timeout", true
+	case f.Target == gateway.Fake.Name && !natPMP:
+		return "a router that speaks no NAT-PMP", true
+	}
+	return "", false
 }
 
 func fail(c *CheckResult, format string, args ...any) {
@@ -412,6 +451,10 @@ func frontName(f Front) string {
 func (d *doctor) fakesAnswer(c *CheckResult) {
 	held := map[string]bool{}
 	for _, f := range d.m.Fronts {
+		if play, ok := d.silent(f); ok {
+			note(c, "%s plays %s", frontName(f), play)
+			continue
+		}
 		if a, ok := d.holding(f); ok {
 			note(c, "%s is held by fault %s (seq %d)", frontName(f), a.ID, a.Seq)
 			held[frontName(f)] = true
@@ -434,6 +477,9 @@ func (d *doctor) fakesAnswer(c *CheckResult) {
 func (d *doctor) answers(name, rawURL string) error {
 	if addr, ok := strings.CutPrefix(rawURL, "udp://"); ok {
 		return d.pingUDP(name, addr)
+	}
+	if addr, ok := strings.CutPrefix(rawURL, "socks5://"); ok {
+		return d.connectSOCKS5(addr)
 	}
 	addr, ok := strings.CutPrefix(rawURL, "smtp://")
 	if !ok {
@@ -459,13 +505,96 @@ func (d *doctor) answers(name, rawURL string) error {
 	return nil
 }
 
+// connectSOCKS5 asks the SOCKS5 fake at addr to CONNECT to addr itself
+// and reads its reply, whatever its code: no site holds a loopback
+// address, so it refuses.
+func (d *doctor) connectSOCKS5(addr string) error {
+	ctx, cancel := context.WithTimeout(d.ctx, probeTimeout)
+	defer cancel()
+	conn, err := new(net.Dialer).DialContext(ctx, "tcp", addr)
+	if err != nil {
+		return fmt.Errorf("dial %s: %w", addr, err)
+	}
+	defer func() { _ = conn.Close() }()
+	deadline, _ := ctx.Deadline()
+	_ = conn.SetDeadline(deadline)
+	at := netip.MustParseAddrPort(addr)
+	ip := at.Addr().As4()
+	req := binary.BigEndian.AppendUint16(append([]byte{5, 1, 0, 5, 1, 0, 1}, ip[:]...), at.Port())
+	if _, err := conn.Write(req); err != nil {
+		return fmt.Errorf("connect through %s: %w", addr, err)
+	}
+	res := make([]byte, 12)
+	if _, err := io.ReadFull(conn, res); err != nil {
+		return fmt.Errorf("read the CONNECT reply of %s: %w", addr, err)
+	}
+	if res[0] != 5 || res[1] != 0 || res[2] != 5 {
+		return fmt.Errorf("%s answers a CONNECT with %x", addr, res)
+	}
+	return nil
+}
+
 // pingUDP pings the UDP fake name at addr in its own protocol: a BEP 15
-// connect for fake-tracker's UDP announce, and a KRPC ping for fake-dht.
+// connect for fake-tracker's UDP announce, a STUN Binding for fake-stun,
+// a NAT-PMP address request for fake-gateway, an A query for fake-dns,
+// and a KRPC ping for fake-dht.
 func (d *doctor) pingUDP(name, addr string) error {
-	if name == tracker.UDP.Name {
+	switch name {
+	case tracker.UDP.Name:
 		return d.connectBEP15(addr)
+	case fakestun.Fake.Name, fakestun.Second.Name:
+		return d.bindSTUN(addr)
+	case gateway.Fake.Name:
+		return d.askNATPMP(addr)
+	case fakedns.Fake.Name:
+		return d.resolve(addr)
 	}
 	return d.pingKRPC(addr)
+}
+
+// askNATPMP sends a NAT-PMP external address request to addr and reads
+// its answer.
+func (d *doctor) askNATPMP(addr string) error {
+	res, err := d.exchange(addr, []byte{0, 0})
+	if err != nil {
+		return err
+	}
+	if len(res) != 12 || res[0] != 0 || res[1] != 128 {
+		return fmt.Errorf("%s responds to a NAT-PMP address request with %x", addr, res)
+	}
+	return nil
+}
+
+// resolve asks the resolver at addr for an A record and reads any
+// answer to it, NXDOMAIN included.
+func (d *doctor) resolve(addr string) error {
+	query, err := new(dns.Msg).SetQuestion("doctor.localhost.", dns.TypeA).Pack()
+	if err != nil {
+		return fmt.Errorf("pack a query: %w", err)
+	}
+	res, err := d.exchange(addr, query)
+	if err != nil {
+		return err
+	}
+	var m dns.Msg
+	if m.Unpack(res) != nil || !m.Response || m.Id != binary.BigEndian.Uint16(query) {
+		return fmt.Errorf("%s responds to a query with %x", addr, res)
+	}
+	return nil
+}
+
+// bindSTUN sends a STUN Binding request to addr and reads its success.
+func (d *doctor) bindSTUN(addr string) error {
+	req := stun.MustBuild(stun.TransactionID, stun.BindingRequest, stun.Fingerprint)
+	res, err := d.exchange(addr, req.Raw)
+	if err != nil {
+		return err
+	}
+	m := &stun.Message{Raw: res}
+	if m.Decode() != nil || m.Type != stun.BindingSuccess || m.TransactionID != req.TransactionID {
+		return fmt.Errorf("%s responds to a Binding with %x", addr, res)
+	}
+	return nil
 }
 
 // pingKRPC sends a KRPC ping to the UDP fake at addr and reads its

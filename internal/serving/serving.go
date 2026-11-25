@@ -17,6 +17,7 @@ import (
 
 	"github.com/jatassi/slipstream/internal/api"
 	"github.com/jatassi/slipstream/internal/link"
+	"github.com/jatassi/slipstream/internal/role"
 )
 
 type Timings struct {
@@ -258,10 +259,11 @@ func NewListener() *Listener {
 	return &Listener{conns: make(chan net.Conn), done: make(chan struct{})}
 }
 
-// Offer hands s to the server, or resets it once the listener closed.
-func (l *Listener) Offer(s link.Stream) {
+// Offer hands s, a Serve stream from the Node from, to the server, or
+// resets it once the listener closed.
+func (l *Listener) Offer(from role.NodeID, s link.Stream) {
 	select {
-	case l.conns <- s:
+	case l.conns <- servedConn{Stream: s, from: from}:
 	case <-l.done:
 		_ = s.Reset()
 	}
@@ -282,6 +284,15 @@ func (l *Listener) Close() error {
 }
 
 func (l *Listener) Addr() net.Addr { return linkAddr{} }
+
+// servedConn is a Serve stream that names the Node whose stream it is,
+// which api.OverLink reads.
+type servedConn struct {
+	link.Stream
+	from role.NodeID
+}
+
+func (c servedConn) ServedFor() role.NodeID { return c.from }
 
 type linkAddr struct{}
 

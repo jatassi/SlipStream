@@ -139,6 +139,9 @@ service MediaServerLinkService {
   rpc SignIn(SignInRequest) returns (SignInResponse);
   // Advance runs one step of a Job on a server in this Node's intent.
   rpc Advance(AdvanceRequest) returns (AdvanceResponse);
+  // Exposed reads what a server in this Node's intent reports about its
+  // use away from home. It writes nothing to the server.
+  rpc Exposed(ExposedRequest) returns (ExposedResponse);
 }
 
 // MediaServerControlService runs on the Controller.
@@ -208,6 +211,36 @@ message AdvanceResponse {
   // problem is set when the server failed the step, and the rest is then
   // empty.
   Problem problem = 8;
+}
+
+message ExposedRequest {
+  bytes server_id = 1;
+  // settings_version is as on AdvanceRequest.
+  int64 settings_version = 2;
+}
+
+// ExposedResponse is link.Exposed. An absent optional is a fact the server
+// didn't report.
+message ExposedResponse {
+  // local is host:port, empty when the server reports none.
+  string local = 1;
+  optional bool remote = 2;
+  PlexMapping mapping = 3;
+  string mapping_root = 4;
+  repeated string custom = 5;
+  optional bool ipv6 = 6;
+  // problem is set when the server failed the call, and the rest is then
+  // empty.
+  Problem problem = 7;
+}
+
+// PlexMapping is Plex's /myplex/account mapping state.
+message PlexMapping {
+  string state = 1;
+  string error = 2;
+  bool pending = 3;
+  // public is publicAddress:publicPort, empty when Plex knows none.
+  string public = 4;
 }
 
 message MediaServerSecretsRequest {

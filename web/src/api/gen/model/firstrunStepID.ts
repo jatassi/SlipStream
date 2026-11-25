@@ -6,4 +6,5 @@ export type FirstrunStepID =
   | "language"
   | "roots"
   | "downloads"
-  | "targets";
+  | "targets"
+  | "remote-access";

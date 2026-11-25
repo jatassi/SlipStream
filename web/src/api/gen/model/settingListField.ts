@@ -10,7 +10,7 @@ export interface SettingListField {
   defaultFrom?: string;
   /** The setting has no override; Reset to default leaves it unchanged */
   isDefault: boolean;
-  /** What each entry is: an extension is lowercase letters and digits with no leading dot, such as mkv */
+  /** What each entry is: an extension is lowercase letters and digits with no leading dot, such as mkv; a host-port is a server's name or IP address and its port, such as stun.example.org:3478 */
   item: SettingListFieldItem;
   key: string;
   kind: SettingListFieldKind;

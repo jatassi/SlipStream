@@ -49,6 +49,7 @@ import { Route as AppLibraryPendingRouteImport } from "./routes/_app/library/pen
 import { Route as AppLibraryWantedRouteImport } from "./routes/_app/library/wanted";
 import { Route as AppNodesIndexRouteImport } from "./routes/_app/nodes/index";
 import { Route as AppNodesNodeIdRouteRouteImport } from "./routes/_app/nodes/$nodeId/route";
+import { Route as AppNodesRemoteAccessRouteImport } from "./routes/_app/nodes/remote-access";
 import { Route as AppReconcilingIndexRouteImport } from "./routes/_app/reconciling/index";
 import { Route as AppReconcilingFoldersRouteImport } from "./routes/_app/reconciling/folders";
 import { Route as AppReconcilingTorrentsRouteImport } from "./routes/_app/reconciling/torrents";
@@ -67,6 +68,7 @@ import { Route as AppNodesNodeIdBackupsRouteImport } from "./routes/_app/nodes/$
 import { Route as AppNodesNodeIdLogSettingsRouteImport } from "./routes/_app/nodes/$nodeId/log-settings";
 import { Route as AppNodesNodeIdLogsRouteImport } from "./routes/_app/nodes/$nodeId/logs";
 import { Route as AppNodesNodeIdMediaServersRouteImport } from "./routes/_app/nodes/$nodeId/media-servers";
+import { Route as AppNodesNodeIdNetworkRouteImport } from "./routes/_app/nodes/$nodeId/network";
 import { Route as AppNodesNodeIdRolesRouteImport } from "./routes/_app/nodes/$nodeId/roles";
 import { Route as AppNodesNodeIdSearchingRouteImport } from "./routes/_app/nodes/$nodeId/searching";
 import { Route as AppNodesNodeIdTorrentClientRouteImport } from "./routes/_app/nodes/$nodeId/torrent-client";
@@ -297,6 +299,11 @@ const AppNodesNodeIdRouteRoute = AppNodesNodeIdRouteRouteImport.update({
   path: "/$nodeId",
   getParentRoute: () => AppNodesRouteRoute,
 } as any);
+const AppNodesRemoteAccessRoute = AppNodesRemoteAccessRouteImport.update({
+  id: "/remote-access",
+  path: "/remote-access",
+  getParentRoute: () => AppNodesRouteRoute,
+} as any);
 const AppReconcilingIndexRoute = AppReconcilingIndexRouteImport.update({
   id: "/reconciling/",
   path: "/reconciling/",
@@ -393,6 +400,11 @@ const AppNodesNodeIdMediaServersRoute =
     path: "/media-servers",
     getParentRoute: () => AppNodesNodeIdRouteRoute,
   } as any);
+const AppNodesNodeIdNetworkRoute = AppNodesNodeIdNetworkRouteImport.update({
+  id: "/network",
+  path: "/network",
+  getParentRoute: () => AppNodesNodeIdRouteRoute,
+} as any);
 const AppNodesNodeIdRolesRoute = AppNodesNodeIdRolesRouteImport.update({
   id: "/roles",
   path: "/roles",
@@ -603,6 +615,7 @@ export interface FileRoutesByFullPath {
   "/library/calendar": typeof AppLibraryCalendarRoute;
   "/library/pending": typeof AppLibraryPendingRoute;
   "/library/wanted": typeof AppLibraryWantedRoute;
+  "/nodes/remote-access": typeof AppNodesRemoteAccessRoute;
   "/reconciling/folders": typeof AppReconcilingFoldersRoute;
   "/reconciling/torrents": typeof AppReconcilingTorrentsRoute;
   "/settings/$section": typeof AppSettingsSectionRoute;
@@ -626,6 +639,7 @@ export interface FileRoutesByFullPath {
   "/nodes/$nodeId/log-settings": typeof AppNodesNodeIdLogSettingsRoute;
   "/nodes/$nodeId/logs": typeof AppNodesNodeIdLogsRoute;
   "/nodes/$nodeId/media-servers": typeof AppNodesNodeIdMediaServersRoute;
+  "/nodes/$nodeId/network": typeof AppNodesNodeIdNetworkRoute;
   "/nodes/$nodeId/roles": typeof AppNodesNodeIdRolesRoute;
   "/nodes/$nodeId/searching": typeof AppNodesNodeIdSearchingRoute;
   "/nodes/$nodeId/torrent-client": typeof AppNodesNodeIdTorrentClientRoute;
@@ -685,6 +699,7 @@ export interface FileRoutesByTo {
   "/library/calendar": typeof AppLibraryCalendarRoute;
   "/library/pending": typeof AppLibraryPendingRoute;
   "/library/wanted": typeof AppLibraryWantedRoute;
+  "/nodes/remote-access": typeof AppNodesRemoteAccessRoute;
   "/reconciling/folders": typeof AppReconcilingFoldersRoute;
   "/reconciling/torrents": typeof AppReconcilingTorrentsRoute;
   "/settings/$section": typeof AppSettingsSectionRoute;
@@ -707,6 +722,7 @@ export interface FileRoutesByTo {
   "/nodes/$nodeId/log-settings": typeof AppNodesNodeIdLogSettingsRoute;
   "/nodes/$nodeId/logs": typeof AppNodesNodeIdLogsRoute;
   "/nodes/$nodeId/media-servers": typeof AppNodesNodeIdMediaServersRoute;
+  "/nodes/$nodeId/network": typeof AppNodesNodeIdNetworkRoute;
   "/nodes/$nodeId/roles": typeof AppNodesNodeIdRolesRoute;
   "/nodes/$nodeId/searching": typeof AppNodesNodeIdSearchingRoute;
   "/nodes/$nodeId/torrent-client": typeof AppNodesNodeIdTorrentClientRoute;
@@ -773,6 +789,7 @@ export interface FileRoutesById {
   "/_app/library/calendar": typeof AppLibraryCalendarRoute;
   "/_app/library/pending": typeof AppLibraryPendingRoute;
   "/_app/library/wanted": typeof AppLibraryWantedRoute;
+  "/_app/nodes/remote-access": typeof AppNodesRemoteAccessRoute;
   "/_app/reconciling/folders": typeof AppReconcilingFoldersRoute;
   "/_app/reconciling/torrents": typeof AppReconcilingTorrentsRoute;
   "/_app/settings/$section": typeof AppSettingsSectionRoute;
@@ -796,6 +813,7 @@ export interface FileRoutesById {
   "/_app/nodes/$nodeId/log-settings": typeof AppNodesNodeIdLogSettingsRoute;
   "/_app/nodes/$nodeId/logs": typeof AppNodesNodeIdLogsRoute;
   "/_app/nodes/$nodeId/media-servers": typeof AppNodesNodeIdMediaServersRoute;
+  "/_app/nodes/$nodeId/network": typeof AppNodesNodeIdNetworkRoute;
   "/_app/nodes/$nodeId/roles": typeof AppNodesNodeIdRolesRoute;
   "/_app/nodes/$nodeId/searching": typeof AppNodesNodeIdSearchingRoute;
   "/_app/nodes/$nodeId/torrent-client": typeof AppNodesNodeIdTorrentClientRoute;
@@ -864,6 +882,7 @@ export interface FileRouteTypes {
     | "/library/calendar"
     | "/library/pending"
     | "/library/wanted"
+    | "/nodes/remote-access"
     | "/reconciling/folders"
     | "/reconciling/torrents"
     | "/settings/$section"
@@ -887,6 +906,7 @@ export interface FileRouteTypes {
     | "/nodes/$nodeId/log-settings"
     | "/nodes/$nodeId/logs"
     | "/nodes/$nodeId/media-servers"
+    | "/nodes/$nodeId/network"
     | "/nodes/$nodeId/roles"
     | "/nodes/$nodeId/searching"
     | "/nodes/$nodeId/torrent-client"
@@ -946,6 +966,7 @@ export interface FileRouteTypes {
     | "/library/calendar"
     | "/library/pending"
     | "/library/wanted"
+    | "/nodes/remote-access"
     | "/reconciling/folders"
     | "/reconciling/torrents"
     | "/settings/$section"
@@ -968,6 +989,7 @@ export interface FileRouteTypes {
     | "/nodes/$nodeId/log-settings"
     | "/nodes/$nodeId/logs"
     | "/nodes/$nodeId/media-servers"
+    | "/nodes/$nodeId/network"
     | "/nodes/$nodeId/roles"
     | "/nodes/$nodeId/searching"
     | "/nodes/$nodeId/torrent-client"
@@ -1033,6 +1055,7 @@ export interface FileRouteTypes {
     | "/_app/library/calendar"
     | "/_app/library/pending"
     | "/_app/library/wanted"
+    | "/_app/nodes/remote-access"
     | "/_app/reconciling/folders"
     | "/_app/reconciling/torrents"
     | "/_app/settings/$section"
@@ -1056,6 +1079,7 @@ export interface FileRouteTypes {
     | "/_app/nodes/$nodeId/log-settings"
     | "/_app/nodes/$nodeId/logs"
     | "/_app/nodes/$nodeId/media-servers"
+    | "/_app/nodes/$nodeId/network"
     | "/_app/nodes/$nodeId/roles"
     | "/_app/nodes/$nodeId/searching"
     | "/_app/nodes/$nodeId/torrent-client"
@@ -1385,6 +1409,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof AppNodesNodeIdRouteRouteImport;
       parentRoute: typeof AppNodesRouteRoute;
     };
+    "/_app/nodes/remote-access": {
+      id: "/_app/nodes/remote-access";
+      path: "/remote-access";
+      fullPath: "/nodes/remote-access";
+      preLoaderRoute: typeof AppNodesRemoteAccessRouteImport;
+      parentRoute: typeof AppNodesRouteRoute;
+    };
     "/_app/reconciling/": {
       id: "/_app/reconciling/";
       path: "/reconciling";
@@ -1509,6 +1540,13 @@ declare module "@tanstack/react-router" {
       path: "/media-servers";
       fullPath: "/nodes/$nodeId/media-servers";
       preLoaderRoute: typeof AppNodesNodeIdMediaServersRouteImport;
+      parentRoute: typeof AppNodesNodeIdRouteRoute;
+    };
+    "/_app/nodes/$nodeId/network": {
+      id: "/_app/nodes/$nodeId/network";
+      path: "/network";
+      fullPath: "/nodes/$nodeId/network";
+      preLoaderRoute: typeof AppNodesNodeIdNetworkRouteImport;
       parentRoute: typeof AppNodesNodeIdRouteRoute;
     };
     "/_app/nodes/$nodeId/roles": {
@@ -1783,6 +1821,7 @@ interface AppNodesNodeIdRouteRouteChildren {
   AppNodesNodeIdLogSettingsRoute: typeof AppNodesNodeIdLogSettingsRoute;
   AppNodesNodeIdLogsRoute: typeof AppNodesNodeIdLogsRoute;
   AppNodesNodeIdMediaServersRoute: typeof AppNodesNodeIdMediaServersRoute;
+  AppNodesNodeIdNetworkRoute: typeof AppNodesNodeIdNetworkRoute;
   AppNodesNodeIdRolesRoute: typeof AppNodesNodeIdRolesRoute;
   AppNodesNodeIdSearchingRoute: typeof AppNodesNodeIdSearchingRoute;
   AppNodesNodeIdTorrentClientRoute: typeof AppNodesNodeIdTorrentClientRoute;
@@ -1796,6 +1835,7 @@ const AppNodesNodeIdRouteRouteChildren: AppNodesNodeIdRouteRouteChildren = {
   AppNodesNodeIdLogSettingsRoute: AppNodesNodeIdLogSettingsRoute,
   AppNodesNodeIdLogsRoute: AppNodesNodeIdLogsRoute,
   AppNodesNodeIdMediaServersRoute: AppNodesNodeIdMediaServersRoute,
+  AppNodesNodeIdNetworkRoute: AppNodesNodeIdNetworkRoute,
   AppNodesNodeIdRolesRoute: AppNodesNodeIdRolesRoute,
   AppNodesNodeIdSearchingRoute: AppNodesNodeIdSearchingRoute,
   AppNodesNodeIdTorrentClientRoute: AppNodesNodeIdTorrentClientRoute,
@@ -1809,11 +1849,13 @@ const AppNodesNodeIdRouteRouteWithChildren =
 
 interface AppNodesRouteRouteChildren {
   AppNodesNodeIdRouteRoute: typeof AppNodesNodeIdRouteRouteWithChildren;
+  AppNodesRemoteAccessRoute: typeof AppNodesRemoteAccessRoute;
   AppNodesIndexRoute: typeof AppNodesIndexRoute;
 }
 
 const AppNodesRouteRouteChildren: AppNodesRouteRouteChildren = {
   AppNodesNodeIdRouteRoute: AppNodesNodeIdRouteRouteWithChildren,
+  AppNodesRemoteAccessRoute: AppNodesRemoteAccessRoute,
   AppNodesIndexRoute: AppNodesIndexRoute,
 };
 

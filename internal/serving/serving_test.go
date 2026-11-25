@@ -14,8 +14,10 @@ import (
 	"testing/synctest"
 	"time"
 
+	"github.com/jatassi/slipstream/internal/api"
 	"github.com/jatassi/slipstream/internal/link"
 	"github.com/jatassi/slipstream/internal/link/linktest"
+	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/serving"
 )
 
@@ -76,11 +78,11 @@ func start(t *testing.T, controllerVersion, workerVersion string) *world {
 	ln := serving.NewListener()
 	p := linktest.New(t,
 		linktest.Side{Version: controllerVersion, Streams: map[link.Kind]func(link.Key, link.Stream){
-			link.KindServe: func(_ link.Key, s link.Stream) { ln.Offer(s) },
+			link.KindServe: func(_ link.Key, s link.Stream) { ln.Offer(role.NodeID{}, s) },
 		}},
 		linktest.Side{Version: workerVersion},
 	)
-	controller := &http.Server{Handler: controllerHandler(events), ReadHeaderTimeout: time.Minute}
+	controller := &http.Server{Handler: controllerHandler(events), ReadHeaderTimeout: time.Minute, ConnContext: api.OverLink}
 	go func() { _ = controller.Serve(ln) }()
 	t.Cleanup(func() { _ = controller.Close() })
 

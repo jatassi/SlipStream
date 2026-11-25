@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=../scenario.schema.json
+description: >-
+  S51 (Reachability diagnostic) over IPv6. The Controller atlas holds
+  203.0.113.9 and 2001:db8:1::20 in its home's prefix 2001:db8:1::/64,
+  with no router and the IPv6 firewall open, and its own firewall blocks
+  Plex over IPv6. plex.v6.localhost answers both addresses. The Worker
+  seedbox holds 192.0.2.44 and 2001:db8:9::21, so it tests both families
+  from outside.
+seed: remote-ipv6
+admin:
+  email: ada@example.test
+  display_name: Ada Okafor
+  pin: "2468"
+nodes:
+  - name: atlas
+    setup: controller
+    site: home
+    firewall: [{service: plex, family: ipv6, policy: blocks}]
+    media_servers:
+      - kind: plex
+        name: Plex
+        runs_on: atlas
+        remote: true
+        custom: ["http://plex.v6.localhost"]
+  - name: seedbox
+    setup: join
+    site: ams
+network:
+  sites:
+    - {name: home, wan: none, address: 203.0.113.9, prefix6: 2001:db8:1::/64, firewall6: open}
+    - {name: ams, wan: none, address: 192.0.2.44, prefix6: 2001:db8:9::/64, firewall6: open}
+  dns:
+    - {name: plex.v6.localhost, a: [203.0.113.9], aaaa: ["2001:db8:1::20"]}
+timings:
+  node:
+    stop_deadline: 15s
+library:
+  storage_levels: {warn_below: 0B, error_below: 0B}
+  roots: [{content_type: movie, folder: movies}]

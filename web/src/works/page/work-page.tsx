@@ -41,7 +41,7 @@ export function WorkPage({
         searchLine={
           <SearchLine state={reads.searching} workId={work.id} many={type.items === "many"} />
         }
-        actions={{ ...actions.hero, searched: searchedOf(type, work.label, reads.cells.cells) }}
+        actions={{ ...actions.hero, searched: searchedOf(type, work.label) }}
       />
       <WorkSections
         type={type}

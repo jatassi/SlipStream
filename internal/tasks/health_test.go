@@ -148,6 +148,7 @@ func TestHealthRaisesAPartialUnitTheInstantItIsOverdue(t *testing.T) {
 				{About: health.About{ID: health.NodesID, Label: "Nodes", Phrase: "Nodes"}, Source: health.Source{Answer: func(context.Context) (health.Answer, error) { return health.Answer{}, nil }}},
 				{About: health.About{ID: health.DownloadClientsID, Label: "Download Clients", Phrase: "download clients"}, Source: health.Source{Answer: func(context.Context) (health.Answer, error) { return health.Answer{}, nil }}},
 				{About: health.About{ID: health.MediaServersID, Label: "Media Servers", Phrase: "Media Servers"}, Source: health.Source{Answer: func(context.Context) (health.Answer, error) { return health.Answer{}, nil }}},
+				{About: health.About{ID: health.RemoteAccessID, Label: "Remote access", Phrase: "remote access"}, Source: health.Source{Answer: func(context.Context) (health.Answer, error) { return health.Answer{}, nil }}},
 				{About: health.About{ID: health.SeedingID, Label: "Seeding", Phrase: "torrents that still need seeding"}, Source: health.Source{Answer: func(context.Context) (health.Answer, error) { return health.Answer{}, nil }}},
 				{About: health.About{ID: health.IndexersID, Label: "Indexers", Phrase: "Indexers"}, Source: health.Source{Answer: func(context.Context) (health.Answer, error) { return health.Answer{}, nil }}},
 				{About: health.About{ID: health.SubtitlesID, Label: "Subtitles", Phrase: "subtitles"}, Source: health.Source{Answer: func(context.Context) (health.Answer, error) { return health.Answer{}, nil }}},

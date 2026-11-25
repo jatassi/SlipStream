@@ -155,21 +155,39 @@ func (h *Holding) Name() string {
 }
 
 // Reset forgets every cached intent, in local.db and in memory, so the
-// Node holds no Role until a Controller sends it one: its Roles stop and
-// let go what they hold, and a later start can't resume them from a
-// Controller that removed the Node.
+// Node holds no Role until a Controller sends it one and a later start
+// can't resume them from a Controller that removed the Node. Its Roles
+// stop and keep what they hold, as at a shutdown, so a Worker joined again
+// adopts its torrents. Its Node-wide channels stop and let go, such as the
+// network channel deleting its router mappings. It returns once every run
+// it stopped ended, or when ctx ends first.
 func (h *Holding) Reset(ctx context.Context) error {
 	if err := h.cfg.Local.Write(ctx, holding.ClearIntents); err != nil {
 		return fmt.Errorf("clear the saved Role assignments: %w", err)
 	}
 	h.mu.Lock()
-	defer h.mu.Unlock()
+	for _, held := range h.cfg.Held {
+		if r := h.runs[held.name]; r != nil && !held.wide && !r.stopping {
+			r.kept = true
+		}
+	}
 	for scope := range h.cache {
 		h.notify(scope)
 	}
 	clear(h.cache)
 	h.assigned, h.draining, h.name = nil, nil, ""
 	h.wake()
+	for len(h.runs) > 0 {
+		changed := h.changed
+		h.mu.Unlock()
+		select {
+		case <-changed:
+		case <-ctx.Done():
+			return fmt.Errorf("wait for the Roles to stop: %w", ctx.Err())
+		}
+		h.mu.Lock()
+	}
+	h.mu.Unlock()
 	return nil
 }
 

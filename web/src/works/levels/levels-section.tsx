@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 
-import type { FilesCell, WorksContentType, WorksWorkView } from "../../api/gen/model";
+import type { WorksContentType, WorksWorkView } from "../../api/gen/model";
 import { useStartSearch } from "../../grabs/search";
 import { openManualSearch } from "../../manual/sheet-state";
 import { CellPopover, type CellPopoverState, useCellPopover } from "../../ui/cell-popover";
@@ -83,7 +83,6 @@ type Picked = { readonly id: string; readonly as: "details" | "sheet" };
 function useActions(
   type: WorksContentType,
   work: WorksWorkView,
-  cells: readonly FilesCell[],
   toggle: (level: LevelView) => void,
 ) {
   const workId = work.id;
@@ -95,11 +94,7 @@ function useActions(
       monitor({ levelIds: [], itemIds: [view.item.id], on });
     },
     search: (view) => {
-      search.start(
-        workId,
-        { count: 1, item: type.item },
-        { levelIds: [], itemIds: [view.item.id] },
-      );
+      search.start(workId, { item: type.item }, { levelIds: [], itemIds: [view.item.id] });
     },
     details: (view) => {
       setPicked({ id: view.item.id, as: "details" });
@@ -111,7 +106,7 @@ function useActions(
       setPicked({ id: view.item.id, as: "sheet" });
     },
   };
-  const headerActions = useHeaderActions({ type, work, cells, toggle, monitor });
+  const headerActions = useHeaderActions({ type, work, toggle, monitor });
   // The sheet's Details closes the sheet after it opens Details, so each closes only itself.
   const close = (as: Picked["as"]) => () => {
     setPicked((prev) => (prev?.as === as ? undefined : prev));
@@ -162,12 +157,7 @@ export function LevelsSection({
   const phone = useShell() === "phone";
   const { context, levels, rows, toggle } = useLevels(type, work, reads);
   const popover = useCellPopover<PoppedCell>();
-  const { picked, close, rowActions, headerActions } = useActions(
-    type,
-    work,
-    reads.cells.cells,
-    toggle,
-  );
+  const { picked, close, rowActions, headerActions } = useActions(type, work, toggle);
   const searches = useLevelSearches(work.items, reads.cells.cells, reads.searching);
   const found = picked && viewOf(levels, picked.id);
   return (

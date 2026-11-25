@@ -863,7 +863,24 @@ A list whose order is its meaning, such as subtitle providers in search order. E
 
 ### Route
 
-Remote access draws each exposure as a lane of hops: Player, DNS, Relay, TLS, Node link, Origin and Media Server. A hop is a small `fill` tile joined by a 2px connector, and it takes the worst status of its checks. A failing or warning hop takes its signal card and a 3px connector. A hop past a failure shows "not reached", with a dashed outline and a dashed connector. A passing hop carries a green check. Selecting a hop opens its checks in the Inspector in the desktop shell and a sheet on phone. Each check shows what was observed, what was expected, what it means and its fix.
+Remote access draws each Exposure as a lane of hops, in the order a player's connection crosses them. Its route kind sets the hops:
+- **Direct:** Player, DNS, TLS, Origin and Media Server. An Unplaced route, one whose public name resolves inside the home, draws the same hops.
+- **Through your own proxy:** Player, DNS, Proxy, TLS, Origin and Media Server. The Proxy hop is the Admin's own server at the public address, which SlipStream doesn't run, so its checks read what a player sees there and the origin's bind and firewall are facts.
+- **Through the Relay Node:** Player, DNS, Relay, TLS, Node link, Origin and Media Server.
+
+The UI and portal is SlipStream on the origin, so its route ends at Origin, with no Media Server hop. A route's fix shows in the page's card and in its hops' checks, never again under its hops.
+
+A hop is a small `fill` tile joined by a 2px connector, and it takes the worst result of its checks. A failing hop takes the signal card of the verdict its failing checks point to, red for Needs a relay and amber for Fixable, with a 3px connector after it in that signal. A hop past a failure reads "not reached", with a dashed outline and a dashed connector. A passing hop carries a green check. A Not tested or Not used hop stays `fill` with no signal and says so under its name, "not tested" or "not used". A Not tested hop also takes the outline of the Not tested chip, and a Not used hop the dim ink. Selecting a hop opens its checks in the Inspector in the desktop shell and a sheet on phone. Each check leads with its result and family, then what it means and its fix, with what was seen and the Node that saw it, and when, under Details.
+
+A route that is Reachable and was tested from outside folds to one line: its subject, its public address, its families tag, its route kind and the green Reachable chip. Every other route draws its hops.
+
+The verdict chip names the verdict, Reachable, Fixable or Needs a relay, and takes signal colour only from a failing check (the Fixed Signal Rule): red for Needs a relay and amber for Fixable when a failing check decides it, green for Reachable once tested from outside, and the neutral chip otherwise. A route not tested from outside in every family it offers carries an outlined "Not tested" chip beside the verdict, so an untested route never looks like an alarm. Each chip's word opens its one-sentence definition.
+
+The page leads with one recommendation card, mapped from the verdict that decides it:
+- **Needs a relay on a failing check:** a red standing Callout with the chip "Needs a relay", the subject and the fix, and no button until a Relay Node can be set up from here.
+- **Fixable on a failing check:** an amber standing Callout with the chip "Fixable", the subject, the fix and the fix's button as its Warn action, such as Turn on Open router ports automatically.
+- **Resting only on Not tested:** a neutral glass line with the subject, the step and a ghost "Add a Node" button.
+- **Every route Reachable and tested:** no card.
 
 ### Node canvas
 
