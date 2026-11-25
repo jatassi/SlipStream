@@ -36,6 +36,7 @@ import { Route as PortalAccountRouteImport } from "./routes/portal/account";
 import { Route as PortalRequestsRouteImport } from "./routes/portal/requests";
 import { Route as PortalSearchRouteImport } from "./routes/portal/search";
 import { Route as SetupStepRouteImport } from "./routes/setup_.$step";
+import { Route as WelcomeStepRouteImport } from "./routes/welcome.$step";
 import { Route as AppAccountsIndexRouteImport } from "./routes/_app/accounts/index";
 import { Route as AppAccountsAccountIdRouteImport } from "./routes/_app/accounts/$accountId";
 import { Route as AppActivityIndexRouteImport } from "./routes/_app/activity/index";
@@ -232,6 +233,11 @@ const PortalSearchRoute = PortalSearchRouteImport.update({
 const SetupStepRoute = SetupStepRouteImport.update({
   id: "/setup_/$step",
   path: "/setup/$step",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const WelcomeStepRoute = WelcomeStepRouteImport.update({
+  id: "/welcome/$step",
+  path: "/welcome/$step",
   getParentRoute: () => rootRouteImport,
 } as any);
 const AppAccountsIndexRoute = AppAccountsIndexRouteImport.update({
@@ -605,6 +611,7 @@ export interface FileRoutesByFullPath {
   "/portal/requests": typeof PortalRequestsRoute;
   "/portal/search": typeof PortalSearchRoute;
   "/setup/$step": typeof SetupStepRoute;
+  "/welcome/$step": typeof WelcomeStepRoute;
   "/portal/": typeof PortalIndexRoute;
   "/nodes/$nodeId": typeof AppNodesNodeIdRouteRouteWithChildren;
   "/accounts/$accountId": typeof AppAccountsAccountIdRoute;
@@ -689,6 +696,7 @@ export interface FileRoutesByTo {
   "/portal/requests": typeof PortalRequestsRoute;
   "/portal/search": typeof PortalSearchRoute;
   "/setup/$step": typeof SetupStepRoute;
+  "/welcome/$step": typeof WelcomeStepRoute;
   "/": typeof AppIndexRoute;
   "/portal": typeof PortalIndexRoute;
   "/accounts/$accountId": typeof AppAccountsAccountIdRoute;
@@ -778,6 +786,7 @@ export interface FileRoutesById {
   "/portal/requests": typeof PortalRequestsRoute;
   "/portal/search": typeof PortalSearchRoute;
   "/setup_/$step": typeof SetupStepRoute;
+  "/welcome/$step": typeof WelcomeStepRoute;
   "/_app/": typeof AppIndexRoute;
   "/portal/": typeof PortalIndexRoute;
   "/_app/nodes/$nodeId": typeof AppNodesNodeIdRouteRouteWithChildren;
@@ -872,6 +881,7 @@ export interface FileRouteTypes {
     | "/portal/requests"
     | "/portal/search"
     | "/setup/$step"
+    | "/welcome/$step"
     | "/portal/"
     | "/nodes/$nodeId"
     | "/accounts/$accountId"
@@ -956,6 +966,7 @@ export interface FileRouteTypes {
     | "/portal/requests"
     | "/portal/search"
     | "/setup/$step"
+    | "/welcome/$step"
     | "/"
     | "/portal"
     | "/accounts/$accountId"
@@ -1044,6 +1055,7 @@ export interface FileRouteTypes {
     | "/portal/requests"
     | "/portal/search"
     | "/setup_/$step"
+    | "/welcome/$step"
     | "/_app/"
     | "/portal/"
     | "/_app/nodes/$nodeId"
@@ -1124,6 +1136,7 @@ export interface RootRouteChildren {
   SupersededRoute: typeof SupersededRoute;
   WorkerRoute: typeof WorkerRoute;
   SetupStepRoute: typeof SetupStepRoute;
+  WelcomeStepRoute: typeof WelcomeStepRoute;
   AccountPasskeysNewRoute: typeof AccountPasskeysNewRoute;
 }
 
@@ -1316,6 +1329,13 @@ declare module "@tanstack/react-router" {
       path: "/setup/$step";
       fullPath: "/setup/$step";
       preLoaderRoute: typeof SetupStepRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/welcome/$step": {
+      id: "/welcome/$step";
+      path: "/welcome/$step";
+      fullPath: "/welcome/$step";
+      preLoaderRoute: typeof WelcomeStepRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/_app/accounts/": {
@@ -2053,6 +2073,7 @@ const rootRouteChildren: RootRouteChildren = {
   SupersededRoute: SupersededRoute,
   WorkerRoute: WorkerRoute,
   SetupStepRoute: SetupStepRoute,
+  WelcomeStepRoute: WelcomeStepRoute,
   AccountPasskeysNewRoute: AccountPasskeysNewRoute,
 };
 export const routeTree = rootRouteImport

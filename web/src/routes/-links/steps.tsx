@@ -16,7 +16,24 @@ export type Step<F> = {
   readonly Step: ComponentType<StepProps<F>>;
 };
 
-export function Steps<F>({ steps, start }: { steps: readonly Step<F>[]; start: F }) {
+export function StepCount({ number, of }: { number: number; of: number }) {
+  return (
+    <p className="text-meta text-ink-3">
+      Step {number} of {of}
+    </p>
+  );
+}
+
+/** `after` counts the steps that follow on another page, as signup's on `/welcome`. */
+export function Steps<F>({
+  steps,
+  start,
+  after = 0,
+}: {
+  steps: readonly Step<F>[];
+  start: F;
+  after?: number;
+}) {
   const [{ flow, at }, setPlace] = useState({ flow: start, at: 0 });
   const next = (learned: Partial<F> = {}) => {
     const moved = { ...flow, ...learned };
@@ -30,9 +47,7 @@ export function Steps<F>({ steps, start }: { steps: readonly Step<F>[]; start: F
   const shown = steps.filter((step) => step.shows(flow));
   return (
     <>
-      <p className="text-meta text-ink-3">
-        Step {shown.indexOf(current) + 1} of {shown.length}
-      </p>
+      <StepCount number={shown.indexOf(current) + 1} of={shown.length + after} />
       <current.Step key={current.id} flow={flow} next={next} />
     </>
   );

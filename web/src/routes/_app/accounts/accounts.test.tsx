@@ -14,6 +14,7 @@ import {
   getListSignupLinksMockHandler,
 } from "../../../api/gen/query/identity/identity.msw";
 import { ada, grace, problem } from "../../../test/handlers";
+import { denJellyfin, livingRoomPlex, mediaServerHandlers } from "../../../test/media-servers";
 import { renderApp } from "../../../test/render-app";
 import { type ValueForm, placeOf, timeForms } from "../../../ui/time-words";
 
@@ -41,7 +42,24 @@ const pending: IdentityPendingLink = {
   issuedAt: "2026-10-14T10:00:00Z",
   expiresAt: "2026-10-21T10:00:00Z",
   issuedBy: "Ada Okafor",
-  mediaServers: [],
+  mediaServers: [
+    {
+      server: denJellyfin.id,
+      name: denJellyfin.name,
+      kind: "Jellyfin",
+      plexHome: false,
+      present: true,
+      shown: true,
+    },
+    {
+      server: livingRoomPlex.id,
+      name: livingRoomPlex.name,
+      kind: "Plex",
+      plexHome: false,
+      present: true,
+      shown: false,
+    },
+  ],
 };
 
 const issued = (email: string): IdentityIssuedSignupLink => ({
@@ -53,6 +71,7 @@ const issued = (email: string): IdentityIssuedSignupLink => ({
 const accountsPage = (links: IdentityPendingLink[] = [pending]) => [
   getListAccountsMockHandler({ accounts: [adaRow, graceRow] }),
   getListSignupLinksMockHandler({ links }),
+  ...mediaServerHandlers([]),
 ];
 
 const noAddress = { address: "", suggestedAddress: "http://media-pc:8484" };
@@ -80,7 +99,7 @@ test("Accounts lists every Account and the pending Signup links", async () => {
   await expect
     .element(page.getByRole("list", { name: "Pending Signup links" }).getByRole("listitem"))
     .toHaveTextContent(
-      `lin@example.testSent ${shown("clock", pending.issuedAt)} by Ada Okafor · Expires ${shown("clock", pending.expiresAt)}`,
+      `lin@example.testSent ${shown("clock", pending.issuedAt)} by Ada Okafor · Expires ${shown("clock", pending.expiresAt)} · Offers ${denJellyfin.name}`,
     );
 });
 
@@ -111,7 +130,7 @@ test("New Signup link shows the link to copy and that email is not set up", asyn
   await expect
     .element(dialog.getByText("Email isn't set up. Copy the link and send it yourself."))
     .toBeVisible();
-  expect(sent).toEqual([{ email: "lin@example.test" }]);
+  expect(sent).toEqual([{ email: "lin@example.test", mediaServers: [] }]);
 
   await userEvent.click(dialog.getByRole("button", { name: "Done" }));
   await expect.element(dialog).not.toBeInTheDocument();
@@ -132,6 +151,9 @@ test("an email that already has an Account is refused on the field", async () =>
   await userEvent.fill(dialog.getByRole("textbox", { name: "Email" }), "grace@example.test");
   await userEvent.click(dialog.getByRole("button", { name: "Make the link" }));
   await expect.element(dialog.getByText("An Account already has that email")).toBeVisible();
+  await expect
+    .element(dialog.getByRole("link", { name: "their Account page" }))
+    .toHaveAttribute("href", `/accounts/${grace.id}`);
 });
 
 test("with no address set, the dialog asks for it, saves it and then makes the link", async () => {
@@ -190,7 +212,7 @@ const pendingLinkHandlers = (calls: string[]) => [
   http.post("*/api/v1/signup-links/:id/resend", ({ params }) => {
     calls.push(`resend ${String(params["id"])}`);
     return HttpResponse.json(
-      { ...issued("lin@example.test"), email: { outcome: "sent" } },
+      { ...issued("lin@example.test"), email: { outcome: "sent" }, dropped: [livingRoomPlex.name] },
       { status: 201 },
     );
   }),
@@ -224,6 +246,7 @@ test("a pending link copies, sends again and withdraws", async () => {
   await userEvent.click(resend.getByRole("button", { name: "Send again" }));
   const resent = page.getByRole("dialog", { name: "New Signup link" });
   await expect.element(resent.getByText("Emailed it to lin@example.test.")).toBeVisible();
+  await expect.element(resent.getByText(livingRoomPlex.name, { exact: false })).toBeVisible();
   await userEvent.click(resent.getByRole("button", { name: "Done" }));
   await expect.element(resent).not.toBeInTheDocument();
 

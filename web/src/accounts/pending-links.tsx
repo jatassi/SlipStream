@@ -15,12 +15,18 @@ import { RelativeTime } from "../ui/relative-time";
 import { Section } from "../ui/section";
 import { type Acting, PendingLinkDialogs } from "./pending-link-dialogs";
 
+const list = new Intl.ListFormat("en", { type: "conjunction" });
+
 function Meta({ link }: { link: IdentityPendingLink }) {
+  const offered = link.mediaServers
+    .filter((server) => server.present && server.shown)
+    .map((server) => server.name);
   return (
     <>
       Sent <RelativeTime at={link.issuedAt} form="clock" />
       {link.issuedBy !== undefined && ` by ${link.issuedBy}`} · Expires{" "}
       <RelativeTime at={link.expiresAt} form="clock" />
+      {offered.length > 0 && ` · Offers ${list.format(offered)}`}
     </>
   );
 }
