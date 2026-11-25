@@ -51,3 +51,25 @@ func (m *Member) SignOut(ctx context.Context, t MemberToken) error {
 	}
 	return err
 }
+
+// Accept finds share among the Member's pending invites by its id and
+// accepts it. False when it isn't pending: the Admin's FindShare says
+// whether it is accepted already.
+func (m *Member) Accept(ctx context.Context, t MemberToken, share ShareID) (bool, error) {
+	var out []struct {
+		SharedServers []struct {
+			ID wireID `json:"id"`
+		} `json:"sharedServers"`
+	}
+	if err := m.t.do(ctx, request{route: routes[pendingReceived], token: t.s}, &out); err != nil {
+		return false, err
+	}
+	for _, inv := range out {
+		for _, s := range inv.SharedServers {
+			if ShareID(s.ID) == share {
+				return true, m.t.do(ctx, request{route: routes[accept], vars: []string{"{share}", string(share)}, token: t.s}, nil)
+			}
+		}
+	}
+	return false, nil
+}
