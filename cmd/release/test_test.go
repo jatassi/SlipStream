@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 )
 
@@ -202,5 +203,32 @@ func TestRecordBrowserTimingsReadsBackForTheNextRun(t *testing.T) {
 	}
 	if got := past.Packages[browserTimings].Tests[browserTestKey("[p] › a.spec.ts:1:1 › one")]; got != 4 {
 		t.Errorf("the test's seconds = %v, want 4", got)
+	}
+}
+
+// lastValue is the variable's value a process started with env sees, as
+// os/exec keeps the last of duplicate names.
+func lastValue(env []string, name string) (string, bool) {
+	for _, kv := range slices.Backward(env) {
+		if v, ok := strings.CutPrefix(kv, name+"="); ok {
+			return v, true
+		}
+	}
+	return "", false
+}
+
+func TestEachPlaywrightRunKeepsItsOwnOutput(t *testing.T) {
+	runs := filepath.Join(t.TempDir(), "fakeworld-runs")
+	env := []string{"HOME=/home/x", "TEST_FAKEWORLD_RUNS=" + runs}
+	seen := map[string]bool{}
+	for _, run := range []string{"run-1", "run-2", "rerun-1", "rerun-2"} {
+		dir, _ := lastValue(playwrightEnv(env, run, "report.json"), "TEST_FAKEWORLD_RUNS")
+		if rel, err := filepath.Rel(runs, dir); err != nil || rel == "." || strings.HasPrefix(rel, "..") || seen[dir] {
+			t.Errorf("run %s writes its output under %q, want a dir of its own under %q", run, dir, runs)
+		}
+		seen[dir] = true
+	}
+	if dir, ok := lastValue(playwrightEnv([]string{"HOME=/home/x"}, "run-1", "report.json"), "TEST_FAKEWORLD_RUNS"); ok {
+		t.Errorf("a run without TEST_FAKEWORLD_RUNS sets it to %q", dir)
 	}
 }
