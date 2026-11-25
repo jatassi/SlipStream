@@ -1,0 +1,13 @@
+Subject: You can watch Den on Plex
+
+Den is shared with your Plex account gracehopper. To watch:
+
+1. Get the Plex app
+2. Sign in as gracehopper
+3. Pick Den
+
+Your SlipStream PIN doesn't work in Plex.
+
+Open the email from Plex and accept the share.
+
+SlipStream sends this when an Admin shares a server with your Plex account.
