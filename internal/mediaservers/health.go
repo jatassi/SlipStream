@@ -16,7 +16,7 @@ var HealthAbout = health.About{
 	ID:     health.MediaServersID,
 	Label:  "Media Servers",
 	Phrase: "Media Servers",
-	Events: []live.Event{ChangedEvent, UnhealthyEvent, RecoveredEvent, roots.ChangedEvent, nodes.ChangedEvent},
+	Events: []live.Event{ChangedEvent, UnhealthyEvent, RecoveredEvent, AccessChangedEvent, roots.ChangedEvent, nodes.ChangedEvent},
 }
 
 // HealthSource answers each server's health as the sender judged it, and

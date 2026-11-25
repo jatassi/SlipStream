@@ -50,27 +50,31 @@ type State struct {
 }
 
 type ServerView struct {
-	ID              string         `json:"id" format:"uuid"`
-	Kind            api.Enum[Kind] `json:"kind"`
-	Name            string         `json:"name"`
-	Address         string         `json:"address" doc:"The address the Connect from Node uses, such as http://localhost:8096"`
-	FallbackAddress string         `json:"fallbackAddress,omitempty" doc:"The address the Controller uses while the Connect from Node is offline; absent when it uses address"`
-	BrowserAddress  string         `json:"browserAddress,omitempty" doc:"The address the Open in button opens, for Jellyfin and Emby; absent when there is no Open in button"`
-	Version         string         `json:"version" doc:"As the server last reported it"`
-	Identity        string         `json:"identity" doc:"Plex's machineIdentifier, or the Jellyfin or Emby server Id"`
-	ReachingNode    NodeRef        `json:"reachingNode" doc:"The Node that sends changes and watches sessions"`
-	RunsOnNode      *NodeRef       `json:"runsOnNode,omitempty" doc:"The Node the server runs on; absent when it runs on no Node"`
-	Fallback        string         `json:"fallback" enum:"available,none,untested" doc:"Whether the Controller can connect to the server itself, which it does while the Connect from Node is offline"`
-	CheckedAt       *time.Time     `json:"checkedAt,omitempty" doc:"When both routes were last tested"`
-	Contact         string         `json:"contact" enum:"unknown,responding,not_responding,sign_in_refused,other_server" doc:"As the Connect from Node last reported it; unknown until it reports and while it is offline"`
-	ContactSince    *time.Time     `json:"contactSince,omitempty"`
-	Sends           string         `json:"sends" enum:"ok,failing"`
-	LastContactAt   *time.Time     `json:"lastContactAt,omitempty"`
-	LastSendAt      *time.Time     `json:"lastSendAt,omitempty"`
-	Unhealthy       *Unhealthy     `json:"unhealthy,omitempty" doc:"Set while the server is unhealthy"`
-	State           State          `json:"state"`
-	MappingsNeeded  int            `json:"mappingsNeeded" minimum:"0" doc:"Roots with shown true and no confirmed Path mapping"`
-	PlexPass        *bool          `json:"plexPass,omitempty" doc:"Plex only: whether the signed-in account has Plex Pass"`
+	ID              string          `json:"id" format:"uuid"`
+	Kind            api.Enum[Kind]  `json:"kind"`
+	Name            string          `json:"name"`
+	Address         string          `json:"address" doc:"The address the Connect from Node uses, such as http://localhost:8096"`
+	FallbackAddress string          `json:"fallbackAddress,omitempty" doc:"The address the Controller uses while the Connect from Node is offline; absent when it uses address"`
+	BrowserAddress  string          `json:"browserAddress,omitempty" doc:"The address the Open in button opens, for Jellyfin and Emby; absent when there is no Open in button"`
+	Version         string          `json:"version" doc:"As the server last reported it"`
+	Identity        string          `json:"identity" doc:"Plex's machineIdentifier, or the Jellyfin or Emby server Id"`
+	ReachingNode    NodeRef         `json:"reachingNode" doc:"The Node that sends changes and watches sessions"`
+	RunsOnNode      *NodeRef        `json:"runsOnNode,omitempty" doc:"The Node the server runs on; absent when it runs on no Node"`
+	Fallback        string          `json:"fallback" enum:"available,none,untested" doc:"Whether the Controller can connect to the server itself, which it does while the Connect from Node is offline"`
+	CheckedAt       *time.Time      `json:"checkedAt,omitempty" doc:"When both routes were last tested"`
+	Contact         string          `json:"contact" enum:"unknown,responding,not_responding,sign_in_refused,other_server" doc:"As the Connect from Node last reported it; unknown until it reports and while it is offline"`
+	ContactSince    *time.Time      `json:"contactSince,omitempty"`
+	Sends           string          `json:"sends" enum:"ok,failing"`
+	LastContactAt   *time.Time      `json:"lastContactAt,omitempty"`
+	LastSendAt      *time.Time      `json:"lastSendAt,omitempty"`
+	Unhealthy       *Unhealthy      `json:"unhealthy,omitempty" doc:"Set while the server is unhealthy"`
+	State           State           `json:"state"`
+	MappingsNeeded  int             `json:"mappingsNeeded" minimum:"0" doc:"Roots with shown true and no confirmed Path mapping"`
+	PlexPass        *bool           `json:"plexPass,omitempty" doc:"Plex only: whether the signed-in account has Plex Pass"`
+	MembersSee      bool            `json:"membersSee" doc:"Show to Members: whether Members may be offered access to the server"`
+	MemberLibraries []LibraryChoice `json:"memberLibraries" nullable:"false" doc:"The Libraries for Members: what a Member's access covers"`
+	MemberAddress   string          `json:"memberAddress,omitempty" doc:"Jellyfin and Emby: the address How to watch gives Members; absent when the Admin set none"`
+	MemberCount     int             `json:"memberCount" minimum:"0" doc:"How many Members can watch on the server"`
 }
 
 // Draft is a server to add, parsed from the request.
@@ -100,6 +104,13 @@ type Patch struct {
 	Reaching        *role.NodeID
 	RunsOn          *Set[role.NodeID]
 	APIKey          *string
+	// MembersSee on with no library is ErrNoMemberLibraries. The first
+	// turn on writes the default Libraries for Members.
+	MembersSee *bool
+	// MemberLibraries is never empty while MembersSee is on.
+	MemberLibraries *[]LibraryChoice
+	// MemberAddress is refused on Plex.
+	MemberAddress *Set[string]
 }
 
 // Set is a nullable field a Patch changes. A nil To clears it.
@@ -212,7 +223,7 @@ type PlexPin struct {
 }
 
 type PlexPinState struct {
-	State string `json:"state" enum:"waiting,expired,signed_in"`
+	State string `json:"state" enum:"waiting,expired,signed_in,other_account" doc:"other_account is a sign-in as a Plex account other than the one SlipStream is signed in to, which replacePlexAccount confirms"`
 }
 
 type AccountView struct {

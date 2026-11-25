@@ -3,6 +3,7 @@ package mediaservers
 import (
 	"context"
 
+	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/mediaserverlink/link"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/setting"
@@ -42,6 +43,32 @@ type Service interface {
 	// it.
 	OpenIn(ctx context.Context, work works.WorkID) ([]OpenIn, error)
 	Settings() setting.Panel
+	// ReplacePlexAccount confirms an Admin's Plex sign-in as a different
+	// Plex account, the pin state other_account.
+	ReplacePlexAccount(ctx context.Context, pin int64) (AccountView, error)
+
+	// Access lists the access rows, Needs you first. f.Account narrows it
+	// to one Member and adds the servers they may be offered.
+	Access(ctx context.Context, f AccessFilter) (AccessList, error)
+	Offer(ctx context.Context, by identity.Admin, account identity.AccountID, server link.ServerID, plexHome bool) (Acted, error)
+	Share(ctx context.Context, by identity.Admin, id AccessID, as Invite) (Acted, error)
+	MarkAdded(ctx context.Context, by identity.Admin, id AccessID) (Acted, error)
+	LinkUser(ctx context.Context, by identity.Admin, id AccessID, user string) (Acted, error)
+	CheckShare(ctx context.Context, by identity.Admin, id AccessID) (Acted, error)
+	RemoveAccess(ctx context.Context, by identity.Admin, id AccessID) (Acted, error)
+	// LinkableUsers are the server's users an Admin may link to a Member:
+	// no administrator, no disabled user and no user already linked.
+	LinkableUsers(ctx context.Context, server link.ServerID) ([]ServerUser, error)
+
+	// Mine is the Member's own access.
+	Mine(ctx context.Context, me identity.Account) (MyAccess, error)
+	StartMemberPin(ctx context.Context, me identity.Account) (MemberPin, error)
+	MemberPin(ctx context.Context, me identity.Account, id int64) (MemberPinState, error)
+	// AnotherPlex forgets the Member's Plex account, for Use another Plex
+	// account.
+	AnotherPlex(ctx context.Context, me identity.Account) error
+	MakeAccount(ctx context.Context, me identity.Account, id AccessID, username string, pw link.Password) (MyAccessRow, error)
+	CheckMine(ctx context.Context, me identity.Account, id AccessID) (MyAccessRow, error)
 }
 
 // Mapping is one root's mapping to save, parsed from the request.
