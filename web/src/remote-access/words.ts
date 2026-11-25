@@ -1,4 +1,5 @@
 import type {
+  ReachabilityCheckID,
   ReachabilityCheckViewResult,
   ReachabilityHopViewKind,
   ReachabilityRouteRoute,
@@ -57,3 +58,19 @@ export const results: { readonly [R in ReachabilityCheckViewResult]: string } = 
 };
 
 export const familyNames = { ipv4: "IPv4", ipv6: "IPv6" } as const;
+
+/** What a check's value under Details holds. */
+export const observedLabels: { readonly [C in ReachabilityCheckID]: string } = {
+  "dns.a": "A record",
+  "dns.aaaa": "AAAA record",
+  "origin.bind": "Program on the port",
+  "origin.firewall": "Firewall rule",
+  "origin.class": "Network",
+  "outside.connect": "Address tried",
+  "outside.connect-back": "Address tried",
+  "tls.certificate": "Names on the certificate",
+  identity: "Response",
+  "http.plain": "Address",
+  "plex.custom-url": "Custom URLs in Plex",
+  "plex.mapping": "Public address in Plex",
+};

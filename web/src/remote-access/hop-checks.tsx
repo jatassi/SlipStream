@@ -5,7 +5,7 @@ import { Fact, Facts } from "../ui/facts";
 import { InspectorSection } from "../ui/inspector";
 import { whenWords } from "../ui/time-words";
 import { FixText } from "./fix";
-import { familyNames, results } from "./words";
+import { familyNames, observedLabels, results } from "./words";
 
 function resultWords(check: ReachabilityCheckView): string {
   const result = results[check.result];
@@ -24,7 +24,9 @@ function Check({ check, judgedAt }: { check: ReachabilityCheckView; judgedAt: st
         {(check.observed !== undefined || check.by !== undefined) && (
           <Details>
             <Facts look="well">
-              {check.observed !== undefined && <Fact label="Seen">{check.observed}</Fact>}
+              {check.observed !== undefined && (
+                <Fact label={observedLabels[check.id]}>{check.observed}</Fact>
+              )}
               {check.by !== undefined && (
                 <Fact label="Seen by">
                   {judgedAt === null ? check.by : `${check.by} ${whenWords(judgedAt, "at", clock)}`}
