@@ -6,6 +6,9 @@ import (
 	"strings"
 	"testing"
 	"testing/synctest"
+	"time"
+
+	"github.com/jatassi/slipstream/internal/live"
 )
 
 // TestNoMemberSecretLeaves runs each Member path that carries a secret
@@ -37,20 +40,51 @@ func TestNoMemberSecretLeaves(t *testing.T) {
 				bodies = append(bodies, d.expectOK(t, servers+"/access"))
 				_, mine := d.o.CallAs(t, http.MethodGet, "/api/v1/account/media-servers", "", d.sam.Session)
 				bodies = append(bodies, mine)
-				msgs, _ := tap.Take()
-				for _, m := range msgs {
-					payload, err := json.Marshal(m.Data)
-					if err != nil {
-						t.Fatal(err)
-					}
-					bodies = append(bodies, m.Name+" "+string(payload))
-				}
-				for _, where := range append(bodies, d.w.Logged(), d.o.Log.String()) {
-					if strings.Contains(where, sentinel) {
-						t.Errorf("the sentinel leaked in %s", where)
-					}
-				}
+				expectNoLeak(t, sentinel, d.rig, tap, bodies)
 			})
 		})
+	}
+}
+
+// TestNoMemberPlexTokenLeaves signs Sam in with Plex while the Plex
+// server waits on the token for its share, and reads the responses, event
+// payloads and log lines: none holds the token.
+func TestNoMemberPlexTokenLeaves(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		r := newMemberRig(t)
+		if status, body := r.offer(t, r.sam.ID, r.server, false); status != http.StatusOK {
+			t.Fatalf("offer = %d %s", status, body)
+		}
+		tap := r.w.Tap(t.Context())
+		pin := r.startMemberPin(t, r.sam)
+		r.plex.ApproveAs(t, pin.AuthURL, "sam")
+		time.Sleep(time.Second)
+		synctest.Wait()
+		_, state := r.o.CallAs(t, http.MethodGet, mine+"/plex/pin/"+jsonInt(pin.ID), "", r.sam.Session)
+		_, rows := r.o.CallAs(t, http.MethodGet, mine, "", r.sam.Session)
+		token := r.w.MemberPinToken(t, r.sam.ID, pin.ID)
+		if _, held := r.w.PlexTVUser(t, token); !held {
+			t.Fatal("plex.tv no longer holds the token the share waits on")
+		}
+		expectNoLeak(t, token.Reveal(), r.rig, tap, []string{state, rows, r.expectOK(t, servers+"/access")})
+	})
+}
+
+// expectNoLeak reads bodies, every event tap took, and every log line, at
+// debug, of the Controller, its Nodes and the API: none holds secret.
+func expectNoLeak(t *testing.T, secret string, r rig, tap *live.Tap, bodies []string) {
+	t.Helper()
+	msgs, _ := tap.Take()
+	for _, m := range msgs {
+		payload, err := json.Marshal(m.Data)
+		if err != nil {
+			t.Fatal(err)
+		}
+		bodies = append(bodies, m.Name+" "+string(payload))
+	}
+	for _, where := range append(bodies, r.w.Logged(), r.o.Log.String()) {
+		if strings.Contains(where, secret) {
+			t.Errorf("the secret leaked in %s", where)
+		}
 	}
 }
