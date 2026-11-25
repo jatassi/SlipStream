@@ -1,5 +1,5 @@
 import { Cancel01Icon } from "@hugeicons/core-free-icons";
-import { type ReactNode, useId } from "react";
+import { type ReactNode, useEffect, useEffectEvent, useId } from "react";
 
 import { IconButton } from "./icon-button";
 import "./rows.css";
@@ -27,6 +27,22 @@ export function Inspector({
   children: ReactNode;
 }) {
   const titleId = useId();
+  const close = useEffectEvent((event: KeyboardEvent) => {
+    if (event.key === "Escape" && !event.defaultPrevented) {
+      onClose();
+    }
+  });
+  useEffect(() => {
+    // On window, so it runs after a popup's own Escape on document has
+    // claimed the key.
+    const onKey = (event: KeyboardEvent) => {
+      close(event);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+    };
+  }, []);
   return (
     <aside
       aria-labelledby={titleId}

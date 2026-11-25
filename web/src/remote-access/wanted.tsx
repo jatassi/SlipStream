@@ -15,7 +15,7 @@ function selectedOf(
 ): SelectedHop | undefined {
   const route = page.routes.find((candidate) => candidate.exposure.id === selection?.exposureId);
   const hop = selection === undefined ? undefined : route?.hops[selection.hop];
-  return route === undefined || hop === undefined
+  return route === undefined || hop === undefined || !route.checked || route.folded
     ? undefined
     : { subject: route.exposure.subject, hop, judgedAt: route.judgedAt };
 }
@@ -23,6 +23,10 @@ function selectedOf(
 /** The head of the page once something is set up: the sentence, the card and the routes. */
 export function Wanted({ page, pair }: { page: ReachabilityRemoteAccess; pair: () => void }) {
   const [selection, setSelection] = useState<Selection>();
+  const selected = selectedOf(page, selection);
+  if (selection !== undefined && selected === undefined) {
+    setSelection(undefined);
+  }
   return (
     <>
       <StatusHead page={page} />
@@ -46,7 +50,7 @@ export function Wanted({ page, pair }: { page: ReachabilityRemoteAccess; pair: (
         </div>
       </Section>
       <HopInspector
-        selected={selectedOf(page, selection)}
+        selected={selected}
         onClose={() => {
           setSelection(undefined);
         }}

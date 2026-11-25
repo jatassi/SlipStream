@@ -1,3 +1,4 @@
+import { HttpResponse, http } from "msw";
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
@@ -12,6 +13,7 @@ import {
   forward,
   plexRoute,
   remoteAccessServer,
+  uiRoute,
   wanted,
 } from "../../../test/remote-access";
 import { renderApp } from "../../../test/render-app";
@@ -148,3 +150,37 @@ test.each([
     );
   },
 );
+
+test("a route that folds after its fix closes the Inspector on its hop", async () => {
+  await page.viewport(1440, 900);
+  const before = wanted(cards.warn);
+  let shown = before;
+  const server = remoteAccessServer(before);
+  renderApp({
+    path: "/nodes/remote-access",
+    handlers: [
+      http.get("*/api/v1/remote-access", () => HttpResponse.json(shown)),
+      ...server.handlers,
+      ...joinCodeServer().handlers,
+    ],
+  });
+  await userEvent.click(
+    page
+      .getByRole("list", { name: "Hops of Living room Plex" })
+      .getByRole("button", { name: /^Origin:/u }),
+  );
+  await expect.element(page.getByRole("complementary")).toBeVisible();
+  shown = {
+    ...before,
+    card: null,
+    routes: [
+      uiRoute,
+      { ...plexRoute, verdict: "reachable", folded: true, card: "none", fix: null },
+    ],
+  };
+  await userEvent.click(button("Turn on Open router ports automatically"));
+  await expect
+    .element(page.getByRole("list", { name: "Hops of Living room Plex" }))
+    .not.toBeInTheDocument();
+  await expect.element(page.getByRole("complementary")).not.toBeInTheDocument();
+});
