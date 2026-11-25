@@ -38,6 +38,7 @@ import type { LiveEventNodesFenced } from "./liveEventNodesFenced.ts";
 import type { LiveEventNodesTraffic } from "./liveEventNodesTraffic.ts";
 import type { LiveEventNotificationsChanged } from "./liveEventNotificationsChanged.ts";
 import type { LiveEventNotificationsSeen } from "./liveEventNotificationsSeen.ts";
+import type { LiveEventReachabilityChanged } from "./liveEventReachabilityChanged.ts";
 import type { LiveEventReconcilingChanged } from "./liveEventReconcilingChanged.ts";
 import type { LiveEventRootsChanged } from "./liveEventRootsChanged.ts";
 import type { LiveEventSubtitlesAttempt } from "./liveEventSubtitlesAttempt.ts";
@@ -98,6 +99,7 @@ export type LiveEvent =
   | LiveEventNodesTraffic
   | LiveEventNotificationsChanged
   | LiveEventNotificationsSeen
+  | LiveEventReachabilityChanged
   | LiveEventReconcilingChanged
   | LiveEventRootsChanged
   | LiveEventSubtitlesAttempt

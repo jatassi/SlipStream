@@ -3,8 +3,12 @@ package setting
 import (
 	"encoding/json"
 	"fmt"
+	"net"
 	"slices"
+	"strconv"
 	"strings"
+
+	"github.com/jatassi/slipstream/internal/node/endpoint"
 )
 
 // ListItem is what a List's entries are, which sets how one is written.
@@ -14,6 +18,10 @@ type ListItem string
 // digits with no leading dot, such as mkv.
 const Extension ListItem = "extension"
 
+// HostPort is a server's DNS name or IP address and its port, such as
+// stun.example.org:3478.
+const HostPort ListItem = "host-port"
+
 type listItem struct {
 	noun Noun
 	// write returns entry in its stored form, or the sentence refusing it.
@@ -22,6 +30,7 @@ type listItem struct {
 
 var listItems = map[ListItem]listItem{
 	Extension: {noun: Noun{One: "extension", Many: "extensions"}, write: writeExtension},
+	HostPort:  {noun: Noun{One: "server", Many: "servers"}, write: writeHostPort},
 }
 
 func writeExtension(entry string) (written, refusal string) {
@@ -34,6 +43,28 @@ func writeExtension(entry string) (written, refusal string) {
 		return "", `"` + typed + `" isn't an extension. Use letters and digits only, such as mkv.`
 	}
 	return ext, ""
+}
+
+// writeHostPort writes the host in lowercase, an IPv6 address in
+// brackets.
+func writeHostPort(entry string) (written, refusal string) {
+	typed := strings.TrimSpace(entry)
+	if typed == "" {
+		return "", "A server can't be blank."
+	}
+	if _, _, err := net.SplitHostPort(typed); err != nil {
+		if _, err := endpoint.ParseHostPort(net.JoinHostPort(typed, "3478")); err == nil {
+			return "", "Add a port, such as " + net.JoinHostPort(strings.ToLower(typed), "3478") + "."
+		}
+	}
+	hp, err := endpoint.ParseHostPort(typed)
+	if err != nil {
+		return "", `"` + typed + `" isn't a server's name or IP address and port, such as stun.example.org:3478.`
+	}
+	if hp.Port() == 0 {
+		return "", "Use a port between 1 and 65535."
+	}
+	return net.JoinHostPort(strings.ToLower(hp.Hostname()), strconv.Itoa(int(hp.Port()))), ""
 }
 
 // List is an ordered list of at least Min different entries, each an Item.
@@ -83,13 +114,17 @@ func (l List) Field(override *[]string) ListField {
 	return ListField{
 		About:   about(l.Key, l.Label, override == nil),
 		Kind:    "list",
-		Value:   l.Value(override),
-		Running: l.Value(override),
-		Default: l.Default,
+		Value:   wireList(l.Value(override)),
+		Running: wireList(l.Value(override)),
+		Default: wireList(l.Default),
 		Min:     l.Min,
 		Item:    string(l.Item),
 	}
 }
+
+// wireList is entries as the wire sends them, never null: a List with
+// no Default reads as empty until it is set.
+func wireList(entries []string) []string { return append([]string{}, entries...) }
 
 // Check reports an unknown Item, or a default Parse would refuse or write
 // differently.
@@ -115,7 +150,7 @@ type ListField struct {
 	Running []string `json:"running" nullable:"false"`
 	Default []string `json:"default" nullable:"false"`
 	Min     int      `json:"min" minimum:"0" doc:"The fewest entries the list takes"`
-	Item    string   `json:"item" enum:"extension" doc:"What each entry is: an extension is lowercase letters and digits with no leading dot, such as mkv"`
+	Item    string   `json:"item" enum:"extension,host-port" doc:"What each entry is: an extension is lowercase letters and digits with no leading dot, such as mkv; a host-port is a server's name or IP address and its port, such as stun.example.org:3478"`
 }
 
 // Size is a byte size from Min to Max, set in whole MB.

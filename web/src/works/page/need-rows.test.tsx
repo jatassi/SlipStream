@@ -42,6 +42,7 @@ test("a Not found row merges the Items into a range, says when SlipStream search
     work,
     startCells: { ...shelfCells(work, () => "missing"), needsYou: [notFound] },
     queue: aWorkSearching({ groups: [group] }),
+    pressed: { groups: [{ key: group.key, label: group.label, itemIds, state: "queued" }] },
   });
   renderApp({ path: `/works/${work.id}`, handlers: server.handlers });
 

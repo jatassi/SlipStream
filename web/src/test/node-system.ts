@@ -3,7 +3,8 @@ import { HttpResponse, type JsonBodyType, http } from "msw";
 import type {
   SettingChoiceField,
   SettingCountField,
-  SettingPortField,
+  SettingListenAt,
+  SettingListenField,
   SettingSwitchField,
   SystemNodeConfig,
   SystemReport,
@@ -19,15 +20,24 @@ const about = {
   isDefault: true,
 } as const;
 
-export const portSetting: SettingPortField = {
+const hostAddress = { all: "[::]", local: "[::1]", other: "127.0.0.1" } as const;
+
+/** Where http.listen listens: all networks unless host says otherwise. */
+export const listenAt = (port: number, host: SettingListenAt["host"] = "all"): SettingListenAt => ({
+  host,
+  port,
+  address: `${hostAddress[host]}:${String(port)}`,
+});
+
+export const listenSetting: SettingListenField = {
   ...about,
   key: "http.listen",
-  label: "Port",
-  kind: "port",
+  label: "Listen on",
+  kind: "listen",
   applies: "restart",
-  value: 8484,
-  running: 8484,
-  default: 8484,
+  value: listenAt(8484),
+  running: listenAt(8484),
+  default: listenAt(8484),
 };
 
 const portsToTry: SettingCountField = {
@@ -98,7 +108,7 @@ const viewerLines = count("log.viewer_lines", "Lines kept for the viewer", 2000,
 
 export const homeConfig: SystemNodeConfig = {
   sections: [
-    { id: "web", fields: [portSetting, portsToTry] },
+    { id: "web", fields: [listenSetting, portsToTry] },
     {
       id: "log",
       fields: [
@@ -127,11 +137,11 @@ export const homeConfig: SystemNodeConfig = {
   ],
 };
 
-/** A config with one Web and API field replaced. */
-export const withPort = (port: Partial<SettingPortField>): SystemNodeConfig => ({
+/** A config with its http.listen field replaced. */
+export const withListen = (listen: Partial<SettingListenField>): SystemNodeConfig => ({
   sections: homeConfig.sections.map((section) =>
     section.id === "web"
-      ? { ...section, fields: [{ ...portSetting, ...port }, ...section.fields.slice(1)] }
+      ? { ...section, fields: [{ ...listenSetting, ...listen }, ...section.fields.slice(1)] }
       : section,
   ),
 });

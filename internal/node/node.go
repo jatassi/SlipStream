@@ -37,6 +37,8 @@ import (
 	"github.com/jatassi/slipstream/internal/media/fvad"
 	"github.com/jatassi/slipstream/internal/media/speech"
 	"github.com/jatassi/slipstream/internal/mediaserverlink"
+	"github.com/jatassi/slipstream/internal/netfacts"
+	"github.com/jatassi/slipstream/internal/netmodel"
 	"github.com/jatassi/slipstream/internal/node/internal/config"
 	"github.com/jatassi/slipstream/internal/node/internal/control"
 	"github.com/jatassi/slipstream/internal/node/internal/host"
@@ -97,6 +99,9 @@ type Env struct {
 	// Zone is where the Maintenance window's wall-clock times are kept;
 	// nil is the process's own, time.Local.
 	Zone *time.Location
+	// Network reads this machine's network for netfacts: the OS's readers
+	// for a process.
+	Network netfacts.Env
 	// Restore is the restore the Docker variables ask for, nil for none.
 	Restore *EnvRestore
 	// Test adds test-only Roles; a process leaves it zero.
@@ -160,6 +165,7 @@ func ProcessEnv(cmd, dataDirFlag string) (Env, error) {
 		OpenLog:   logs.Open,
 		Scripts:   notifying.ProcessRunner{Environ: environ, TempDir: os.TempDir()},
 		Disk:      OSDisk,
+		Network:   netfacts.OS(osPackets{}),
 		Restart:   processRestart(layout.Executable, os.Args, environ, dir.LogsDir(), os.Stderr),
 		RestartOf: follows,
 		Restore:   restore,
@@ -262,6 +268,10 @@ type Node struct {
 	downloading *downloading.Node
 	// mediaLink is the running half's Media Server link holder.
 	mediaLink *mediaserverlink.Link
+	// network is the running half's network facts, and web the web
+	// listener they report as SlipStream's own, once HTTP binds.
+	network *netfacts.Netfacts
+	web     atomic.Pointer[netmodel.Listener]
 	// ports is the one port Registry, which the Controller lists and the
 	// Node runs.
 	ports port.Registry

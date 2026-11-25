@@ -3,6 +3,7 @@ package mediaserverlink
 import (
 	"errors"
 	"fmt"
+	"net/netip"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/mediaserverlink/link"
@@ -380,4 +381,64 @@ func idsOf(bs [][]byte) ([]link.ChangeID, error) {
 		out[i] = link.ChangeID{UUID: u}
 	}
 	return out, nil
+}
+
+// ExposedOnWire is an Exposed call's answer, its problem split out of err.
+func ExposedOnWire(x link.Exposed, err error) (*msv1.ExposedResponse, error) {
+	if err != nil {
+		p, err := ProblemOnWire(err)
+		return &msv1.ExposedResponse{Problem: p}, err
+	}
+	m := &msv1.ExposedResponse{Remote: triOnWire(x.Remote), MappingRoot: x.MappingRoot, Custom: x.Custom, Ipv6: triOnWire(x.IPv6)}
+	if x.Local.IsValid() {
+		m.Local = x.Local.String()
+	}
+	if p := x.Mapping; p != nil {
+		m.Mapping = &msv1.PlexMapping{State: p.State, Error: p.Error, Pending: p.Pending}
+		if p.Public.IsValid() {
+			m.Mapping.Public = p.Public.String()
+		}
+	}
+	return m, nil
+}
+
+func ExposedOf(m *msv1.ExposedResponse) (link.Exposed, error) {
+	if m.GetProblem() != nil {
+		return link.Exposed{}, ServerErrorOf(m.GetProblem())
+	}
+	local, err := addrPortOf(m.GetLocal())
+	if err != nil {
+		return link.Exposed{}, err
+	}
+	x := link.Exposed{Local: local, Remote: triOf(m.Remote), MappingRoot: m.GetMappingRoot(), Custom: m.GetCustom(), IPv6: triOf(m.Ipv6)}
+	if p := m.GetMapping(); p != nil {
+		public, err := addrPortOf(p.GetPublic())
+		if err != nil {
+			return link.Exposed{}, err
+		}
+		x.Mapping = &link.PlexMapping{State: p.GetState(), Error: p.GetError(), Pending: p.GetPending(), Public: public}
+	}
+	return x, nil
+}
+
+func addrPortOf(s string) (netip.AddrPort, error) {
+	if s == "" {
+		return netip.AddrPort{}, nil
+	}
+	return netip.ParseAddrPort(s) //nolint:wrapcheck // the parse names the value
+}
+
+func triOnWire(t link.Tri) *bool {
+	if t == link.Unknown {
+		return nil
+	}
+	b := t == link.Yes
+	return &b
+}
+
+func triOf(b *bool) link.Tri {
+	if b == nil {
+		return link.Unknown
+	}
+	return link.TriOf(*b)
 }

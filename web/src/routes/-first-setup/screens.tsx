@@ -27,6 +27,7 @@ import type { StepNav } from "./frame";
 import { LanguageStep } from "./language-step";
 import { MediaStep } from "./media-step";
 import { PasskeyStep } from "./passkey-step";
+import { RemoteAccessStep } from "./remote-access-step";
 import { RootsStep } from "./roots-step";
 import { TargetsStep } from "./targets-step";
 
@@ -148,5 +149,13 @@ export const screens = {
       ]);
     },
     Body: TargetsStep,
+  },
+  "remote-access": {
+    name: "Remote access",
+    title: "Remote access",
+    why: "Choose what you want to use away from home. SlipStream then checks whether players outside your home can connect to it.",
+    settings: "/nodes/remote-access",
+    load: nothing,
+    Body: RemoteAccessStep,
   },
 } satisfies { readonly [S in FirstrunStepID]: StepScreen };

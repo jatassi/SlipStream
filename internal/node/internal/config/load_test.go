@@ -200,6 +200,15 @@ default: timings.link.heartbeat: duration 0s is not positive`
 	if err == nil || err.Error() != want {
 		t.Fatalf("err =\n%v\nwant\n%s", err, want)
 	}
+
+	var optional struct {
+		Endpoints struct {
+			Gateway endpoint.Optional `yaml:"gateway"`
+		} `yaml:"endpoints"`
+	}
+	if _, err := config.Load(&optional, t.TempDir(), nil); err != nil {
+		t.Fatalf("an empty optional list: %v, want it loaded", err)
+	}
 }
 
 func TestWalkNamesLeavesByPath(t *testing.T) {

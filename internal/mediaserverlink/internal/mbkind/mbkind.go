@@ -30,6 +30,7 @@ type family struct {
 	favoriteApart bool
 	// details is the web app's route to an item page, after its address.
 	details string
+	exposed exposedFacts
 }
 
 var (
@@ -38,12 +39,14 @@ var (
 		flavor:           jellyfin.Jellyfin,
 		scanDropsReports: true,
 		details:          "/web/#/details",
+		exposed:          jellyfinExposed,
 	}
 	Emby link.Kind = family{
 		about:         link.About{Name: "emby", Label: "Emby", Form: link.SignInKeyOrAdmin, Browser: true, Floor: link.MustVersion("4.10"), MovedHold: link.StepSnapshotted},
 		flavor:        jellyfin.Emby,
 		favoriteApart: true,
 		details:       "/web/index.html#!/item",
+		exposed:       embyExposed,
 	}
 )
 
@@ -116,6 +119,10 @@ func (c *conn) identity(ctx context.Context) (link.Identity, error) {
 	if err != nil {
 		return link.Identity{}, err
 	}
+	return identityOf(info)
+}
+
+func identityOf(info jellyfin.PublicInfo) (link.Identity, error) {
 	v, err := link.ParseVersion(info.Version)
 	if err != nil {
 		return link.Identity{}, failed(err.Error())
@@ -131,10 +138,15 @@ func (c *conn) same(ctx context.Context) (link.Identity, error) {
 	if err != nil {
 		return id, err
 	}
+	return id, c.saved(id)
+}
+
+// saved is ReasonOtherServer when id isn't the saved server's.
+func (c *conn) saved(id link.Identity) error {
 	if want := c.d.Server.Identity; want != "" && id.ID != want {
-		return id, &link.ServerError{Problem: link.Problem{Reason: link.ReasonOtherServer, Found: id.ID}}
+		return &link.ServerError{Problem: link.Problem{Reason: link.ReasonOtherServer, Found: id.ID}}
 	}
-	return id, nil
+	return nil
 }
 
 func (c *conn) Check(ctx context.Context) (link.Checked, error) {

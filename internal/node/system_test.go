@@ -68,10 +68,15 @@ func fieldOf(t *testing.T, r reply, key string) map[string]any {
 	return nil
 }
 
-// fieldLine is a field's saved and running values, whether it waits for
-// a restart, and when it applies.
+// fieldLine is a field's saved and running values, a listen field's as
+// its address, whether it waits for a restart, and when it applies.
 func fieldLine(f map[string]any) string {
-	return fmt.Sprint(f["value"], " ", f["running"], " ", f["pendingRestart"], " ", f["applies"])
+	value, running := f["value"], f["running"]
+	if v, ok := value.(map[string]any); ok {
+		r, _ := running.(map[string]any)
+		value, running = v["address"], r["address"]
+	}
+	return fmt.Sprint(value, " ", running, " ", f["pendingRestart"], " ", f["applies"])
 }
 
 // ringHead is the seq of the newest record in n's ring.
@@ -216,7 +221,7 @@ func TestTheConfigHoldsARestartRowAndRefusesAsAWhole(t *testing.T) {
 		path := "/api/v1/nodes/" + self + "/config"
 
 		f := fieldOf(t, c.admin(key, http.MethodPatch, path, `{"http.listen":9000}`), "http.listen")
-		if got := fieldLine(f); got != "9000 8484 true restart" {
+		if got := fieldLine(f); got != "127.0.0.1:9000 127.0.0.1:8484 true restart" {
 			t.Fatalf("http.listen = %s, want 9000 saved, 8484 running, pending a restart", got)
 		}
 		system := decode[struct {

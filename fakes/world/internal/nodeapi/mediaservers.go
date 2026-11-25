@@ -15,6 +15,7 @@ type NewMediaServer struct {
 	Address         string `json:"address,omitempty"`
 	FallbackAddress string `json:"fallbackAddress,omitempty"`
 	ReachingNodeID  string `json:"reachingNodeId"`
+	RunsOnNodeID    string `json:"runsOnNodeId,omitempty"`
 	APIKey          string `json:"apiKey,omitempty"`
 	DeviceID        string `json:"deviceId,omitempty"`
 	PlexServer      string `json:"plexServer,omitempty"`

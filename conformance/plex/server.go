@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/jatassi/slipstream/conformance/internal/mediaservers"
+	"github.com/jatassi/slipstream/internal/mediaserverlink"
 	"github.com/jatassi/slipstream/internal/mediaserverlink/link"
 	"github.com/jatassi/slipstream/internal/providers/plex"
 	"github.com/jatassi/slipstream/internal/storing"
@@ -32,6 +33,12 @@ type scanMark struct {
 }
 
 var _ mediaservers.Server = (*server)(nil)
+
+// Exposed is the Plex kind's own read, with the server's token.
+func (s *server) Exposed(ctx context.Context) (link.Exposed, error) {
+	k, _ := mediaserverlink.Kinds.Of("plex")
+	return k.Dial(link.Dialed{Address: s.tg.Address, Credential: link.Credential{Token: s.tg.Token}, DeviceID: headers.ClientID, HTTP: s.tg.HTTP}).Exposed(ctx)
+}
 
 func (s *server) Reach(ctx context.Context) (link.Identity, error) {
 	id, err := s.c.Identity(ctx)

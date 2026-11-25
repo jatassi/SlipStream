@@ -109,7 +109,7 @@ func TestDoctorCatchesARealIndexerURLAndPassesAMappedSite(t *testing.T) {
 		t.Fatal(err)
 	}
 	m := world.Manifest{
-		RunDir: runDir, CA: world.CAFile{File: ca}, APIKey: "ssk_test",
+		RunDir: runDir, CA: world.CAFile{File: ca}, APIKey: "ssk_test", Scenario: world.ScenarioRef{Name: "stand-in"},
 		Nodes: []world.Node{{Name: "home", Setup: scenario.SetupController, URL: controller.URL, NodeID: "n1", State: world.NodeRunning, PID: os.Getpid(),
 			Overrides: []node.Key{{Key: "endpoints.searching.sites", Value: "fixture-site.fake.localhost=127.0.0.1:1"}}}},
 		Fakes:  []world.Fake{{Name: "fixture-site"}},
@@ -119,7 +119,8 @@ func TestDoctorCatchesARealIndexerURLAndPassesAMappedSite(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for name, content := range map[string][]byte{"manifest.json": data, "events.jsonl": nil} {
+	standIn := "seed: stand-in\nadmin: {email: ada@example.test, display_name: Ada Okafor, pin: \"2468\"}\nnodes: [{name: home, setup: controller}]\n"
+	for name, content := range map[string][]byte{"manifest.json": data, "events.jsonl": nil, "scenario.yaml": []byte(standIn)} {
 		if err := os.WriteFile(filepath.Join(runDir, name), content, 0o600); err != nil {
 			t.Fatal(err)
 		}

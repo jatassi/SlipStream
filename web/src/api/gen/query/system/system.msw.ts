@@ -9,8 +9,9 @@ import type {
   SettingCountField,
   SettingDurationField,
   SettingFolderField,
+  SettingIPField,
   SettingListField,
-  SettingPortField,
+  SettingListenField,
   SettingRateField,
   SettingSizeField,
   SettingSpaceField,
@@ -185,24 +186,32 @@ export const getGetNodeConfigResponseSettingWindowFieldMock = (
   ...overrideResponse,
 });
 
-export const getGetNodeConfigResponseSettingPortFieldMock = (
-  overrideResponse: Partial<SettingPortField> = {},
-): SettingPortField => ({
+export const getGetNodeConfigResponseSettingListenFieldMock = (
+  overrideResponse: Partial<SettingListenField> = {},
+): SettingListenField => ({
   ...{
     applies: faker.helpers.arrayElement(["live", "restart"] as const),
-    default: faker.number.int(),
+    default: {
+      address: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      host: faker.helpers.arrayElement(["all", "local", "other"] as const),
+      port: faker.number.int(),
+    },
     ...(faker.datatype.boolean()
       ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
       : {}),
     isDefault: faker.datatype.boolean(),
     key: faker.string.alpha({ length: { min: 10, max: 20 } }),
-    kind: faker.helpers.arrayElement(["port"] as const),
+    kind: faker.helpers.arrayElement(["listen"] as const),
     label: faker.string.alpha({ length: { min: 10, max: 20 } }),
     ...(faker.datatype.boolean()
       ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
       : {}),
     pendingRestart: faker.datatype.boolean(),
-    running: faker.number.int(),
+    running: {
+      address: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      host: faker.helpers.arrayElement(["all", "local", "other"] as const),
+      port: faker.number.int(),
+    },
     source: faker.helpers.arrayElement([
       "database",
       "default",
@@ -210,7 +219,11 @@ export const getGetNodeConfigResponseSettingPortFieldMock = (
       ".env",
       "env",
     ] as const),
-    value: faker.number.int(),
+    value: {
+      address: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      host: faker.helpers.arrayElement(["all", "local", "other"] as const),
+      port: faker.number.int(),
+    },
   },
   ...overrideResponse,
 });
@@ -424,7 +437,7 @@ export const getGetNodeConfigResponseSettingListFieldMock = (
       ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
       : {}),
     isDefault: faker.datatype.boolean(),
-    item: faker.helpers.arrayElement(["extension"] as const),
+    item: faker.helpers.arrayElement(["extension", "host-port"] as const),
     key: faker.string.alpha({ length: { min: 10, max: 20 } }),
     kind: faker.helpers.arrayElement(["list"] as const),
     label: faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -482,6 +495,43 @@ export const getGetNodeConfigResponseSettingSizeFieldMock = (
   ...overrideResponse,
 });
 
+export const getGetNodeConfigResponseSettingIPFieldMock = (
+  overrideResponse: Partial<SettingIPField> = {},
+): SettingIPField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.helpers.arrayElement([
+      faker.string.alpha({ length: { min: 10, max: 20 } }),
+      null,
+    ]),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    family: faker.helpers.arrayElement(["any", "ipv6"] as const),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["ip"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    pendingRestart: faker.datatype.boolean(),
+    running: faker.helpers.arrayElement([
+      faker.string.alpha({ length: { min: 10, max: 20 } }),
+      null,
+    ]),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    value: faker.helpers.arrayElement([faker.string.alpha({ length: { min: 10, max: 20 } }), null]),
+  },
+  ...overrideResponse,
+});
+
 export const getGetNodeConfigResponseMock = (
   overrideResponse: Partial<Extract<SystemNodeConfig, object>> = {},
 ): SystemNodeConfig => ({
@@ -494,7 +544,7 @@ export const getGetNodeConfigResponseMock = (
             { ...getGetNodeConfigResponseSettingCountFieldMock() },
             { ...getGetNodeConfigResponseSettingChoiceFieldMock() },
             { ...getGetNodeConfigResponseSettingWindowFieldMock() },
-            { ...getGetNodeConfigResponseSettingPortFieldMock() },
+            { ...getGetNodeConfigResponseSettingListenFieldMock() },
             { ...getGetNodeConfigResponseSettingSwitchFieldMock() },
             { ...getGetNodeConfigResponseSettingRateFieldMock() },
             { ...getGetNodeConfigResponseSettingAddressFieldMock() },
@@ -503,6 +553,7 @@ export const getGetNodeConfigResponseMock = (
             { ...getGetNodeConfigResponseSettingTemplateFieldMock() },
             { ...getGetNodeConfigResponseSettingListFieldMock() },
             { ...getGetNodeConfigResponseSettingSizeFieldMock() },
+            { ...getGetNodeConfigResponseSettingIPFieldMock() },
           ]),
       ),
       id: faker.helpers.arrayElement(["web", "log", "torrent", "backups"] as const),
@@ -668,24 +719,32 @@ export const getUpdateNodeConfigResponseSettingWindowFieldMock = (
   ...overrideResponse,
 });
 
-export const getUpdateNodeConfigResponseSettingPortFieldMock = (
-  overrideResponse: Partial<SettingPortField> = {},
-): SettingPortField => ({
+export const getUpdateNodeConfigResponseSettingListenFieldMock = (
+  overrideResponse: Partial<SettingListenField> = {},
+): SettingListenField => ({
   ...{
     applies: faker.helpers.arrayElement(["live", "restart"] as const),
-    default: faker.number.int(),
+    default: {
+      address: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      host: faker.helpers.arrayElement(["all", "local", "other"] as const),
+      port: faker.number.int(),
+    },
     ...(faker.datatype.boolean()
       ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
       : {}),
     isDefault: faker.datatype.boolean(),
     key: faker.string.alpha({ length: { min: 10, max: 20 } }),
-    kind: faker.helpers.arrayElement(["port"] as const),
+    kind: faker.helpers.arrayElement(["listen"] as const),
     label: faker.string.alpha({ length: { min: 10, max: 20 } }),
     ...(faker.datatype.boolean()
       ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
       : {}),
     pendingRestart: faker.datatype.boolean(),
-    running: faker.number.int(),
+    running: {
+      address: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      host: faker.helpers.arrayElement(["all", "local", "other"] as const),
+      port: faker.number.int(),
+    },
     source: faker.helpers.arrayElement([
       "database",
       "default",
@@ -693,7 +752,11 @@ export const getUpdateNodeConfigResponseSettingPortFieldMock = (
       ".env",
       "env",
     ] as const),
-    value: faker.number.int(),
+    value: {
+      address: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      host: faker.helpers.arrayElement(["all", "local", "other"] as const),
+      port: faker.number.int(),
+    },
   },
   ...overrideResponse,
 });
@@ -907,7 +970,7 @@ export const getUpdateNodeConfigResponseSettingListFieldMock = (
       ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
       : {}),
     isDefault: faker.datatype.boolean(),
-    item: faker.helpers.arrayElement(["extension"] as const),
+    item: faker.helpers.arrayElement(["extension", "host-port"] as const),
     key: faker.string.alpha({ length: { min: 10, max: 20 } }),
     kind: faker.helpers.arrayElement(["list"] as const),
     label: faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -965,6 +1028,43 @@ export const getUpdateNodeConfigResponseSettingSizeFieldMock = (
   ...overrideResponse,
 });
 
+export const getUpdateNodeConfigResponseSettingIPFieldMock = (
+  overrideResponse: Partial<SettingIPField> = {},
+): SettingIPField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.helpers.arrayElement([
+      faker.string.alpha({ length: { min: 10, max: 20 } }),
+      null,
+    ]),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    family: faker.helpers.arrayElement(["any", "ipv6"] as const),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["ip"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    pendingRestart: faker.datatype.boolean(),
+    running: faker.helpers.arrayElement([
+      faker.string.alpha({ length: { min: 10, max: 20 } }),
+      null,
+    ]),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    value: faker.helpers.arrayElement([faker.string.alpha({ length: { min: 10, max: 20 } }), null]),
+  },
+  ...overrideResponse,
+});
+
 export const getUpdateNodeConfigResponseMock = (
   overrideResponse: Partial<Extract<SystemNodeConfig, object>> = {},
 ): SystemNodeConfig => ({
@@ -977,7 +1077,7 @@ export const getUpdateNodeConfigResponseMock = (
             { ...getUpdateNodeConfigResponseSettingCountFieldMock() },
             { ...getUpdateNodeConfigResponseSettingChoiceFieldMock() },
             { ...getUpdateNodeConfigResponseSettingWindowFieldMock() },
-            { ...getUpdateNodeConfigResponseSettingPortFieldMock() },
+            { ...getUpdateNodeConfigResponseSettingListenFieldMock() },
             { ...getUpdateNodeConfigResponseSettingSwitchFieldMock() },
             { ...getUpdateNodeConfigResponseSettingRateFieldMock() },
             { ...getUpdateNodeConfigResponseSettingAddressFieldMock() },
@@ -986,6 +1086,7 @@ export const getUpdateNodeConfigResponseMock = (
             { ...getUpdateNodeConfigResponseSettingTemplateFieldMock() },
             { ...getUpdateNodeConfigResponseSettingListFieldMock() },
             { ...getUpdateNodeConfigResponseSettingSizeFieldMock() },
+            { ...getUpdateNodeConfigResponseSettingIPFieldMock() },
           ]),
       ),
       id: faker.helpers.arrayElement(["web", "log", "torrent", "backups"] as const),

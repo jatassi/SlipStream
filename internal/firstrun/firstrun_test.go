@@ -93,12 +93,12 @@ func TestFirstSetupIsOpenUntilFinishedAndThenSkipsWhatIsLeft(t *testing.T) {
 	ctx := t.Context()
 	w := newWorld(t, storagetest.Library(t, identity.Schema(), firstrun.Schema()))
 	a, r, l := firstrun.AddressID, firstrun.RootsID, firstrun.LanguageID
-	shown := []firstrun.StepID{a, firstrun.PasskeyID, firstrun.BackupID, l, r, firstrun.DownloadsID, firstrun.TargetsID}
+	shown := []firstrun.StepID{a, firstrun.PasskeyID, firstrun.BackupID, l, r, firstrun.DownloadsID, firstrun.TargetsID, firstrun.RemoteAccessID}
 	all := firstrun.IDs()
 	todo, done, skipped := firstrun.StateTodo, firstrun.StateDone, firstrun.StateSkipped
 
 	got, err := w.fr.View(ctx)
-	if want := view(true, shown, todo, todo, todo, todo, todo, todo, todo); err != nil || !reflect.DeepEqual(got, want) {
+	if want := view(true, shown, todo, todo, todo, todo, todo, todo, todo, todo); err != nil || !reflect.DeepEqual(got, want) {
 		t.Fatalf("a fresh View = %+v, %v; want %+v", got, err, want)
 	}
 	if _, err = w.fr.Set(ctx, a, firstrun.OutcomeDone); err != nil {
@@ -107,7 +107,7 @@ func TestFirstSetupIsOpenUntilFinishedAndThenSkipsWhatIsLeft(t *testing.T) {
 	if got, err = w.fr.Set(ctx, r, firstrun.OutcomeSkipped); err != nil {
 		t.Fatal(err)
 	}
-	if want := view(true, shown, done, todo, todo, todo, skipped, todo, todo); !reflect.DeepEqual(got, want) {
+	if want := view(true, shown, done, todo, todo, todo, skipped, todo, todo, todo); !reflect.DeepEqual(got, want) {
 		t.Fatalf("Set = %+v, want %+v", got, want)
 	}
 	if w.published.n.Load() != 2 {
@@ -120,7 +120,7 @@ func TestFirstSetupIsOpenUntilFinishedAndThenSkipsWhatIsLeft(t *testing.T) {
 	w.roots.Store(true)
 	w.media.Store(true)
 	got, _ = w.fr.View(ctx)
-	if want := view(true, all, done, todo, todo, todo, todo, done, todo, todo); !reflect.DeepEqual(got, want) {
+	if want := view(true, all, done, todo, todo, todo, todo, done, todo, todo, todo); !reflect.DeepEqual(got, want) {
 		t.Fatalf("after roots and media came to hold, View = %+v, want %+v", got, want)
 	}
 	if _, err := w.fr.Set(ctx, "trash", firstrun.OutcomeDone); !errors.Is(err, firstrun.ErrStepUnknown) {
@@ -137,7 +137,7 @@ func TestFirstSetupIsOpenUntilFinishedAndThenSkipsWhatIsLeft(t *testing.T) {
 		t.Errorf("IsOpen after Finish = %v, %v; want false", open, err)
 	}
 	got, _ = w.fr.View(ctx)
-	if want := view(false, all, done, skipped, skipped, skipped, skipped, done, skipped, skipped); !reflect.DeepEqual(got, want) {
+	if want := view(false, all, done, skipped, skipped, skipped, skipped, done, skipped, skipped, skipped); !reflect.DeepEqual(got, want) {
 		t.Fatalf("a finished View = %+v, want %+v", got, want)
 	}
 	if _, err := w.fr.Set(ctx, l, firstrun.OutcomeDone); !errors.Is(err, firstrun.ErrFinished) {

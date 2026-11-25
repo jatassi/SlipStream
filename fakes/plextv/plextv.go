@@ -20,11 +20,14 @@ import (
 	"crypto/ed25519"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"math/rand/v2"
+	"slices"
 	"sync"
 	"time"
 
 	"github.com/jatassi/slipstream/fakes/fake"
+	"github.com/jatassi/slipstream/fakes/internal/netsite"
 	"github.com/jatassi/slipstream/fakes/internal/plexaccount"
 	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/internal/node"
@@ -51,7 +54,20 @@ var (
 	SignOut = fake.CueSpec{Name: "plextv-sign-out"}
 	// PlexPass sets the account's subscription to {"active": bool}.
 	PlexPass = fake.CueSpec{Name: "plextv-plex-pass"}
+	// PlexMapping sets where Plex's own check of a server's public address
+	// left it, {"server": "<name>", "state": "mapped"}, or failed or
+	// pending, and stops the connect-back worker checking that server.
+	PlexMapping = fake.CueSpec{Name: "plex-mapping"}
 )
+
+// ConnectBacks is the capture of each mapping the connect-back worker
+// recorded, {"server": "<name>", "state": "mapped"} or failed, in
+// plextv.connect-back records.
+var ConnectBacks = fake.CaptureSpec{Name: "plex-connect-backs", Kind: "plextv.connect-back"}
+
+// connectBackEvery is how often the connect-back worker checks each
+// server with Remote Access on, as Plex rechecks its own mapping.
+const connectBackEvery = 15 * time.Second
 
 // Fake is plex.tv's API. Its address is clients.plex.tv's, and Open in's
 // web app is a browser-only host.
@@ -63,8 +79,9 @@ var Fake = fake.Spec{
 		e.PlexTV.API = endpoint.MustParseURL(at.URL(""))
 		e.PlexTV.Desktop = endpoint.MustParseURL("https://app.plex.invalid/desktop")
 	},
-	Online: fake.NoOnlineRun("plex.tv needs a signed-in account; the JWT flow is a recorded manual run"),
-	Cues:   []fake.CueSpec{Approve, ExpirePins, SignOut, PlexPass},
+	Online:   fake.NoOnlineRun("plex.tv needs a signed-in account; the JWT flow is a recorded manual run"),
+	Cues:     []fake.CueSpec{Approve, ExpirePins, SignOut, PlexPass, PlexMapping},
+	Captures: []fake.CaptureSpec{ConnectBacks},
 }
 
 // Auth is plex.tv's sign-in page, over plain HTTP at 127.0.0.1, so every
@@ -90,12 +107,12 @@ type Account struct {
 // Playing is Fake signing in to a, for a test that names it.
 func Playing(a Account) fake.Spec {
 	spec := Fake
-	spec.New = func(_ scenario.Scenario, env fake.Env) (fake.Server, error) { return serve(env, a) }
+	spec.New = func(s scenario.Scenario, env fake.Env) (fake.Server, error) { return serve(s, env, a) }
 	return spec
 }
 
-func newServer(_ scenario.Scenario, env fake.Env) (fake.Server, error) {
-	return serve(env, Account{Username: "plex-admin", PlexPass: true})
+func newServer(s scenario.Scenario, env fake.Env) (fake.Server, error) {
+	return serve(s, env, Account{Username: "plex-admin", PlexPass: true})
 }
 
 // device is a device key plex.tv registered when its PIN was approved.
@@ -135,6 +152,12 @@ type state struct {
 	// issued is the device and expiry of each Plex JWT plex.tv signed.
 	issued map[string]issued
 	nonces map[string]bool
+	// cued are the servers whose mapping a cue or the Scenario set, which
+	// the connect-back worker leaves alone.
+	cued map[string]bool
+	// site is the world's network, nil in a Scenario with none.
+	site         *netsite.Model
+	connectBacks *fake.Capture
 }
 
 type issued struct {
@@ -151,12 +174,12 @@ func stateOf(shared *fake.Shared) *state {
 		s, _ := v.(*state)
 		return s
 	}
-	s := &state{owned: plexaccount.Of(shared), pins: map[int64]*pin{}, devices: map[string]*device{}, issued: map[string]issued{}, nonces: map[string]bool{}}
+	s := &state{owned: plexaccount.Of(shared), pins: map[int64]*pin{}, devices: map[string]*device{}, issued: map[string]issued{}, nonces: map[string]bool{}, cued: map[string]bool{}}
 	shared.Put(sharedKey, s)
 	return s
 }
 
-func serve(env fake.Env, a Account) (fake.Server, error) {
+func serve(sc scenario.Scenario, env fake.Env, a Account) (fake.Server, error) {
 	s := stateOf(env.Shared)
 	draw := env.Streams.Stream("plextv")
 	var seed [ed25519.SeedSize]byte
@@ -169,7 +192,22 @@ func serve(env fake.Env, a Account) (fake.Server, error) {
 	if err := s.cues(env); err != nil {
 		return nil, err
 	}
-	return fake.HTTP(env, s.routes()), nil
+	served := fake.HTTP(env, s.routes())
+	if !netsite.Plays(sc) {
+		return served, nil
+	}
+	site, err := netsite.From(env, sc)
+	if err != nil {
+		return nil, err
+	}
+	connectBacks, err := env.Capture(ConnectBacks.Name)
+	if err != nil {
+		return nil, err
+	}
+	s.mu.Lock()
+	s.site, s.connectBacks = site, connectBacks
+	s.mu.Unlock()
+	return connectingBack{Server: served, s: s}, nil
 }
 
 func (s *state) cues(env fake.Env) error {
@@ -200,6 +238,24 @@ func (s *state) cues(env fake.Env) error {
 					s.owned.Revoke(token)
 				}
 			}
+			return nil, nil
+		}),
+		fake.OnCue(env, PlexMapping.Name, func(_ context.Context, a struct {
+			Server string `json:"server"`
+			State  string `json:"state"`
+		}) (any, error) {
+			if !slices.Contains([]string{"mapped", "failed", "pending"}, a.State) {
+				return nil, fmt.Errorf("plex-mapping: state %q is not mapped, failed or pending", a.State)
+			}
+			s.mu.Lock()
+			defer s.mu.Unlock()
+			i := slices.IndexFunc(s.owned.Servers(), func(srv plexaccount.Server) bool { return srv.Name == a.Server })
+			if i < 0 {
+				return nil, fmt.Errorf("plex-mapping: the account owns no server %q", a.Server)
+			}
+			srv := s.owned.Servers()[i]
+			s.cued[srv.Identifier] = true
+			s.owned.SetMapping(srv.Identifier, plexaccount.MappingOf(a.State, s.public(srv)))
 			return nil, nil
 		}),
 		fake.OnCue(env, PlexPass.Name, func(_ context.Context, a struct {

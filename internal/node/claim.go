@@ -31,6 +31,7 @@ import (
 	"github.com/jatassi/slipstream/internal/nodesystem"
 	"github.com/jatassi/slipstream/internal/notifications"
 	"github.com/jatassi/slipstream/internal/pairing"
+	"github.com/jatassi/slipstream/internal/reachability"
 	"github.com/jatassi/slipstream/internal/reconciling"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
@@ -387,6 +388,14 @@ func (s surfaceNode) MediaServers() (mediaservers.Service, bool) {
 		return nil, false
 	}
 	return h.mediaServers, true
+}
+
+func (s surfaceNode) Reachability() (*reachability.Reachability, bool) {
+	h := s.n.half.Load()
+	if h == nil || h.reachability == nil {
+		return nil, false
+	}
+	return h.reachability, true
 }
 
 func (s surfaceNode) Notifications() (*notifications.Service, bool) {

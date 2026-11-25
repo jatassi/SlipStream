@@ -275,3 +275,7 @@ func (unlinked) Advance(context.Context, *msv1.AdvanceRequest) (*msv1.AdvanceRes
 
 // Television is whether the Diagram lights node's television.
 func (w *World) Television(node role.NodeID) bool { return w.ms.Television(node) }
+
+func (unlinked) Exposed(context.Context, *msv1.ExposedRequest) (*msv1.ExposedResponse, error) {
+	return nil, errUnlinked()
+}

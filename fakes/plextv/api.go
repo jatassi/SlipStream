@@ -3,10 +3,14 @@ package plextv
 import (
 	"encoding/json"
 	"net/http"
+	"net/netip"
+	"net/url"
+	"slices"
 	"strconv"
 	"time"
 
 	"github.com/jatassi/slipstream/fakes/fake"
+	"github.com/jatassi/slipstream/fakes/internal/plexaccount"
 )
 
 func (s *state) routes() fake.Routes {
@@ -160,15 +164,10 @@ func (s *state) resources(w http.ResponseWriter, r *http.Request) {
 			d.tokens[srv.Identifier] = token
 			s.owned.Grant(srv.Identifier, token)
 		}
-		connections := []map[string]any{}
-		for _, f := range s.fronts {
-			if f.Target != srv.Target || f.Node == "world" {
-				continue
-			}
-			connections = append(connections, map[string]any{
-				"protocol": "http", "address": f.Address.AddrPort.Addr().String(), "port": f.Address.AddrPort.Port(),
-				"uri": f.Address.URL(""), "local": true, "relay": false, "IPv6": false,
-			})
+		connections := s.connections(srv, r.URL.Query().Get("includeIPv6") == "1")
+		public := "127.0.0.1"
+		if p := srv.Remote.Mapping.Public; p.IsValid() {
+			public = p.Addr().String()
 		}
 		if relay {
 			connections = append(connections, map[string]any{
@@ -178,13 +177,59 @@ func (s *state) resources(w http.ResponseWriter, r *http.Request) {
 		}
 		out = append(out, map[string]any{
 			"name": srv.Name, "product": "Plex Media Server", "productVersion": srv.Version, "clientIdentifier": srv.Identifier,
-			"provides": "server", "ownerId": nil, "sourceTitle": nil, "publicAddress": "127.0.0.1", "accessToken": token,
+			"provides": "server", "ownerId": nil, "sourceTitle": nil, "publicAddress": public, "accessToken": token,
 			"searchEnabled": true, "createdAt": "2021-06-12T00:38:10Z", "lastSeenAt": time.Now().UTC().Format(time.RFC3339),
 			"owned": true, "home": false, "synced": false, "relay": relay, "presence": false, "httpsRequired": false,
 			"publicAddressMatches": true, "dnsRebindingProtection": false, "natLoopbackSupported": true, "connections": connections,
 		})
 	}
 	writeJSON(w, http.StatusOK, out)
+}
+
+// connections are srv's local connection per Node front, then a remote
+// one per URL it publishes, IPv6 ones only when asked.
+func (s *state) connections(srv plexaccount.Server, ipv6 bool) []map[string]any {
+	out := []map[string]any{}
+	for _, f := range s.fronts {
+		if f.Target != srv.Target || f.Node == "world" {
+			continue
+		}
+		out = append(out, map[string]any{
+			"protocol": "http", "address": f.Address.AddrPort.Addr().String(), "port": f.Address.AddrPort.Port(),
+			"uri": f.Address.URL(""), "local": true, "relay": false, "IPv6": false,
+		})
+	}
+	for _, u := range slices.Concat(srv.Remote.Published, srv.Remote.Custom) {
+		if c, v6, ok := published(u); ok && (ipv6 || !v6) {
+			out = append(out, c)
+		}
+	}
+	return out
+}
+
+// published is the connection plex.tv lists for a URL the server
+// publishes and whether it is IPv6, false for one that doesn't parse. Its
+// address is its host, which is a name for a custom URL, and it is local
+// when that host is a private address, as the recorded run's ULA
+// connection was.
+func published(u string) (conn map[string]any, ipv6, ok bool) {
+	p, err := url.Parse(u)
+	if err != nil {
+		return nil, false, false
+	}
+	port := map[string]int{"http": 80, "https": 443}[p.Scheme]
+	if p.Port() != "" {
+		if port, err = strconv.Atoi(p.Port()); err != nil {
+			return nil, false, false
+		}
+	}
+	ip, err := netip.ParseAddr(p.Hostname())
+	isIP := err == nil
+	ipv6 = isIP && ip.Is6() && !ip.Is4In6()
+	return map[string]any{
+		"protocol": p.Scheme, "address": p.Hostname(), "port": port, "uri": u,
+		"local": isIP && (ip.IsPrivate() || ip.IsLoopback()), "relay": false, "IPv6": ipv6,
+	}, ipv6, true
 }
 
 func (s *state) nonce(w http.ResponseWriter, _ *http.Request) {

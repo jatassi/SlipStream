@@ -19,6 +19,7 @@ export * from "./naming/naming.zod.ts";
 export * from "./nodes/nodes.zod.ts";
 export * from "./notifications/notifications.zod.ts";
 export * from "./pairing/pairing.zod.ts";
+export * from "./reachability/reachability.zod.ts";
 export * from "./reconciling/reconciling.zod.ts";
 export * from "./restore/restore.zod.ts";
 export * from "./roots/roots.zod.ts";

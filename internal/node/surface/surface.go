@@ -48,6 +48,8 @@ import (
 	"github.com/jatassi/slipstream/internal/notificationsapi"
 	"github.com/jatassi/slipstream/internal/pairing"
 	"github.com/jatassi/slipstream/internal/pairingapi"
+	"github.com/jatassi/slipstream/internal/reachability"
+	"github.com/jatassi/slipstream/internal/reachabilityapi"
 	"github.com/jatassi/slipstream/internal/reconciling"
 	"github.com/jatassi/slipstream/internal/reconcilingapi"
 	"github.com/jatassi/slipstream/internal/restoreapi"
@@ -121,6 +123,7 @@ var Events = []live.Event{
 	mediaservers.UnhealthyEvent,
 	mediaservers.RecoveredEvent,
 	mediaservers.ItemsFoundEvent,
+	reachability.ChangedEvent,
 	notifications.ChangedEvent,
 	notifications.SeenEvent,
 	history.ChangedEvent,
@@ -165,6 +168,7 @@ type Node interface {
 	healthapi.Watch
 	firstrunapi.Guide
 	mediaserversapi.Servers
+	reachabilityapi.Owner
 	notificationsapi.Notes
 	calendarapi.Calendar
 	historyapi.History
@@ -211,6 +215,7 @@ func Mount(r *api.Router, s Services) {
 	healthapi.Routes(r, s.Node)
 	firstrunapi.Routes(r, s.Node)
 	mediaserversapi.Routes(r, s.Node)
+	reachabilityapi.Routes(r, s.Node)
 	notificationsapi.Routes(r, s.Node)
 	calendarapi.Routes(r, s.Node)
 	historyapi.Routes(r, s.Node)

@@ -27,7 +27,8 @@ import (
 // reaches it, and the leecher's Node as the leecher reaches it.
 func (r *Run) bindFronts(ctx context.Context, undo *unwind, specs []fake.Spec) error {
 	specs = slices.DeleteFunc(slices.Clone(specs), func(spec fake.Spec) bool {
-		return spec.ContentType != "" && !slices.Contains(r.probe.ContentTypes, spec.ContentType)
+		return (spec.ContentType != "" && !slices.Contains(r.probe.ContentTypes, spec.ContentType)) ||
+			(spec.Plays != nil && !spec.Plays(r.scenario))
 	})
 	planned := planFronts(specs, r.nodeNames(), r.scenario.Releases, r.scenario.Leecher)
 	r.faults = fault.NewPlan(planned, r.fired)
@@ -234,6 +235,9 @@ func (r *Run) endpoints(name string) (node.EndpointsBlock, error) {
 				return node.EndpointsBlock{}, fmt.Errorf("fake %s sets %s, which this binary does not list", f.spec.Name, p)
 			}
 		}
+	}
+	if r.sink != nil {
+		e.Network = r.sink.quiet()
 	}
 	for _, t := range r.probe.ContentTypes {
 		for key, host := range browserOnly[t] {

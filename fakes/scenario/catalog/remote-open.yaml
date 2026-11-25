@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=../scenario.schema.json
+description: >-
+  S51 (Reachability diagnostic) on an open home. The Controller atlas
+  holds the public address 203.0.113.9 itself, with no router, and runs
+  Plex, whose custom URL names plex.open.localhost. The Worker seedbox
+  sits on a server of its own at 192.0.2.44, so it tests atlas's routes
+  from outside. The Worker den sits in atlas's home, so a test from den
+  would prove nothing and den never tests. slipstream.open.localhost and
+  plex.open.localhost both answer 203.0.113.9.
+seed: remote-open
+admin:
+  email: ada@example.test
+  display_name: Ada Okafor
+  pin: "2468"
+nodes:
+  - name: atlas
+    setup: controller
+    site: home
+    firewall:
+      - {service: http, family: ipv4, policy: allows}
+      - {service: plex, family: ipv4, policy: allows}
+    media_servers:
+      - kind: plex
+        name: Plex
+        runs_on: atlas
+        remote: true
+        custom: ["http://plex.open.localhost"]
+  - name: seedbox
+    setup: join
+    site: ams
+  - name: den
+    setup: join
+    site: home
+    addresses: [{prefix: 192.168.1.30/24}]
+network:
+  sites:
+    - {name: home, wan: none, address: 203.0.113.9}
+    - {name: ams, wan: none, address: 192.0.2.44}
+  dns:
+    - {name: slipstream.open.localhost, a: [203.0.113.9]}
+    - {name: plex.open.localhost, a: [203.0.113.9]}
+timings:
+  node:
+    stop_deadline: 15s
+library:
+  storage_levels: {warn_below: 0B, error_below: 0B}
+  roots: [{content_type: movie, folder: movies}]

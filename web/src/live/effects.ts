@@ -22,6 +22,7 @@ import { mediaServerEffects } from "./media-server-effects";
 import { moveEffects } from "./move-effects";
 import { notificationEffects } from "./notification-effects";
 import { everyPath } from "./refresh";
+import { remoteAccessEffects } from "./remote-access-effects";
 import { searchEffects } from "./search-effects";
 import { subtitleEffects } from "../subtitles/live";
 import { systemEffects } from "./system-effects";
@@ -45,6 +46,7 @@ export const effects = withCalendar(
     ...historyEffects,
     ...searchEffects,
     ...subtitleEffects,
+    ...remoteAccessEffects,
     "identity.sessions-changed": (data, { refresh }) => {
       refresh({ queryKey: getGetSessionQueryKey() });
       refresh({ queryKey: getListSessionsQueryKey() });

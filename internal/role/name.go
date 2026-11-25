@@ -32,7 +32,12 @@ const (
 // or a Node's facts, and never drained, handed back or written off.
 type Wide string
 
-const Transfers Wide = "transfers"
+const (
+	Transfers Wide = "transfers"
+	// Network is whether a Node watches its network, and the summary of
+	// what it saw, for S51 (Reachability diagnostic).
+	Network Wide = "network"
+)
 
 // NodeID is a Node's id, nodes_node.id. The nodes package declares its id
 // as this type, so role and rpc never import it.

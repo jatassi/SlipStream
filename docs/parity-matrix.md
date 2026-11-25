@@ -313,7 +313,7 @@ An exception is written on its row only with the maintainer's explicit yes.
 | P-215 | Scheduled storage check with free space warning and error thresholds | `internal/scheduler/tasks/storagehealth.go` | working | kept as a 5-minute sample per Node with absolute or percentage thresholds, globally and per volume, defaulting to 100 GB and 20 GB free instead of v1's 20% and 5%, by the [maintainer's yes](https://github.com/jatassi/SlipStream/issues/116#issuecomment-6113592441) | [Health](https://github.com/jatassi/SlipStream/issues/143) | shipped |
 | P-216 | Health check intervals and thresholds, config file only | `internal/config/config.go` | working | kept with every interval and threshold settable in the UI, by the [maintainer's yes](https://github.com/jatassi/SlipStream/issues/116#issuecomment-6113592441) | [Health](https://github.com/jatassi/SlipStream/issues/143) | shipped |
 | P-217 | Health warnings on settings hub rows and the dashboard | `web/src/routes/settings/use-health-warnings.ts`, `web/src/components/dashboard/health-group.tsx` | working | kept. The settings-row half shipped with Health, and the dashboard half with [Home](https://github.com/jatassi/SlipStream/issues/164) | [Health](https://github.com/jatassi/SlipStream/issues/143) | shipped |
-| P-218 | Port and firewall status check across Windows, macOS and Linux firewalls | `internal/firewall/`, `GET /system/firewall`, `firewall-status-panel.tsx` | working | kept | [Reachability diagnostic](https://github.com/jatassi/SlipStream/issues/176) | planned |
+| P-218 | Port and firewall status check across Windows, macOS and Linux firewalls | `internal/firewall/`, `GET /system/firewall`, `firewall-status-panel.tsx` | working | kept | [Reachability diagnostic](https://github.com/jatassi/SlipStream/issues/176) | shipped |
 
 ## Calendar, history and activity
 
@@ -365,7 +365,7 @@ An exception is written on its row only with the maintainer's explicit yes.
 | ID | Feature | v1 path | v1 state | v2 disposition | Covered by | Status |
 |---|---|---|---|---|---|---|
 | P-244 | Server port setting with restart notice | `internal/api/handlers_system.go`, `server-section.tsx` | working | kept | [System settings and logs](https://github.com/jatassi/SlipStream/issues/139) | shipped |
-| P-245 | External access toggle between localhost and LAN with a warning | `server-section.tsx`, `GET/PUT /settings` | working | kept | [Reachability diagnostic](https://github.com/jatassi/SlipStream/issues/176) | planned |
+| P-245 | External access toggle between localhost and LAN with a warning | `server-section.tsx`, `GET/PUT /settings` | working | kept | [Reachability diagnostic](https://github.com/jatassi/SlipStream/issues/176) | shipped |
 | P-246 | Port fallback across 10 ports with the actual port shown | `internal/config (FindAvailablePort)`, `server-section.tsx` | working | kept | [System settings and logs](https://github.com/jatassi/SlipStream/issues/139) | shipped |
 | P-247 | Log level setting and copy log path | `internal/logger/`, `server-section.tsx` | working | kept | [System settings and logs](https://github.com/jatassi/SlipStream/issues/139) | shipped |
 | P-248 | Log rotation settings for size, backups, age and compression | `internal/logger/`, `server-section.tsx` | working | kept | [System settings and logs](https://github.com/jatassi/SlipStream/issues/139) | shipped |

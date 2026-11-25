@@ -43,6 +43,9 @@ type Spec struct {
 	// fake serves, empty for a core boundary. The world starts such a fake
 	// only for a binary that registers the type.
 	ContentType string
+	// Plays says whether the world starts the fake for a Scenario, nil for
+	// every Scenario.
+	Plays func(scenario.Scenario) bool
 	// New builds the fake from the whole Scenario. It does no IO.
 	New func(scenario.Scenario, Env) (Server, error)
 	// NewUDP builds, in place of New, a fake that speaks UDP. The world
@@ -164,6 +167,9 @@ type Env struct {
 	// and is nil otherwise.
 	Leaf   *tls.Config
 	Shared *Shared
+	// Listeners is where the Node named name listens as it runs now, nil
+	// outside a world.
+	Listeners func(name string) (node.Listeners, error)
 
 	captures []CaptureSpec
 	sink     Sink

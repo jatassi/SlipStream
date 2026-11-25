@@ -171,7 +171,7 @@ func over(t *testing.T, owner notificationstest.Owner, f func(t *testing.T, w *w
 		w.health = must[*health.Health](t)(health.Open(ctx, health.Config{
 			Library: lib, Hub: hub, Changed: discard[health.Changed]{},
 			Categories: []health.Category{
-				library, quiet(health.NodesID, "Nodes"), quiet(health.DownloadClientsID, "Download Clients"), quiet(health.MediaServersID, "Media Servers"),
+				library, quiet(health.NodesID, "Nodes"), quiet(health.DownloadClientsID, "Download Clients"), quiet(health.MediaServersID, "Media Servers"), quiet(health.RemoteAccessID, "Remote access"),
 				quiet(health.SeedingID, "Seeding"), quiet(health.IndexersID, "Indexers"), quiet(health.SubtitlesID, "Subtitles"), quiet(health.ScheduledTasksID, "Scheduled tasks"), quiet(health.BackupsID, "Backups"), quiet(health.NotificationsID, "Notifications"),
 			},
 			Transitions: func(ctx context.Context, tx *storage.Tx[storage.Library], ts []health.Transition) error {

@@ -35,6 +35,7 @@ import {
 import { quietHealth } from "./health";
 import { home, homeId, nodesAre, topologyIs, topologyOf } from "./nodes";
 import { housekeepingHandler } from "./notifications";
+import { nothingSetUp } from "./remote-access";
 import { board, boardIs, homeSeat } from "./roles";
 import { qualityList } from "./targets";
 
@@ -144,6 +145,9 @@ const noSubtitles = [
   getListSubtitleProvidersMockHandler({ providers: [] }),
 ];
 
+// Nothing set up for use away from home, so the Nodes page's Remote access line reads.
+const nothingRemote = http.get("*/api/v1/remote-access", () => HttpResponse.json(nothingSetUp));
+
 // A Home with nothing moving, failed or arrived, and no Downloading Node.
 const quietHome = [
   getGetHomeMockHandler({
@@ -171,6 +175,7 @@ export const baseHandlers: RequestHandler[] = [
   nothingMoving,
   ...quietHome,
   nodesAre(home),
+  nothingRemote,
   topologyIs(topologyOf([home], { sentence: "home is online." })),
   boardIs(board(homeSeat)),
   noTaskRunning,

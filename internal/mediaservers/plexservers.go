@@ -22,7 +22,8 @@ import (
 
 // ranked is a server's connections in the order SlipStream picks from:
 // local before remote, then plex.direct HTTPS, other HTTPS, plain HTTP,
-// each in plex.tv's order. plextv already left the relays out.
+// each in plex.tv's order, with no relay: SlipStream never sends through
+// one.
 func ranked(cs []plextv.Connection) []plextv.Connection {
 	rank := func(c plextv.Connection) int {
 		r := 2
@@ -37,7 +38,7 @@ func ranked(cs []plextv.Connection) []plextv.Connection {
 		}
 		return r
 	}
-	out := slices.Clone(cs)
+	out := slices.DeleteFunc(slices.Clone(cs), func(c plextv.Connection) bool { return c.Relay })
 	slices.SortStableFunc(out, func(a, b plextv.Connection) int { return cmp.Compare(rank(a), rank(b)) })
 	return out
 }

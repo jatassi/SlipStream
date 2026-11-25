@@ -39,6 +39,10 @@ type Step struct {
 	ID StepID
 	// Shows is nil for always.
 	Shows Fact
+	// Settle is nil, or waits until what Shows reads from outside the
+	// library has answered, so the step list doesn't change under the
+	// Admin as answers arrive. View runs it before its snapshot.
+	Settle func(ctx context.Context)
 	// Done is nil when only an Admin's Continue marks the step done.
 	Done Fact
 	// Events are the live events after which Shows or Done may differ.
@@ -157,6 +161,11 @@ func (f *FirstRun) Run(ctx context.Context) error {
 // View reads every step's facts, the stored outcomes and finished_at in one
 // snapshot, then derives the view.
 func (f *FirstRun) View(ctx context.Context) (View, error) {
+	for _, s := range f.cfg.Steps {
+		if s.Settle != nil {
+			s.Settle(ctx)
+		}
+	}
 	var v View
 	err := f.cfg.Library.Read(ctx, func(ctx context.Context, rd storage.Reader[file]) error {
 		var err error

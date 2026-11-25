@@ -1,8 +1,6 @@
 package api
 
 import (
-	"context"
-	"net"
 	"net/http"
 	"net/netip"
 	"strconv"
@@ -46,15 +44,6 @@ func (ps proxies) trust(a netip.Addr) bool {
 	return false
 }
 
-type overLink struct{}
-
-// OverLink is http.Server's ConnContext for the connections a Serving
-// Worker opens over the link: their requests' client is the address the
-// Worker's Forwarded header names, over plain HTTP.
-func OverLink(ctx context.Context, _ net.Conn) context.Context {
-	return context.WithValue(ctx, overLink{}, true)
-}
-
 // Forwarded is the Forwarded header a Serving Worker sends for client.
 func Forwarded(client netip.Addr) string {
 	if client.Is6() {
@@ -92,7 +81,7 @@ func forwardedFor(header string) netip.Addr {
 // malformed entry ends the walk at the last proxy seen, never a guess past
 // it.
 func (ps proxies) clientOf(req *http.Request) (netip.Addr, bool) {
-	if req.Context().Value(overLink{}) != nil {
+	if req.Context().Value(servedKey{}) != nil {
 		return forwardedFor(req.Header.Get("Forwarded")), false
 	}
 	peer, _ := netip.ParseAddrPort(req.RemoteAddr)
