@@ -11,6 +11,39 @@ import (
 	"github.com/jatassi/slipstream/internal/mediaserverlink/link"
 )
 
+const countMembers = `-- name: CountMembers :many
+SELECT server_id, count(*) AS members FROM mediaservers_member_access
+WHERE state = 'active' GROUP BY server_id ORDER BY server_id
+`
+
+type CountMembersRow struct {
+	ServerID link.ServerID
+	Members  int64
+}
+
+func (q *Queries) CountMembers(ctx context.Context) ([]CountMembersRow, error) {
+	rows, err := q.db.QueryContext(ctx, countMembers)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []CountMembersRow
+	for rows.Next() {
+		var i CountMembersRow
+		if err := rows.Scan(&i.ServerID, &i.Members); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const deleteMemberLibraries = `-- name: DeleteMemberLibraries :exec
 DELETE FROM mediaservers_member_library WHERE server_id = ?1
 `
@@ -36,6 +69,33 @@ func (q *Queries) InsertMemberLibrary(ctx context.Context, arg InsertMemberLibra
 	return err
 }
 
+const listAllMemberLibraries = `-- name: ListAllMemberLibraries :many
+SELECT server_id, library_key, name FROM mediaservers_member_library ORDER BY server_id, name, library_key
+`
+
+func (q *Queries) ListAllMemberLibraries(ctx context.Context) ([]MediaserversMemberLibrary, error) {
+	rows, err := q.db.QueryContext(ctx, listAllMemberLibraries)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []MediaserversMemberLibrary
+	for rows.Next() {
+		var i MediaserversMemberLibrary
+		if err := rows.Scan(&i.ServerID, &i.LibraryKey, &i.Name); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listMemberLibraries = `-- name: ListMemberLibraries :many
 SELECT server_id, library_key, name FROM mediaservers_member_library WHERE server_id = ?1 ORDER BY name, library_key
 `
@@ -50,6 +110,40 @@ func (q *Queries) ListMemberLibraries(ctx context.Context, serverID link.ServerI
 	for rows.Next() {
 		var i MediaserversMemberLibrary
 		if err := rows.Scan(&i.ServerID, &i.LibraryKey, &i.Name); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listShownLibraries = `-- name: ListShownLibraries :many
+SELECT DISTINCT library_key, library_name FROM mediaservers_mapping
+WHERE server_id = ?1 AND shown = 1 AND library_key IS NOT NULL AND library_name IS NOT NULL
+ORDER BY library_name, library_key
+`
+
+type ListShownLibrariesRow struct {
+	LibraryKey  *string
+	LibraryName *string
+}
+
+func (q *Queries) ListShownLibraries(ctx context.Context, serverID link.ServerID) ([]ListShownLibrariesRow, error) {
+	rows, err := q.db.QueryContext(ctx, listShownLibraries, serverID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListShownLibrariesRow
+	for rows.Next() {
+		var i ListShownLibrariesRow
+		if err := rows.Scan(&i.LibraryKey, &i.LibraryName); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

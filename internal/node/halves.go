@@ -347,6 +347,7 @@ func (n *Node) startController(ctx context.Context) error {
 		PlexFacts: plextv.Recorded,
 	})
 	linked = mediaserverlink.Def.Serve(servers.Intent, servers.Apply)
+	lib.ids.SetGranter(servers.Granter())
 	reach := reachability.New(reachability.Config{
 		Library: lib.db,
 		Hub:     n.hub,

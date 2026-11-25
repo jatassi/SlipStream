@@ -21,3 +21,7 @@ func (service) CheckShare(context.Context, identity.Admin, AccessID) (Acted, err
 func (service) CheckMine(context.Context, identity.Account, AccessID) (MyAccessRow, error) {
 	return MyAccessRow{}, ErrNotYet
 }
+
+func (plexWay) remove(context.Context, accessRow) (step, error) { return step{}, ErrNotYet }
+
+func (plexWay) reoffer(context.Context, accessRow) (step, error) { return step{}, ErrNotYet }

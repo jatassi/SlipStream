@@ -12,8 +12,35 @@ import (
 	"github.com/jatassi/slipstream/internal/mediaserverlink/link"
 	"github.com/jatassi/slipstream/internal/mediaservers/access"
 	"github.com/jatassi/slipstream/internal/providers/plextv"
+	"github.com/jatassi/slipstream/internal/secret"
 	"github.com/jatassi/slipstream/internal/storage"
 )
+
+const clearMemberToken = `-- name: ClearMemberToken :exec
+UPDATE mediaservers_member_plex SET token_sealed = NULL WHERE account_id = ?1
+`
+
+func (q *Queries) ClearMemberToken(ctx context.Context, accountID identity.AccountID) error {
+	_, err := q.db.ExecContext(ctx, clearMemberToken, accountID)
+	return err
+}
+
+const deleteAccessIn = `-- name: DeleteAccessIn :execrows
+DELETE FROM mediaservers_member_access WHERE id = ?1 AND state = ?2
+`
+
+type DeleteAccessInParams struct {
+	ID    AccessID
+	State access.State
+}
+
+func (q *Queries) DeleteAccessIn(ctx context.Context, arg DeleteAccessInParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, deleteAccessIn, arg.ID, arg.State)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
 
 const getAccess = `-- name: GetAccess :one
 SELECT id, server_id, way, account_id, member_name, state, changed_at, offered_by, offered_at, plex_id, plex_uuid, shared_server_id, by_hand, plex_home, server_user_id, username, problem_code, problem_detail FROM mediaservers_member_access WHERE id = ?1
@@ -42,6 +69,82 @@ func (q *Queries) GetAccess(ctx context.Context, id AccessID) (MediaserversMembe
 		&i.ProblemCode,
 		&i.ProblemDetail,
 	)
+	return i, err
+}
+
+const getAccessOn = `-- name: GetAccessOn :one
+SELECT id, server_id, way, account_id, member_name, state, changed_at, offered_by, offered_at, plex_id, plex_uuid, shared_server_id, by_hand, plex_home, server_user_id, username, problem_code, problem_detail FROM mediaservers_member_access WHERE server_id = ?1 AND account_id = ?2
+`
+
+type GetAccessOnParams struct {
+	ServerID  link.ServerID
+	AccountID identity.AccountID
+}
+
+func (q *Queries) GetAccessOn(ctx context.Context, arg GetAccessOnParams) (MediaserversMemberAccess, error) {
+	row := q.db.QueryRowContext(ctx, getAccessOn, arg.ServerID, arg.AccountID)
+	var i MediaserversMemberAccess
+	err := row.Scan(
+		&i.ID,
+		&i.ServerID,
+		&i.Way,
+		&i.AccountID,
+		&i.MemberName,
+		&i.State,
+		&i.ChangedAt,
+		&i.OfferedBy,
+		&i.OfferedAt,
+		&i.PlexID,
+		&i.PlexUuid,
+		&i.SharedServerID,
+		&i.ByHand,
+		&i.PlexHome,
+		&i.ServerUserID,
+		&i.Username,
+		&i.ProblemCode,
+		&i.ProblemDetail,
+	)
+	return i, err
+}
+
+const getMemberPlex = `-- name: GetMemberPlex :one
+SELECT account_id, client_identifier, plex_id, plex_uuid, username, email, signed_in_at, token_sealed FROM mediaservers_member_plex WHERE account_id = ?1
+`
+
+func (q *Queries) GetMemberPlex(ctx context.Context, accountID identity.AccountID) (MediaserversMemberPlex, error) {
+	row := q.db.QueryRowContext(ctx, getMemberPlex, accountID)
+	var i MediaserversMemberPlex
+	err := row.Scan(
+		&i.AccountID,
+		&i.ClientIdentifier,
+		&i.PlexID,
+		&i.PlexUuid,
+		&i.Username,
+		&i.Email,
+		&i.SignedInAt,
+		&i.TokenSealed,
+	)
+	return i, err
+}
+
+const idleMemberToken = `-- name: IdleMemberToken :one
+SELECT client_identifier, token_sealed FROM mediaservers_member_plex AS p
+WHERE p.account_id = ?1 AND p.token_sealed IS NOT NULL
+    AND NOT EXISTS (
+        SELECT 1 FROM mediaservers_member_access AS a
+        WHERE a.account_id = p.account_id AND a.state IN ('waiting', 'shared')
+    )
+`
+
+type IdleMemberTokenRow struct {
+	ClientIdentifier string
+	TokenSealed      secret.Sealed
+}
+
+func (q *Queries) IdleMemberToken(ctx context.Context, accountID identity.AccountID) (IdleMemberTokenRow, error) {
+	row := q.db.QueryRowContext(ctx, idleMemberToken, accountID)
+	var i IdleMemberTokenRow
+	err := row.Scan(&i.ClientIdentifier, &i.TokenSealed)
 	return i, err
 }
 
@@ -83,6 +186,52 @@ func (q *Queries) InsertAccess(ctx context.Context, arg InsertAccessParams) erro
 		arg.PlexHome,
 	)
 	return err
+}
+
+const listAccess = `-- name: ListAccess :many
+SELECT id, server_id, way, account_id, member_name, state, changed_at, offered_by, offered_at, plex_id, plex_uuid, shared_server_id, by_hand, plex_home, server_user_id, username, problem_code, problem_detail FROM mediaservers_member_access ORDER BY offered_at, id
+`
+
+func (q *Queries) ListAccess(ctx context.Context) ([]MediaserversMemberAccess, error) {
+	rows, err := q.db.QueryContext(ctx, listAccess)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []MediaserversMemberAccess
+	for rows.Next() {
+		var i MediaserversMemberAccess
+		if err := rows.Scan(
+			&i.ID,
+			&i.ServerID,
+			&i.Way,
+			&i.AccountID,
+			&i.MemberName,
+			&i.State,
+			&i.ChangedAt,
+			&i.OfferedBy,
+			&i.OfferedAt,
+			&i.PlexID,
+			&i.PlexUuid,
+			&i.SharedServerID,
+			&i.ByHand,
+			&i.PlexHome,
+			&i.ServerUserID,
+			&i.Username,
+			&i.ProblemCode,
+			&i.ProblemDetail,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listAccessIn = `-- name: ListAccessIn :many
@@ -175,4 +324,89 @@ func (q *Queries) ListAccessOf(ctx context.Context, accountID identity.AccountID
 		return nil, err
 	}
 	return items, nil
+}
+
+const listMemberPlex = `-- name: ListMemberPlex :many
+SELECT account_id, client_identifier, plex_id, plex_uuid, username, email, signed_in_at, token_sealed FROM mediaservers_member_plex ORDER BY account_id
+`
+
+func (q *Queries) ListMemberPlex(ctx context.Context) ([]MediaserversMemberPlex, error) {
+	rows, err := q.db.QueryContext(ctx, listMemberPlex)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []MediaserversMemberPlex
+	for rows.Next() {
+		var i MediaserversMemberPlex
+		if err := rows.Scan(
+			&i.AccountID,
+			&i.ClientIdentifier,
+			&i.PlexID,
+			&i.PlexUuid,
+			&i.Username,
+			&i.Email,
+			&i.SignedInAt,
+			&i.TokenSealed,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const moveAccess = `-- name: MoveAccess :execrows
+UPDATE mediaservers_member_access
+SET state = ?1, changed_at = ?2, account_id = ?3,
+    plex_id = ?4, plex_uuid = ?5, shared_server_id = ?6,
+    by_hand = ?7, plex_home = ?8, server_user_id = ?9,
+    username = ?10, problem_code = ?11, problem_detail = ?12
+WHERE id = ?13 AND state = ?14
+`
+
+type MoveAccessParams struct {
+	State          access.State
+	ChangedAt      storage.Time
+	AccountID      identity.AccountID
+	PlexID         *plextv.AccountID
+	PlexUuid       *string
+	SharedServerID *plextv.ShareID
+	ByHand         bool
+	PlexHome       bool
+	ServerUserID   *string
+	Username       *string
+	ProblemCode    *ProblemCode
+	ProblemDetail  *string
+	ID             AccessID
+	FromState      access.State
+}
+
+func (q *Queries) MoveAccess(ctx context.Context, arg MoveAccessParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, moveAccess,
+		arg.State,
+		arg.ChangedAt,
+		arg.AccountID,
+		arg.PlexID,
+		arg.PlexUuid,
+		arg.SharedServerID,
+		arg.ByHand,
+		arg.PlexHome,
+		arg.ServerUserID,
+		arg.Username,
+		arg.ProblemCode,
+		arg.ProblemDetail,
+		arg.ID,
+		arg.FromState,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }
