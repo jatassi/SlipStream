@@ -26,7 +26,7 @@ Adopt a library for standards, file formats and accessibility, and build the dur
 
 ## Checks
 
-Run the fast checks locally and leave the full tiers to CI. On a 4-core cloud session the full tiers take more than 80 minutes (the Go tier about 21, e2e 18, component 8, browser 30 for Chromium alone), and a PR into main runs all of them on every target. A PR into a feature branch runs linux-amd64 alone and skips the e2e and browser tiers unless it carries the `ci: full` label.
+Run the fast checks locally and leave the full tiers to CI. On a 4-core cloud session the full tiers take more than 80 minutes (the Go tier about 21, e2e 18, component 8, browser 30 for Chromium alone). A wave PR into a feature branch gets the linux-amd64 build, lint, Go and component checks for a fast answer, and each push to `feature/**` (each wave merge) runs the train: the e2e and browser tiers on linux-amd64. A build thread opens the feature's final PR into main as a draft right after it cuts the branch, because the train's checks land on that PR's head and its PR subscription then wakes the thread on a red train. Marking the PR ready runs the merge check, every tier on every target the change touches.
 
 Before each push, run:
 
@@ -36,7 +36,7 @@ Before each push, run:
 4. For a browser spec you added or changed, that file alone: `cd web && bun run e2e --project=chromium-desktop e2e/<name>.spec.ts`, with `TEST_SLIPSTREAM_BINARY` and `TEST_FAKEWORLD_BINARY` set to the binaries from `make build`.
 5. For an e2e test you added or changed, `go run ./cmd/release test -tier e2e -filter <Test>`.
 
-Don't run locally the whole Go, e2e, component or browser tier, the Diagram check (unless you changed the Diagram roots) or another OS or engine. CI runs them. To run one lane again, dispatch the `ci` workflow with `tier` and `filter`. The full CI run on a feature's final PR into main is its all-tiers run, after you merge main and run the checks above.
+Don't run locally the whole Go, e2e, component or browser tier, the Diagram check (unless you changed the Diagram roots) or another OS or engine. CI runs them. To run one lane again, dispatch the `ci` workflow with `tier` and `filter`. Mark the final PR ready after you merge main and run the checks above.
 
 ## Tests
 

@@ -2,6 +2,7 @@ name: ci
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
   push:
     branches: [main]
     tags: ["v*"]
@@ -46,38 +47,34 @@ defaults:
     shell: bash
 
 jobs:
+  # A draft pull request into main is a feature's final PR while its waves
+  # merge. The train tests its head, so it runs the merge check only once
+  # marked ready for review.
   plan:
-    name: Plan CI lanes
+    name: Plan
+    if: ${{ !(github.event_name == 'pull_request' && github.base_ref == 'main' && github.event.pull_request.draft) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
       contents: read
       actions: write
     outputs:
-      planned: ${{ steps.plan.outputs.planned }}
-      target: ${{ steps.plan.outputs.target }}
-      lint: ${{ steps.plan.outputs.lint }}
-      lint-repo: ${{ steps.plan.outputs.lint-repo }}
-      go: ${{ steps.plan.outputs.go }}
-      component: ${{ steps.plan.outputs.component }}
-      diagram: ${{ steps.plan.outputs.diagram }}
-      package: ${{ steps.plan.outputs.package }}
-      online: ${{ steps.scope.outputs.online }}
-      link: ${{ steps.scope.outputs.link }}
-      timings: ${{ steps.recorded.outputs.run-id && 'split-timings' || '' }}
+      plan: ${{ steps.plan.outputs.plan }}
       record-timings: >-
         ${{ github.ref == 'refs/heads/main' && (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' &&
           inputs.tier == 'all' && inputs.targets == '' && inputs.filter == '' && inputs.repeat == 1)) }}
+      online: ${{ steps.scope.outputs.online }}
+      link: ${{ steps.scope.outputs.link }}
       image: ${{ steps.tag.outputs.image }}
       image-tags: ${{ steps.tag.outputs.image-tags }}
       version: ${{ steps.tag.outputs.version }}
       prerelease: ${{ steps.tag.outputs.prerelease }}
     steps:
-      - name: Check out the repository
+      - name: Check out
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      - name: Set up Go and restore the Go caches
+      - name: Set up Go
         id: go
         uses: ./.github/actions/go
         with:
@@ -92,52 +89,22 @@ jobs:
         id: tag
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
         run: go run ./cmd/release tag "$GITHUB_REF_NAME"
-      # A pull request into another pull request's branch is stacked: it
-      # runs linux-amd64 alone and skips the e2e and browser tiers unless
-      # labelled ci: full.
-      - name: Plan the lanes and matrices
+      # A pull request into a feature branch is a wave. One labelled ci: full
+      # runs the merge check's lanes on linux-amd64.
+      - name: Plan the run
         id: plan
-        run: go run ./cmd/release plan -event "$EVENT" -scope "${SCOPE:-native}" -package="${PACKAGE:-false}" -diagram="${DIAGRAM:-false}" -targets "$TARGETS" -tier "$TIER"
+        run: go run ./cmd/release plan -kind "$KIND" -scope "${SCOPE:-native}" -package="${PACKAGE:-false}" -diagram="${DIAGRAM:-false}" -targets "$TARGETS" -tier "$TIER" -timings "$RUNNER_TEMP/timings" -fetch-timings
         env:
-          EVENT: >-
+          KIND: >-
             ${{ github.event_name == 'schedule' && 'schedule' || github.event_name == 'workflow_dispatch' && 'dispatch' ||
               startsWith(github.ref, 'refs/tags/') && 'tag' || github.event_name == 'push' && 'push' ||
-              github.base_ref != 'main' && !contains(github.event.pull_request.labels.*.name, 'ci: full') && 'stacked' || 'pr' }}
+              (github.base_ref == 'main' || contains(github.event.pull_request.labels.*.name, 'ci: full')) && 'merge' || 'wave' }}
           SCOPE: ${{ steps.scope.outputs.scope }}
           PACKAGE: ${{ steps.scope.outputs.package }}
           DIAGRAM: ${{ steps.scope.outputs.diagram }}
-          TARGETS: ${{ inputs.targets }}
+          TARGETS: ${{ inputs.targets || github.event_name == 'pull_request' && github.base_ref != 'main' && 'linux-amd64' || '' }}
           TIER: ${{ inputs.tier || 'all' }}
-      # Every go, e2e and browser shard splits its tier by the same timings:
-      # the go-timings artifact of the last run that recorded them. They are
-      # kept as an artifact because a cache entry was evicted within the hour
-      # by the Go caches. The plan job uploads them again as split-timings,
-      # which the shards download from this run.
-      - name: Find the last run that recorded test timings
-        id: recorded
-        run: |
-          run_id=$(gh api "repos/$GITHUB_REPOSITORY/actions/artifacts?name=go-timings&per_page=1" \
-            --jq '.artifacts[] | select(.expired | not) | .workflow_run.id')
-          echo "run-id=$run_id" >> "$GITHUB_OUTPUT"
-        env:
           GH_TOKEN: ${{ github.token }}
-      - name: Download the recorded test timings
-        if: steps.recorded.outputs.run-id != ''
-        uses: actions/download-artifact@v8
-        with:
-          name: go-timings
-          run-id: ${{ steps.recorded.outputs.run-id }}
-          github-token: ${{ github.token }}
-          path: .timings
-      - name: Upload the test timings for the shards
-        if: steps.recorded.outputs.run-id != ''
-        uses: actions/upload-artifact@v7
-        with:
-          name: split-timings
-          path: .timings
-          include-hidden-files: true
-          retention-days: 1
-          if-no-files-found: error
       - name: Check that shipped migrations are unchanged
         if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
         run: go run ./cmd/release migrations-frozen -base "$BASE"
@@ -162,27 +129,16 @@ jobs:
         with:
           prefix: go-plan-
 
-  # GitHub starts a job only when every matrix leg of each job it needs has
-  # ended, so each target's build and the lanes on its dist/ share one call and
-  # its tests wait for no other target's build.
-  target:
-    name: ${{ matrix.target }}
+  tests:
+    name: Tests
     needs: plan
-    if: fromJSON(needs.plan.outputs.planned)['target']
     permissions:
       contents: read
       actions: write
-    strategy:
-      fail-fast: false
-      matrix: ${{ fromJSON(needs.plan.outputs.target) }}
-    uses: ./.github/workflows/target.yml
+    uses: ./.github/workflows/tests.yml
     with:
-      build: ${{ toJSON(matrix.build) }}
-      e2e: ${{ toJSON(matrix.e2e) }}
-      browser: ${{ toJSON(matrix.browser) }}
-      package: ${{ needs.plan.outputs.package }}
-      timings: ${{ needs.plan.outputs.timings }}
-      record-timings: ${{ needs.plan.outputs.record-timings }}
+      plan: ${{ needs.plan.outputs.plan }}
+      record-timings: ${{ needs.plan.outputs.record-timings == 'true' }}
       filter: ${{ inputs.filter }}
       repeat: ${{ inputs.repeat || '1' }}
     secrets:
@@ -190,288 +146,12 @@ jobs:
       TVDB_API_KEY: ${{ secrets.TVDB_API_KEY }}
       OMDB_API_KEY: ${{ secrets.OMDB_API_KEY }}
 
-  # Lint runs once per OS so gofmt, line endings and the cgo type check
-  # are proven on each.
-  lint:
-    name: Lint Go (${{ matrix.target }})
-    needs: plan
-    if: fromJSON(needs.plan.outputs.planned)['lint']
-    timeout-minutes: 20
-    permissions:
-      contents: read
-      actions: write
-    strategy:
-      fail-fast: false
-      matrix: ${{ fromJSON(needs.plan.outputs.lint) }}
-    runs-on: ${{ matrix.runner }}
-    env:
-      GOARCH: ${{ matrix.goarch }}
-    steps:
-      - name: Check out the repository
-        uses: actions/checkout@v7
-      - name: Select Xcode
-        if: matrix.xcode
-        run: echo "DEVELOPER_DIR=/Applications/Xcode_${{ matrix.xcode }}.app/Contents/Developer" >> "$GITHUB_ENV"
-      - name: Set up Go and restore the Go caches
-        uses: ./.github/actions/go
-        with:
-          cache: go-${{ matrix.target }}
-      - name: Restore the golangci-lint cache
-        id: lint-cache
-        uses: actions/cache/restore@v6
-        with:
-          path: ${{ runner.temp }}/golangci-lint
-          key: lint-${{ matrix.target }}-${{ github.sha }}
-          restore-keys: lint-${{ matrix.target }}-
-      - name: Restore the native layers cache
-        uses: actions/cache@v6
-        with:
-          path: ${{ runner.temp }}/slipstream-native
-          key: native-${{ matrix.target }}-${{ hashFiles('native/lock.json') }}
-      - name: Lint Go for this target
-        run: go run ./cmd/release lint -part target
-      - name: Save the golangci-lint cache
-        if: ${{ !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-        uses: actions/cache/save@v6
-        with:
-          path: ${{ runner.temp }}/golangci-lint
-          key: ${{ steps.lint-cache.outputs.cache-primary-key }}
-      - name: Delete the older golangci-lint caches
-        if: ${{ !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-        uses: ./.github/actions/prune-cache
-        with:
-          prefix: lint-${{ matrix.target }}-
-
-  lint-repo:
-    name: Lint repo-wide checks
-    needs: plan
-    if: fromJSON(needs.plan.outputs.planned)['lint-repo']
-    timeout-minutes: 20
-    strategy:
-      fail-fast: false
-      matrix: ${{ fromJSON(needs.plan.outputs.lint-repo) }}
-    runs-on: ${{ matrix.runner }}
-    steps:
-      - name: Check out the repository
-        uses: actions/checkout@v7
-      - name: Set up Go and restore the Go caches
-        uses: ./.github/actions/go
-        with:
-          cache: go-${{ matrix.target }}
-      - name: Set up Node
-        uses: actions/setup-node@v7
-        with:
-          node-version: 24
-      - name: Set up Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version-file: web/package.json
-      - name: Cache Bun's install cache
-        if: runner.os != 'Windows'
-        uses: actions/cache@v6
-        with:
-          path: ~/.bun/install/cache
-          key: bun-${{ runner.os }}-${{ hashFiles('web/bun.lock') }}
-      - name: Run the repo-wide lint checks
-        run: go run ./cmd/release lint -part repo
-      - name: Restore the native layers cache
-        uses: actions/cache@v6
-        with:
-          path: ${{ runner.temp }}/slipstream-native
-          key: native-${{ matrix.target }}-${{ hashFiles('native/lock.json') }}
-      - name: Check each port's provenance against Prowlarr's history
-        run: |
-          scripts/native-deps fetch > /dev/null
-          eval "$(scripts/native-deps env)"
-          git clone --quiet --filter=blob:none --no-checkout https://github.com/Prowlarr/Prowlarr "$RUNNER_TEMP/prowlarr"
-          go run ./cmd/prowlarr-sync check --prowlarr "$RUNNER_TEMP/prowlarr"
-
-  go:
-    name: Go tests (${{ matrix.target }}${{ matrix.shards > 1 && format(', shard {0} of {1}', matrix.shard, matrix.shards) || '' }})
-    needs: plan
-    if: fromJSON(needs.plan.outputs.planned)['go']
-    timeout-minutes: 30
-    strategy:
-      fail-fast: false
-      matrix: ${{ fromJSON(needs.plan.outputs.go) }}
-    runs-on: ${{ matrix.runner }}
-    env:
-      GOARCH: ${{ matrix.goarch }}
-      SHARD: ${{ matrix.shard }}/${{ matrix.shards }}
-      FILTER: ${{ inputs.filter }}
-      REPEAT: ${{ inputs.repeat || 1 }}
-    steps:
-      - name: Check out the repository
-        uses: actions/checkout@v7
-      - name: Select Xcode
-        if: matrix.xcode
-        run: echo "DEVELOPER_DIR=/Applications/Xcode_${{ matrix.xcode }}.app/Contents/Developer" >> "$GITHUB_ENV"
-      - name: Set up Go and restore the Go caches
-        uses: ./.github/actions/go
-        with:
-          cache: go-${{ matrix.target }}
-      - name: Restore the native layers cache
-        uses: actions/cache@v6
-        with:
-          path: ${{ runner.temp }}/slipstream-native
-          key: native-${{ matrix.target }}-${{ hashFiles('native/lock.json') }}
-      # The worlds encode each catalog Scenario's release payloads and
-      # library files once per machine, into the user cache dir.
-      - name: Restore the fixture cache
-        uses: actions/cache@v6
-        with:
-          path: ${{ runner.os == 'Windows' && '~\AppData\Local\slipstream-fixtures' || runner.os == 'macOS' && '~/Library/Caches/slipstream-fixtures' || '~/.cache/slipstream-fixtures' }}
-          key: fixtures-${{ matrix.target }}-${{ hashFiles('native/lock.json', 'fakes/internal/mediafix/recipe.go', 'fakes/internal/releases/releases.go', 'fakes/scenario/catalog/*.yaml') }}
-          restore-keys: fixtures-${{ matrix.target }}-
-      - name: Download the test timings the plan job restored
-        if: needs.plan.outputs.timings != ''
-        uses: actions/download-artifact@v8
-        with:
-          name: ${{ needs.plan.outputs.timings }}
-          path: .timings
-      # Windows runners keep TEMP on C:, which is far slower than D:, and the
-      # tests' temp dirs live under TEMP.
-      - name: Point TEMP at the fast drive
-        if: runner.os == 'Windows'
-        run: |
-          echo "TMP=$RUNNER_TEMP" >> "$GITHUB_ENV"
-          echo "TEMP=$RUNNER_TEMP" >> "$GITHUB_ENV"
-      # TestTheListenerFollowsTheDefaultRoute moves a listener to 127.0.0.2,
-      # which macOS answers only once aliased.
-      - name: Alias a second loopback address
-        if: matrix.goos == 'darwin'
-        run: sudo ifconfig lo0 alias 127.0.0.2 up
-      # With one address besides loopback a host announces once whatever the
-      # engine does, so TestEachTorrentAnnouncesStartedOnce needs a second.
-      - name: Add a second IPv4 address to the default interface
-        if: matrix.goos == 'linux'
-        run: sudo ip addr add 198.51.100.7/32 dev "$(ip -4 route show default | awk '{print $5; exit}')"
-      - name: Run Go test shard
-        run: go run ./cmd/release test -tier go -shard "$SHARD" -filter "$FILTER" -repeat "$REPEAT" -timings .timings -record "$RUNNER_TEMP/timings/${{ matrix.target }}-go-${{ matrix.shard }}.json" -failures "$RUNNER_TEMP/failures/${{ matrix.target }}-go-${{ matrix.shard }}.json"
-      - name: Upload this shard's test timings
-        if: ${{ !cancelled() && needs.plan.outputs.record-timings == 'true' }}
-        uses: actions/upload-artifact@v7
-        with:
-          name: timings-${{ matrix.target }}-go-${{ matrix.shard }}
-          path: ${{ runner.temp }}/timings
-          retention-days: 1
-          if-no-files-found: ignore
-      - name: Upload this shard's failed tests
-        if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v7
-        with:
-          name: failures-${{ matrix.target }}-go-${{ matrix.shard }}
-          path: ${{ runner.temp }}/failures
-          if-no-files-found: ignore
-
-  # The component and Diagram jobs run in Playwright's container, as the
-  # browser job does on Linux.
-  component:
-    name: Component tests (Vitest)
-    needs: plan
-    if: fromJSON(needs.plan.outputs.planned)['component']
-    timeout-minutes: 20
-    strategy:
-      fail-fast: false
-      matrix: ${{ fromJSON(needs.plan.outputs.component) }}
-    runs-on: ${{ matrix.runner }}
-    container:
-      image: ${{ matrix.container }}
-      options: --user 1001 --ipc=host
-    steps:
-      - name: Check out the repository
-        uses: actions/checkout@v7
-      # The tier builds no Go but the release tool, which plan's cache holds.
-      - name: Set up Go and restore the Go caches
-        uses: ./.github/actions/go
-        with:
-          cache: go-plan
-      - name: Set up Bun
-        uses: ./.github/actions/bun
-      - name: Cache Bun's install cache
-        uses: actions/cache@v6
-        with:
-          path: ~/.bun/install/cache
-          key: bun-container-${{ runner.os }}-${{ hashFiles('web/bun.lock') }}
-      - name: Run the component tests
-        run: go run ./cmd/release test -tier component -failures "$RUNNER_TEMP/failures/component.json"
-      - name: Upload the failed tests
-        if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v7
-        with:
-          name: failures-component
-          path: ${{ runner.temp }}/failures
-          if-no-files-found: ignore
-
-  # A pull request runs the Diagram check only when its scope touches what
-  # the check reads; every other event runs it.
-  diagram:
-    name: Diagram check (harness, anatomy audit, frame budget)
-    needs: plan
-    if: fromJSON(needs.plan.outputs.planned)['diagram']
-    timeout-minutes: 15
-    strategy:
-      fail-fast: false
-      matrix: ${{ fromJSON(needs.plan.outputs.diagram) }}
-    runs-on: ${{ matrix.runner }}
-    container:
-      image: ${{ matrix.container }}
-      options: --user 1001 --ipc=host
-    steps:
-      - name: Check out the repository
-        uses: actions/checkout@v7
-      # The tier builds no Go but the release tool, which plan's cache holds.
-      - name: Set up Go and restore the Go caches
-        uses: ./.github/actions/go
-        with:
-          cache: go-plan
-      - name: Set up Bun
-        uses: ./.github/actions/bun
-      - name: Cache Bun's install cache
-        uses: actions/cache@v6
-        with:
-          path: ~/.bun/install/cache
-          key: bun-container-${{ runner.os }}-${{ hashFiles('web/bun.lock') }}
-      - name: Run the Diagram check
-        run: go run ./cmd/release test -tier diagram
-      - name: Upload the Diagram close-ups
-        if: failure()
-        uses: actions/upload-artifact@v7
-        with:
-          name: diagram-close-ups
-          path: .verify/diagram
-          if-no-files-found: ignore
-
-  # A push to main runs no tests, so main's nightly run records the timings
-  # the next runs' go, e2e and browser shards split their tiers by.
-  timings:
-    name: Save test timings
-    needs: [plan, go, target]
-    if: ${{ !cancelled() && needs.plan.outputs.record-timings == 'true' && needs.go.result != 'skipped' }}
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    steps:
-      - name: Download every shard's test timings
-        uses: actions/download-artifact@v8
-        with:
-          pattern: timings-*
-          merge-multiple: true
-          path: .timings
-      - name: Upload the merged test timings
-        uses: actions/upload-artifact@v7
-        with:
-          name: go-timings
-          path: .timings
-          include-hidden-files: true
-          retention-days: 90
-          if-no-files-found: error
-
   # One link stream measured between two network namespaces, per spec S07's
   # yamux measurement: nightly, and on pull requests that touch the link.
   # It is not a required check. The table lands in the step summary and the
   # log; a nightly failure opens or comments on an issue.
   link-measure:
-    name: Measure link throughput
+    name: Link throughput test
     needs: plan
     if: github.event_name == 'schedule' || (github.event_name == 'pull_request' && needs.plan.outputs.link == 'true')
     runs-on: ubuntu-24.04
@@ -480,9 +160,9 @@ jobs:
       contents: read
       issues: write
     steps:
-      - name: Check out the repository
+      - name: Check out
         uses: actions/checkout@v7
-      - name: Set up Go and restore the Go caches
+      - name: Set up Go
         uses: ./.github/actions/go
         with:
           cache: go-link-measure
@@ -516,7 +196,7 @@ jobs:
   # no secrets, so it never runs the job. A run without the TMDB key fails
   # rather than skips; the OMDb and TVDB suites skip without their key.
   online:
-    name: Online conformance suites
+    name: Online conformance tests
     needs: plan
     # A dispatch for one tier runs only that tier's lanes, and these suites
     # call the real metadata providers with the repository's keys.
@@ -529,9 +209,9 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
-      - name: Check out the repository
+      - name: Check out
         uses: actions/checkout@v7
-      - name: Set up Go and restore the Go caches
+      - name: Set up Go
         uses: ./.github/actions/go
         with:
           cache: go-plan
@@ -550,38 +230,26 @@ jobs:
           name: shapes
           path: conformance/*/shape.json
 
-  # The required check: every lane the plan runs passes, and every lane it
-  # leaves out is skipped.
-  # A skipped required check counts as passed, so the gate skips when every
-  # lane ended as planned and takes a runner only to fail and say which
-  # lane didn't. Waiting for a runner held each passing run back minutes.
+  # The required check. A skipped required check counts as passed, so the
+  # gate runs only to fail, when the plan or a lane it planned didn't pass.
+  # Waiting for a runner held each passing run back minutes.
   gate:
     name: All required checks passed
-    if: ${{ always() && (needs.plan.result != 'success' || needs.target.result != (fromJSON(needs.plan.outputs.planned)['target'] && 'success' || 'skipped') || needs.lint.result != (fromJSON(needs.plan.outputs.planned)['lint'] && 'success' || 'skipped') || needs.lint-repo.result != (fromJSON(needs.plan.outputs.planned)['lint-repo'] && 'success' || 'skipped') || needs.go.result != (fromJSON(needs.plan.outputs.planned)['go'] && 'success' || 'skipped') || needs.component.result != (fromJSON(needs.plan.outputs.planned)['component'] && 'success' || 'skipped') || needs.diagram.result != (fromJSON(needs.plan.outputs.planned)['diagram'] && 'success' || 'skipped')) }}
-    needs: [plan, target, lint, lint-repo, go, component, diagram]
+    needs: [plan, tests]
+    if: ${{ always() && (contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
-      - name: Check every planned lane passed and the rest skipped
+      - name: Report each job's result
         run: |
-          test "$PLAN" = success
-          status=0
-          for lane in $(jq -r 'keys[] | select(. != "plan")' <<< "$NEEDS"); do
-            want=skipped
-            if jq -e --arg lane "$lane" '.[$lane]' <<< "$PLANNED" > /dev/null; then want=success; fi
-            result="$(jq -r --arg lane "$lane" '.[$lane].result' <<< "$NEEDS")"
-            echo "$lane: $result, want $want"
-            if [ "$result" != "$want" ]; then status=1; fi
-          done
-          exit "$status"
+          jq -r 'to_entries[] | "\(.key): \(.value.result)"' <<< "$NEEDS"
+          exit 1
         env:
-          PLAN: ${{ needs.plan.result }}
-          PLANNED: ${{ needs.plan.outputs.planned }}
           NEEDS: ${{ toJSON(needs) }}
 
   image:
     name: Build Docker image (${{ matrix.target }})
-    needs: [plan, target]
+    needs: [plan, tests]
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
     strategy:
       matrix:
@@ -667,7 +335,7 @@ jobs:
 
   sign-windows:
     name: Sign the Windows packages
-    needs: target
+    needs: tests
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') && vars.SIGNPATH_PROJECT_SLUG != ''
     runs-on: ubuntu-24.04
     timeout-minutes: 60
@@ -707,19 +375,19 @@ jobs:
   # A release publishes only from a run whose every lane passed.
   publish:
     name: Publish the GitHub release
-    needs: [plan, target, gate, docker-manifest, sign-windows]
+    needs: [plan, tests, docker-manifest, sign-windows]
     if: >-
       ${{ !cancelled() && github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') &&
-        needs.target.result == 'success' && needs.gate.result == 'success' && needs.docker-manifest.result == 'success' &&
+        needs.tests.result == 'success' && needs.docker-manifest.result == 'success' &&
         (needs.sign-windows.result == 'success' || needs.sign-windows.result == 'skipped') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     permissions:
       contents: write
     steps:
-      - name: Check out the repository
+      - name: Check out
         uses: actions/checkout@v7
-      - name: Set up Go and restore the Go caches
+      - name: Set up Go
         uses: ./.github/actions/go
         with:
           cache: go-plan

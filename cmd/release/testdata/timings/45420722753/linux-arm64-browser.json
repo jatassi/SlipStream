@@ -1,0 +1,6 @@
+{
+	"target": "linux-arm64",
+	"tier": "browser",
+	"seconds": 1715,
+	"packages": {}
+}

@@ -1,0 +1,6 @@
+{
+	"target": "windows-amd64",
+	"tier": "e2e",
+	"seconds": 4025,
+	"packages": {}
+}

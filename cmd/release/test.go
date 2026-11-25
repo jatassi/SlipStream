@@ -734,7 +734,7 @@ func recordBrowserTimings(path string, reports []playwrightReport) error {
 		}
 		recorded.Seconds += r.Stats.Duration / 1000
 	}
-	t := timings{Target: browserTarget(), CPUs: runtime.NumCPU(), Packages: map[string]packageTimings{browserTimings: recorded}}
+	t := timings{Target: browserTarget(), Tier: "browser", Seconds: recorded.Seconds, CPUs: runtime.NumCPU(), Packages: map[string]packageTimings{browserTimings: recorded}}
 	return t.write(path)
 }
 

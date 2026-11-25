@@ -22,6 +22,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 )
 
 const modulePath = "github.com/jatassi/slipstream"
@@ -41,7 +42,7 @@ func testGoPackages(ctx context.Context, root string, o testOptions, tier string
 	// A simulation package, worksapi's 20,000-Work and 32,767-Item cases,
 	// and the e2e package when no timings split it across shards run for
 	// most of twenty minutes under -race on a busy runner; the e2e job's
-	// own limit is thirty-five.
+	// own limit is forty-five.
 	base := []string{"-race", "-shuffle=on", "-timeout", "25m"}
 	if len(o.goArgs) > 0 {
 		return nil, goTest(ctx, root, env, append(base, o.goArgs...), os.Stdout)
@@ -76,9 +77,12 @@ func testGoPackages(ctx context.Context, root string, o testOptions, tier string
 	for _, r := range runs {
 		fmt.Print(r.listing())
 	}
+	start := time.Now()
 	recorded, first, err := runShard(ctx, root, env, flags, runs)
 	if o.record != "" {
 		recorded.Target = target.Name
+		recorded.Tier = tier
+		recorded.Seconds = time.Since(start).Seconds()
 		if err := recorded.write(o.record); err != nil {
 			return nil, err
 		}
@@ -443,6 +447,10 @@ func testsPattern(tests []string) string {
 // go test -json reports them.
 type timings struct {
 	Target string `json:"target"`
+	// Tier is the tier a shard recorded, and Seconds how long its tests ran,
+	// which the plan sizes the tier's shards by.
+	Tier    string  `json:"tier,omitempty"`
+	Seconds float64 `json:"seconds,omitempty"`
 	// CPUs is how many CPUs the runner that took the timings had.
 	CPUs     int                       `json:"cpus"`
 	Packages map[string]packageTimings `json:"packages"`

@@ -3,10 +3,10 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"slices"
-	"strings"
 	"testing"
 
 	"go.yaml.in/yaml/v3"
@@ -40,207 +40,173 @@ func TestPlanTargets(t *testing.T) {
 	prOnly := []string{"linux-amd64"}
 	all := []string{"linux-amd64", "windows-amd64", "darwin-arm64"}
 	tests := []struct {
-		event   string
+		kind    string
 		scope   changescope.Scope
 		touched bool
 		want    []string
 		pack    bool
 	}{
-		{"pr", changescope.Docs, false, nil, false},
-		{"pr", changescope.PR, false, prOnly, false},
-		{"pr", changescope.Native, false, all, false},
-		{"pr", changescope.PR, true, all, true},
-		{"stacked", changescope.Docs, false, nil, false},
-		{"stacked", changescope.PR, false, prOnly, false},
-		{"stacked", changescope.Native, false, prOnly, false},
-		{"stacked", changescope.PR, true, prOnly, true},
+		{"merge", changescope.Docs, false, nil, false},
+		{"merge", changescope.PR, false, prOnly, false},
+		{"merge", changescope.Native, false, all, false},
+		{"merge", changescope.PR, true, all, true},
+		{"wave", changescope.Docs, false, nil, false},
+		{"wave", changescope.PR, false, prOnly, false},
+		{"wave", changescope.Native, false, prOnly, false},
+		{"wave", changescope.PR, true, prOnly, true},
+		{"train", changescope.PR, false, prOnly, false},
+		{"train", changescope.Native, false, prOnly, false},
+		{"push", changescope.Docs, false, all, false},
 		{"dispatch", changescope.Docs, false, all, false},
 		{"dispatch", changescope.Native, false, all, false},
 		{"schedule", changescope.Docs, false, all, true},
 		{"tag", changescope.Docs, false, all, true},
 	}
 	for _, tt := range tests {
-		got, err := plan(planInputs, events[tt.event], tt.scope, touched{packages: tt.touched}, nil, "all", testImage)
+		got, err := plan(planInputs, runKinds[tt.kind], tt.scope, touched{packages: tt.touched, diagram: true}, nil, "all", testImage, nil)
 		if err != nil {
 			t.Fatal(err)
 		}
-		for kind, m := range got.Lanes {
-			if kind == "lint-repo" || kind == "component" || kind == "diagram" || slices.Contains(events[tt.event].skips, kind) {
+		for _, l := range lanes {
+			if !slices.Contains(runKinds[tt.kind].lanes, l.kind) {
 				continue
 			}
-			if targets := laneTargets(m); !slices.Equal(targets, tt.want) {
-				t.Errorf("plan(%s, %s, touched %t) runs %s on %v, want %v", tt.event, tt.scope, tt.touched, kind, targets, tt.want)
+			want := slices.DeleteFunc(slices.Clone(tt.want), func(target string) bool { return !l.runsOn(target) })
+			if targets := laneTargets(got.Lanes[l.kind]); !slices.Equal(targets, want) {
+				t.Errorf("plan(%s, %s, touched %t) runs %s on %v, want %v", tt.kind, tt.scope, tt.touched, l.kind, targets, want)
 			}
 		}
 		if got.Package != tt.pack {
-			t.Errorf("plan(%s, %s, touched %t) packages %t, want %t", tt.event, tt.scope, tt.touched, got.Package, tt.pack)
+			t.Errorf("plan(%s, %s, touched %t) packages %t, want %t", tt.kind, tt.scope, tt.touched, got.Package, tt.pack)
 		}
 	}
 }
 
-func TestOnlyPullRequestsIntoMainRunTheE2EAndBrowserTiers(t *testing.T) {
-	for _, tt := range []struct {
-		event string
-		scope changescope.Scope
-		want  bool
-	}{
-		{"pr", changescope.PR, true},
-		{"pr", changescope.Native, true},
-		{"stacked", changescope.PR, false},
-		{"stacked", changescope.Native, false},
+func TestEachRunKindRunsItsLanes(t *testing.T) {
+	for kind, want := range map[string][]string{
+		"wave":     {"build", "lint", "lint-repo", "go", "component", "diagram"},
+		"train":    {"build", "e2e", "browser", "go-cache"},
+		"merge":    {"build", "lint", "lint-repo", "go", "e2e", "browser", "component", "diagram"},
+		"push":     {"lint", "go-cache"},
+		"dispatch": {"build", "lint", "lint-repo", "go", "e2e", "browser", "component", "diagram"},
 	} {
-		got, err := plan(planInputs, events[tt.event], tt.scope, touched{}, nil, "all", testImage)
+		got, err := plan(planInputs, runKinds[kind], changescope.Native, touched{diagram: true}, nil, "all", testImage, nil)
 		if err != nil {
 			t.Fatal(err)
 		}
-		for _, kind := range []string{"e2e", "browser"} {
-			if planned := len(got.Lanes[kind].Include) > 0; planned != tt.want {
-				t.Errorf("plan(%s, %s) plans %s %t, want %t", tt.event, tt.scope, kind, planned, tt.want)
+		var planned []string
+		for _, l := range lanes {
+			if len(got.Lanes[l.kind].Include) > 0 {
+				planned = append(planned, l.kind)
 			}
 		}
-		if jobs := got.PlannedJobs(); !jobs["target"] || !jobs["go"] {
-			t.Errorf("plan(%s, %s) plans %v, want the build and go lanes", tt.event, tt.scope, jobs)
+		if !slices.Equal(planned, want) {
+			t.Errorf("a %s plans %v, want %v", kind, planned, want)
 		}
 	}
 }
 
-func TestPlanShardsEachLanePerTarget(t *testing.T) {
-	got, err := plan(planInputs, events["dispatch"], changescope.PR, touched{}, nil, "all", testImage)
+func testRecords(t *testing.T) map[laneTarget]recorded {
+	t.Helper()
+	rec, err := loadRecords(filepath.Join("testdata", "timings"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, l := range lanes {
-		var want []string
-		for _, target := range planInputs.Targets {
-			n := l.shards[target.Name]
-			for i := 1; i <= n; i++ {
-				want = append(want, fmt.Sprintf("%s %d/%d", target.Name, i, n))
-			}
-		}
-		var shards []string
-		for _, e := range got.Lanes[l.kind].Include {
-			shards = append(shards, fmt.Sprintf("%s %d/%d", e.Target, e.Shard, e.Shards))
-		}
-		if !slices.Equal(shards, want) {
-			t.Errorf("%s shards = %v, want %v", l.kind, shards, want)
-		}
+	if len(rec) == 0 {
+		t.Fatal("testdata/timings holds no recorded timings")
 	}
+	return rec
 }
 
-func TestPlanRunsLinuxBrowserJobsInPlaywrightsContainer(t *testing.T) {
-	got, err := plan(planInputs, events["dispatch"], changescope.Native, touched{}, nil, "all", testImage)
+// shardNames is each job of m as its target, shard and timings run.
+func shardNames(m Matrix) []string {
+	var names []string
+	for _, e := range m.Include {
+		names = append(names, fmt.Sprintf("%s %d/%d timings %q", e.Target, e.Shard, e.Shards, e.Timings))
+	}
+	return names
+}
+
+func TestPlanShardsEachTimedLaneByItsRecordedTime(t *testing.T) {
+	missing, err := loadRecords(filepath.Join(t.TempDir(), "missing"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	for kind, m := range got.Lanes {
-		for _, e := range m.Include {
-			want := ""
-			if e.GOOS == "linux" && slices.Contains([]string{"browser", "component", "diagram"}, kind) {
-				want = testImage
-			}
-			if e.Container != want {
-				t.Errorf("%s job on %s runs in %q, want %q", kind, e.Target, e.Container, want)
-			}
-		}
-	}
-}
-
-func TestPlaywrightImage(t *testing.T) {
-	for _, c := range []struct {
-		packageJSON, want string
-	}{
-		{`{"devDependencies": {"@playwright/test": "1.64.1"}}`, testImage},
-		{`{"devDependencies": {"@playwright/test": "^1.64.1"}}`, ""},
-		{`{"dependencies": {"@playwright/test": "1.64.1"}}`, ""},
-	} {
-		got, err := playwrightImage([]byte(c.packageJSON))
-		if got != c.want || (err == nil) != (c.want != "") {
-			t.Errorf("playwrightImage(%s) = %q, %v, want %q", c.packageJSON, got, err, c.want)
-		}
-	}
-}
-
-func TestPlanDispatchKeepsTargetsAndTier(t *testing.T) {
-	for _, tt := range []struct {
-		keep []string
-		tier string
-		want map[string]bool
-	}{
-		{[]string{"windows-amd64"}, "go", map[string]bool{"go": true}},
-		{nil, "browser", map[string]bool{"build": true, "browser": true}},
-		{nil, "lint", map[string]bool{"lint": true, "lint-repo": true}},
-		{nil, "component", map[string]bool{"component": true, "diagram": true}},
-		{[]string{"darwin-arm64"}, "lint", map[string]bool{"lint": true}},
-		{[]string{"windows-amd64"}, "all", map[string]bool{"build": true, "lint": true, "go": true, "e2e": true, "browser": true}},
-	} {
-		got, err := plan(planInputs, events["dispatch"], changescope.Native, touched{}, tt.keep, tt.tier, testImage)
+	for name, rec := range map[string]map[laneTarget]recorded{"testdata": testRecords(t), "no timings": missing} {
+		got, err := plan(planInputs, runKinds["merge"], changescope.Native, touched{}, nil, "all", testImage, rec)
 		if err != nil {
 			t.Fatal(err)
 		}
-		for kind, m := range got.Lanes {
-			planned := len(m.Include) > 0
-			if planned != tt.want[kind] {
-				t.Errorf("dispatch of %v on %s: %s planned %t, want %t", tt.keep, tt.tier, kind, planned, tt.want[kind])
+		for _, l := range slices.DeleteFunc(slices.Clone(lanes), func(l lane) bool { return l.shardTime == 0 }) {
+			want := Matrix{}
+			for _, target := range planInputs.Targets {
+				r := rec[laneTarget{l.kind, target.Name}]
+				n := l.defaultShards
+				if r.run != "" {
+					n = int(math.Ceil(r.seconds / l.shardTime.Seconds()))
+				}
+				for i := 1; i <= n; i++ {
+					want.Include = append(want.Include, MatrixEntry{Target: target.Name, Shard: i, Shards: n, Timings: r.run})
+				}
 			}
-			if targets := laneTargets(m); tt.keep != nil && planned && !slices.Equal(targets, tt.keep) {
-				t.Errorf("dispatch of %v on %s runs %s on %v", tt.keep, tt.tier, kind, targets)
+			if shards, want := shardNames(got.Lanes[l.kind]), shardNames(want); !slices.Equal(shards, want) {
+				t.Errorf("%s: %s shards = %v, want %v", name, l.kind, shards, want)
 			}
 		}
-		if planned := got.PlannedJobs()["target"]; planned != tt.want["build"] {
-			t.Errorf("dispatch of %v on %s: target planned %t, want %t", tt.keep, tt.tier, planned, tt.want["build"])
-		}
-	}
-	if _, err := plan(planInputs, events["dispatch"], changescope.Native, touched{}, []string{"plan9-amd64"}, "all", testImage); err == nil {
-		t.Error("a dispatch of an unknown target planned")
-	}
-	if _, err := plan(planInputs, events["dispatch"], changescope.Native, touched{}, nil, "build", testImage); err == nil {
-		t.Error("a dispatch of an unknown tier planned")
 	}
 }
 
-func TestPlanPushOnlyRefreshesTheCaches(t *testing.T) {
-	got, err := plan(planInputs, events["push"], changescope.Native, touched{packages: true, diagram: true}, nil, "all", testImage)
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, l := range lanes {
-		if planned := len(got.Lanes[l.kind].Include) > 0; planned != l.savesCaches {
-			t.Errorf("a push to main plans %s %t, want %t", l.kind, planned, l.savesCaches)
+func TestPlanFitsEachRunKindsBudget(t *testing.T) {
+	in := testInputs(t)
+	jobs := func(k runKind, rec map[laneTarget]recorded, tch touched) int {
+		p, err := plan(in, k, changescope.Native, tch, nil, "all", testImage, rec)
+		if err != nil {
+			t.Fatal(err)
 		}
+		return p.Jobs()
 	}
-	if targets := laneTargets(got.Lanes["build"]); !slices.Equal(targets, laneTargets(got.Lanes["lint"])) || len(targets) == 0 {
-		t.Errorf("a push to main builds on %v and lints on %v, want every target for both", targets, laneTargets(got.Lanes["lint"]))
+	for kind, k := range runKinds {
+		uncapped := k
+		uncapped.budget = 0
+		for _, rec := range []map[laneTarget]recorded{testRecords(t), nil} {
+			for _, tch := range []touched{{}, {packages: true, diagram: true}} {
+				if got, want := jobs(k, rec, tch), min(k.budget, jobs(uncapped, rec, tch)); k.budget > 0 && got != want {
+					t.Errorf("a %s touching %+v with %d recorded lanes plans %d jobs, want %d of its budget of %d", kind, tch, len(rec), got, want, k.budget)
+				}
+			}
+		}
 	}
 }
 
 func TestPlanDiagramWhenTouched(t *testing.T) {
 	for _, tt := range []struct {
-		event   string
+		kind    string
 		scope   changescope.Scope
 		touched touched
 		want    bool
 	}{
-		{"pr", changescope.PR, touched{}, false},
-		{"pr", changescope.PR, touched{diagram: true}, true},
-		{"pr", changescope.Native, touched{packages: true}, false},
-		{"pr", changescope.Docs, touched{diagram: true}, false},
-		{"stacked", changescope.PR, touched{}, false},
-		{"stacked", changescope.PR, touched{diagram: true}, true},
+		{"merge", changescope.PR, touched{}, false},
+		{"merge", changescope.PR, touched{diagram: true}, true},
+		{"merge", changescope.Native, touched{packages: true}, false},
+		{"merge", changescope.Docs, touched{diagram: true}, false},
+		{"wave", changescope.PR, touched{}, false},
+		{"wave", changescope.PR, touched{diagram: true}, true},
 		{"dispatch", changescope.Native, touched{}, true},
 		{"schedule", changescope.Docs, touched{}, true},
 		{"tag", changescope.Docs, touched{}, true},
 	} {
-		got, err := plan(planInputs, events[tt.event], tt.scope, tt.touched, nil, "all", testImage)
+		got, err := plan(planInputs, runKinds[tt.kind], tt.scope, tt.touched, nil, "all", testImage, nil)
 		if err != nil {
 			t.Fatal(err)
 		}
 		if planned := got.PlannedJobs()["diagram"]; planned != tt.want {
-			t.Errorf("plan(%s, %s, %+v) plans diagram %t, want %t", tt.event, tt.scope, tt.touched, planned, tt.want)
+			t.Errorf("plan(%s, %s, %+v) plans diagram %t, want %t", tt.kind, tt.scope, tt.touched, planned, tt.want)
 		}
 	}
 }
 
-func TestLanesCoverEveryTarget(t *testing.T) {
+func testInputs(t *testing.T) native.Inputs {
+	t.Helper()
 	root, err := repoRoot(t.Context())
 	if err != nil {
 		t.Fatal(err)
@@ -249,50 +215,49 @@ func TestLanesCoverEveryTarget(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	everywhere := []string{"build", "go", "e2e", "browser"}
-	for _, l := range slices.DeleteFunc(slices.Clone(lanes), func(l lane) bool { return l.kind == "lint" }) {
-		for name, n := range l.shards {
-			if _, err := in.Target(name); err != nil || n < 1 {
-				t.Errorf("lane %s runs %d shards on %s: %v", l.kind, n, name, err)
+	return in
+}
+
+func TestLanesCoverEveryTarget(t *testing.T) {
+	in := testInputs(t)
+	everywhere := []string{"build", "go", "e2e", "browser", "go-cache"}
+	for _, l := range lanes {
+		for _, name := range l.targets {
+			if _, err := in.Target(name); err != nil {
+				t.Errorf("lane %s runs on %s: %v", l.kind, name, err)
 			}
 		}
-		if !slices.Contains(everywhere, l.kind) {
-			if len(l.shards) != 1 {
-				t.Errorf("lane %s checks what no OS changes, so runs on one target, not %v", l.kind, l.shards)
-			}
-			continue
+		if (l.shardTime > 0) != (l.defaultShards > 0) {
+			t.Errorf("lane %s has shard time %s and %d default shards, want both or neither", l.kind, l.shardTime, l.defaultShards)
 		}
-		for _, target := range in.Targets {
-			if l.shards[target.Name] == 0 {
-				t.Errorf("lane %s does not run on %s", l.kind, target.Name)
-			}
+		switch {
+		case l.kind == "lint":
+		case slices.Contains(everywhere, l.kind) && l.targets != nil:
+			t.Errorf("lane %s runs on %v, want every target", l.kind, l.targets)
+		case !slices.Contains(everywhere, l.kind) && len(l.targets) != 1:
+			t.Errorf("lane %s checks what no OS changes, so runs on one target, not %v", l.kind, l.targets)
 		}
 	}
 }
 
 func TestLintRunsOncePerOS(t *testing.T) {
-	root, err := repoRoot(t.Context())
-	if err != nil {
-		t.Fatal(err)
-	}
-	in, err := native.LoadInputs(filepath.Join(root, native.InputsPath))
-	if err != nil {
-		t.Fatal(err)
-	}
+	in := testInputs(t)
 	i := slices.IndexFunc(lanes, func(l lane) bool { return l.kind == "lint" })
 	jobs := map[string]int{}
 	for _, target := range in.Targets {
-		jobs[target.GOOS] += lanes[i].shards[target.Name]
+		if lanes[i].runsOn(target.Name) {
+			jobs[target.GOOS]++
+		}
 	}
-	for goos, n := range jobs {
-		if n != 1 {
-			t.Errorf("lint runs %d jobs on %s, want one per OS", n, goos)
+	for _, target := range in.Targets {
+		if jobs[target.GOOS] != 1 {
+			t.Errorf("lint runs %d jobs on %s, want one per OS", jobs[target.GOOS], target.GOOS)
 		}
 	}
 }
 
 func TestPlanTargetsSplitsEachLaneByTarget(t *testing.T) {
-	got, err := plan(planInputs, events["dispatch"], changescope.Native, touched{}, nil, "browser", testImage)
+	got, err := plan(planInputs, runKinds["dispatch"], changescope.Native, touched{}, nil, "browser", testImage, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -319,7 +284,7 @@ func TestPlanTargetsSplitsEachLaneByTarget(t *testing.T) {
 }
 
 func TestPlanTargetsEmptyWithoutABuild(t *testing.T) {
-	got, err := plan(planInputs, events["dispatch"], changescope.Native, touched{}, nil, "go", testImage)
+	got, err := plan(planInputs, runKinds["dispatch"], changescope.Native, touched{}, nil, "go", testImage, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -333,12 +298,14 @@ func TestPlanTargetsEmptyWithoutABuild(t *testing.T) {
 }
 
 type ciJob struct {
+	Name      string `yaml:"name"`
 	If        string `yaml:"if"`
 	Container struct {
 		Image string `yaml:"image"`
 	} `yaml:"container"`
 	Needs    any               `yaml:"needs"`
 	Uses     string            `yaml:"uses"`
+	With     map[string]any    `yaml:"with"`
 	Outputs  map[string]string `yaml:"outputs"`
 	Strategy struct {
 		Matrix any `yaml:"matrix"`
@@ -377,20 +344,16 @@ func checkContainer(t *testing.T, l lane, j ciJob) {
 	}
 }
 
-func TestCICallsTargetWorkflowPerTarget(t *testing.T) {
-	ci := readWorkflow(t, "ci.yml")
-	call := ci["target"]
+func TestTestsWorkflowCallsTargetWorkflowPerTarget(t *testing.T) {
+	call := readWorkflow(t, "tests.yml")["target"]
 	if want := "./.github/workflows/target.yml"; call.Uses != want {
 		t.Errorf("job target uses %q, want %q", call.Uses, want)
 	}
-	if want := "fromJSON(needs.plan.outputs.planned)['target']"; call.If != want {
+	if want := "fromJSON(inputs.plan).planned['target']"; call.If != want {
 		t.Errorf("job target if = %q, want %q", call.If, want)
 	}
-	if want := "${{ fromJSON(needs.plan.outputs.target) }}"; call.Strategy.Matrix != want {
+	if want := "${{ fromJSON(inputs.plan)['target'] }}"; call.Strategy.Matrix != want {
 		t.Errorf("job target matrix = %v, want %q", call.Strategy.Matrix, want)
-	}
-	if want := "${{ steps.plan.outputs.target }}"; ci["plan"].Outputs["target"] != want {
-		t.Errorf("plan output target = %q, want %q", ci["plan"].Outputs["target"], want)
 	}
 }
 
@@ -421,46 +384,80 @@ func TestTargetWorkflowRunsItsLanesOnItsBuild(t *testing.T) {
 	}
 }
 
-func TestCIRunsEveryLane(t *testing.T) {
-	ci := readWorkflow(t, "ci.yml")
-	gateNeeds := []string{"plan", "target"}
+func TestTestsWorkflowRunsEveryLane(t *testing.T) {
+	jobs := readWorkflow(t, "tests.yml")
+	got, err := plan(planInputs, runKinds["dispatch"], changescope.Native, touched{}, nil, "all", testImage, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	output := got.output()
+	for _, key := range []string{"planned", "package", "target"} {
+		if _, ok := output[key]; !ok {
+			t.Errorf("the plan output has no %s", key)
+		}
+	}
 	for _, l := range lanes {
 		if l.inTargetWorkflow() {
 			continue
 		}
-		gateNeeds = append(gateNeeds, l.kind)
-		j, ok := ci[l.kind]
+		if _, ok := output[l.kind]; !ok {
+			t.Errorf("the plan output has no %s matrix", l.kind)
+		}
+		j, ok := jobs[l.kind]
 		if !ok {
-			t.Errorf("ci.yml has no %s job", l.kind)
+			t.Errorf("tests.yml has no %s job", l.kind)
 			continue
 		}
-		if want := fmt.Sprintf("${{ fromJSON(needs.plan.outputs.%s) }}", l.kind); j.Strategy.Matrix != want {
+		if want := fmt.Sprintf("${{ fromJSON(inputs.plan)['%s'] }}", l.kind); j.Strategy.Matrix != want {
 			t.Errorf("job %s matrix = %v, want %q", l.kind, j.Strategy.Matrix, want)
 		}
 		checkContainer(t, l, j)
-		if want := fmt.Sprintf("fromJSON(needs.plan.outputs.planned)['%s']", l.kind); j.If != want {
+		if want := fmt.Sprintf("fromJSON(inputs.plan).planned['%s']", l.kind); j.If != want {
 			t.Errorf("job %s if = %q, want %q", l.kind, j.If, want)
 		}
-		if want := fmt.Sprintf("${{ steps.plan.outputs.%s }}", l.kind); ci["plan"].Outputs[l.kind] != want {
-			t.Errorf("plan output %s = %q, want %q", l.kind, ci["plan"].Outputs[l.kind], want)
+	}
+}
+
+// The ruleset requires the pull request run's gate by name, and a job in a
+// called workflow is named after its caller too, so each gate is a job of
+// the workflow an event starts. It fails when the plan or the tests call
+// fails or is canceled, and a failed lane fails the call.
+func TestEachRunGatesOnItsTests(t *testing.T) {
+	for workflow, gate := range map[string]string{"ci.yml": "All required checks passed", "push.yml": "All push checks passed"} {
+		jobs := readWorkflow(t, workflow)
+		if want := "${{ steps.plan.outputs.plan }}"; jobs["plan"].Outputs["plan"] != want {
+			t.Errorf("%s: plan output plan = %q, want %q", workflow, jobs["plan"].Outputs["plan"], want)
+		}
+		tests := jobs["tests"]
+		if want := "./.github/workflows/tests.yml"; tests.Uses != want || tests.Needs != "plan" {
+			t.Errorf("%s: job tests uses %q and needs %v, want %q and plan", workflow, tests.Uses, tests.Needs, want)
+		}
+		if want := "${{ needs.plan.outputs.plan }}"; tests.With["plan"] != want {
+			t.Errorf("%s: job tests takes plan %v, want %q", workflow, tests.With["plan"], want)
+		}
+		if named := jobsNamed(jobs, gate); !slices.Equal(named, []string{"gate"}) {
+			t.Fatalf("%s: jobs %v are named %q, want the gate alone", workflow, named, gate)
+		}
+		j := jobs["gate"]
+		if j.Uses != "" {
+			t.Errorf("%s: the gate calls %s, which would name it after its caller", workflow, j.Uses)
+		}
+		if want := "${{ always() && (contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')) }}"; j.If != want {
+			t.Errorf("%s: gate if = %q, want %q", workflow, j.If, want)
+		}
+		needs, ok := j.Needs.([]any)
+		if !ok || !slices.Equal(needs, []any{"plan", "tests"}) {
+			t.Errorf("%s: gate needs %v, want plan and tests", workflow, j.Needs)
 		}
 	}
-	var offPlan []string
-	for _, n := range gateNeeds[1:] {
-		offPlan = append(offPlan, fmt.Sprintf("needs.%s.result != (fromJSON(needs.plan.outputs.planned)['%s'] && 'success' || 'skipped')", n, n))
+}
+
+func jobsNamed(jobs map[string]ciJob, name string) []string {
+	var named []string
+	for id, j := range jobs {
+		if j.Name == name {
+			named = append(named, id)
+		}
 	}
-	if want := fmt.Sprintf("${{ always() && (needs.plan.result != 'success' || %s) }}", strings.Join(offPlan, " || ")); ci["gate"].If != want {
-		t.Errorf("gate if = %q, want it to run only when a lane ended off plan: %q", ci["gate"].If, want)
-	}
-	gate, ok := ci["gate"].Needs.([]any)
-	if !ok {
-		t.Fatalf("gate needs %v, want a list", ci["gate"].Needs)
-	}
-	var needs []string
-	for _, n := range gate {
-		needs = append(needs, fmt.Sprint(n))
-	}
-	if !slices.Equal(needs, gateNeeds) {
-		t.Errorf("gate needs %s, want %s", strings.Join(needs, ", "), strings.Join(gateNeeds, ", "))
-	}
+	return named
 }
