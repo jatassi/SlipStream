@@ -1,7 +1,7 @@
 import { CheckmarkCircle02Icon } from "@hugeicons/core-free-icons";
 import { Fragment } from "react";
 
-import type { ReachabilityHopView } from "../api/gen/model";
+import type { ReachabilityHopView, ReachabilityHopViewWorst } from "../api/gen/model";
 import { Icon } from "../ui/icon";
 import { type Signal, signals } from "../ui/signal-chip";
 import { signalLook } from "../ui/signal-row";
@@ -19,6 +19,12 @@ export function hopSignal(hop: ReachabilityHopView): Exclude<Signal, "ok"> | und
   return failing.some((check) => check.points === "needs-relay") ? "fail" : "warn";
 }
 
+const notes: { readonly [W in ReachabilityHopViewWorst]?: string } = {
+  "not-reached": "not reached",
+  "not-tested": "not tested",
+  "not-used": "not used",
+};
+
 const tile =
   "flex min-h-(--control-height) flex-col items-start justify-center gap-0.5 rounded-item px-3 py-1.5 text-left transition-colors duration-(--duration-control) ease-standard focus-visible:outline-2 focus-visible:outline-offset-2";
 
@@ -27,7 +33,11 @@ function tileLook(hop: ReachabilityHopView, selected: boolean): string {
   if (signal !== undefined) {
     return signalLook[signal].row;
   }
-  const ring = selected ? "ring-2 ring-ink-2" : "";
+  const ring = selected
+    ? "ring-2 ring-ink-2"
+    : hop.worst === "not-tested"
+      ? "ring-1 ring-hairline-strong ring-inset"
+      : "";
   if (hop.worst === "not-reached") {
     return `border border-dashed border-hairline-strong text-ink-3 ${ring}`;
   }
@@ -98,10 +108,10 @@ export function RouteHops({
                   <Mark hop={hop} />
                   {hopNames[hop.kind]}
                 </span>
-                {hop.worst === "not-reached" && (
+                {notes[hop.worst] !== undefined && (
                   <>
                     {" "}
-                    <span className="text-meta">not reached</span>
+                    <span className="text-meta text-ink-3">{notes[hop.worst]}</span>
                   </>
                 )}
               </button>
