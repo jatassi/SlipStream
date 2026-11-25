@@ -1,3 +1,5 @@
+import type { IdentityGrantedServer } from "./identityGrantedServer.ts";
+
 export interface IdentityPendingLink {
   email: string;
   expiresAt: string;
@@ -5,4 +7,6 @@ export interface IdentityPendingLink {
   issuedAt: string;
   /** The Admin who issued it; absent for the API key */
   issuedBy?: string;
+  /** The Media Servers the link offers */
+  mediaServers: IdentityGrantedServer[];
 }

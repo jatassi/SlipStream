@@ -1,4 +1,5 @@
 import type { MediaserversKind } from "./mediaserversKind.ts";
+import type { MediaserversLibraryChoice } from "./mediaserversLibraryChoice.ts";
 import type { MediaserversNodeRef } from "./mediaserversNodeRef.ts";
 import type { MediaserversServerViewContact } from "./mediaserversServerViewContact.ts";
 import type { MediaserversServerViewFallback } from "./mediaserversServerViewFallback.ts";
@@ -31,6 +32,17 @@ export interface MediaserversServerView {
    * @minimum 0
    */
   mappingsNeeded: number;
+  /** Jellyfin and Emby: the address How to watch gives Members; absent when the Admin set none */
+  memberAddress?: string;
+  /**
+   * How many Members can watch on the server
+   * @minimum 0
+   */
+  memberCount: number;
+  /** The Libraries for Members: what a Member's access covers */
+  memberLibraries: MediaserversLibraryChoice[];
+  /** Show to Members: whether Members may be offered access to the server */
+  membersSee: boolean;
   name: string;
   /** Plex only: whether the signed-in account has Plex Pass */
   plexPass?: boolean;

@@ -109,6 +109,7 @@ func (m *MediaServers) viewOf(row db.MediaserversServer, w world) ServerView {
 		Fallback:     row.Fallback, CheckedAt: timeOrNil(row.CheckedAt),
 		Contact: string(row.Contact), ContactSince: timeOrNil(row.ContactSince), Sends: row.Sends,
 		LastContactAt: timeOrNil(row.LastContactAt), LastSendAt: timeOrNil(row.LastSendAt),
+		MemberLibraries: []LibraryChoice{},
 	}
 	if !row.RunsOnNodeID.IsZero() {
 		v.RunsOnNode = &NodeRef{ID: row.RunsOnNodeID.String(), Name: w.names[row.RunsOnNodeID].Name}

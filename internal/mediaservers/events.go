@@ -35,10 +35,19 @@ type Found struct {
 	WorkIDs []string `json:"workIds" nullable:"false" format:"uuid"`
 }
 
+// AccessChanged is any access row changing. It carries nothing: a listener
+// reads the rows again.
+type AccessChanged struct{}
+
+// MyAccessChanged is one of the Account's own access rows changing.
+type MyAccessChanged struct{}
+
 var (
 	ChangedEvent         = live.AdminEvent[Changed]("media-servers.changed")
 	SessionsChangedEvent = live.AdminEvent[SessionsChanged]("media-servers.sessions-changed")
 	UnhealthyEvent       = live.AdminEvent[WentUnhealthy]("media-servers.unhealthy")
 	RecoveredEvent       = live.AdminEvent[Recovered]("media-servers.recovered")
 	ItemsFoundEvent      = live.AdminEvent[Found]("media-servers.items-found")
+	AccessChangedEvent   = live.AdminEvent[AccessChanged]("media-servers.access-changed")
+	MyAccessChangedEvent = live.AccountEvent[MyAccessChanged]("media-servers.my-access-changed")
 )

@@ -41,6 +41,7 @@ const pending: IdentityPendingLink = {
   issuedAt: "2026-10-14T10:00:00Z",
   expiresAt: "2026-10-21T10:00:00Z",
   issuedBy: "Ada Okafor",
+  mediaServers: [],
 };
 
 const issued = (email: string): IdentityIssuedSignupLink => ({

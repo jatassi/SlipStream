@@ -12,15 +12,38 @@ import (
 )
 
 type pendingLink struct {
-	ID        string    `json:"id" format:"uuid"`
-	Email     string    `json:"email" format:"email"`
-	IssuedBy  string    `json:"issuedBy,omitempty" doc:"The Admin who issued it; absent for the API key"`
-	IssuedAt  time.Time `json:"issuedAt"`
-	ExpiresAt time.Time `json:"expiresAt"`
+	ID           string          `json:"id" format:"uuid"`
+	Email        string          `json:"email" format:"email"`
+	IssuedBy     string          `json:"issuedBy,omitempty" doc:"The Admin who issued it; absent for the API key"`
+	IssuedAt     time.Time       `json:"issuedAt"`
+	ExpiresAt    time.Time       `json:"expiresAt"`
+	MediaServers []grantedServer `json:"mediaServers" nullable:"false" doc:"The Media Servers the link offers"`
+}
+
+// grantedServer is a Media Server a pending Signup link offers.
+type grantedServer struct {
+	Server   string `json:"server" format:"uuid"`
+	Name     string `json:"name"`
+	Kind     string `json:"kind" doc:"The kind's product name, such as Plex"`
+	Present  bool   `json:"present" doc:"False once the server is removed"`
+	Shown    bool   `json:"shown" doc:"Whether Show to Members is on. A server that is off isn't offered when the link is used"`
+	PlexHome bool   `json:"plexHome" doc:"Plex only: the Member joins the Plex Home rather than as a friend"`
+}
+
+// offeredServer is a Media Server a Signup link's page names.
+type offeredServer struct {
+	Name string `json:"name"`
+	Kind string `json:"kind" doc:"The kind's product name, such as Plex"`
+}
+
+// serverGrant is a Media Server a new Signup link offers.
+type serverGrant struct {
+	Server   string `json:"server" format:"uuid" doc:"A Media Server shown to Members"`
+	PlexHome bool   `json:"plexHome,omitempty" doc:"Plex only: add the Member to the Plex Home rather than as a friend"`
 }
 
 func pendingOf(l identity.PendingLink) pendingLink {
-	return pendingLink{ID: l.ID.String(), Email: l.Email, IssuedBy: l.IssuedBy, IssuedAt: l.IssuedAt, ExpiresAt: l.ExpiresAt}
+	return pendingLink{ID: l.ID.String(), Email: l.Email, IssuedBy: l.IssuedBy, IssuedAt: l.IssuedAt, ExpiresAt: l.ExpiresAt, MediaServers: []grantedServer{}}
 }
 
 type pendingLinks struct {
@@ -28,9 +51,10 @@ type pendingLinks struct {
 }
 
 type issuedSignupLink struct {
-	Link  pendingLink     `json:"link"`
-	URL   string          `json:"url" format:"uri" doc:"The link itself, to copy"`
-	Email mailapi.Outcome `json:"email"`
+	Link    pendingLink     `json:"link"`
+	URL     string          `json:"url" format:"uri" doc:"The link itself, to copy"`
+	Email   mailapi.Outcome `json:"email"`
+	Dropped []string        `json:"dropped,omitempty" doc:"Send again only: the Media Servers the old link offered that the new one doesn't, because they are removed or no longer shown to Members"`
 }
 
 type issuedResetLink struct {
@@ -44,11 +68,12 @@ type signupLinkURL struct {
 }
 
 type liveLink struct {
-	State      string    `json:"state" enum:"live"`
-	AdminName  string    `json:"adminName,omitempty" doc:"Who issued the link; absent when the API key or the host command did"`
-	Email      string    `json:"email" format:"email" doc:"Where the link went: the Account's email, or the new one it confirms"`
-	ServerName string    `json:"serverName"`
-	ExpiresAt  time.Time `json:"expiresAt"`
+	State        string           `json:"state" enum:"live"`
+	AdminName    string           `json:"adminName,omitempty" doc:"Who issued the link; absent when the API key or the host command did"`
+	Email        string           `json:"email" format:"email" doc:"Where the link went: the Account's email, or the new one it confirms"`
+	ServerName   string           `json:"serverName"`
+	ExpiresAt    time.Time        `json:"expiresAt"`
+	MediaServers *[]offeredServer `json:"mediaServers,omitempty" doc:"Signup links only: the Media Servers the link offers that are still shown to Members. Absent on Reset and email links"`
 }
 
 type deadLink struct {
@@ -75,7 +100,8 @@ type tokenInput struct {
 
 type newSignupLinkInput struct {
 	Body struct {
-		Email string `json:"email" format:"email" maxLength:"254"`
+		Email        string        `json:"email" format:"email" maxLength:"254"`
+		MediaServers []serverGrant `json:"mediaServers,omitempty" maxItems:"100" doc:"The Media Servers to offer the new Member, each shown to Members"`
 	}
 }
 
@@ -145,6 +171,9 @@ func signupIssued(i identity.Issued, err error) (*signupIssuedOutput, error) {
 
 func issueSignupLink(lib Library) func(context.Context, identity.Admin, *newSignupLinkInput) (*signupIssuedOutput, error) {
 	return func(ctx context.Context, a identity.Admin, in *newSignupLinkInput) (*signupIssuedOutput, error) {
+		if len(in.Body.MediaServers) > 0 {
+			return nil, notBuilt
+		}
 		return signupIssued(open(lib).IssueSignupLink(ctx, a, in.Body.Email))
 	}
 }

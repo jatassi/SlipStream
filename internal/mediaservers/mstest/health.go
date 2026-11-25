@@ -21,7 +21,8 @@ import (
 // follows.
 var hubEvents = []live.Event{
 	mediaservers.ChangedEvent, mediaservers.SessionsChangedEvent, mediaservers.UnhealthyEvent,
-	mediaservers.RecoveredEvent, mediaservers.ItemsFoundEvent, roots.ChangedEvent, nodes.ChangedEvent,
+	mediaservers.RecoveredEvent, mediaservers.ItemsFoundEvent, mediaservers.AccessChangedEvent,
+	mediaservers.MyAccessChangedEvent, roots.ChangedEvent, nodes.ChangedEvent,
 }
 
 // Transition is one media-servers.unhealthy, or media-servers.recovered

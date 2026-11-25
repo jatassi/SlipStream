@@ -13,6 +13,7 @@ import (
 
 	"github.com/jatassi/slipstream/internal/identity/identitytest"
 	"github.com/jatassi/slipstream/internal/mail"
+	"github.com/jatassi/slipstream/internal/storage"
 )
 
 const address = "https://slipstream.example.com"
@@ -115,6 +116,8 @@ func TestASignupLinksLife(t *testing.T) {
 	_, a := n.claimed()
 	expect(t, n.as(a, http.MethodPost, "/api/v1/signup-links", `{"email":"grace@example.com"}`), 409, addressUnset)
 	n.setAddress(a)
+	expect(t, n.as(a, http.MethodPost, "/api/v1/signup-links", `{"email":"grace@example.com","mediaServers":[{"server":"`+storage.NewUUID().String()+`"}]}`), 501,
+		problem(501, "not_built_yet", "This part of SlipStream isn't built yet"))
 
 	first := n.issueSignup(a, " Grace@Example.com ")
 	if first.Link.Email != "grace@example.com" || first.Link.IssuedBy != "Admin" || first.Email.Outcome != "sent" ||
@@ -128,7 +131,7 @@ func TestASignupLinksLife(t *testing.T) {
 	}
 	expect(t, n.as(a, http.MethodGet, "/api/v1/signup-links/"+first.Link.ID, ""), 200,
 		`{"link":{"id":"`+first.Link.ID+`","email":"grace@example.com","issuedBy":"Admin","issuedAt":"`+first.Link.IssuedAt.Format(time.RFC3339Nano)+
-			`","expiresAt":"`+first.Link.ExpiresAt.Format(time.RFC3339Nano)+`"},"url":"`+first.URL+`"}`+"\n")
+			`","expiresAt":"`+first.Link.ExpiresAt.Format(time.RFC3339Nano)+`","mediaServers":[]},"url":"`+first.URL+`"}`+"\n")
 	expect(t, n.do(call{method: http.MethodGet, target: "/api/v1/signup-links/by-token/" + firstToken}), 200,
 		`{"state":"live","adminName":"Admin","email":"grace@example.com","serverName":"slipstream.example.com","expiresAt":"`+first.Link.ExpiresAt.Format(time.RFC3339Nano)+`"}`+"\n")
 
