@@ -13,18 +13,23 @@ function Heading({ route }: { route: ReachabilityRoute }) {
   const kind =
     route.route === undefined || route.route === "unplaced" ? undefined : routeKinds[route.route];
   return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-      <h3 className="font-semibold text-ink-1">{route.exposure.subject}</h3>
-      <Data className="min-w-0 truncate text-ink-2">{route.exposure.public}</Data>
-      {route.families !== undefined && <Chip look="outline">{route.families}</Chip>}
-      {kind !== undefined && (
-        <Defined term={kind}>
-          {(word) => <span className="text-meta text-ink-3">{word}</span>}
-        </Defined>
-      )}
-      <span className="flex-1" />
-      <VerdictChips route={route} />
-      <RouteMenu exposure={route.exposure} />
+    <div className="flex flex-wrap items-start gap-x-3 gap-y-1.5">
+      <div className="flex min-w-0 flex-[1_1_20rem] flex-wrap items-center gap-x-3 gap-y-1.5">
+        <h3 className="font-semibold text-ink-1">{route.exposure.subject}</h3>
+        <Data className="min-w-0 truncate text-ink-2">{route.exposure.public}</Data>
+        <span className="flex items-center gap-x-3 whitespace-nowrap">
+          {route.families !== undefined && <Chip look="outline">{route.families}</Chip>}
+          {kind !== undefined && (
+            <Defined term={kind}>
+              {(word) => <span className="text-meta text-ink-3">{word}</span>}
+            </Defined>
+          )}
+        </span>
+      </div>
+      <div className="flex shrink-0 items-center gap-3">
+        <VerdictChips route={route} />
+        <RouteMenu exposure={route.exposure} />
+      </div>
     </div>
   );
 }

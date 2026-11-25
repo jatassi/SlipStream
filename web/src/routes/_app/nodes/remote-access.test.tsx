@@ -114,3 +114,37 @@ test("with the Inspector open at 1440 wide, an own-proxy route's hops still run 
   const tops = hops.elements().map((hop) => Math.round(hop.getBoundingClientRect().top));
   expect(new Set(tops).size).toBe(1);
 });
+
+const middle = (element: Element) => {
+  const box = element.getBoundingClientRect();
+  return Math.round(box.top + box.height / 2);
+};
+
+test.each([
+  { width: 393, inspector: false },
+  { width: 1440, inspector: true },
+])(
+  "at $width wide, inspector $inspector, a route's verdict and menu share a line, as do its family and kind",
+  async ({ width, inspector }) => {
+    await page.viewport(width, 900);
+    const proxied: ReachabilityRoute = {
+      ...plexRoute,
+      route: "own-proxy",
+      exposure: { ...plexRoute.exposure, public: "https://living-room-plex.proxy.example.org" },
+    };
+    open(cards.warn, [proxied]);
+    const route = page.getByRole("region", { name: "Living room Plex" });
+    await expect.element(route).toBeVisible();
+    if (inspector) {
+      await userEvent.click(route.getByRole("button", { name: /^Origin:/u }));
+      await expect.element(page.getByRole("complementary")).toBeVisible();
+    }
+    const at = (locator: ReturnType<typeof route.getByText>) => middle(locator.element());
+    expect(at(route.getByRole("button", { name: "Living room Plex actions" }))).toBe(
+      at(route.getByText("Fixable", { exact: true })),
+    );
+    expect(at(route.getByText("IPv4", { exact: true }))).toBe(
+      at(route.getByText("Through your own proxy", { exact: true })),
+    );
+  },
+);
