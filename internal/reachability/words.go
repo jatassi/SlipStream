@@ -512,7 +512,7 @@ func StatusParts(s judge.Status, subject func(judge.ExposureID) string) []Status
 		out = append(out, StatusPart{Tone: ToneOK, Text: routes(n) + verb(n, " works", " work")})
 	}
 	if n := len(s.LookRight) + len(s.Untested); n > 0 {
-		out = append(out, StatusPart{Tone: ToneNeutral, Text: strconv.Itoa(n) + " not tested from outside"})
+		out = append(out, StatusPart{Tone: ToneNeutral, Text: routes(n) + verb(n, " isn't", " aren't") + " tested from outside"})
 	}
 	for _, g := range []struct {
 		ids  []judge.ExposureID
