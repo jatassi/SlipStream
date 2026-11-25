@@ -2,18 +2,17 @@ import { z } from "zod";
 
 import { nameField } from "../../account/display-name";
 import type { IdentityLiveLink } from "../../api/gen/model";
-import type { PasskeySupport } from "../../session/passkey";
 import { Button } from "../../ui/button";
 import { useAppForm } from "../../ui/form";
-import { OpenSlipStream } from "./open-slipstream";
 import type { StepProps } from "./steps";
 
 export type Flow = {
   readonly token: string;
   readonly link: IdentityLiveLink;
-  readonly passkeys: PasskeySupport;
   readonly displayName: string;
   readonly linkDied: () => void;
+  /** Where `/welcome` starts once the Account exists, and how many signup steps came before. */
+  readonly welcome: { readonly step: string; readonly before: number };
 };
 
 export function Welcome({ flow: { link }, next }: StepProps<Flow>) {
@@ -71,8 +70,4 @@ export function Name({ flow, next }: StepProps<Flow>) {
       </form.AppForm>
     </form>
   );
-}
-
-export function Done({ flow }: StepProps<Flow>) {
-  return <OpenSlipStream sentence={`Your Account is ready, ${flow.displayName}.`} to="/portal" />;
 }
