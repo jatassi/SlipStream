@@ -83,7 +83,7 @@ var lanes = []lane{
 	// longer package parts, each of which go test's 25 minute -timeout
 	// bounds.
 	{kind: "e2e", tier: "e2e", shardTime: 20 * time.Minute, maxShardTime: 20 * time.Minute, defaultShards: 4, limit: 45},
-	{kind: "browser", tier: "browser", targets: []string{"linux-amd64", "darwin-arm64"}, playwright: true, shardTime: 30 * time.Minute, defaultShards: 4, limit: 45},
+	{kind: "browser", tier: "browser", targets: []string{"linux-amd64", "darwin-arm64"}, playwright: true, shardTime: 30 * time.Minute, maxShardTime: 30 * time.Minute, defaultShards: 4, limit: 45},
 	{kind: "component", tier: "component", playwright: true, targets: []string{"linux-amd64"}, limit: 20},
 	{kind: "diagram", tier: "component", playwright: true, targets: []string{"linux-amd64"}, onlyWhen: func(t touched) bool { return t.diagram }, limit: 15},
 	{kind: "go-cache", limit: 45},
@@ -161,20 +161,21 @@ var testLanes = []string{"build", "lint", "go", "e2e", "browser", "component", "
 // as a schedule run each lane on each of its targets too, saving each
 // target's Go cache. A dispatch runs what its tier picks, and a tag runs
 // every lane but online, with linux-amd64's browsers alone. Each run but a
-// dispatch or a tag runs the quarantined tests on its targets. The budgets
-// keep a wave and a train inside GitHub Free's 20 concurrent jobs.
+// dispatch or a tag runs the quarantined tests on its targets. A wave and a
+// train together take about GitHub Free's 20 concurrent jobs, and a train's
+// build runs before its test jobs start.
 var runKinds = map[string]runKind{
 	"wave": {lanes: reaching(prTargets, "build", "lint", "go", "component", "diagram", "quarantine"), budget: 8},
 	"train": {
 		lanes:  map[string]reach{"build": prTargets, "e2e": prTargets, "browser": prTargets, "go-cache": prTargets, "platform": allTargets, "quarantine": allTargets},
-		budget: 12,
+		budget: 13,
 	},
 	"merge": {
 		lanes: map[string]reach{
 			"build": packageTargets, "lint": allTargets, "go": prTargets, "e2e": prTargets,
 			"browser": prTargets, "component": prTargets, "diagram": prTargets, "platform": allTargets, "quarantine": allTargets,
 		},
-		budget: 18,
+		budget: 19,
 	},
 	"daily":    {lanes: reaching(allTargets, "online", "quarantine"), everyTarget: true},
 	"schedule": {lanes: reaching(allTargets, append(testLanes, "go-cache", "online", "quarantine")...), everyTarget: true, packages: true},
