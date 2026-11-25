@@ -90,7 +90,12 @@ var hd = scenario.MediaVideo{Width: 1920, Height: 1080, Seconds: 6, HDR: "sdr"}
 // one of them.
 func Seed(t *testing.T, n int, opts ...sim.Option) World {
 	t.Helper()
-	s := Scenario(t)
+	return SeedScenario(t, Scenario(t), n, opts...)
+}
+
+// SeedScenario seeds s as Seed seeds the moves Scenario.
+func SeedScenario(t *testing.T, s scenario.Scenario, n int, opts ...sim.Option) World {
+	t.Helper()
 	gen := scenario.TMDBGenerated{Count: n, Seed: "moves-seed"}
 	s.TMDB.Generated = &gen
 	s.Timings.TMDB = tmdb.Timings{Interval: time.Millisecond, Burst: 100}

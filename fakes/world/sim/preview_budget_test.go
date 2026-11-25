@@ -9,15 +9,19 @@ import (
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
-// TestPreviewQueryCount previews 1,000 movies, half on seedbox and half on
-// den, to den's movies-f, and holds the preview to its query budget: a
-// few queries a page of Works and a few for the whole preview, never a
-// query a Work.
+// TestPreviewQueryCount previews 140 movies, half on seedbox and half on
+// den, to den's movies-f, read 50 Works a page, and holds the preview to its
+// query budget: a few queries a page of Works and a few for the whole
+// preview, never a query a Work. Small pages give three pages, one short,
+// from 140 movies; the default batch of 500 needs 1,001, whose seeding alone
+// ran past go test's timeout under -race.
 func TestPreviewQueryCount(t *testing.T) {
 	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
-		const n, each, whole = 1000, 20, 20
-		w := movestest.Seed(t, n)
+		const n, batch, each, whole = 140, 50, 20, 20
+		s := movestest.Scenario(t)
+		s.Timings.Moves.PlanBatch = batch
+		w := movestest.SeedScenario(t, s, n)
 		to := w.Root(t, "movies-f")
 		ask := moves.Ask{Origin: moves.OriginWork}
 		for _, id := range w.Seeded {
@@ -31,7 +35,7 @@ func TestPreviewQueryCount(t *testing.T) {
 		if plan.Movable() != n {
 			t.Errorf("the preview moves %d of %d movies: %s", plan.Movable(), n, plan.Recommendation)
 		}
-		pages := (n + moves.DefaultTimings().PlanBatch - 1) / moves.DefaultTimings().PlanBatch
+		pages := (n + batch - 1) / batch
 		if q, budget := queries(), int64(whole+each*pages); q > budget {
 			t.Errorf("the preview of %d movies in %d pages ran %d queries, want at most %d", n, pages, q, budget)
 		}
