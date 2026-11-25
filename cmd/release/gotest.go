@@ -714,24 +714,31 @@ func (l *goTestLog) results() results {
 var goFailureLine = regexp.MustCompile(`^\s+([\w.-]+\.go):(\d+): (.*)`)
 
 // goFailure is a failed test from its output: a panic's first line, or else
-// the last line the test's t methods wrote with their file and line, which
-// is a t.Fatal's or the last t.Error's unless a log follows it, or else its
-// first line.
+// the last line the test's t methods wrote from a _test.go file, which is a
+// t.Fatal's or the last t.Error's unless a log follows it, or else the last
+// line with a file and line, or else its first line. A helper's own lines,
+// such as the Node logs a sim dumps on failure, follow the t.Fatal that
+// failed the test, so they never outrank it.
 func goFailure(pkg, test string, output []string, rerun bool) failure {
 	f := failure{Package: pkg, Test: test}
 	if rerun {
 		f.selector, _, _ = strings.Cut(test, "/")
 	}
+	fromTest := false
 	for _, line := range output {
-		if m := goFailureLine.FindStringSubmatch(line); m != nil {
-			f.File = strings.TrimPrefix(strings.TrimPrefix(pkg, modulePath)+"/"+m[1], "/")
-			f.Line, _ = strconv.Atoi(m[2])
-			f.Message = m[3]
-		}
 		if t := strings.TrimSpace(line); strings.HasPrefix(t, "panic: ") {
 			f.Message = t
 			return f
 		}
+		m := goFailureLine.FindStringSubmatch(line)
+		isTest := m != nil && strings.HasSuffix(m[1], "_test.go")
+		if m == nil || (fromTest && !isTest) {
+			continue
+		}
+		f.File = strings.TrimPrefix(strings.TrimPrefix(pkg, modulePath)+"/"+m[1], "/")
+		f.Line, _ = strconv.Atoi(m[2])
+		f.Message = m[3]
+		fromTest = fromTest || isTest
 	}
 	if f.Message == "" {
 		for _, line := range output {

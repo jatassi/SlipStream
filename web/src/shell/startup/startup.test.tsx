@@ -1,8 +1,9 @@
-import { afterEach, beforeEach, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, expect, onTestFinished, test, vi } from "vitest";
 import { commands, page, userEvent } from "vitest/browser";
 
 import { renderKit } from "../../test/render-kit";
 import { writePref } from "../prefs";
+import { DURATION } from "../../../../brand/startup/sequence.js";
 import { Startup, markTransitionName, useMarkTransitionName } from "./startup";
 
 const sequence = page.getByRole("img", { name: "SlipStream" });
@@ -19,11 +20,6 @@ const drawing = async () => {
   return sequence.element().innerHTML;
 };
 
-const pause = (ms: number) =>
-  new Promise((resolve) => {
-    setTimeout(resolve, ms);
-  });
-
 beforeEach(() => {
   writePref("startupPlayed", false);
   writePref("startupOff", false);
@@ -33,13 +29,20 @@ afterEach(async () => {
   await commands.emulateReducedMotion(false);
 });
 
-test("the sequence leaves on its own after 4.4s", async () => {
+// The sequence's clock starts on the first frame after its fonts load, so
+// the test runs the frames itself from there.
+test("the sequence plays to its end, then leaves on its own", async () => {
+  onTestFinished(() => {
+    vi.useRealTimers();
+  });
+  vi.useFakeTimers({ toFake: ["requestAnimationFrame", "cancelAnimationFrame"] });
   renderKit(<Startup handOff="fade" />);
 
+  await expect.poll(() => vi.getTimerCount()).toBe(1);
+  await vi.advanceTimersByTimeAsync(DURATION * 1000 - 100);
   await expect.element(sequence).toBeVisible();
-  await pause(3000);
-  await expect.element(sequence).toBeVisible();
-  await expect.element(sequence, { timeout: 3000 }).not.toBeInTheDocument();
+  await vi.advanceTimersByTimeAsync(200);
+  await expect.element(sequence).not.toBeInTheDocument();
 });
 
 test("the sequence doesn't play when it's off in this browser", async () => {
@@ -62,10 +65,20 @@ function SidebarMark() {
 
 test("in the desktop shell the mark settles into the element named for it", async () => {
   const transitions: ViewTransition[] = [];
+  const animated: Promise<(string | null)[]>[] = [];
   const start = document.startViewTransition.bind(document);
   vi.spyOn(document, "startViewTransition").mockImplementation((options) => {
     const transition = start(options);
     transitions.push(transition);
+    // The pseudo-elements animate for 360ms, so they are read the moment the
+    // transition starts rather than whenever the test next runs.
+    animated.push(
+      transition.ready.then(() =>
+        document
+          .getAnimations()
+          .map(({ effect }) => (effect instanceof KeyframeEffect ? effect.pseudoElement : null)),
+      ),
+    );
     return transition;
   });
   renderKit(
@@ -80,11 +93,7 @@ test("in the desktop shell the mark settles into the element named for it", asyn
   await userEvent.keyboard("{Enter}");
   await expect.poll(() => transitions.length).toBe(1);
   const [transition] = transitions;
-  await transition?.ready;
-  const pseudos = document
-    .getAnimations()
-    .map(({ effect }) => (effect instanceof KeyframeEffect ? effect.pseudoElement : null));
-  expect(pseudos).toEqual(
+  expect(await animated[0]).toEqual(
     expect.arrayContaining([
       `::view-transition-group(${markTransitionName})`,
       `::view-transition-old(${markTransitionName})`,

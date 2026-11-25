@@ -34,6 +34,7 @@ test("the top Job whose Work hasn't failed tints Home, and a hovered row tints a
       ],
     }),
   );
+  await expect.element(jobRow("Orchard Harvest")).toBeVisible();
   await expect.poll(backdropNow).toContain("/artwork/red.png?size=large");
   onTestFinished(() => {
     vi.useRealTimers();

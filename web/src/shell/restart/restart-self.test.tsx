@@ -14,6 +14,7 @@ test("restarting SlipStream waits quietly through failed polls and reloads once 
   const server = liveServer();
   const restart = restarts();
   let polls = 0;
+  let back = false;
   const app = renderApp({
     path: `/nodes/${homeId}/web`,
     handlers: [...server.handlers, ...nodeSystems().handlers, restart.handler],
@@ -24,9 +25,9 @@ test("restarting SlipStream waits quietly through failed polls and reloads once 
   worker.use(
     http.get("*/api/v1/system", () => {
       polls += 1;
-      return polls <= 3
-        ? HttpResponse.error()
-        : HttpResponse.json({ ...homeSystem, startedAt: "2026-10-12T09:05:00Z" });
+      return back
+        ? HttpResponse.json({ ...homeSystem, startedAt: "2026-10-12T09:05:00Z" })
+        : HttpResponse.error();
     }),
   );
   await userEvent.click(page.getByRole("button", { name: "Restart", exact: true }));
@@ -39,7 +40,8 @@ test("restarting SlipStream waits quietly through failed polls and reloads once 
   await expect.poll(() => app.live.getState()).toBe("reconnecting");
   await expect.element(page.getByText("Reconnecting to SlipStream…")).not.toBeInTheDocument();
 
-  await expect.poll(() => polls, { timeout: 5000 }).toBe(3);
+  await expect.poll(() => polls).toBeGreaterThanOrEqual(2);
   expect(reload).not.toHaveBeenCalled();
-  await expect.poll(() => reload.mock.calls.length, { timeout: 3000 }).toBe(1);
+  back = true;
+  await expect.poll(() => reload.mock.calls.length).toBe(1);
 });

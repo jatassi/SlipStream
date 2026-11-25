@@ -10,6 +10,7 @@
 {"Time":"2026-11-25T02:10:33.951065812Z","Action":"output","Package":"github.com/jatassi/slipstream/widget","Test":"TestCounts","Output":"=== RUN   TestCounts\n","OutputType":"frame"}
 {"Time":"2026-11-25T02:10:33.951067678Z","Action":"output","Package":"github.com/jatassi/slipstream/widget","Test":"TestCounts","Output":"    widget_test.go:11: counting\n"}
 {"Time":"2026-11-25T02:10:33.951130808Z","Action":"output","Package":"github.com/jatassi/slipstream/widget","Test":"TestCounts","Output":"    widget_test.go:13: count = 2, want 3\n","OutputType":"error"}
+{"Time":"2026-11-25T02:10:33.951135000Z","Action":"output","Package":"github.com/jatassi/slipstream/widget","Test":"TestCounts","Output":"    sim.go:510: last 19 lines of node seedbox's log:\n"}
 {"Time":"2026-11-25T02:10:33.951141373Z","Action":"output","Package":"github.com/jatassi/slipstream/widget","Test":"TestCounts","Output":"--- FAIL: TestCounts (0.00s)\n","OutputType":"frame"}
 {"Time":"2026-11-25T02:10:33.95114408Z","Action":"fail","Package":"github.com/jatassi/slipstream/widget","Test":"TestCounts","Elapsed":0}
 {"Time":"2026-11-25T02:10:33.951147511Z","Action":"run","Package":"github.com/jatassi/slipstream/widget","Test":"TestShapes"}
