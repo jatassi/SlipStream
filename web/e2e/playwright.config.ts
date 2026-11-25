@@ -76,6 +76,9 @@ function project(name: ProjectName): Project {
       // A test tagged @cdp drives Chromium's DevTools Protocol, as its virtual
       // authenticator does, which no other engine has.
       ...(engine === "chromium" ? [] : [/@cdp/u]),
+      // A test tagged @named-origin follows links SlipStream builds on the
+      // Node's name, which only Chromium's host resolver rules reach.
+      ...(engine === "chromium" ? [] : [/@named-origin/u]),
       // A test tagged @phone drives a control only the phone shell has.
       ...(preset === "phone" ? [] : [/@phone/u]),
     ],
