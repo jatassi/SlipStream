@@ -9,6 +9,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"slices"
 
 	"github.com/jatassi/slipstream/internal/api"
 	"github.com/jatassi/slipstream/internal/identity"
@@ -621,6 +622,82 @@ func Routes(r *api.Router, servers Servers) {
 		Summary: "List the Plex account's servers and which Nodes reach each of their connections",
 		Errors:  append([]*api.Code{signInRefused}, plex...),
 	}, h.plexServers)
-	accessRoutes(o, h)
-	mineRoutes(o, h)
+	row := []*api.Code{accessNotFound, accessState}
+	api.Register(o, api.Admin, api.Op{
+		ID: "listMediaServerAccess", Method: http.MethodGet, Path: base + "/access", Status: http.StatusOK,
+		Summary: "List Members' access to Media Servers, the rows waiting on an Admin first",
+		Errors:  building(accountNotFound),
+	}, h.listAccess)
+	api.Register(o, api.Admin, api.Op{
+		ID: "listMediaServerUsers", Method: http.MethodGet, Path: base + "/{id}/users", Status: http.StatusOK,
+		Summary: "List the users of a Jellyfin or Emby server that an Admin may link to a Member",
+		Errors:  building(serverNotFound, unreached),
+	}, h.listUsers)
+	api.Register(o, api.Reconfirmed, api.Op{
+		ID: "offerMediaServer", Method: http.MethodPut, Path: "/accounts/{id}/media-servers/{serverId}", Status: http.StatusOK,
+		Summary: "Offer a Member access to a Media Server, or offer it again after the access was removed",
+		Errors:  building(accountNotFound, serverNotFound, notShownToMembers, plexHomeNotPlex, accessState, unreached),
+	}, h.offer)
+	api.Register(o, api.ReconfirmedSession, api.Op{
+		ID: "shareMediaServerAccess", Method: http.MethodPost, Path: base + "/access/{id}/share", Status: http.StatusOK,
+		Summary: "Share a Plex server with a Member who signed in to Plex, as a friend or in the Plex Home",
+		Errors:  building(slices.Concat(row, plex, []*api.Code{plexRefused, plexLibsShort})...),
+	}, h.share)
+	api.Register(o, api.Reconfirmed, api.Op{
+		ID: "markMediaServerAccessAdded", Method: http.MethodPost, Path: base + "/access/{id}/mark-added", Status: http.StatusOK,
+		Summary: "Record that an Admin shared a Plex server with a Member in Plex itself",
+		Errors:  building(row...),
+	}, h.markAdded)
+	api.Register(o, api.ReconfirmedSession, api.Op{
+		ID: "linkMediaServerUser", Method: http.MethodPost, Path: base + "/access/{id}/link", Status: http.StatusOK,
+		Summary: "Link a Member to an existing user on a Jellyfin or Emby server",
+		Errors:  building(slices.Concat(row, []*api.Code{unreached})...),
+	}, h.linkUser)
+	api.Register(o, api.Admin, api.Op{
+		ID: "checkMediaServerAccess", Method: http.MethodPost, Path: base + "/access/{id}/check", Status: http.StatusOK,
+		Summary: "Check whether a Member accepted a Plex share",
+		Errors:  building(slices.Concat(row, plex)...),
+	}, h.checkShare)
+	api.Register(o, api.Reconfirmed, api.Op{
+		ID: "removeMediaServerAccess", Method: http.MethodDelete, Path: base + "/access/{id}", Status: http.StatusOK,
+		Summary: "Remove a Member's access to a Media Server, on the server or plex.tv too",
+		Errors:  building(row...),
+	}, h.removeAccess)
+	api.Register(o, api.Reconfirmed, api.Op{
+		ID: "replacePlexAccount", Method: http.MethodPost, Path: base + "/plex/pin/{id}/replace", Status: http.StatusOK,
+		Summary: "Sign SlipStream in to the different Plex account a Plex sign-in names, which removes every Plex server and Members' access to them",
+		Errors:  building(plexPinNotFound),
+	}, h.replacePlexAccount)
+
+	const mine = "/account/media-servers"
+	api.Register(o, api.Account, api.Op{
+		ID: "listMyMediaServerAccess", Method: http.MethodGet, Path: mine, Status: http.StatusOK,
+		Summary: "List the Media Servers the Member was offered, with what each needs next and how to watch on it",
+		Errors:  building(),
+	}, h.mine)
+	api.Register(o, api.Confirmed, api.Op{
+		ID: "startMemberPlexSignIn", Method: http.MethodPost, Path: mine + "/plex/pin", Status: http.StatusCreated,
+		Summary: "Start the Member's Plex sign-in and get the plex.tv page they sign in on",
+		Errors:  building(plex...),
+	}, h.startMemberPin)
+	api.Register(o, api.Account, api.Op{
+		ID: "getMemberPlexSignIn", Method: http.MethodGet, Path: mine + "/plex/pin/{id}", Status: http.StatusOK,
+		Summary: "Get whether the Member's Plex sign-in is still waiting, has expired, signed in or was refused",
+		Errors:  building(plexPinNotFound),
+	}, h.memberPin)
+	api.Register(o, api.Account, api.Op{
+		ID: "useAnotherPlexAccount", Method: http.MethodDelete, Path: mine + "/plex", Status: http.StatusNoContent,
+		Summary: "Forget the Plex account the Member signed in to Plex as, while no server is shared with it yet",
+		Errors:  building(accessState),
+	}, h.anotherPlex)
+	api.Register(o, api.Confirmed, api.Op{
+		ID: "makeMediaServerAccount", Method: http.MethodPost, Path: mine + "/{accessId}/account", Status: http.StatusOK,
+		Summary: "Make the Member's own user on a Jellyfin or Emby server they were offered",
+		Errors:  building(accessNotFound, accessState, usernameTaken, serverRefused, unreached),
+	}, h.makeAccount)
+	api.Register(o, api.Account, api.Op{
+		ID: "checkMyMediaServerAccess", Method: http.MethodPost, Path: mine + "/{accessId}/check", Status: http.StatusOK,
+		Summary: "Check whether the Member's Plex share is accepted, accepting it when SlipStream can",
+		Errors:  building(accessNotFound, accessState, plexTVUnreached),
+	}, h.checkMine)
 }

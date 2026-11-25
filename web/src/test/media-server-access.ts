@@ -64,7 +64,7 @@ const samOnPlex = {
   byHand: false,
 };
 
-const libraries = ["Films", "Series"];
+const libraries = ["Films", "Shows"];
 
 const changedAt = "2026-11-24T10:00:00Z";
 
