@@ -731,8 +731,11 @@ func goFailure(pkg, test string, output []string, rerun bool) failure {
 			return f
 		}
 		m := goFailureLine.FindStringSubmatch(line)
-		isTest := m != nil && strings.HasSuffix(m[1], "_test.go")
-		if m == nil || (fromTest && !isTest) {
+		if len(m) < 2 {
+			continue
+		}
+		isTest := strings.HasSuffix(m[1], "_test.go")
+		if fromTest && !isTest {
 			continue
 		}
 		f.File = strings.TrimPrefix(strings.TrimPrefix(pkg, modulePath)+"/"+m[1], "/")
