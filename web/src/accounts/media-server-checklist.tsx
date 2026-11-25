@@ -41,6 +41,7 @@ function Row({
         <Link
           to="/settings/media-servers/$serverId/settings"
           params={{ serverId: server.id }}
+          hash="members"
           className="text-meta text-ink-3 underline"
         >
           Show to Members is off

@@ -6,6 +6,7 @@ import type {
   IdentityAccountRow,
   IdentityIssuedSignupLink,
   IdentityPendingLink,
+  MediaserversAccessList,
 } from "../../../api/gen/model";
 import {
   getGetAddressMockHandler,
@@ -14,6 +15,7 @@ import {
   getListSignupLinksMockHandler,
 } from "../../../api/gen/query/identity/identity.msw";
 import { ada, grace, problem } from "../../../test/handlers";
+import { accessList } from "../../../test/media-server-access";
 import { denJellyfin, livingRoomPlex, mediaServerHandlers } from "../../../test/media-servers";
 import { renderApp } from "../../../test/render-app";
 import { type ValueForm, placeOf, timeForms } from "../../../ui/time-words";
@@ -68,9 +70,15 @@ const issued = (email: string): IdentityIssuedSignupLink => ({
   email: { outcome: "not-set-up" },
 });
 
-const accountsPage = (links: IdentityPendingLink[] = [pending]) => [
+const noAccess: MediaserversAccessList = { rows: [], plexPass: true, plexHomeUsed: false };
+
+const accountsPage = (
+  links: IdentityPendingLink[] = [pending],
+  access: MediaserversAccessList = noAccess,
+) => [
   getListAccountsMockHandler({ accounts: [adaRow, graceRow] }),
   getListSignupLinksMockHandler({ links }),
+  http.get("*/api/v1/media-servers/access", () => HttpResponse.json(access)),
   ...mediaServerHandlers([]),
 ];
 
@@ -101,6 +109,16 @@ test("Accounts lists every Account and the pending Signup links", async () => {
     .toHaveTextContent(
       `lin@example.testSent ${shown("clock", pending.issuedAt)} by Ada Okafor · Expires ${shown("clock", pending.expiresAt)} · Offers ${denJellyfin.name}`,
     );
+});
+
+test("Needs you lists the Members' access waiting on an Admin, and only that", async () => {
+  renderApp({ path: "/accounts", handlers: accountsPage([pending], accessList) });
+  const needing = accessList.rows.filter((row) => row.needsYou);
+  const items = page.getByRole("list", { name: "Needs you" }).getByRole("listitem");
+  await expect.poll(() => items.all()).toHaveLength(needing.length);
+  items.all().forEach((item, index) => {
+    expect(item.element().textContent).toContain(needing[index]?.member.name);
+  });
 });
 
 test("New Signup link shows the link to copy and that email is not set up", async () => {

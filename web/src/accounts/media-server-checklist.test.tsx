@@ -11,6 +11,7 @@ import {
   getListAccountsMockHandler,
   getListSignupLinksMockHandler,
 } from "../api/gen/query/identity/identity.msw";
+import { getListMediaServerAccessMockHandler } from "../api/gen/query/mediaservers/mediaservers.msw";
 import { denJellyfin, livingRoomPlex, mediaServerHandlers } from "../test/media-servers";
 import { renderApp } from "../test/render-app";
 
@@ -73,6 +74,7 @@ test.each<[string, Case]>([
     handlers: [
       getListAccountsMockHandler({ accounts: [] }),
       getListSignupLinksMockHandler({ links: [] }),
+      getListMediaServerAccessMockHandler({ rows: [], plexPass: true, plexHomeUsed: false }),
       ...mediaServerHandlers(servers),
       http.post("*/api/v1/signup-links", async ({ request }) => {
         posted.push(await request.json());
@@ -98,7 +100,7 @@ test.each<[string, Case]>([
   }
   const links = checklist.getByRole("link", { name: "Show to Members is off" });
   expect(links.elements().map((link) => link.getAttribute("href"))).toEqual(
-    off.map((server) => `/settings/media-servers/${server.id}/settings`),
+    off.map((server) => `/settings/media-servers/${server.id}/settings#members`),
   );
   const asked = servers.filter((server) => server.kind === "plex" && ticked.includes(server.name));
   expect(checklist.getByRole("combobox", { name: "Add on Plex as" }).elements()).toHaveLength(
