@@ -1,0 +1,6 @@
+[
+	{"tier": "go", "target": "linux-amd64", "package": "github.com/jatassi/slipstream/widget", "file": "widget/widget_test.go", "line": 13, "test": "TestCounts", "message": "count = 2, want 3", "rerun": "flaky"},
+	{"tier": "go", "target": "linux-amd64", "package": "github.com/jatassi/slipstream/widget", "file": "widget/widget_test.go", "line": 19, "test": "TestShapes/circle", "message": "radius = 0, want 1", "rerun": "failed again"},
+	{"tier": "go", "target": "linux-amd64", "package": "github.com/jatassi/slipstream/listed", "file": "listed/listed_test.go", "line": 5, "test": "TestListed", "message": "late", "rerun": "flaky"},
+	{"tier": "go", "target": "linux-amd64", "package": "github.com/jatassi/slipstream/stall", "file": "", "line": 0, "test": "", "message": "build failed", "rerun": ""}
+]

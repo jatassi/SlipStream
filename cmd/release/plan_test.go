@@ -93,7 +93,7 @@ func TestPlanTargets(t *testing.T) {
 		{"tag", changescope.Docs, false, "all", nil, with(full, "browser", linux), true},
 	}
 	for _, tt := range tests {
-		got, err := plan(planInputs, runKinds[tt.kind], tt.scope, touched{packages: tt.touched, diagram: true}, tt.keep, tt.tier, testImage, nil)
+		got, err := plan(planInputs, runKinds[tt.kind], tt.scope, touched{packages: tt.touched, diagram: true}, tt.keep, tt.tier, testImage, nil, nil)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -111,7 +111,7 @@ func TestPlanTargets(t *testing.T) {
 // The workflows read from each entry what they would otherwise branch on
 // the runner's OS for.
 func TestPlanEntriesCarryWhatTheirStepsWouldBranchOn(t *testing.T) {
-	got, err := plan(planInputs, runKinds["dispatch"], changescope.Native, touched{}, nil, "all", testImage, nil)
+	got, err := plan(planInputs, runKinds["dispatch"], changescope.Native, touched{}, nil, "all", testImage, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -175,7 +175,7 @@ func TestPlanShardsEachTimedLaneByItsRecordedTime(t *testing.T) {
 		t.Fatal(err)
 	}
 	for name, rec := range map[string]map[laneTarget]recorded{"testdata": testRecords(t), "no timings": missing} {
-		got, err := plan(planInputs, runKinds["dispatch"], changescope.Native, touched{}, nil, "all", testImage, rec)
+		got, err := plan(planInputs, runKinds["dispatch"], changescope.Native, touched{}, nil, "all", testImage, nil, rec)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -201,7 +201,7 @@ func TestPlanShardsEachTimedLaneByItsRecordedTime(t *testing.T) {
 func TestPlanFitsEachRunKindsBudget(t *testing.T) {
 	in := testInputs(t)
 	jobs := func(k runKind, rec map[laneTarget]recorded, tch touched) int {
-		p, err := plan(in, k, changescope.Native, tch, nil, "all", testImage, rec)
+		p, err := plan(in, k, changescope.Native, tch, nil, "all", testImage, nil, rec)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -240,7 +240,7 @@ func TestPlanDiagramWhenTouched(t *testing.T) {
 		{"schedule", changescope.Docs, touched{}, true},
 		{"tag", changescope.Docs, touched{}, true},
 	} {
-		got, err := plan(planInputs, runKinds[tt.kind], tt.scope, tt.touched, nil, "all", testImage, nil)
+		got, err := plan(planInputs, runKinds[tt.kind], tt.scope, tt.touched, nil, "all", testImage, nil, nil)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -265,7 +265,7 @@ func testInputs(t *testing.T) native.Inputs {
 
 func TestLanesCoverEveryTarget(t *testing.T) {
 	in := testInputs(t)
-	everywhere := []string{"build", "go", "e2e", "go-cache"}
+	everywhere := []string{"build", "go", "e2e", "go-cache", "quarantine"}
 	for _, l := range lanes {
 		for _, name := range l.targets {
 			if _, err := in.Target(name); err != nil {
@@ -302,7 +302,7 @@ func TestLintRunsOncePerOS(t *testing.T) {
 }
 
 func TestPlanTargetsSplitsEachLaneByTarget(t *testing.T) {
-	got, err := plan(planInputs, runKinds["dispatch"], changescope.Native, touched{}, nil, "browser", testImage, nil)
+	got, err := plan(planInputs, runKinds["dispatch"], changescope.Native, touched{}, nil, "browser", testImage, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -329,7 +329,7 @@ func TestPlanTargetsSplitsEachLaneByTarget(t *testing.T) {
 }
 
 func TestPlanTargetsEmptyWithoutABuild(t *testing.T) {
-	got, err := plan(planInputs, runKinds["dispatch"], changescope.Native, touched{}, nil, "go", testImage, nil)
+	got, err := plan(planInputs, runKinds["dispatch"], changescope.Native, touched{}, nil, "go", testImage, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -431,7 +431,7 @@ func TestTargetWorkflowRunsItsLanesOnItsBuild(t *testing.T) {
 
 func TestTestsWorkflowRunsEveryLane(t *testing.T) {
 	jobs := readWorkflow(t, "tests.yml")
-	got, err := plan(planInputs, runKinds["dispatch"], changescope.Native, touched{}, nil, "all", testImage, nil)
+	got, err := plan(planInputs, runKinds["dispatch"], changescope.Native, touched{}, nil, "all", testImage, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -441,6 +441,7 @@ func TestTestsWorkflowRunsEveryLane(t *testing.T) {
 			t.Errorf("the plan output has no %s", key)
 		}
 	}
+	quarantine := readWorkflow(t, "quarantine.yml")
 	for _, l := range lanes {
 		if l.inTargetWorkflow() {
 			continue
@@ -448,10 +449,17 @@ func TestTestsWorkflowRunsEveryLane(t *testing.T) {
 		if _, ok := output[l.kind]; !ok {
 			t.Errorf("the plan output has no %s matrix", l.kind)
 		}
-		j, ok := jobs[l.kind]
+		workflow, in := "tests.yml", jobs
+		if l.nonBlocking {
+			workflow, in = "quarantine.yml", quarantine
+		}
+		j, ok := in[l.kind]
 		if !ok {
-			t.Errorf("tests.yml has no %s job", l.kind)
+			t.Errorf("%s has no %s job", workflow, l.kind)
 			continue
+		}
+		if _, ok := jobs[l.kind]; ok && l.nonBlocking {
+			t.Errorf("tests.yml has the %s job, which would fail the gates", l.kind)
 		}
 		if want := fmt.Sprintf("${{ fromJSON(inputs.plan)['%s'] }}", l.kind); j.Strategy.Matrix != want {
 			t.Errorf("job %s matrix = %v, want %q", l.kind, j.Strategy.Matrix, want)

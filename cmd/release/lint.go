@@ -20,7 +20,7 @@ import (
 )
 
 func init() {
-	register("lint", "run gofmt, go vet and golangci-lint (-part target), and the architecture lint, the cgo-free openapi.json check, the sqlc drift check, the proto check, the web generated check, the tokens generated check, the contrast proof, the icons generated check, the Diagram depth keys check, the Diagram roots check, the web checks and the notices check (-part repo); -part all runs both", runLint)
+	register("lint", "run gofmt, go vet and golangci-lint (-part target), and the architecture lint, the cgo-free openapi.json check, the sqlc drift check, the proto check, the web generated check, the tokens generated check, the contrast proof, the icons generated check, the Diagram depth keys check, the Diagram roots check, the quarantine list check, the web checks and the notices check (-part repo); -part all runs both", runLint)
 	register("fmt", "format the Go code with gofmt and the web app with Oxfmt", runFmt)
 }
 
@@ -113,6 +113,10 @@ func repoChecks(ctx context.Context, root string) ([]lintCheck, error) {
 	web := filepath.Join(root, "web")
 	return []lintCheck{
 		{"architecture lint", func() error { return lint.Run(os.Stdout, lint.Open(ctx, root), lint.Rules()) }},
+		{"quarantine list", func() error {
+			_, err := loadQuarantine(root)
+			return err
+		}},
 		{"openapi.json without cgo", func() error {
 			return run(ctx, root, cgoFree, "go", "test", "-count=1", "-run", "^TestDocument$", "./internal/node/surface")
 		}},

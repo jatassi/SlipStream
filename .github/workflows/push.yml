@@ -55,6 +55,16 @@ jobs:
       plan: ${{ needs.plan.outputs.plan }}
       record-timings: true
 
+  # Outside the gate, so a quarantined test's failure fails no push check.
+  quarantine:
+    name: Quarantine
+    needs: plan
+    permissions:
+      contents: read
+    uses: ./.github/workflows/quarantine.yml
+    with:
+      plan: ${{ needs.plan.outputs.plan }}
+
   # A skipped check counts as passed, so the gate runs only to fail.
   gate:
     name: All push checks passed

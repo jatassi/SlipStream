@@ -48,7 +48,10 @@ func runCIStats(ctx context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
-	failures, artifacts, err := downloadFailures(ctx, *repo, runs, jobs)
+	failed := slices.DeleteFunc(slices.Clone(runs), func(r ghRun) bool {
+		return !slices.ContainsFunc(jobs[r.ID], func(j ghJob) bool { return j.Conclusion == "failure" })
+	})
+	failures, artifacts, err := downloadFailures(ctx, *repo, failed)
 	if err != nil {
 		return err
 	}
@@ -56,10 +59,10 @@ func runCIStats(ctx context.Context, args []string) error {
 	return s.write(os.Stdout, *days)
 }
 
-// downloadFailures reads the failures-* artifacts of each run with a
-// failed job, and counts the artifacts it read.
-func downloadFailures(ctx context.Context, repo string, runs []ghRun, jobs map[int64][]ghJob) ([]failure, int, error) {
-	dir, err := os.MkdirTemp("", "ci-stats-")
+// downloadFailures reads the failures-* artifacts of each run, and counts
+// the artifacts it read.
+func downloadFailures(ctx context.Context, repo string, runs []ghRun) ([]failure, int, error) {
+	dir, err := os.MkdirTemp("", "failures-")
 	if err != nil {
 		return nil, 0, fmt.Errorf("make a dir for the failures artifacts: %w", err)
 	}
@@ -67,28 +70,9 @@ func downloadFailures(ctx context.Context, repo string, runs []ghRun, jobs map[i
 	var all []failure
 	read := 0
 	for _, r := range runs {
-		if !slices.ContainsFunc(jobs[r.ID], func(j ghJob) bool { return j.Conclusion == "failure" }) {
-			continue
-		}
-		artifacts, err := ghList[struct {
-			Name    string `json:"name"`
-			Expired bool   `json:"expired"`
-		}](ctx, fmt.Sprintf("repos/%s/actions/runs/%d/artifacts?per_page=100", repo, r.ID), ".artifacts", true)
+		runDir := filepath.Join(dir, strconv.FormatInt(r.ID, 10))
+		n, err := downloadArtifacts(ctx, repo, r.ID, "failures-", runDir)
 		if err != nil {
-			return nil, 0, err
-		}
-		n := 0
-		for _, a := range artifacts {
-			if strings.HasPrefix(a.Name, "failures-") && !a.Expired {
-				n++
-			}
-		}
-		if n == 0 {
-			continue
-		}
-		id := strconv.FormatInt(r.ID, 10)
-		runDir := filepath.Join(dir, id)
-		if err := run(ctx, "", nil, "gh", "run", "download", id, "--repo", repo, "--pattern", "failures-*", "--dir", runDir); err != nil {
 			return nil, 0, err
 		}
 		f, err := readFailures(runDir)
@@ -99,6 +83,29 @@ func downloadFailures(ctx context.Context, repo string, runs []ghRun, jobs map[i
 		read += n
 	}
 	return all, read, nil
+}
+
+// downloadArtifacts downloads into dir the run's unexpired artifacts whose
+// names start with prefix, and counts them.
+func downloadArtifacts(ctx context.Context, repo string, runID int64, prefix, dir string) (int, error) {
+	artifacts, err := ghList[struct {
+		Name    string `json:"name"`
+		Expired bool   `json:"expired"`
+	}](ctx, fmt.Sprintf("repos/%s/actions/runs/%d/artifacts?per_page=100", repo, runID), ".artifacts", true)
+	if err != nil {
+		return 0, err
+	}
+	n := 0
+	for _, a := range artifacts {
+		if strings.HasPrefix(a.Name, prefix) && !a.Expired {
+			n++
+		}
+	}
+	if n == 0 {
+		return 0, nil
+	}
+	id := strconv.FormatInt(runID, 10)
+	return n, run(ctx, "", nil, "gh", "run", "download", id, "--repo", repo, "--pattern", prefix+"*", "--dir", dir)
 }
 
 type laneCount struct{ jobs, failed int }

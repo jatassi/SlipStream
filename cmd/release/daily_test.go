@@ -54,6 +54,7 @@ func TestDailyIssues(t *testing.T) {
 		{Name: "Tests / windows-amd64 / End-to-end tests (windows-amd64, shard 2 of 4)", Conclusion: "failure"},
 		{Name: "Tests / Online conformance tests", Conclusion: "failure"},
 		{Name: "Link throughput test", Conclusion: "failure"},
+		{Name: "Quarantine / Quarantined tests (linux-amd64)", Conclusion: "failure"},
 	}
 	online := []failure{
 		{Tier: "online", Package: "github.com/jatassi/slipstream/conformance/tmdb", Test: "TestTMDB/search", Message: "shape changed"},
@@ -75,9 +76,9 @@ func TestDailyIssues(t *testing.T) {
 			daily: {"End-to-end tests (windows-amd64, shard 2 of 4)", "0123456789ab", commits[0], commits[1]},
 			"Online conformance tests failed for tmdb": {"TestTMDB/search shape changed"},
 			"Online conformance tests failed for tvdb": {"TestTVDB 401"},
-		}, []string{"- Online conformance tests", "- Link throughput test"}},
-		{"an online job that named no test", jobs[2:], nil, "", map[string][]string{daily: {"Online conformance tests", "No daily check on main has passed the full matrix yet."}}, []string{"- Link throughput test"}},
-		{"the link alone", jobs[3:], nil, "", map[string][]string{}, nil},
+		}, []string{"- Online conformance tests", "- Link throughput test", "- Quarantined tests"}},
+		{"an online job that named no test", jobs[2:], nil, "", map[string][]string{daily: {"Online conformance tests", "No daily check on main has passed the full matrix yet."}}, []string{"- Link throughput test", "- Quarantined tests"}},
+		{"the link and the quarantine alone", jobs[3:], nil, "", map[string][]string{}, nil},
 	} {
 		got := dailyIssues(tt.jobs, tt.failures, commits, tt.since, "https://github.com/o/r/actions/runs/1")
 		var titles []string

@@ -44,6 +44,9 @@ type lane struct {
 	playwright bool
 	// limit is the job's timeout in minutes.
 	limit int
+	// nonBlocking lanes have their job in quarantine.yml, which each run
+	// calls beside tests.yml and outside its gate.
+	nonBlocking bool
 }
 
 // touched says what the change touches that a lane or the packages
@@ -62,7 +65,8 @@ type touched struct {
 // Firefox on linux-amd64 and WebKit on both it and darwin, whose WebKit is
 // the only one that paints as Safari does, so no other target adds an
 // engine. The platform lane runs the platform suite where a run skips the
-// go and e2e lanes. Everything else runs once.
+// go and e2e lanes. The quarantine lane runs on each target where a row of
+// ci/quarantine.tsv quarantines a test. Everything else runs once.
 // The go lane's shard time keeps a wave's critical path short. An e2e
 // shard runs its heaviest packages for most of its test step, so its shard
 // time stays clear of go test's 25 minute -timeout. A browser shard ends
@@ -77,6 +81,7 @@ var lanes = []lane{
 	{kind: "diagram", tier: "component", playwright: true, targets: []string{"linux-amd64"}, onlyWhen: func(t touched) bool { return t.diagram }, limit: 15},
 	{kind: "go-cache", limit: 45},
 	{kind: "platform", tier: "platform", targets: []string{"windows-amd64", "darwin-arm64", "linux-arm64"}, limit: 45},
+	{kind: "quarantine", limit: 45, nonBlocking: true},
 	{kind: "online", tier: "online", targets: []string{"linux-amd64"}, limit: 20},
 }
 
@@ -148,23 +153,24 @@ var testLanes = []string{"build", "lint", "go", "e2e", "browser", "component", "
 // on every target. The daily check runs the online conformance tests, and
 // as a schedule run each lane on each of its targets too, saving each
 // target's Go cache. A dispatch runs what its tier picks, and a tag runs
-// every lane but online, with linux-amd64's browsers alone. The budgets
+// every lane but online, with linux-amd64's browsers alone. Each run but a
+// dispatch or a tag runs the quarantined tests on its targets. The budgets
 // keep a wave and a train inside GitHub Free's 20 concurrent jobs.
 var runKinds = map[string]runKind{
-	"wave": {lanes: reaching(prTargets, "build", "lint", "go", "component", "diagram"), budget: 8},
+	"wave": {lanes: reaching(prTargets, "build", "lint", "go", "component", "diagram", "quarantine"), budget: 8},
 	"train": {
-		lanes:  map[string]reach{"build": prTargets, "e2e": prTargets, "browser": prTargets, "go-cache": prTargets, "platform": allTargets},
+		lanes:  map[string]reach{"build": prTargets, "e2e": prTargets, "browser": prTargets, "go-cache": prTargets, "platform": allTargets, "quarantine": allTargets},
 		budget: 12,
 	},
 	"merge": {
 		lanes: map[string]reach{
 			"build": packageTargets, "lint": allTargets, "go": prTargets, "e2e": prTargets,
-			"browser": prTargets, "component": prTargets, "diagram": prTargets, "platform": allTargets,
+			"browser": prTargets, "component": prTargets, "diagram": prTargets, "platform": allTargets, "quarantine": allTargets,
 		},
 		budget: 18,
 	},
-	"daily":    {lanes: reaching(allTargets, "online"), everyTarget: true},
-	"schedule": {lanes: reaching(allTargets, append(testLanes, "go-cache", "online")...), everyTarget: true, packages: true},
+	"daily":    {lanes: reaching(allTargets, "online", "quarantine"), everyTarget: true},
+	"schedule": {lanes: reaching(allTargets, append(testLanes, "go-cache", "online", "quarantine")...), everyTarget: true, packages: true},
 	"dispatch": {lanes: reaching(allTargets, append(testLanes, "platform", "online")...), everyTarget: true},
 	"tag": {
 		lanes: map[string]reach{
@@ -238,7 +244,7 @@ type TargetMatrix struct {
 }
 
 func init() {
-	register("plan", "print the CI matrix of each lane for a run kind: build, lint, go, e2e, browser, component, diagram, go-cache, platform and online", runPlan)
+	register("plan", "print the CI matrix of each lane for a run kind: build, lint, go, e2e, browser, component, diagram, go-cache, platform, quarantine and online", runPlan)
 }
 
 func runPlan(ctx context.Context, args []string) error {
@@ -276,15 +282,18 @@ func runPlan(ctx context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
-	packageJSON, err := os.ReadFile(filepath.Join(root, "web", "package.json"))
-	if err != nil {
-		return fmt.Errorf("read the web app's package.json: %w", err)
-	}
-	image, err := playwrightImage(packageJSON)
+	image, err := playwrightImage(root)
 	if err != nil {
 		return err
 	}
-	p, err := plan(in, k, scope, t, keep, *tier, image, nil)
+	q, err := loadQuarantine(root)
+	if err != nil {
+		return err
+	}
+	plans := func(rec map[laneTarget]recorded) (Plan, error) {
+		return plan(in, k, scope, t, keep, *tier, image, q, rec)
+	}
+	p, err := plans(nil)
 	if err != nil {
 		return err
 	}
@@ -297,7 +306,7 @@ func runPlan(ctx context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
-	if p, err = plan(in, k, scope, t, keep, *tier, image, rec); err != nil {
+	if p, err = plans(rec); err != nil {
 		return err
 	}
 	for _, l := range lanes {
@@ -320,9 +329,13 @@ func runPlan(ctx context.Context, args []string) error {
 }
 
 // playwrightImage is the tag of Playwright's container for the
-// @playwright/test version that package.json pins, so the browsers in the
-// container are the ones that version drives.
-func playwrightImage(packageJSON []byte) (string, error) {
+// @playwright/test version that the web app's package.json pins, so the
+// browsers in the container are the ones that version drives.
+func playwrightImage(root string) (string, error) {
+	packageJSON, err := os.ReadFile(filepath.Join(root, "web", "package.json"))
+	if err != nil {
+		return "", fmt.Errorf("read the web app's package.json: %w", err)
+	}
 	var pkg struct {
 		DevDependencies map[string]string `json:"devDependencies"`
 	}
@@ -506,8 +519,9 @@ type sized struct {
 // plan runs the Linux jobs of the playwright lanes in image, and splits
 // each timed lane on a target into the shards its recorded test time
 // needs to fit the lane's shard time, then into fewer to fit the run
-// kind's budget.
-func plan(in native.Inputs, k runKind, scope changescope.Scope, t touched, keep []string, tier, image string, rec map[laneTarget]recorded) (Plan, error) {
+// kind's budget. It runs the quarantine lane on each target where a row of
+// quarantine reaches a lane.
+func plan(in native.Inputs, k runKind, scope changescope.Scope, t touched, keep []string, tier, image string, quarantine []quarantined, rec map[laneTarget]recorded) (Plan, error) {
 	if tier != "all" && !slices.Contains(laneTiers(), tier) {
 		return Plan{}, fmt.Errorf("-tier %q is not one of all, %s", tier, strings.Join(laneTiers(), ", "))
 	}
@@ -526,7 +540,7 @@ func plan(in native.Inputs, k runKind, scope changescope.Scope, t touched, keep 
 			return Plan{}, err
 		}
 		for _, target := range targets {
-			if l.runsOn(target.Name) && l.selected(tier, packaging, target.Name) {
+			if l.runsOn(target.Name) && l.selected(tier, packaging, target.Name) && l.hasTests(quarantine, target.Name) {
 				runs = append(runs, l.sized(target, rec[laneTarget{l.kind, target.Name}]))
 			}
 		}
@@ -623,6 +637,12 @@ func planTargets(in native.Inputs, gates []native.Gate, keep []string) ([]planne
 		targets = append(targets, plannedTarget{t, tc.Xcode})
 	}
 	return targets, nil
+}
+
+// hasTests says whether the quarantine lane has a test to run on target,
+// which every other lane always has.
+func (l lane) hasTests(quarantine []quarantined, target string) bool {
+	return l.kind != "quarantine" || slices.ContainsFunc(quarantine, func(q quarantined) bool { return q.laneRunsOn(target) })
 }
 
 // selected says whether a run of tier runs the lane on target. The build

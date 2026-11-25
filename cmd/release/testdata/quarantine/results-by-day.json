@@ -1,0 +1,476 @@
+{
+	"2026-11-24": [
+		{
+			"tier": "go",
+			"test": "widget TestSteady",
+			"target": "linux-amd64",
+			"result": "passed"
+		},
+		{
+			"tier": "go",
+			"test": "widget TestSteady",
+			"target": "windows-amd64",
+			"result": "passed"
+		},
+		{
+			"tier": "browser",
+			"test": "web/e2e/work.spec.ts Refresh reads the source",
+			"target": "linux-amd64",
+			"result": "passed"
+		},
+		{
+			"tier": "component",
+			"test": "web/src/queue.test.ts Queue > lists the grabs",
+			"target": "linux-amd64",
+			"result": "passed"
+		},
+		{
+			"tier": "go",
+			"test": "widget TestGone",
+			"target": "linux-amd64",
+			"result": "not run"
+		}
+	],
+	"2026-11-23": [
+		{
+			"tier": "go",
+			"test": "widget TestSteady",
+			"target": "linux-amd64",
+			"result": "passed"
+		},
+		{
+			"tier": "go",
+			"test": "widget TestSteady",
+			"target": "windows-amd64",
+			"result": "passed"
+		},
+		{
+			"tier": "browser",
+			"test": "web/e2e/work.spec.ts Refresh reads the source",
+			"target": "linux-amd64",
+			"result": "passed"
+		},
+		{
+			"tier": "component",
+			"test": "web/src/queue.test.ts Queue > lists the grabs",
+			"target": "linux-amd64",
+			"result": "passed"
+		},
+		{
+			"tier": "go",
+			"test": "widget TestGone",
+			"target": "linux-amd64",
+			"result": "not run"
+		}
+	],
+	"2026-11-22": [
+		{
+			"tier": "go",
+			"test": "widget TestSteady",
+			"target": "linux-amd64",
+			"result": "passed"
+		},
+		{
+			"tier": "go",
+			"test": "widget TestSteady",
+			"target": "windows-amd64",
+			"result": "passed"
+		},
+		{
+			"tier": "browser",
+			"test": "web/e2e/work.spec.ts Refresh reads the source",
+			"target": "linux-amd64",
+			"result": "passed"
+		},
+		{
+			"tier": "component",
+			"test": "web/src/queue.test.ts Queue > lists the grabs",
+			"target": "linux-amd64",
+			"result": "passed"
+		},
+		{
+			"tier": "go",
+			"test": "widget TestGone",
+			"target": "linux-amd64",
+			"result": "not run"
+		}
+	],
+	"2026-11-21": [
+		{
+			"tier": "go",
+			"test": "widget TestSteady",
+			"target": "linux-amd64",
+			"result": "passed"
+		},
+		{
+			"tier": "go",
+			"test": "widget TestSteady",
+			"target": "windows-amd64",
+			"result": "passed"
+		},
+		{
+			"tier": "browser",
+			"test": "web/e2e/work.spec.ts Refresh reads the source",
+			"target": "linux-amd64",
+			"result": "passed"
+		},
+		{
+			"tier": "go",
+			"test": "widget TestGone",
+			"target": "linux-amd64",
+			"result": "not run"
+		}
+	],
+	"2026-11-20": [
+		{
+			"tier": "go",
+			"test": "widget TestSteady",
+			"target": "linux-amd64",
+			"result": "passed"
+		},
+		{
+			"tier": "go",
+			"test": "widget TestSteady",
+			"target": "windows-amd64",
+			"result": "passed"
+		},
+		{
+			"tier": "browser",
+			"test": "web/e2e/work.spec.ts Refresh reads the source",
+			"target": "linux-amd64",
+			"result": "passed"
+		},
+		{
+			"tier": "component",
+			"test": "web/src/queue.test.ts Queue > lists the grabs",
+			"target": "linux-amd64",
+			"result": "passed"
+		},
+		{
+			"tier": "go",
+			"test": "widget TestGone",
+			"target": "linux-amd64",
+			"result": "not run"
+		}
+	],
+	"2026-11-19": [
+		{
+			"tier": "go",
+			"test": "widget TestSteady",
+			"target": "linux-amd64",
+			"result": "passed"
+		},
+		{
+			"tier": "go",
+			"test": "widget TestSteady",
+			"target": "windows-amd64",
+			"result": "passed"
+		},
+		{
+			"tier": "browser",
+			"test": "web/e2e/work.spec.ts Refresh reads the source",
+			"target": "linux-amd64",
+			"result": "passed"
+		},
+		{
+			"tier": "component",
+			"test": "web/src/queue.test.ts Queue > lists the grabs",
+			"target": "linux-amd64",
+			"result": "passed"
+		},
+		{
+			"tier": "go",
+			"test": "widget TestGone",
+			"target": "linux-amd64",
+			"result": "not run"
+		}
+	],
+	"2026-11-18": [
+		{
+			"tier": "go",
+			"test": "widget TestSteady",
+			"target": "linux-amd64",
+			"result": "passed"
+		},
+		{
+			"tier": "go",
+			"test": "widget TestSteady",
+			"target": "windows-amd64",
+			"result": "passed"
+		},
+		{
+			"tier": "browser",
+			"test": "web/e2e/work.spec.ts Refresh reads the source",
+			"target": "linux-amd64",
+			"result": "passed"
+		},
+		{
+			"tier": "component",
+			"test": "web/src/queue.test.ts Queue > lists the grabs",
+			"target": "linux-amd64",
+			"result": "passed"
+		},
+		{
+			"tier": "go",
+			"test": "widget TestGone",
+			"target": "linux-amd64",
+			"result": "not run"
+		}
+	],
+	"2026-11-17": [
+		{
+			"tier": "go",
+			"test": "widget TestSteady",
+			"target": "linux-amd64",
+			"result": "passed"
+		},
+		{
+			"tier": "go",
+			"test": "widget TestSteady",
+			"target": "windows-amd64",
+			"result": "passed"
+		},
+		{
+			"tier": "browser",
+			"test": "web/e2e/work.spec.ts Refresh reads the source",
+			"target": "linux-amd64",
+			"result": "passed"
+		},
+		{
+			"tier": "component",
+			"test": "web/src/queue.test.ts Queue > lists the grabs",
+			"target": "linux-amd64",
+			"result": "passed"
+		},
+		{
+			"tier": "go",
+			"test": "widget TestGone",
+			"target": "linux-amd64",
+			"result": "not run"
+		}
+	],
+	"2026-11-16": [
+		{
+			"tier": "go",
+			"test": "widget TestSteady",
+			"target": "linux-amd64",
+			"result": "passed"
+		},
+		{
+			"tier": "go",
+			"test": "widget TestSteady",
+			"target": "windows-amd64",
+			"result": "passed"
+		},
+		{
+			"tier": "browser",
+			"test": "web/e2e/work.spec.ts Refresh reads the source",
+			"target": "linux-amd64",
+			"result": "failed"
+		},
+		{
+			"tier": "component",
+			"test": "web/src/queue.test.ts Queue > lists the grabs",
+			"target": "linux-amd64",
+			"result": "passed"
+		},
+		{
+			"tier": "go",
+			"test": "widget TestGone",
+			"target": "linux-amd64",
+			"result": "not run"
+		}
+	],
+	"2026-11-15": [
+		{
+			"tier": "go",
+			"test": "widget TestSteady",
+			"target": "linux-amd64",
+			"result": "passed"
+		},
+		{
+			"tier": "go",
+			"test": "widget TestSteady",
+			"target": "windows-amd64",
+			"result": "passed"
+		},
+		{
+			"tier": "browser",
+			"test": "web/e2e/work.spec.ts Refresh reads the source",
+			"target": "linux-amd64",
+			"result": "passed"
+		},
+		{
+			"tier": "component",
+			"test": "web/src/queue.test.ts Queue > lists the grabs",
+			"target": "linux-amd64",
+			"result": "passed"
+		},
+		{
+			"tier": "go",
+			"test": "widget TestGone",
+			"target": "linux-amd64",
+			"result": "not run"
+		}
+	],
+	"2026-11-14": [
+		{
+			"tier": "go",
+			"test": "widget TestSteady",
+			"target": "linux-amd64",
+			"result": "passed"
+		},
+		{
+			"tier": "go",
+			"test": "widget TestSteady",
+			"target": "windows-amd64",
+			"result": "passed"
+		},
+		{
+			"tier": "browser",
+			"test": "web/e2e/work.spec.ts Refresh reads the source",
+			"target": "linux-amd64",
+			"result": "passed"
+		},
+		{
+			"tier": "component",
+			"test": "web/src/queue.test.ts Queue > lists the grabs",
+			"target": "linux-amd64",
+			"result": "passed"
+		},
+		{
+			"tier": "go",
+			"test": "widget TestGone",
+			"target": "linux-amd64",
+			"result": "not run"
+		}
+	],
+	"2026-11-13": [
+		{
+			"tier": "go",
+			"test": "widget TestSteady",
+			"target": "linux-amd64",
+			"result": "passed"
+		},
+		{
+			"tier": "go",
+			"test": "widget TestSteady",
+			"target": "windows-amd64",
+			"result": "passed"
+		},
+		{
+			"tier": "browser",
+			"test": "web/e2e/work.spec.ts Refresh reads the source",
+			"target": "linux-amd64",
+			"result": "passed"
+		},
+		{
+			"tier": "component",
+			"test": "web/src/queue.test.ts Queue > lists the grabs",
+			"target": "linux-amd64",
+			"result": "passed"
+		},
+		{
+			"tier": "go",
+			"test": "widget TestGone",
+			"target": "linux-amd64",
+			"result": "not run"
+		}
+	],
+	"2026-11-12": [
+		{
+			"tier": "go",
+			"test": "widget TestSteady",
+			"target": "linux-amd64",
+			"result": "passed"
+		},
+		{
+			"tier": "go",
+			"test": "widget TestSteady",
+			"target": "windows-amd64",
+			"result": "passed"
+		},
+		{
+			"tier": "browser",
+			"test": "web/e2e/work.spec.ts Refresh reads the source",
+			"target": "linux-amd64",
+			"result": "passed"
+		},
+		{
+			"tier": "component",
+			"test": "web/src/queue.test.ts Queue > lists the grabs",
+			"target": "linux-amd64",
+			"result": "passed"
+		},
+		{
+			"tier": "go",
+			"test": "widget TestGone",
+			"target": "linux-amd64",
+			"result": "not run"
+		}
+	],
+	"2026-11-11": [
+		{
+			"tier": "go",
+			"test": "widget TestSteady",
+			"target": "linux-amd64",
+			"result": "passed"
+		},
+		{
+			"tier": "go",
+			"test": "widget TestSteady",
+			"target": "windows-amd64",
+			"result": "passed"
+		},
+		{
+			"tier": "browser",
+			"test": "web/e2e/work.spec.ts Refresh reads the source",
+			"target": "linux-amd64",
+			"result": "passed"
+		},
+		{
+			"tier": "component",
+			"test": "web/src/queue.test.ts Queue > lists the grabs",
+			"target": "linux-amd64",
+			"result": "passed"
+		},
+		{
+			"tier": "go",
+			"test": "widget TestGone",
+			"target": "linux-amd64",
+			"result": "not run"
+		}
+	],
+	"2026-11-10": [
+		{
+			"tier": "go",
+			"test": "widget TestSteady",
+			"target": "linux-amd64",
+			"result": "passed"
+		},
+		{
+			"tier": "go",
+			"test": "widget TestSteady",
+			"target": "windows-amd64",
+			"result": "passed"
+		},
+		{
+			"tier": "browser",
+			"test": "web/e2e/work.spec.ts Refresh reads the source",
+			"target": "linux-amd64",
+			"result": "passed"
+		},
+		{
+			"tier": "component",
+			"test": "web/src/queue.test.ts Queue > lists the grabs",
+			"target": "linux-amd64",
+			"result": "passed"
+		},
+		{
+			"tier": "go",
+			"test": "widget TestGone",
+			"target": "linux-amd64",
+			"result": "not run"
+		}
+	]
+}

@@ -120,7 +120,7 @@ func TestFailedTestsReachTheAnnotations(t *testing.T) {
 			wantRerun: []string{"src/queue.test.ts", "-t", "^(Queue > orders by age|drops a finished grab)$"},
 			want: []string{
 				"::error file=web/src/broken.test.ts,title=web/src/broken.test.ts::Cannot find module './missing-module' imported from /r/web/src/broken.test.ts",
-				"::error file=web/src/queue.test.ts,line=8,title=web/src/queue.test.ts%3A Queue orders by age (flaky)::AssertionError: expected [ 2, 1 ] to deeply equal [ 1, 2 ]",
+				"::error file=web/src/queue.test.ts,line=8,title=web/src/queue.test.ts%3A Queue > orders by age (flaky)::AssertionError: expected [ 2, 1 ] to deeply equal [ 1, 2 ]",
 				"::error file=web/src/queue.test.ts,line=13,title=web/src/queue.test.ts%3A drops a finished grab (failed again)::AssertionError: expected 'done' to be 'gone' // Object.is equality",
 			},
 		},

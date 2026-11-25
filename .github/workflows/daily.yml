@@ -3,7 +3,8 @@ name: Daily checks
 # The online conformance and link throughput tests run every day. The full
 # matrix runs too when no daily check has passed it on main's tree, or the
 # last one that did is 7 or more days old, and saves each target's Go cache
-# for main. A failure opens or updates an issue.
+# for main. A failure opens or updates an issue, and so does a flaky test
+# to quarantine or an expired quarantine row.
 on:
   schedule:
     - cron: "30 7 * * *"
@@ -81,6 +82,16 @@ jobs:
       SUBDL_API_KEY: ${{ secrets.SUBDL_API_KEY }}
       SUBSOURCE_API_KEY: ${{ secrets.SUBSOURCE_API_KEY }}
 
+  # Outside the gate, so a quarantined test's failure fails no daily check.
+  quarantine:
+    name: Quarantine
+    needs: plan
+    permissions:
+      contents: read
+    uses: ./.github/workflows/quarantine.yml
+    with:
+      plan: ${{ needs.plan.outputs.plan }}
+
   # One link stream measured between two network namespaces, per spec S07's
   # yamux measurement. The table lands in the step summary and the log, and
   # a failure opens or comments on its own issue.
@@ -121,13 +132,16 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
 
-  # The issue names the failed jobs and the squash commits since the last
-  # full-matrix run that passed, each of which is one feature's merge.
-  # Online drift opens or updates one issue per service.
+  # On a failure the issue names the failed jobs and the squash commits
+  # since the last full-matrix run that passed, each of which is one
+  # feature's merge. Online drift opens or updates one issue per service.
+  # Every run also proposes quarantine rows for the tests labeled flaky
+  # twice in 7 days, lists the quarantined tests that passed for 14, and
+  # fails while a row of ci/quarantine.tsv has expired.
   issues:
-    name: Report the failures
+    name: Report the failures and the quarantine
     needs: [plan, tests]
-    if: failure() && github.ref == 'refs/heads/main'
+    if: ${{ !cancelled() && github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
@@ -143,7 +157,10 @@ jobs:
         uses: ./.github/actions/go
         with:
           cache: go-plan
+      # A daily check with no failed test uploaded no artifact, and the
+      # quarantine issues still need the week's runs.
       - name: Download the failed tests
+        continue-on-error: true
         uses: actions/download-artifact@v8
         with:
           pattern: failures-*

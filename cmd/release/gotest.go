@@ -33,14 +33,14 @@ const testbinPath = modulePath + "/fakes/testbin"
 
 // testGoPackages runs the go or e2e tier's packages, or this shard's part
 // of them, through go test -json, printing what go test prints without -v.
-func testGoPackages(ctx context.Context, root string, o testOptions, tier string) ([]failure, error) {
+func testGoPackages(ctx context.Context, root string, o testOptions, tier string) (results, error) {
 	_, target, bundle, err := goTargetBundle(ctx)
 	if err != nil {
-		return nil, err
+		return results{}, err
 	}
 	env, err := prepareRunner(ctx, root, tier, target.GOOS, bundleEnv(bundle))
 	if err != nil {
-		return nil, err
+		return results{}, err
 	}
 	// A simulation package, worksapi's 20,000-Work and 32,767-Item cases,
 	// and the e2e package when no timings split it across shards run for
@@ -48,7 +48,7 @@ func testGoPackages(ctx context.Context, root string, o testOptions, tier string
 	// own limit is forty-five.
 	base := []string{"-race", "-shuffle=on", "-timeout", "25m"}
 	if len(o.goArgs) > 0 {
-		return nil, goTest(ctx, root, env, append(base, o.goArgs...), os.Stdout)
+		return results{}, goTest(ctx, root, env, append(base, o.goArgs...), os.Stdout)
 	}
 	flags := slices.Clone(base)
 	if o.filter != "" {
@@ -57,24 +57,30 @@ func testGoPackages(ctx context.Context, root string, o testOptions, tier string
 	if o.repeat > 1 {
 		flags = append(flags, "-count", strconv.Itoa(o.repeat))
 	}
-	pkgs, err := listGoPackages(ctx, root, env)
-	if err != nil {
-		return nil, err
-	}
-	pkgs = slices.DeleteFunc(pkgs, func(p goPackage) bool { return p.e2e != (tier == "e2e") })
-	past, err := loadTimings(o.timings, target.Name)
-	if err != nil {
-		return nil, err
-	}
 	s := cmp.Or(o.shard, shard{1, 1})
-	runs := partition(pkgs, past, s.count, o.filter == "")[s.index-1]
-	if tier == "e2e" {
-		// An e2e part runs beside the whole packages, and its budget tests
-		// miss under the two heaviest packages started first, so the whole
-		// packages start by name.
-		for _, r := range runs {
-			slices.Sort(r.packages)
+	var runs []goRun
+	if o.onlyQuarantined {
+		runs = onlyQuarantinedRuns(goQuarantine(o.quarantined))
+	} else {
+		pkgs, err := listGoPackages(ctx, root, env)
+		if err != nil {
+			return results{}, err
 		}
+		pkgs = slices.DeleteFunc(pkgs, func(p goPackage) bool { return p.e2e != (tier == "e2e") })
+		past, err := loadTimings(o.timings, target.Name)
+		if err != nil {
+			return results{}, err
+		}
+		runs = partition(pkgs, past, s.count, o.filter == "")[s.index-1]
+		if tier == "e2e" {
+			// An e2e part runs beside the whole packages, and its budget
+			// tests miss under the two heaviest packages started first, so
+			// the whole packages start by name.
+			for _, r := range runs {
+				slices.Sort(r.packages)
+			}
+		}
+		runs = skipQuarantined(runs, goQuarantine(o.quarantined))
 	}
 	fmt.Printf("%s tier, shard %s on %s:\n", tier, &s, target.Name)
 	for _, r := range runs {
@@ -87,14 +93,14 @@ func testGoPackages(ctx context.Context, root string, o testOptions, tier string
 		recorded.Tier = tier
 		recorded.Seconds = time.Since(start).Seconds()
 		if err := recorded.write(o.record); err != nil {
-			return nil, err
+			return results{}, err
 		}
 	}
 	failed := rerunFailed(first, func(f []failure) results {
 		_, again, _ := runShard(ctx, root, env, append(slices.Clone(base), "-count=1"), rerunRuns(f))
 		return again
 	})
-	return failed, err
+	return results{failed: failed, passed: first.passed}, err
 }
 
 // rerunRuns is a go test per package of the failed tests' top-level tests,

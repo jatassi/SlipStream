@@ -1,0 +1,110 @@
+name: Quarantine
+
+on:
+  workflow_call:
+    inputs:
+      plan:
+        description: The plan command's plan output, which holds the quarantine lane's matrix
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  # The tests ci/quarantine.tsv lists, alone, on each target where a row
+  # reaches a lane. The blocking lanes leave them out. Each caller runs this
+  # workflow outside its gate, and a failure here fails no run. The job
+  # records each test's result, which the daily check reads to list the
+  # tests ready to leave the list. It builds what its tests run, as the
+  # platform job does.
+  quarantine:
+    name: Quarantined tests (${{ matrix.target }})
+    if: fromJSON(inputs.plan).planned['quarantine']
+    continue-on-error: true
+    timeout-minutes: ${{ matrix.timeout }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(inputs.plan)['quarantine'] }}
+    runs-on: ${{ matrix.runner }}
+    env:
+      GOARCH: ${{ matrix.goarch }}
+      DEVELOPER_DIR: ${{ matrix.developer-dir }}
+      EXE: ${{ matrix.exe }}
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+      - name: Set up Go
+        uses: ./.github/actions/go
+        with:
+          cache: go-${{ matrix.target }}
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: web/package.json
+      - name: Restore native libraries
+        uses: actions/cache@v6
+        with:
+          path: ${{ runner.temp }}/slipstream-native
+          key: native-${{ matrix.target }}-${{ hashFiles('native/lock.json') }}
+      - name: Restore fixtures
+        uses: actions/cache@v6
+        with:
+          path: ${{ matrix.fixtures }}
+          key: fixtures-${{ matrix.target }}-${{ hashFiles('native/lock.json', 'fakes/internal/mediafix/recipe.go', 'fakes/internal/releases/releases.go', 'fakes/scenario/catalog/*.yaml') }}
+          restore-keys: fixtures-${{ matrix.target }}-
+      - name: Restore the Bun cache
+        uses: actions/cache@v6
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('web/bun.lock') }}
+      - name: Build release binaries
+        run: |
+          go run ./cmd/release build
+          eval "$(go run ./cmd/release deps env)"
+          go build -o dist/ ./cmd/fakeworld ./cmd/release
+      # On a Linux runner the tier installs the browsers' system libraries,
+      # which Playwright's container would otherwise ship.
+      - name: Run the quarantined tests
+        id: test
+        run: '"dist/release$EXE" test -tier quarantine -failures "$RUNNER_TEMP/failures/${{ matrix.target }}-quarantine.json" -results "$RUNNER_TEMP/quarantine/${{ matrix.target }}.json"'
+        env:
+          TEST_SLIPSTREAM_BINARY: ${{ github.workspace }}/dist/slipstream${{ matrix.exe }}
+          TEST_SLIPSTREAM_E2E_BINARY: ${{ github.workspace }}/dist/slipstream-e2e${{ matrix.exe }}
+          TEST_FAKEWORLD_BINARY: ${{ github.workspace }}/dist/fakeworld${{ matrix.exe }}
+          TEST_FAKEWORLD_RUNS: ${{ runner.temp }}/fakeworld-runs
+      - name: Upload the failed tests
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: failures-${{ matrix.target }}-quarantine
+          path: ${{ runner.temp }}/failures
+          if-no-files-found: ignore
+      # The daily check reads 14 days of these.
+      - name: Upload each quarantined test's result
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: quarantine-${{ matrix.target }}
+          path: ${{ runner.temp }}/quarantine
+          retention-days: 30
+          if-no-files-found: ignore
+      # Each failed run dir is a replay bundle. The run's copies of the
+      # binaries stay out of it.
+      - name: Upload fakeworld replay bundles on failure
+        if: failure() && steps.test.outcome == 'failure'
+        uses: actions/upload-artifact@v7
+        with:
+          name: fakeworld-runs-quarantine-${{ matrix.target }}
+          path: |
+            ${{ runner.temp }}/fakeworld-runs
+            !${{ runner.temp }}/fakeworld-runs/**/bin/**
+          if-no-files-found: ignore
