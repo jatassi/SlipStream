@@ -11,26 +11,23 @@ const (
 
 // Table is every move a row can make.
 var Table = []Transition{
-	// Offer, from the Account page or a redeemed Signup link
 	{None, Offer, NoIdentity, Offered, admin, plex, 0},
 	{None, Offer, IdentityHeld, Waiting, admin, plex, 0},
 	{None, Offer, Done, Offered, admin, users, 0},
-	{Offered, Offer, Done, Offered, admin, plex, 0}, // changes plex_home before a share
+	{Offered, Offer, Done, Offered, admin, plex, 0},
 	{Waiting, Offer, Done, Waiting, admin, plex, 0},
 	{Removed, Offer, Done, Active, admin, users, 0},
 	{Removed, Offer, Gone, Offered, admin, users, ClearUser},
 	{Removed, Offer, Failed, Removed, admin, users, KeepProblem},
 
-	// The Member's Plex sign-in
 	{Offered, PlexSignIn, AlreadyThere, Active, ctl, plex, MarkByHand},
 	{Offered, PlexSignIn, NotThere, Waiting, ctl, plex, 0},
 	{Waiting, PlexSignIn, AlreadyThere, Active, ctl, plex, MarkByHand},
-	{Waiting, PlexSignIn, NotThere, Waiting, ctl, plex, 0}, // a different Plex account re-points plex_id
+	{Waiting, PlexSignIn, NotThere, Waiting, ctl, plex, 0},
 	{Shared, PlexSignIn, Accepted, Active, ctl, plex, 0},
 	{Shared, PlexSignIn, NotAccepted, Shared, ctl, plex, 0},
 	{Waiting, AnotherPlex, Done, Offered, member, plex, ClearPlex},
 
-	// The Admin's share
 	{Waiting, ShareFriend, Accepted, Active, admin, plex, ClearPlexHome},
 	{Waiting, ShareFriend, NotAccepted, Shared, admin, plex, ClearPlexHome},
 	{Waiting, ShareFriend, Refused, Waiting, admin, plex, KeepProblem},
@@ -41,20 +38,17 @@ var Table = []Transition{
 	{Shared, Check, Accepted, Active, anyone, plex, 0},
 	{Shared, Check, NotAccepted, Shared, anyone, plex, 0},
 
-	// Jellyfin and Emby accounts. MakeAccount and Created are written
-	// before their remote calls: making is the journal of a make.
 	{Offered, MakeAccount, Done, Making, member, users, 0},
 	{Making, Created, Done, Making, ctl, users, 0},
 	{Making, Finish, Done, Active, ctl, users, 0},
 	{Making, Unmake, Done, Offered, ctl, users, KeepProblem | ClearUser},
-	{Making, Unmake, Failed, Making, ctl, users, KeepProblem}, // retried at the next start, roster change or retry
-	{Making, Unmake, Left, None, ctl, users, 0},               // its Account is gone
+	{Making, Unmake, Failed, Making, ctl, users, KeepProblem},
+	{Making, Unmake, Left, None, ctl, users, 0},
 	{Offered, Link, Done, Active, admin, users, 0},
 
-	// Remove access
 	{Offered, Remove, Done, None, admin, plex, 0},
 	{Offered, Remove, Done, None, admin, users, 0},
-	{Waiting, Remove, Done, None, admin, plex, 0}, // FindShare first: a share whose Write was lost is removed
+	{Waiting, Remove, Done, None, admin, plex, 0},
 	{Waiting, Remove, Failed, Removing, admin, plex, KeepProblem},
 	{Shared, Remove, Done, None, admin, plex, 0},
 	{Shared, Remove, Failed, Removing, admin, plex, KeepProblem},
@@ -65,11 +59,9 @@ var Table = []Transition{
 	{Removing, RetryRemove, Done, None, admin, plex, 0},
 	{Removing, RetryRemove, Failed, Removing, admin, plex, KeepProblem},
 	{Removing, RetryRemove, Done, Removed, admin, users, 0},
-	{Removing, RetryRemove, Left, None, admin, users, 0}, // a removing row that outlived its Account
+	{Removing, RetryRemove, Left, None, admin, users, 0},
 	{Removing, RetryRemove, Failed, Removing, admin, users, KeepProblem},
 
-	// Account delete: nothing is kept for an Account that is gone, except
-	// what couldn't be removed
 	{Offered, Leave, Done, None, ctl, plex, 0},
 	{Offered, Leave, Done, None, ctl, users, 0},
 	{Waiting, Leave, Done, None, ctl, plex, 0},

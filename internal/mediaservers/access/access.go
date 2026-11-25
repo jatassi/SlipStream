@@ -1,7 +1,7 @@
 // Package access is the pure model of S43 (Member access to Media Servers):
 // the states of one Member's access to one Media Server, the events that
 // move it, the outcomes of the remote calls behind them and the one Table
-// of every move. mediaservers runs a move and records it; this package
+// of every move. mediaservers runs a move and records it. This package
 // answers which move a row makes and what a viewer may start on it.
 package access
 
@@ -38,7 +38,7 @@ func (s State) Pending() bool {
 }
 
 // MemberSees is whether the row shows to its Member.
-func (s State) MemberSees() bool { return s != Removing && s != Removed && s != None }
+func (s State) MemberSees() bool { return s != Removing && s != Removed }
 
 // NeedsYou is whether the row is listed under Needs you.
 func (s State) NeedsYou() bool { return s == Waiting || s == Shared || s == Removing }
@@ -215,9 +215,7 @@ var (
 )
 
 // Actions is what by may start on the row, in the order the screen shows
-// them, with the share the row was offered as first. Offer is an action
-// only where it moves the row: on an offered or waiting row it is the
-// Account page's choice of Friend or Plex Home.
+// them, with the share the row was offered as first.
 func Actions(f Facts, by By) []Event {
 	order := screen
 	if f.PlexHome {
@@ -225,27 +223,24 @@ func Actions(f Facts, by By) []Event {
 	}
 	out := []Event{}
 	for _, on := range order {
-		if startsBy(f.State, on, f.Way, by) && allowed(f, on) {
+		if gate, ok := gates[on]; startsBy(f.State, on, f.Way, by) && (!ok || gate(f)) {
 			out = append(out, on)
 		}
 	}
 	return out
 }
 
-func allowed(f Facts, on Event) bool {
-	switch on {
-	case MakeAccount:
-		return f.MakesAccounts
-	case AnotherPlex:
-		return !f.PlexInUse
-	case ShareFriend:
-		return f.SharesWork
-	case ShareHome:
-		return f.HomeWorks
-	case Offer:
+// gates are the events Actions offers only on some rows. Offer is an
+// action only where it moves the row: on an offered or waiting row it is
+// the Account page's choice of Friend or Plex Home.
+var gates = map[Event]func(Facts) bool{
+	MakeAccount: func(f Facts) bool { return f.MakesAccounts },
+	AnotherPlex: func(f Facts) bool { return !f.PlexInUse },
+	ShareFriend: func(f Facts) bool { return f.SharesWork },
+	ShareHome:   func(f Facts) bool { return f.HomeWorks },
+	Offer: func(f Facts) bool {
 		return slices.ContainsFunc(Table, func(t Transition) bool {
 			return t.From == f.State && t.On == Offer && t.Way == f.Way && t.To != f.State
 		})
-	}
-	return true
+	},
 }

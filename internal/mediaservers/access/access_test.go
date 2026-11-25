@@ -13,6 +13,30 @@ var stored = map[access.Way][]access.State{
 	access.WayUsers:  {access.Offered, access.Making, access.Active, access.Removing, access.Removed},
 }
 
+// rules are what every move of the Table keeps to.
+var rules = []struct {
+	broken string
+	breaks func(tr access.Transition) bool
+}{
+	{"rows of its way never hold one of its states", func(tr access.Transition) bool {
+		return !holds(tr.Way, tr.From) || !holds(tr.Way, tr.To)
+	}},
+	{"only MakeAccount and Created are written before their remote call", func(tr access.Transition) bool {
+		return tr.To == access.Making && tr.When == access.Done && tr.On != access.MakeAccount && tr.On != access.Created
+	}},
+	{"a failed move loses its problem", func(tr access.Transition) bool {
+		return (tr.When == access.Failed || tr.When == access.Refused) && tr.Mark&access.KeepProblem == 0
+	}},
+	{"a Leave keeps a row only as removing or making with no Account", func(tr access.Transition) bool {
+		kept := tr.To == access.Removing || tr.To == access.Making
+		return tr.On == access.Leave && tr.To != access.None && (!kept || tr.Mark&access.ClearAccount == 0)
+	}},
+}
+
+func holds(way access.Way, s access.State) bool {
+	return s == access.None || slices.Contains(stored[way], s)
+}
+
 func TestTheTableIsClosed(t *testing.T) {
 	type key struct {
 		from access.State
@@ -21,34 +45,21 @@ func TestTheTableIsClosed(t *testing.T) {
 		way  access.Way
 	}
 	seen := map[key]bool{}
-	leaves := map[access.Way][]access.State{}
 	for _, tr := range access.Table {
-		k := key{tr.From, tr.On, tr.When, tr.Way}
-		if seen[k] {
+		if k := (key{tr.From, tr.On, tr.When, tr.Way}); seen[k] {
 			t.Errorf("%+v: two moves for one state, event, outcome and way", tr)
+		} else {
+			seen[k] = true
 		}
-		seen[k] = true
-		for _, s := range []access.State{tr.From, tr.To} {
-			if s != access.None && !slices.Contains(stored[tr.Way], s) {
-				t.Errorf("%+v: %s rows never hold %q", tr, tr.Way, s)
-			}
-		}
-		if tr.To == access.Making && tr.When == access.Done && tr.On != access.MakeAccount && tr.On != access.Created {
-			t.Errorf("%+v: only MakeAccount and Created are written before their remote call", tr)
-		}
-		if (tr.When == access.Failed || tr.When == access.Refused) && tr.Mark&access.KeepProblem == 0 {
-			t.Errorf("%+v: a failed move loses its problem", tr)
-		}
-		if tr.On == access.Leave {
-			leaves[tr.Way] = append(leaves[tr.Way], tr.From)
-			if tr.To != access.None && (tr.Mark&access.ClearAccount == 0 || (tr.To != access.Removing && tr.To != access.Making)) {
-				t.Errorf("%+v: a Leave keeps a row only as removing or making with no Account", tr)
+		for _, r := range rules {
+			if r.breaks(tr) {
+				t.Errorf("%+v: %s", tr, r.broken)
 			}
 		}
 	}
 	for way, states := range stored {
 		for _, s := range states {
-			if !slices.Contains(leaves[way], s) {
+			if !access.Starts(s, access.Leave, way) {
 				t.Errorf("a %s row in %q can't leave when its Account is deleted", way, s)
 			}
 			if !slices.Contains(access.States(), s) {
@@ -58,21 +69,29 @@ func TestTheTableIsClosed(t *testing.T) {
 	}
 }
 
-func TestActionsFollowTheTable(t *testing.T) {
-	people := []access.By{access.ByAdmin, access.ByMember}
+// everyRow is each state of each way with every combination of the other
+// facts.
+func everyRow() []access.Facts {
+	var out []access.Facts
 	for _, way := range access.Ways() {
 		for _, s := range access.States() {
-			for _, by := range people {
-				for bits := range 32 {
-					f := access.Facts{State: s, Way: way, PlexHome: bits&1 != 0, MakesAccounts: bits&2 != 0,
-						PlexInUse: bits&4 != 0, SharesWork: bits&8 != 0, HomeWorks: bits&16 != 0}
-					for _, on := range access.Actions(f, by) {
-						if !slices.ContainsFunc(access.Table, func(tr access.Transition) bool {
-							return tr.From == s && tr.On == on && tr.Way == way && tr.By&by != 0
-						}) {
-							t.Errorf("Actions(%+v, %d) offers %s, which the table doesn't start", f, by, on)
-						}
-					}
+			for bits := range 32 {
+				out = append(out, access.Facts{State: s, Way: way, PlexHome: bits&1 != 0, MakesAccounts: bits&2 != 0,
+					PlexInUse: bits&4 != 0, SharesWork: bits&8 != 0, HomeWorks: bits&16 != 0})
+			}
+		}
+	}
+	return out
+}
+
+func TestActionsFollowTheTable(t *testing.T) {
+	for _, f := range everyRow() {
+		for _, by := range []access.By{access.ByAdmin, access.ByMember} {
+			for _, on := range access.Actions(f, by) {
+				if !slices.ContainsFunc(access.Table, func(tr access.Transition) bool {
+					return tr.From == f.State && tr.On == on && tr.Way == f.Way && tr.By&by != 0
+				}) {
+					t.Errorf("Actions(%+v, %d) offers %s, which the table doesn't start", f, by, on)
 				}
 			}
 		}
