@@ -279,3 +279,7 @@ func (w *World) Television(node role.NodeID) bool { return w.ms.Television(node)
 func (unlinked) Exposed(context.Context, *msv1.ExposedRequest) (*msv1.ExposedResponse, error) {
 	return nil, errUnlinked()
 }
+
+func (unlinked) Members(context.Context, *msv1.MembersRequest) (*msv1.MembersResponse, error) {
+	return nil, errUnlinked()
+}
