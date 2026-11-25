@@ -84,18 +84,6 @@ func NotInert(changes []nativetouch.Change) []string {
 	return paths
 }
 
-// onlineRoots hold the fakes, the clients and the suites the online job
-// checks against the real services.
-var onlineRoots = []string{"fakes/tmdb/", "fakes/tvdb/", "fakes/omdb/", "fakes/subdl/", "fakes/subsource/", "fakes/gestdown/", "fakes/imagecdn/", "fakes/contenttypes/music/", "internal/providers/tmdb/", "internal/providers/tvdb/", "internal/providers/omdb/", "internal/providers/subdl/", "internal/providers/subsource/", "internal/providers/gestdown/", "internal/subtitling/", "conformance/", "fakes/catalog/", "fakes/site/definitions/", "fakes/site/ports/", "internal/ports/", "internal/cardigann/", "internal/indexers/refresh.go"}
-
-// Online reports whether a change touches, on either side, anything the
-// online job checks.
-func Online(changes []nativetouch.Change) bool { return touches(changes, onlineRoots) }
-
-// Link reports whether a change touches, on either side, the link the
-// link-measure job measures.
-func Link(changes []nativetouch.Change) bool { return touches(changes, []string{"internal/link/"}) }
-
 var packagingRoots = []string{
 	"internal/install/", "internal/node/internal/desktop/", "cmd/slipstream-app/",
 	"cmd/release/internal/pack/", "cmd/release/internal/smoke/", "cmd/release/package.go", "cmd/release/smoke.go",

@@ -1,0 +1,240 @@
+[
+ {
+  "id": 101,
+  "run_id": 1,
+  "run_attempt": 1,
+  "name": "Plan",
+  "status": "completed",
+  "conclusion": "success",
+  "created_at": "2026-11-20T10:00:00Z",
+  "started_at": "2026-11-20T10:00:30Z",
+  "completed_at": "2026-11-20T10:02:00Z",
+  "labels": [
+   "ubuntu-24.04"
+  ]
+ },
+ {
+  "id": 102,
+  "run_id": 1,
+  "run_attempt": 1,
+  "name": "Tests / linux-amd64 / Build (linux-amd64)",
+  "status": "completed",
+  "conclusion": "success",
+  "created_at": "2026-11-20T10:02:00Z",
+  "started_at": "2026-11-20T10:02:30Z",
+  "completed_at": "2026-11-20T10:08:00Z",
+  "labels": [
+   "ubuntu-24.04"
+  ]
+ },
+ {
+  "id": 103,
+  "run_id": 1,
+  "run_attempt": 1,
+  "name": "Tests / Go tests (linux-amd64, shard 1 of 4)",
+  "status": "completed",
+  "conclusion": "success",
+  "created_at": "2026-11-20T10:02:00Z",
+  "started_at": "2026-11-20T10:02:30Z",
+  "completed_at": "2026-11-20T10:15:00Z",
+  "labels": [
+   "ubuntu-24.04"
+  ]
+ },
+ {
+  "id": 104,
+  "run_id": 1,
+  "run_attempt": 1,
+  "name": "All required checks passed",
+  "status": "completed",
+  "conclusion": "skipped",
+  "created_at": "2026-11-20T10:15:00Z",
+  "started_at": null,
+  "completed_at": "2026-11-20T10:15:00Z",
+  "labels": [
+   "ubuntu-24.04"
+  ]
+ },
+ {
+  "id": 105,
+  "run_id": 2,
+  "run_attempt": 1,
+  "name": "Plan",
+  "status": "completed",
+  "conclusion": "success",
+  "created_at": "2026-11-20T11:00:00Z",
+  "started_at": "2026-11-20T11:00:30Z",
+  "completed_at": "2026-11-20T11:02:00Z",
+  "labels": [
+   "ubuntu-24.04"
+  ]
+ },
+ {
+  "id": 106,
+  "run_id": 2,
+  "run_attempt": 1,
+  "name": "Tests / Go tests (linux-amd64, shard 2 of 4)",
+  "status": "completed",
+  "conclusion": "failure",
+  "created_at": "2026-11-20T11:02:00Z",
+  "started_at": "2026-11-20T11:02:30Z",
+  "completed_at": "2026-11-20T11:20:00Z",
+  "labels": [
+   "ubuntu-24.04"
+  ]
+ },
+ {
+  "id": 107,
+  "run_id": 2,
+  "run_attempt": 1,
+  "name": "All required checks passed",
+  "status": "completed",
+  "conclusion": "failure",
+  "created_at": "2026-11-20T11:20:00Z",
+  "started_at": "2026-11-20T11:20:30Z",
+  "completed_at": "2026-11-20T11:21:00Z",
+  "labels": [
+   "ubuntu-24.04"
+  ]
+ },
+ {
+  "id": 108,
+  "run_id": 2,
+  "run_attempt": 2,
+  "name": "Tests / Go tests (linux-amd64, shard 2 of 4)",
+  "status": "completed",
+  "conclusion": "success",
+  "created_at": "2026-11-20T11:30:00Z",
+  "started_at": "2026-11-20T11:30:30Z",
+  "completed_at": "2026-11-20T11:40:00Z",
+  "labels": [
+   "ubuntu-24.04"
+  ]
+ },
+ {
+  "id": 109,
+  "run_id": 3,
+  "run_attempt": 1,
+  "name": "Plan",
+  "status": "completed",
+  "conclusion": "success",
+  "created_at": "2026-11-20T12:00:00Z",
+  "started_at": "2026-11-20T12:00:30Z",
+  "completed_at": "2026-11-20T12:02:00Z",
+  "labels": [
+   "ubuntu-24.04"
+  ]
+ },
+ {
+  "id": 110,
+  "run_id": 3,
+  "run_attempt": 1,
+  "name": "Tests / windows-amd64 / End-to-end tests (windows-amd64, shard 1 of 2)",
+  "status": "completed",
+  "conclusion": "success",
+  "created_at": "2026-11-20T12:02:00Z",
+  "started_at": "2026-11-20T12:04:00Z",
+  "completed_at": "2026-11-20T12:30:00Z",
+  "labels": [
+   "windows-2025"
+  ]
+ },
+ {
+  "id": 111,
+  "run_id": 4,
+  "run_attempt": 1,
+  "name": "Plan",
+  "status": "completed",
+  "conclusion": "success",
+  "created_at": "2026-11-20T13:00:00Z",
+  "started_at": "2026-11-20T13:00:30Z",
+  "completed_at": "2026-11-20T13:02:00Z",
+  "labels": [
+   "ubuntu-24.04"
+  ]
+ },
+ {
+  "id": 112,
+  "run_id": 4,
+  "run_attempt": 1,
+  "name": "Tests / windows-amd64 / End-to-end tests (windows-amd64, shard 1 of 2)",
+  "status": "completed",
+  "conclusion": "failure",
+  "created_at": "2026-11-20T13:02:00Z",
+  "started_at": "2026-11-20T13:04:00Z",
+  "completed_at": "2026-11-20T13:40:00Z",
+  "labels": [
+   "windows-2025"
+  ]
+ },
+ {
+  "id": 113,
+  "run_id": 4,
+  "run_attempt": 1,
+  "name": "All required checks passed",
+  "status": "completed",
+  "conclusion": "failure",
+  "created_at": "2026-11-20T13:40:00Z",
+  "started_at": "2026-11-20T13:40:30Z",
+  "completed_at": "2026-11-20T13:41:00Z",
+  "labels": [
+   "ubuntu-24.04"
+  ]
+ },
+ {
+  "id": 114,
+  "run_id": 5,
+  "run_attempt": 1,
+  "name": "Plan",
+  "status": "completed",
+  "conclusion": "cancelled",
+  "created_at": "2026-11-20T14:00:00Z",
+  "started_at": "2026-11-20T14:00:30Z",
+  "completed_at": "2026-11-20T14:01:00Z",
+  "labels": [
+   "ubuntu-24.04"
+  ]
+ },
+ {
+  "id": 115,
+  "run_id": 6,
+  "run_attempt": 1,
+  "name": "Plan",
+  "status": "completed",
+  "conclusion": "success",
+  "created_at": "2026-11-20T15:00:00Z",
+  "started_at": "2026-11-20T15:00:30Z",
+  "completed_at": "2026-11-20T15:02:00Z",
+  "labels": [
+   "ubuntu-24.04"
+  ]
+ },
+ {
+  "id": 116,
+  "run_id": 6,
+  "run_attempt": 1,
+  "name": "Tests / linux-amd64 / Browser tests (linux-amd64, shard 1 of 4)",
+  "status": "completed",
+  "conclusion": "failure",
+  "created_at": "2026-11-20T15:08:00Z",
+  "started_at": "2026-11-20T15:08:30Z",
+  "completed_at": "2026-11-20T15:40:00Z",
+  "labels": [
+   "ubuntu-24.04"
+  ]
+ },
+ {
+  "id": 117,
+  "run_id": 6,
+  "run_attempt": 1,
+  "name": "Tests / Platform tests (darwin-arm64)",
+  "status": "completed",
+  "conclusion": "success",
+  "created_at": "2026-11-20T15:02:00Z",
+  "started_at": "2026-11-20T15:07:00Z",
+  "completed_at": "2026-11-20T15:30:00Z",
+  "labels": [
+   "macos-15"
+  ]
+ }
+]

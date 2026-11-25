@@ -26,7 +26,7 @@ Adopt a library for standards, file formats and accessibility, and build the dur
 
 ## Checks
 
-Run the fast checks locally and leave the full tiers to CI. On a 4-core cloud session the full tiers take more than 80 minutes (the Go tier about 21, e2e 18, component 8, browser 30 for Chromium alone). A wave PR into a feature branch gets the linux-amd64 build, lint, Go and component checks for a fast answer, and each push to `feature/**` (each wave merge) runs the train: the e2e and browser tiers on linux-amd64, and the platform suite on Windows, macOS and linux-arm64. A build thread opens the feature's final PR into main as a draft right after it cuts the branch, because the train's checks land on that PR's head and its PR subscription then wakes the thread on a red train. Marking the PR ready runs the merge check: the wave's and the train's checks, and lint on Windows and macOS. The nightly run on main runs the full matrix. When you add code that only some OSes build, or a `runtime.GOOS` comparison, register a test that runs it in the platform suite's list, `cmd/release/internal/platform`, which `make lint` enforces.
+Run the fast checks locally and leave the full tiers to CI. On a 4-core cloud session the full tiers take more than 80 minutes (the Go tier about 21, e2e 18, component 8, browser 30 for Chromium alone). A wave PR into a feature branch gets the linux-amd64 build, lint, Go and component checks for a fast answer, and each push to `feature/**` (each wave merge) runs the train: the e2e and browser tiers on linux-amd64, and the platform suite on Windows, macOS and linux-arm64. A build thread opens the feature's final PR into main as a draft right after it cuts the branch, because the train's checks land on that PR's head and its PR subscription then wakes the thread on a red train. Marking the PR ready runs the merge check: the wave's and the train's checks, and lint on Windows and macOS. The daily check on main runs the online conformance tests every day, and the full matrix when main's tree has changed since the last full run that passed or that run is 7 or more days old. A failure opens or updates an issue that names the failed jobs and the commits merged since that run. When you add code that only some OSes build, or a `runtime.GOOS` comparison, register a test that runs it in the platform suite's list, `cmd/release/internal/platform`, which `make lint` enforces.
 
 Before each push, run:
 
@@ -36,7 +36,7 @@ Before each push, run:
 4. For a browser spec you added or changed, that file alone: `cd web && bun run e2e --project=chromium-desktop e2e/<name>.spec.ts`, with `TEST_SLIPSTREAM_BINARY` and `TEST_FAKEWORLD_BINARY` set to the binaries from `make build`.
 5. For an e2e test you added or changed, `go run ./cmd/release test -tier e2e -filter <Test>`.
 
-Don't run locally the whole Go, e2e, component or browser tier, the Diagram check (unless you changed the Diagram roots) or another OS or engine. CI runs them. To run one lane again, dispatch the `ci` workflow with `tier` and `filter`. Mark the final PR ready after you merge main and run the checks above.
+Don't run locally the whole Go, e2e, component or browser tier, the Diagram check (unless you changed the Diagram roots) or another OS or engine. CI runs them. To run one lane again, dispatch the Run tests workflow, `run-tests.yml`, with `tier` and `filter`. Mark the final PR ready after you merge main and run the checks above.
 
 ## Tests
 

@@ -44,14 +44,14 @@ func TestPlanTargets(t *testing.T) {
 	perOS := []string{"linux-amd64", "windows-amd64", "darwin-arm64"}
 	others := []string{"linux-arm64", "windows-amd64", "darwin-arm64"}
 	webkit := []string{"linux-amd64", "darwin-arm64"}
-	wave := map[string][]string{"build": linux, "lint": linux, "lint-repo": linux, "go": linux, "component": linux, "diagram": linux}
+	wave := map[string][]string{"build": linux, "lint": linux, "go": linux, "component": linux, "diagram": linux}
 	train := map[string][]string{"build": linux, "e2e": linux, "browser": linux, "go-cache": linux, "platform": others}
 	merge := map[string][]string{
-		"build": linux, "lint": perOS, "lint-repo": linux, "go": linux, "e2e": linux,
+		"build": linux, "lint": perOS, "go": linux, "e2e": linux,
 		"browser": linux, "component": linux, "diagram": linux, "platform": others,
 	}
 	full := map[string][]string{
-		"build": all, "lint": perOS, "lint-repo": linux, "go": all, "e2e": all,
+		"build": all, "lint": perOS, "go": all, "e2e": all,
 		"browser": webkit, "component": linux, "diagram": linux,
 	}
 	with := func(m map[string][]string, lane string, targets []string) map[string][]string {
@@ -74,7 +74,7 @@ func TestPlanTargets(t *testing.T) {
 		{"merge", changescope.Native, false, "all", nil, merge, false},
 		{"merge", changescope.PR, true, "all", nil, with(merge, "build", all), true},
 		{"merge", changescope.PR, false, "all", linux, map[string][]string{
-			"build": linux, "lint": linux, "lint-repo": linux, "go": linux, "e2e": linux, "browser": linux, "component": linux, "diagram": linux,
+			"build": linux, "lint": linux, "go": linux, "e2e": linux, "browser": linux, "component": linux, "diagram": linux,
 		}, false},
 		{"wave", changescope.Docs, false, "all", nil, nil, false},
 		{"wave", changescope.PR, false, "all", nil, wave, false},
@@ -83,12 +83,13 @@ func TestPlanTargets(t *testing.T) {
 		{"train", changescope.Docs, false, "all", nil, nil, false},
 		{"train", changescope.PR, false, "all", nil, train, false},
 		{"train", changescope.Native, false, "all", nil, train, false},
-		{"push", changescope.Docs, false, "all", nil, map[string][]string{"lint": perOS, "go-cache": all}, false},
-		{"dispatch", changescope.Docs, false, "all", nil, full, false},
+		{"daily", changescope.Docs, false, "all", nil, map[string][]string{"online": linux}, false},
+		{"dispatch", changescope.Docs, false, "all", nil, with(full, "online", linux), false},
+		{"dispatch", changescope.Docs, false, "online", nil, map[string][]string{"online": linux}, false},
 		{"dispatch", changescope.Docs, false, "platform", nil, map[string][]string{"platform": others}, false},
 		{"dispatch", changescope.Docs, false, "platform", windows, map[string][]string{"platform": windows}, false},
 		{"dispatch", changescope.Docs, false, "all", windows, map[string][]string{"build": windows, "lint": windows, "go": windows, "e2e": windows}, false},
-		{"schedule", changescope.Docs, false, "all", nil, full, true},
+		{"schedule", changescope.Docs, false, "all", nil, with(with(full, "go-cache", all), "online", linux), true},
 		{"tag", changescope.Docs, false, "all", nil, with(full, "browser", linux), true},
 	}
 	for _, tt := range tests {
@@ -103,6 +104,46 @@ func TestPlanTargets(t *testing.T) {
 		}
 		if got.Package != tt.pack {
 			t.Errorf("plan(%s, %s, touched %t) packages %t, want %t", tt.kind, tt.scope, tt.touched, got.Package, tt.pack)
+		}
+	}
+}
+
+// The workflows read from each entry what they would otherwise branch on
+// the runner's OS for.
+func TestPlanEntriesCarryWhatTheirStepsWouldBranchOn(t *testing.T) {
+	got, err := plan(planInputs, runKinds["dispatch"], changescope.Native, touched{}, nil, "all", testImage, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	type facts struct {
+		repo         bool
+		exe          string
+		developerDir string
+		timeout      int
+	}
+	xcode := "/Applications/Xcode_16.4.app/Contents/Developer"
+	for _, tt := range []struct {
+		lane, target string
+		want         facts
+	}{
+		{"lint", "linux-amd64", facts{repo: true, timeout: 20}},
+		{"lint", "windows-amd64", facts{exe: ".exe", timeout: 20}},
+		{"lint", "darwin-arm64", facts{developerDir: xcode, timeout: 20}},
+		{"e2e", "linux-amd64", facts{timeout: 45}},
+		{"e2e", "windows-amd64", facts{exe: ".exe", timeout: 50}},
+		{"go", "darwin-arm64", facts{developerDir: xcode, timeout: 30}},
+	} {
+		m := got.Lanes[tt.lane].forTarget(tt.target)
+		if len(m.Include) == 0 {
+			t.Fatalf("dispatch runs no %s on %s", tt.lane, tt.target)
+		}
+		for _, e := range m.Include {
+			if f := (facts{e.Repo, e.Exe, e.DeveloperDir, e.Timeout}); f != tt.want {
+				t.Errorf("%s on %s = %+v, want %+v", tt.lane, tt.target, f, tt.want)
+			}
+			if e.Fixtures == "" {
+				t.Errorf("%s on %s names no fixture cache", tt.lane, tt.target)
+			}
 		}
 	}
 }
@@ -422,12 +463,14 @@ func TestTestsWorkflowRunsEveryLane(t *testing.T) {
 	}
 }
 
-// The ruleset requires the pull request run's gate by name, and a job in a
-// called workflow is named after its caller too, so each gate is a job of
-// the workflow an event starts. It fails when the plan or the tests call
-// fails or is canceled, and a failed lane fails the call.
-func TestEachRunGatesOnItsTests(t *testing.T) {
-	for workflow, gate := range map[string]string{"ci.yml": "All required checks passed", "push.yml": "All push checks passed"} {
+// Each workflow an event starts plans its run and runs the plan through
+// tests.yml. The ruleset requires the pull request run's gate by name, and
+// a job in a called workflow is named after its caller too, so each gate
+// is a job of the workflow an event starts. It fails when the plan or the
+// tests call fails or is canceled, and a failed lane fails the call.
+func TestEachRunPlansAndGatesItsTests(t *testing.T) {
+	gates := map[string]string{"pr.yml": "All required checks passed", "push.yml": "All push checks passed", "daily.yml": "", "release.yml": "", "run-tests.yml": ""}
+	for workflow, gate := range gates {
 		jobs := readWorkflow(t, workflow)
 		if want := "${{ steps.plan.outputs.plan }}"; jobs["plan"].Outputs["plan"] != want {
 			t.Errorf("%s: plan output plan = %q, want %q", workflow, jobs["plan"].Outputs["plan"], want)
@@ -438,6 +481,9 @@ func TestEachRunGatesOnItsTests(t *testing.T) {
 		}
 		if want := "${{ needs.plan.outputs.plan }}"; tests.With["plan"] != want {
 			t.Errorf("%s: job tests takes plan %v, want %q", workflow, tests.With["plan"], want)
+		}
+		if gate == "" {
+			continue
 		}
 		if named := jobsNamed(jobs, gate); !slices.Equal(named, []string{"gate"}) {
 			t.Fatalf("%s: jobs %v are named %q, want the gate alone", workflow, named, gate)

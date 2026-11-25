@@ -38,7 +38,10 @@ func testGoPackages(ctx context.Context, root string, o testOptions, tier string
 	if err != nil {
 		return nil, err
 	}
-	env := bundleEnv(bundle)
+	env, err := prepareRunner(ctx, root, tier, target.GOOS, bundleEnv(bundle))
+	if err != nil {
+		return nil, err
+	}
 	// A simulation package, worksapi's 20,000-Work and 32,767-Item cases,
 	// and the e2e package when no timings split it across shards run for
 	// most of twenty minutes under -race on a busy runner; the e2e job's

@@ -42,6 +42,8 @@ type lane struct {
 	// playwright runs the lane's Linux jobs in Playwright's container, which
 	// ships the browsers and their system libraries.
 	playwright bool
+	// limit is the job's timeout in minutes.
+	limit int
 }
 
 // touched says what the change touches that a lane or the packages
@@ -53,28 +55,29 @@ type touched struct {
 
 // lanes is the source of truth for what CI can run where. The build, go
 // and e2e lanes run on each target, since cgo and the OS change what they
-// prove. Gofmt, go vet and golangci-lint run once per OS: no Go file is
-// built for one architecture only, and lint compiles the cgo shim, so one
-// OS cannot lint another's. The browser lane runs Chromium and Firefox on
-// linux-amd64 and WebKit on both it and darwin, whose WebKit is the only
-// one that paints as Safari does, so no other target adds an engine. The
-// platform lane runs the platform suite where a run skips the go and e2e
-// lanes. Everything else runs once.
+// prove. The lint lane runs gofmt, go vet and golangci-lint once per OS: no
+// Go file is built for one architecture only, and lint compiles the cgo
+// shim, so one OS cannot lint another's. On linux it runs the repo-wide
+// checks too, which no OS changes. The browser lane runs Chromium and
+// Firefox on linux-amd64 and WebKit on both it and darwin, whose WebKit is
+// the only one that paints as Safari does, so no other target adds an
+// engine. The platform lane runs the platform suite where a run skips the
+// go and e2e lanes. Everything else runs once.
 // The go lane's shard time keeps a wave's critical path short. An e2e
 // shard runs its heaviest packages for most of its test step, so its shard
 // time stays clear of go test's 25 minute -timeout. A browser shard ends
 // its runs 2 minutes before the job's 45 minute limit.
 var lanes = []lane{
-	{kind: "build"},
-	{kind: "lint", tier: "lint", targets: []string{"linux-amd64", "windows-amd64", "darwin-arm64"}},
-	{kind: "lint-repo", tier: "lint", targets: []string{"linux-amd64"}},
-	{kind: "go", tier: "go", shardTime: 10 * time.Minute, defaultShards: 4},
-	{kind: "e2e", tier: "e2e", shardTime: 20 * time.Minute, defaultShards: 4},
-	{kind: "browser", tier: "browser", targets: []string{"linux-amd64", "darwin-arm64"}, playwright: true, shardTime: 30 * time.Minute, defaultShards: 4},
-	{kind: "component", tier: "component", playwright: true, targets: []string{"linux-amd64"}},
-	{kind: "diagram", tier: "component", playwright: true, targets: []string{"linux-amd64"}, onlyWhen: func(t touched) bool { return t.diagram }},
-	{kind: "go-cache"},
-	{kind: "platform", tier: "platform", targets: []string{"windows-amd64", "darwin-arm64", "linux-arm64"}},
+	{kind: "build", limit: 45},
+	{kind: "lint", tier: "lint", targets: []string{"linux-amd64", "windows-amd64", "darwin-arm64"}, limit: 20},
+	{kind: "go", tier: "go", shardTime: 10 * time.Minute, defaultShards: 4, limit: 30},
+	{kind: "e2e", tier: "e2e", shardTime: 20 * time.Minute, defaultShards: 4, limit: 45},
+	{kind: "browser", tier: "browser", targets: []string{"linux-amd64", "darwin-arm64"}, playwright: true, shardTime: 30 * time.Minute, defaultShards: 4, limit: 45},
+	{kind: "component", tier: "component", playwright: true, targets: []string{"linux-amd64"}, limit: 20},
+	{kind: "diagram", tier: "component", playwright: true, targets: []string{"linux-amd64"}, onlyWhen: func(t touched) bool { return t.diagram }, limit: 15},
+	{kind: "go-cache", limit: 45},
+	{kind: "platform", tier: "platform", targets: []string{"windows-amd64", "darwin-arm64", "linux-arm64"}, limit: 45},
+	{kind: "online", tier: "online", targets: []string{"linux-amd64"}, limit: 20},
 }
 
 // lanesOnBuild run against the build job's dist/.
@@ -134,7 +137,7 @@ func reaching(r reach, kinds ...string) map[string]reach {
 	return m
 }
 
-var testLanes = []string{"build", "lint", "lint-repo", "go", "e2e", "browser", "component", "diagram"}
+var testLanes = []string{"build", "lint", "go", "e2e", "browser", "component", "diagram"}
 
 // A wave is a pull request into a feature branch, which the train tests
 // further after it merges: each push to a feature branch runs the e2e and
@@ -142,30 +145,30 @@ var testLanes = []string{"build", "lint", "lint-repo", "go", "e2e", "browser", "
 // targets, and saves the Go cache the branch's waves restore. A merge is a
 // pull request into main, which runs the lanes of both and lints on each
 // OS. A change to the native libraries or the packages builds the packages
-// on every target. A push to main ran its tests on its pull request, so it
-// only saves the caches pull requests restore. The daily check runs each
-// lane on each of its targets, and a tag the same but with linux-amd64's
-// browsers alone. The budgets keep a wave and a train inside GitHub Free's
-// 20 concurrent jobs.
+// on every target. The daily check runs the online conformance tests, and
+// as a schedule run each lane on each of its targets too, saving each
+// target's Go cache. A dispatch runs what its tier picks, and a tag runs
+// every lane but online, with linux-amd64's browsers alone. The budgets
+// keep a wave and a train inside GitHub Free's 20 concurrent jobs.
 var runKinds = map[string]runKind{
-	"wave": {lanes: reaching(prTargets, "build", "lint", "lint-repo", "go", "component", "diagram"), budget: 8},
+	"wave": {lanes: reaching(prTargets, "build", "lint", "go", "component", "diagram"), budget: 8},
 	"train": {
 		lanes:  map[string]reach{"build": prTargets, "e2e": prTargets, "browser": prTargets, "go-cache": prTargets, "platform": allTargets},
 		budget: 12,
 	},
 	"merge": {
 		lanes: map[string]reach{
-			"build": packageTargets, "lint": allTargets, "lint-repo": prTargets, "go": prTargets, "e2e": prTargets,
+			"build": packageTargets, "lint": allTargets, "go": prTargets, "e2e": prTargets,
 			"browser": prTargets, "component": prTargets, "diagram": prTargets, "platform": allTargets,
 		},
 		budget: 18,
 	},
-	"push":     {lanes: reaching(allTargets, "lint", "go-cache"), everyTarget: true},
-	"dispatch": {lanes: reaching(allTargets, append(testLanes, "platform")...), everyTarget: true},
-	"schedule": {lanes: reaching(allTargets, testLanes...), everyTarget: true, packages: true},
+	"daily":    {lanes: reaching(allTargets, "online"), everyTarget: true},
+	"schedule": {lanes: reaching(allTargets, append(testLanes, "go-cache", "online")...), everyTarget: true, packages: true},
+	"dispatch": {lanes: reaching(allTargets, append(testLanes, "platform", "online")...), everyTarget: true},
 	"tag": {
 		lanes: map[string]reach{
-			"build": allTargets, "lint": allTargets, "lint-repo": allTargets, "go": allTargets, "e2e": allTargets,
+			"build": allTargets, "lint": allTargets, "go": allTargets, "e2e": allTargets,
 			"browser": prTargets, "component": allTargets, "diagram": allTargets,
 		},
 		everyTarget: true,
@@ -173,20 +176,40 @@ var runKinds = map[string]runKind{
 	},
 }
 
+// MatrixEntry is one job of a lane. It carries what a job's steps would
+// otherwise branch on the runner's OS for.
 type MatrixEntry struct {
 	Target string `json:"target"`
 	Runner string `json:"runner"`
 	GOOS   string `json:"goos"`
 	GOARCH string `json:"goarch"`
-	// Xcode is the Xcode version the runner selects for the target.
-	Xcode  string `json:"xcode,omitempty"`
-	Shard  int    `json:"shard"`
-	Shards int    `json:"shards"`
+	// DeveloperDir selects the Xcode the target pins, empty where it pins
+	// none.
+	DeveloperDir string `json:"developer-dir"`
+	// Exe ends the name of each of the target's executables.
+	Exe string `json:"exe"`
+	// Fixtures is where the worlds keep the fixtures they encode, as
+	// actions/cache names the path on the target's runner.
+	Fixtures string `json:"fixtures"`
+	// Timeout is the job's limit in minutes.
+	Timeout int `json:"timeout"`
+	// Repo runs the repo-wide checks after lint's Go checks.
+	Repo   bool `json:"repo"`
+	Shard  int  `json:"shard"`
+	Shards int  `json:"shards"`
 	// Container is the image the job runs in, empty to run on the runner.
 	Container string `json:"container"`
 	// Timings is the ID of the run whose timings the job splits its tier
 	// by, empty when no run recorded the lane on the target.
 	Timings string `json:"timings"`
+}
+
+// fixtureCaches is os.UserCacheDir's slipstream-fixtures on each OS, where
+// fakes/internal/releases keeps the fixtures it encodes.
+var fixtureCaches = map[string]string{
+	"linux":   "~/.cache/slipstream-fixtures",
+	"darwin":  "~/Library/Caches/slipstream-fixtures",
+	"windows": `~\AppData\Local\slipstream-fixtures`,
 }
 
 type Matrix struct {
@@ -215,7 +238,7 @@ type TargetMatrix struct {
 }
 
 func init() {
-	register("plan", "print the CI matrix of each lane for a run kind: build, lint, lint-repo, go, e2e, browser, component, diagram, go-cache and platform", runPlan)
+	register("plan", "print the CI matrix of each lane for a run kind: build, lint, go, e2e, browser, component, diagram, go-cache, platform and online", runPlan)
 }
 
 func runPlan(ctx context.Context, args []string) error {
@@ -622,9 +645,26 @@ func (s sized) entries(image string) []MatrixEntry {
 	if !s.lane.playwright || t.GOOS != "linux" {
 		image = ""
 	}
+	e := MatrixEntry{
+		Target: t.Name, Runner: t.Runner, GOOS: t.GOOS, GOARCH: t.GOARCH,
+		Fixtures: fixtureCaches[t.GOOS], Timeout: s.lane.limit, Repo: s.lane.kind == "lint" && t.GOOS == "linux",
+		Shards: s.shards, Container: image, Timings: s.run,
+	}
+	if t.xcode != "" {
+		e.DeveloperDir = "/Applications/Xcode_" + t.xcode + ".app/Contents/Developer"
+	}
+	if t.GOOS == "windows" {
+		e.Exe = ".exe"
+		// Windows runners take an e2e shard past 35 minutes with every test
+		// passing.
+		if s.lane.kind == "e2e" {
+			e.Timeout += 5
+		}
+	}
 	entries := make([]MatrixEntry, s.shards)
 	for i := range entries {
-		entries[i] = MatrixEntry{t.Name, t.Runner, t.GOOS, t.GOARCH, t.xcode, i + 1, s.shards, image, s.run}
+		entries[i] = e
+		entries[i].Shard = i + 1
 	}
 	return entries
 }

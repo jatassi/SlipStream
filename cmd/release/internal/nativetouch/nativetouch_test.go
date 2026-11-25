@@ -45,8 +45,8 @@ func TestMatches(t *testing.T) {
 		},
 		{
 			name:    "workflow change",
-			changes: []Change{modified(".github/workflows/ci.yml", "a", "b")},
-			want:    []Match{{"native-root", ".github/workflows/ci.yml"}},
+			changes: []Change{modified(".github/workflows/pr.yml", "a", "b")},
+			want:    []Match{{"native-root", ".github/workflows/pr.yml"}},
 		},
 		{
 			name: "data dir lock and control socket packages",

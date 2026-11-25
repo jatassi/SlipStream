@@ -96,12 +96,12 @@ func runTest(ctx context.Context, args []string) error {
 	fs.StringVar(&o.timings, "timings", "", "directory of earlier runs' timings to split the shards by")
 	fs.StringVar(&o.record, "record", "", "write this run's timings to this file")
 	fs.StringVar(&o.failures, "failures", "", "write the failed tests to this file as JSON")
-	fs.Func("deadline", "end the browser tier's runs at this Unix time, in seconds, so a shard that outgrows its job still reports", func(v string) error {
-		sec, err := strconv.ParseInt(v, 10, 64)
-		if err != nil {
-			return fmt.Errorf("-deadline %q is not a Unix time in seconds", v)
+	fs.Func("deadline", "end the browser tier's runs this long after the command starts, such as 40m, so a shard that outgrows its job still reports", func(v string) error {
+		d, err := time.ParseDuration(v)
+		if err != nil || d <= 0 {
+			return fmt.Errorf("-deadline %q is not a positive duration such as 40m", v)
 		}
-		o.deadline = time.Unix(sec, 0)
+		o.deadline = time.Now().Add(d)
 		return nil
 	})
 	ownArgs, goArgs := splitOwnFlags(fs, args)
@@ -201,7 +201,8 @@ func testE2E(ctx context.Context, root string, o testOptions) ([]failure, error)
 // checks. TEST_ONLINE_TMDB_KEY carries TMDB's key, TEST_ONLINE_TVDB_KEY
 // TVDB's and TEST_ONLINE_OMDB_KEY OMDb's; -update rewrites each suite's
 // shape.json, and runs only the suites that record one, since a test binary
-// that defines no -update fails on it.
+// that defines no -update fails on it. A failure names its suite's package,
+// which the daily check files an issue for.
 func testOnline(ctx context.Context, root string, o testOptions) ([]failure, error) {
 	pkgs := []string{"./conformance/..."}
 	if slices.Contains(o.goArgs, "-update") {
@@ -210,14 +211,8 @@ func testOnline(ctx context.Context, root string, o testOptions) ([]failure, err
 			return nil, err
 		}
 	}
-	args := slices.Concat([]string{"test", "-tags", "online", "-count=1"}, pkgs, o.goArgs)
-	gotest := exec.CommandContext(ctx, "go", args...)
-	gotest.Dir = root
-	gotest.Stdout, gotest.Stderr = os.Stdout, os.Stderr
-	if err := gotest.Run(); err != nil {
-		return nil, fmt.Errorf("go test: %w", err)
-	}
-	return nil, nil
+	_, r, err := runShard(ctx, root, nil, slices.Concat([]string{"-tags", "online", "-count=1"}, o.goArgs), []goRun{{packages: pkgs}})
+	return r.failed, err
 }
 
 // shapeSuites lists the conformance packages whose tests import the shape
@@ -367,9 +362,17 @@ func installChromium(ctx context.Context, root string) error {
 	return run(ctx, filepath.Join(root, "web"), nil, "bun", "x", "playwright", "install", "chromium")
 }
 
-// testBrowser needs Go only to find or build a binary the variables leave
-// out, so CI's browser shards run it from the build job's dist/ alone.
 func testBrowser(ctx context.Context, root string, o testOptions) ([]failure, error) {
+	env, err := prepareRunner(ctx, root, "browser", runtime.GOOS, os.Environ())
+	if err != nil {
+		return nil, err
+	}
+	return runBrowserTier(ctx, root, env, o)
+}
+
+// runBrowserTier needs Go only to find or build a binary the variables leave
+// out, so CI's browser shards run it from the build job's dist/ alone.
+func runBrowserTier(ctx context.Context, root string, env []string, o testOptions) ([]failure, error) {
 	slipstream, haveSlipstream := testBinary(root, "TEST_SLIPSTREAM_BINARY")
 	fakeworld, haveFakeworld := testBinary(root, "TEST_FAKEWORLD_BINARY")
 	if !haveSlipstream || !haveFakeworld {
@@ -397,7 +400,7 @@ func testBrowser(ctx context.Context, root string, o testOptions) ([]failure, er
 		return nil, err
 	}
 	web := filepath.Join(root, "web")
-	env := append(os.Environ(), "TEST_SLIPSTREAM_BINARY="+slipstream, "TEST_FAKEWORLD_BINARY="+fakeworld)
+	env = append(slices.Clone(env), "TEST_SLIPSTREAM_BINARY="+slipstream, "TEST_FAKEWORLD_BINARY="+fakeworld)
 	if err := run(ctx, web, env, "bun", "run", "e2e:install"); err != nil {
 		return nil, err
 	}

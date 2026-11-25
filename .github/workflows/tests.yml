@@ -11,6 +11,10 @@ on:
         description: Whether the go, e2e and browser shards upload the timings of what they ran
         type: boolean
         default: false
+      save-caches:
+        description: Whether the lint jobs save the golangci-lint cache
+        type: boolean
+        default: false
       filter:
         description: Run only the tests that match, as go test -run and playwright --grep
         type: string
@@ -19,10 +23,16 @@ on:
         description: Run each test this many times, as go test -count and playwright --repeat-each
         type: string
         default: "1"
+      update-shapes:
+        description: Rewrite each conformance suite's shape.json from the real services and upload them
+        type: boolean
+        default: false
     secrets:
       TMDB_API_KEY:
       TVDB_API_KEY:
       OMDB_API_KEY:
+      SUBDL_API_KEY:
+      SUBSOURCE_API_KEY:
 
 permissions:
   contents: read
@@ -59,11 +69,11 @@ jobs:
       OMDB_API_KEY: ${{ secrets.OMDB_API_KEY }}
 
   # Lint runs once per OS so gofmt, line endings and the cgo type check
-  # are proven on each.
+  # are proven on each. The linux job runs the repo-wide checks too.
   lint:
     name: Lint (${{ matrix.target }})
     if: fromJSON(inputs.plan).planned['lint']
-    timeout-minutes: 20
+    timeout-minutes: ${{ matrix.timeout }}
     permissions:
       contents: read
       actions: write
@@ -73,12 +83,10 @@ jobs:
     runs-on: ${{ matrix.runner }}
     env:
       GOARCH: ${{ matrix.goarch }}
+      DEVELOPER_DIR: ${{ matrix.developer-dir }}
     steps:
       - name: Check out
         uses: actions/checkout@v7
-      - name: Select Xcode
-        if: matrix.xcode
-        run: echo "DEVELOPER_DIR=/Applications/Xcode_${{ matrix.xcode }}.app/Contents/Developer" >> "$GITHUB_ENV"
       - name: Set up Go
         uses: ./.github/actions/go
         with:
@@ -97,65 +105,48 @@ jobs:
           key: native-${{ matrix.target }}-${{ hashFiles('native/lock.json') }}
       - name: Lint Go
         run: go run ./cmd/release lint -part target
+      - name: Set up Node
+        if: matrix.repo
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: Set up Bun
+        if: matrix.repo
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: web/package.json
+      - name: Restore the Bun cache
+        if: matrix.repo
+        uses: actions/cache@v6
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('web/bun.lock') }}
+      # The last check compares each port's provenance against Prowlarr's
+      # history.
+      - name: Run repo-wide checks
+        if: matrix.repo
+        run: |
+          go run ./cmd/release lint -part repo
+          go run ./cmd/release deps fetch > /dev/null
+          eval "$(go run ./cmd/release deps env)"
+          git clone --quiet --filter=blob:none --no-checkout https://github.com/Prowlarr/Prowlarr "$RUNNER_TEMP/prowlarr"
+          go run ./cmd/prowlarr-sync check --prowlarr "$RUNNER_TEMP/prowlarr"
       - name: Save the golangci-lint cache
-        if: ${{ !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+        if: ${{ !cancelled() && inputs.save-caches }}
         uses: actions/cache/save@v6
         with:
           path: ${{ runner.temp }}/golangci-lint
           key: ${{ steps.lint-cache.outputs.cache-primary-key }}
       - name: Delete the older golangci-lint caches
-        if: ${{ !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+        if: ${{ !cancelled() && inputs.save-caches }}
         uses: ./.github/actions/prune-cache
         with:
           prefix: lint-${{ matrix.target }}-
 
-  lint-repo:
-    name: Repo-wide checks (${{ matrix.target }})
-    if: fromJSON(inputs.plan).planned['lint-repo']
-    timeout-minutes: 20
-    strategy:
-      fail-fast: false
-      matrix: ${{ fromJSON(inputs.plan)['lint-repo'] }}
-    runs-on: ${{ matrix.runner }}
-    steps:
-      - name: Check out
-        uses: actions/checkout@v7
-      - name: Set up Go
-        uses: ./.github/actions/go
-        with:
-          cache: go-${{ matrix.target }}
-      - name: Set up Node
-        uses: actions/setup-node@v7
-        with:
-          node-version: 24
-      - name: Set up Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version-file: web/package.json
-      - name: Cache Bun's install cache
-        if: runner.os != 'Windows'
-        uses: actions/cache@v6
-        with:
-          path: ~/.bun/install/cache
-          key: bun-${{ runner.os }}-${{ hashFiles('web/bun.lock') }}
-      - name: Run the repo-wide checks
-        run: go run ./cmd/release lint -part repo
-      - name: Restore native libraries
-        uses: actions/cache@v6
-        with:
-          path: ${{ runner.temp }}/slipstream-native
-          key: native-${{ matrix.target }}-${{ hashFiles('native/lock.json') }}
-      - name: Check each port's provenance against Prowlarr's history
-        run: |
-          scripts/native-deps fetch > /dev/null
-          eval "$(scripts/native-deps env)"
-          git clone --quiet --filter=blob:none --no-checkout https://github.com/Prowlarr/Prowlarr "$RUNNER_TEMP/prowlarr"
-          go run ./cmd/prowlarr-sync check --prowlarr "$RUNNER_TEMP/prowlarr"
-
   go:
     name: Go tests (${{ matrix.target }}${{ matrix.shards > 1 && format(', shard {0} of {1}', matrix.shard, matrix.shards) || '' }})
     if: fromJSON(inputs.plan).planned['go']
-    timeout-minutes: 30
+    timeout-minutes: ${{ matrix.timeout }}
     permissions:
       contents: read
       actions: read
@@ -165,15 +156,13 @@ jobs:
     runs-on: ${{ matrix.runner }}
     env:
       GOARCH: ${{ matrix.goarch }}
+      DEVELOPER_DIR: ${{ matrix.developer-dir }}
       SHARD: ${{ matrix.shard }}/${{ matrix.shards }}
       FILTER: ${{ inputs.filter }}
       REPEAT: ${{ inputs.repeat }}
     steps:
       - name: Check out
         uses: actions/checkout@v7
-      - name: Select Xcode
-        if: matrix.xcode
-        run: echo "DEVELOPER_DIR=/Applications/Xcode_${{ matrix.xcode }}.app/Contents/Developer" >> "$GITHUB_ENV"
       - name: Set up Go
         uses: ./.github/actions/go
         with:
@@ -188,7 +177,7 @@ jobs:
       - name: Restore fixtures
         uses: actions/cache@v6
         with:
-          path: ${{ runner.os == 'Windows' && '~\AppData\Local\slipstream-fixtures' || runner.os == 'macOS' && '~/Library/Caches/slipstream-fixtures' || '~/.cache/slipstream-fixtures' }}
+          path: ${{ matrix.fixtures }}
           key: fixtures-${{ matrix.target }}-${{ hashFiles('native/lock.json', 'fakes/internal/mediafix/recipe.go', 'fakes/internal/releases/releases.go', 'fakes/scenario/catalog/*.yaml') }}
           restore-keys: fixtures-${{ matrix.target }}-
       # The plan names the newest run that recorded this lane on this target.
@@ -201,23 +190,7 @@ jobs:
           run-id: ${{ matrix.timings }}
           github-token: ${{ github.token }}
           path: .timings
-      # Windows runners keep TEMP on C:, which is far slower than D:, and the
-      # tests' temp dirs live under TEMP.
-      - name: Point TEMP at the fast drive
-        if: runner.os == 'Windows'
-        run: |
-          echo "TMP=$RUNNER_TEMP" >> "$GITHUB_ENV"
-          echo "TEMP=$RUNNER_TEMP" >> "$GITHUB_ENV"
-      # TestTheListenerFollowsTheDefaultRoute moves a listener to 127.0.0.2,
-      # which macOS answers only once aliased.
-      - name: Alias a second loopback address
-        if: matrix.goos == 'darwin'
-        run: sudo ifconfig lo0 alias 127.0.0.2 up
-      # With one address besides loopback a host announces once whatever the
-      # engine does, so TestEachTorrentAnnouncesStartedOnce needs a second.
-      - name: Add a second IPv4 address to the default interface
-        if: matrix.goos == 'linux'
-        run: sudo ip addr add 198.51.100.7/32 dev "$(ip -4 route show default | awk '{print $5; exit}')"
+      # On CI the tier first adds the addresses its tests listen on.
       - name: Run Go tests
         run: go run ./cmd/release test -tier go -shard "$SHARD" -filter "$FILTER" -repeat "$REPEAT" -timings .timings -record "$RUNNER_TEMP/timings/${{ matrix.target }}-go-${{ matrix.shard }}.json" -failures "$RUNNER_TEMP/failures/${{ matrix.target }}-go-${{ matrix.shard }}.json"
       - name: Upload this shard's test timings
@@ -239,9 +212,9 @@ jobs:
   # The component and Diagram jobs run in Playwright's container, as the
   # browser job does on Linux.
   component:
-    name: Component tests (${{ matrix.target }})
+    name: Component tests${{ matrix.shards > 1 && format(' (shard {0} of {1})', matrix.shard, matrix.shards) || '' }}
     if: fromJSON(inputs.plan).planned['component']
-    timeout-minutes: 20
+    timeout-minutes: ${{ matrix.timeout }}
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(inputs.plan)['component'] }}
@@ -259,7 +232,7 @@ jobs:
           cache: go-plan
       - name: Set up Bun
         uses: ./.github/actions/bun
-      - name: Cache Bun's install cache
+      - name: Restore the Bun cache
         uses: actions/cache@v6
         with:
           path: ~/.bun/install/cache
@@ -277,9 +250,9 @@ jobs:
   # A pull request runs the Diagram check only when its scope touches what
   # the check reads; every other event runs it.
   diagram:
-    name: Diagram check (${{ matrix.target }})
+    name: Diagram check${{ matrix.shards > 1 && format(' (shard {0} of {1})', matrix.shard, matrix.shards) || '' }}
     if: fromJSON(inputs.plan).planned['diagram']
-    timeout-minutes: 15
+    timeout-minutes: ${{ matrix.timeout }}
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(inputs.plan)['diagram'] }}
@@ -297,7 +270,7 @@ jobs:
           cache: go-plan
       - name: Set up Bun
         uses: ./.github/actions/bun
-      - name: Cache Bun's install cache
+      - name: Restore the Bun cache
         uses: actions/cache@v6
         with:
           path: ~/.bun/install/cache
@@ -315,10 +288,12 @@ jobs:
   # Pull requests restore the Go cache of their base branch, then main's.
   # So this job compiles what the build, lint, go and e2e jobs compile, and
   # saves it once per target and ref, off the path of any job that waits.
+  # The train saves linux-amd64's on its feature branch, and the daily
+  # check every target's on main.
   go-cache:
     name: Save Go cache (${{ matrix.target }})
     if: fromJSON(inputs.plan).planned['go-cache']
-    timeout-minutes: 45
+    timeout-minutes: ${{ matrix.timeout }}
     permissions:
       contents: read
       actions: write
@@ -328,12 +303,10 @@ jobs:
     runs-on: ${{ matrix.runner }}
     env:
       GOARCH: ${{ matrix.goarch }}
+      DEVELOPER_DIR: ${{ matrix.developer-dir }}
     steps:
       - name: Check out
         uses: actions/checkout@v7
-      - name: Select Xcode
-        if: matrix.xcode
-        run: echo "DEVELOPER_DIR=/Applications/Xcode_${{ matrix.xcode }}.app/Contents/Developer" >> "$GITHUB_ENV"
       - name: Set up Go
         id: go
         uses: ./.github/actions/go
@@ -385,15 +358,15 @@ jobs:
   platform:
     name: Platform tests (${{ matrix.target }})
     if: fromJSON(inputs.plan).planned['platform']
-    timeout-minutes: 45
+    timeout-minutes: ${{ matrix.timeout }}
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(inputs.plan)['platform'] }}
     runs-on: ${{ matrix.runner }}
     env:
       GOARCH: ${{ matrix.goarch }}
-      DEVELOPER_DIR: ${{ matrix.xcode && format('/Applications/Xcode_{0}.app/Contents/Developer', matrix.xcode) || '' }}
-      EXE: ${{ matrix.goos == 'windows' && '.exe' || '' }}
+      DEVELOPER_DIR: ${{ matrix.developer-dir }}
+      EXE: ${{ matrix.exe }}
     steps:
       - name: Check out
         uses: actions/checkout@v7
@@ -417,7 +390,7 @@ jobs:
       - name: Restore fixtures
         uses: actions/cache@v6
         with:
-          path: ${{ runner.os == 'Windows' && '~\AppData\Local\slipstream-fixtures' || runner.os == 'macOS' && '~/Library/Caches/slipstream-fixtures' || '~/.cache/slipstream-fixtures' }}
+          path: ${{ matrix.fixtures }}
           key: fixtures-${{ matrix.target }}-${{ hashFiles('native/lock.json', 'fakes/internal/mediafix/recipe.go', 'fakes/internal/releases/releases.go', 'fakes/scenario/catalog/*.yaml') }}
           restore-keys: fixtures-${{ matrix.target }}-
       - name: Restore the Bun cache
@@ -430,14 +403,13 @@ jobs:
           go run ./cmd/release build
           eval "$(go run ./cmd/release deps env)"
           go build -o dist/ ./cmd/fakeworld ./cmd/release
-      # On CI the tier readies the runner for its worlds first, as the e2e
-      # job's own steps do.
+      # On CI the tier readies the runner for its worlds first.
       - name: Run platform tests
         run: '"dist/release$EXE" test -tier platform -failures "$RUNNER_TEMP/failures/${{ matrix.target }}-platform.json"'
         env:
-          TEST_SLIPSTREAM_BINARY: ${{ github.workspace }}/dist/slipstream${{ env.EXE }}
-          TEST_SLIPSTREAM_E2E_BINARY: ${{ github.workspace }}/dist/slipstream-e2e${{ env.EXE }}
-          TEST_FAKEWORLD_BINARY: ${{ github.workspace }}/dist/fakeworld${{ env.EXE }}
+          TEST_SLIPSTREAM_BINARY: ${{ github.workspace }}/dist/slipstream${{ matrix.exe }}
+          TEST_SLIPSTREAM_E2E_BINARY: ${{ github.workspace }}/dist/slipstream-e2e${{ matrix.exe }}
+          TEST_FAKEWORLD_BINARY: ${{ github.workspace }}/dist/fakeworld${{ matrix.exe }}
           TEST_FAKEWORLD_RUNS: ${{ runner.temp }}/fakeworld-runs
       # Each failed run dir is a replay bundle. The run's copies of the
       # binaries stay out of it.
@@ -451,3 +423,44 @@ jobs:
             ${{ runner.temp }}/fakeworld-runs
             !${{ runner.temp }}/fakeworld-runs/**/bin/**
           if-no-files-found: ignore
+
+  # The conformance suites against the real TMDB, TVDB, OMDb, SubDL,
+  # SubSource, TMDB's image host and MusicBrainz (spec #135, Online runs),
+  # in the daily check and on dispatch. A run without the TMDB key fails
+  # rather than skips; the OMDb and TVDB suites skip without their key.
+  online:
+    name: Online conformance tests${{ matrix.shards > 1 && format(' (shard {0} of {1})', matrix.shard, matrix.shards) || '' }}
+    if: fromJSON(inputs.plan).planned['online']
+    timeout-minutes: ${{ matrix.timeout }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(inputs.plan)['online'] }}
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+      - name: Set up Go
+        uses: ./.github/actions/go
+        with:
+          cache: go-plan
+      - name: Run online conformance tests
+        run: go run ./cmd/release test -tier online -failures "$RUNNER_TEMP/failures/online.json" ${{ inputs.update-shapes && '-update' || '' }}
+        env:
+          TEST_ONLINE_TMDB_KEY: ${{ secrets.TMDB_API_KEY }}
+          TEST_ONLINE_TVDB_KEY: ${{ secrets.TVDB_API_KEY }}
+          TEST_ONLINE_OMDB_KEY: ${{ secrets.OMDB_API_KEY }}
+          TEST_ONLINE_SUBDL_KEY: ${{ secrets.SUBDL_API_KEY }}
+          TEST_ONLINE_SUBSOURCE_KEY: ${{ secrets.SUBSOURCE_API_KEY }}
+      - name: Upload the failed tests
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: failures-online
+          path: ${{ runner.temp }}/failures
+          if-no-files-found: ignore
+      - name: Upload the updated shape.json files
+        if: ${{ !cancelled() && inputs.update-shapes }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: shapes
+          path: conformance/*/shape.json

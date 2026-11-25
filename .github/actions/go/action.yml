@@ -1,5 +1,5 @@
 name: go
-description: Install go.mod's Go and restore the Go caches saved by pushes to main and feature branches
+description: Install go.mod's Go and restore the Go caches that the daily check saves on main and the train on feature branches
 inputs:
   cache:
     description: Cache key prefix; the key adds the commit

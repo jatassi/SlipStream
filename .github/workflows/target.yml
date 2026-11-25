@@ -45,19 +45,17 @@ defaults:
 jobs:
   build:
     name: Build (${{ matrix.target }})
-    timeout-minutes: 45
+    timeout-minutes: ${{ matrix.timeout }}
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(inputs.build) }}
     runs-on: ${{ matrix.runner }}
     env:
       GOARCH: ${{ matrix.goarch }}
+      DEVELOPER_DIR: ${{ matrix.developer-dir }}
     steps:
       - name: Check out
         uses: actions/checkout@v7
-      - name: Select Xcode
-        if: matrix.xcode
-        run: echo "DEVELOPER_DIR=/Applications/Xcode_${{ matrix.xcode }}.app/Contents/Developer" >> "$GITHUB_ENV"
       - name: Set up Go
         uses: ./.github/actions/go
         with:
@@ -70,9 +68,7 @@ jobs:
         uses: oven-sh/setup-bun@v2
         with:
           bun-version-file: web/package.json
-      # Bun installs faster on Windows than its cache restores there.
-      - name: Cache Bun's install cache
-        if: runner.os != 'Windows'
+      - name: Restore the Bun cache
         uses: actions/cache@v6
         with:
           path: ~/.bun/install/cache
@@ -156,8 +152,7 @@ jobs:
     name: End-to-end tests (${{ matrix.target }}${{ matrix.shards > 1 && format(', shard {0} of {1}', matrix.shard, matrix.shards) || '' }})
     needs: build
     if: fromJSON(inputs.e2e).include[0]
-    # Windows runners take a shard past 35 minutes with every test passing.
-    timeout-minutes: ${{ matrix.target == 'windows-amd64' && 50 || 45 }}
+    timeout-minutes: ${{ matrix.timeout }}
     permissions:
       contents: read
       actions: read
@@ -167,16 +162,13 @@ jobs:
     runs-on: ${{ matrix.runner }}
     env:
       GOARCH: ${{ matrix.goarch }}
+      DEVELOPER_DIR: ${{ matrix.developer-dir }}
       SHARD: ${{ matrix.shard }}/${{ matrix.shards }}
       FILTER: ${{ inputs.filter }}
       REPEAT: ${{ inputs.repeat }}
-      EXE: ${{ matrix.goos == 'windows' && '.exe' || '' }}
     steps:
       - name: Check out
         uses: actions/checkout@v7
-      - name: Select Xcode
-        if: matrix.xcode
-        run: echo "DEVELOPER_DIR=/Applications/Xcode_${{ matrix.xcode }}.app/Contents/Developer" >> "$GITHUB_ENV"
       - name: Set up Go
         uses: ./.github/actions/go
         with:
@@ -191,16 +183,13 @@ jobs:
       - name: Restore fixtures
         uses: actions/cache@v6
         with:
-          path: ${{ runner.os == 'Windows' && '~\AppData\Local\slipstream-fixtures' || runner.os == 'macOS' && '~/Library/Caches/slipstream-fixtures' || '~/.cache/slipstream-fixtures' }}
+          path: ${{ matrix.fixtures }}
           key: fixtures-${{ matrix.target }}-${{ hashFiles('native/lock.json', 'fakes/internal/mediafix/recipe.go', 'fakes/internal/releases/releases.go', 'fakes/scenario/catalog/*.yaml') }}
           restore-keys: fixtures-${{ matrix.target }}-
       - name: Download build output
         uses: actions/download-artifact@v8
         with:
           name: dist-${{ matrix.target }}
-      # An artifact does not keep the executable bit.
-      - name: Restore the executable bits on dist/
-        run: chmod +x dist/*
       # The plan names the newest run that recorded this lane on this target.
       - name: Download test timings
         if: matrix.timings
@@ -211,31 +200,16 @@ jobs:
           run-id: ${{ matrix.timings }}
           github-token: ${{ github.token }}
           path: .timings
-      # The tier's Nodes bind 127.0.0.2 and up, which macOS answers only
-      # once aliased. The second run must change nothing.
-      - name: Alias loopback addresses for the Nodes
-        if: matrix.goos == 'darwin'
-        run: |
-          sudo dist/fakeworld setup-loopback
-          second="$(sudo dist/fakeworld setup-loopback)"
-          echo "$second"
-          test "$second" = "loopback aliases already set up"
-      - name: Point TEMP at the fast drive
-        if: runner.os == 'Windows'
-        run: |
-          echo "TMP=$RUNNER_TEMP" >> "$GITHUB_ENV"
-          echo "TEMP=$RUNNER_TEMP" >> "$GITHUB_ENV"
-      # A PR reaches no fixture cache another branch saved, and worlds that
-      # launch together on a cold cache encode inside their 2 min limits.
-      - name: Encode the fixtures the cache lacks
-        run: '"dist/fakeworld$EXE" fixtures --binary "dist/slipstream$EXE"'
+      # On CI the tier first restores the executable bits an artifact drops,
+      # readies the runner for its worlds and encodes the fixtures the cache
+      # lacks.
       - name: Run end-to-end tests
         id: test
         run: go run ./cmd/release test -tier e2e -shard "$SHARD" -filter "$FILTER" -repeat "$REPEAT" -timings .timings -record "$RUNNER_TEMP/timings/${{ matrix.target }}-e2e-${{ matrix.shard }}.json" -failures "$RUNNER_TEMP/failures/${{ matrix.target }}-e2e-${{ matrix.shard }}.json"
         env:
-          TEST_SLIPSTREAM_BINARY: ${{ github.workspace }}/dist/slipstream${{ env.EXE }}
-          TEST_SLIPSTREAM_E2E_BINARY: ${{ github.workspace }}/dist/slipstream-e2e${{ env.EXE }}
-          TEST_FAKEWORLD_BINARY: ${{ github.workspace }}/dist/fakeworld${{ env.EXE }}
+          TEST_SLIPSTREAM_BINARY: ${{ github.workspace }}/dist/slipstream${{ matrix.exe }}
+          TEST_SLIPSTREAM_E2E_BINARY: ${{ github.workspace }}/dist/slipstream-e2e${{ matrix.exe }}
+          TEST_FAKEWORLD_BINARY: ${{ github.workspace }}/dist/fakeworld${{ matrix.exe }}
           TEST_FAKEWORLD_RUNS: ${{ runner.temp }}/fakeworld-runs
       # Each failed run dir is a replay bundle. The run's copies of the
       # binaries stay out of it; fakeworld replay --binary takes them from
@@ -270,7 +244,7 @@ jobs:
     name: Browser tests (${{ matrix.target }}${{ matrix.shards > 1 && format(', shard {0} of {1}', matrix.shard, matrix.shards) || '' }})
     needs: build
     if: fromJSON(inputs.browser).include[0]
-    timeout-minutes: 45
+    timeout-minutes: ${{ matrix.timeout }}
     permissions:
       contents: read
       actions: read
@@ -291,24 +265,18 @@ jobs:
       SHARD: ${{ matrix.shard }}/${{ matrix.shards }}
       FILTER: ${{ inputs.filter }}
       REPEAT: ${{ inputs.repeat }}
-      EXE: ${{ matrix.goos == 'windows' && '.exe' || '' }}
+      EXE: ${{ matrix.exe }}
       # A cache entry holds its paths relative to the workspace, and the
       # container's home sits elsewhere from it than the runner's, so an
       # entry restores only where it was saved.
       CACHE_SIDE: ${{ matrix.container && 'container-' || '' }}
     steps:
-      # The test step ends its Playwright runs 2 minutes before the job's
-      # limit, so a shard that runs long still reports and records timings.
-      - name: Note when the browser tests must end
-        run: echo "DEADLINE=$(( $(date +%s) + 43 * 60 ))" >> "$GITHUB_ENV"
       - name: Check out
         uses: actions/checkout@v7
       - name: Download build output
         uses: actions/download-artifact@v8
         with:
           name: dist-${{ matrix.target }}
-      - name: Restore the executable bits on dist/
-        run: chmod +x dist/*
       # The worlds encode each catalog Scenario's release payloads and
       # library files once per machine, into the user cache dir. A file's
       # name hashes what made it, so an older cache's files still hold, and
@@ -316,7 +284,7 @@ jobs:
       - name: Restore fixtures
         uses: actions/cache@v6
         with:
-          path: ${{ runner.os == 'Windows' && '~\AppData\Local\slipstream-fixtures' || runner.os == 'macOS' && '~/Library/Caches/slipstream-fixtures' || '~/.cache/slipstream-fixtures' }}
+          path: ${{ matrix.fixtures }}
           key: fixtures-${{ env.CACHE_SIDE }}${{ matrix.target }}-${{ hashFiles('native/lock.json', 'fakes/internal/mediafix/recipe.go', 'fakes/internal/releases/releases.go', 'fakes/scenario/catalog/*.yaml') }}
           restore-keys: fixtures-${{ env.CACHE_SIDE }}${{ matrix.target }}-
       # Playwright runs under Node through bun run. The container has its own.
@@ -333,8 +301,7 @@ jobs:
       - name: Set up Bun in the container
         if: matrix.container
         uses: ./.github/actions/bun
-      - name: Cache Bun's install cache
-        if: runner.os != 'Windows'
+      - name: Restore the Bun cache
         uses: actions/cache@v6
         with:
           path: ~/.bun/install/cache
@@ -348,9 +315,6 @@ jobs:
         with:
           path: ${{ runner.temp }}/ms-playwright
           key: playwright-${{ matrix.target }}-${{ hashFiles('web/bun.lock') }}
-      - name: Alias loopback addresses for the Nodes
-        if: matrix.goos == 'darwin'
-        run: sudo dist/fakeworld setup-loopback
       # The plan names the newest run that recorded this lane on this target.
       - name: Download test timings
         if: matrix.timings
@@ -361,22 +325,19 @@ jobs:
           run-id: ${{ matrix.timings }}
           github-token: ${{ github.token }}
           path: .timings
-      - name: Point TEMP at the fast drive
-        if: runner.os == 'Windows'
-        run: |
-          echo "TMP=$RUNNER_TEMP" >> "$GITHUB_ENV"
-          echo "TEMP=$RUNNER_TEMP" >> "$GITHUB_ENV"
-      # A PR reaches no fixture cache another branch saved, and worlds that
-      # launch together on a cold cache encode inside their 2 min limits.
-      - name: Encode the fixtures the cache lacks
-        run: '"dist/fakeworld$EXE" fixtures --binary "dist/slipstream$EXE"'
+      # An artifact keeps no executable bits, so the step restores the
+      # release tool's, and on CI the tier restores the rest, readies the
+      # runner for its worlds and encodes the fixtures the cache lacks. It
+      # ends its Playwright runs 40 minutes after it starts, inside the job's
+      # limit, so a shard that runs long still reports and records timings.
       - name: Run browser tests
         id: test
         run: |
-          "dist/release$EXE" test -tier browser -shard "$SHARD" -filter "$FILTER" -repeat "$REPEAT" -timings .timings -record "$RUNNER_TEMP/timings/${{ matrix.target }}-browser-${{ matrix.shard }}.json" -deadline "$DEADLINE" -failures "$RUNNER_TEMP/failures/${{ matrix.target }}-browser-${{ matrix.shard }}.json"
+          chmod +x "dist/release$EXE"
+          "dist/release$EXE" test -tier browser -shard "$SHARD" -filter "$FILTER" -repeat "$REPEAT" -timings .timings -record "$RUNNER_TEMP/timings/${{ matrix.target }}-browser-${{ matrix.shard }}.json" -deadline 40m -failures "$RUNNER_TEMP/failures/${{ matrix.target }}-browser-${{ matrix.shard }}.json"
         env:
-          TEST_SLIPSTREAM_BINARY: ${{ github.workspace }}/dist/slipstream${{ env.EXE }}
-          TEST_FAKEWORLD_BINARY: ${{ github.workspace }}/dist/fakeworld${{ env.EXE }}
+          TEST_SLIPSTREAM_BINARY: ${{ github.workspace }}/dist/slipstream${{ matrix.exe }}
+          TEST_FAKEWORLD_BINARY: ${{ github.workspace }}/dist/fakeworld${{ matrix.exe }}
           TEST_FAKEWORLD_RUNS: ${{ github.workspace }}/fakeworld-runs
       # The runs sit in the workspace because the runner maps a host path in
       # a step's input to the container's only when the path starts the
