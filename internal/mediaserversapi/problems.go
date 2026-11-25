@@ -121,13 +121,13 @@ func accessAnswer(err error) error {
 		return plexRefused.Because(fmt.Sprintf("Plex refused to share %s. Its response was %q.", e.Server, e.Reply))
 	}
 	if e, ok := errors.AsType[*mediaservers.AccessUnreachedError](err); ok {
-		return unreached.Because(fmt.Sprintf("%s isn't responding to SlipStream. Check that it is running, then try again.", e.Server))
+		return unreached.Because(e.Server + " isn't responding to SlipStream. Check that it is running, then try again.")
 	}
 	if e, ok := errors.AsType[*identity.NotGrantableError](err); ok {
 		if e.Why == identity.NotPlexWay {
-			return plexHomeNotPlex.Because(fmt.Sprintf("%s isn't a Plex server, so it has no Plex Home. Offer it without Plex Home.", e.Name))
+			return plexHomeNotPlex.Because(e.Name + " isn't a Plex server, so it has no Plex Home. Offer it without Plex Home.")
 		}
-		return notShownToMembers.Because(fmt.Sprintf("%s isn't shown to Members. Turn on Show to Members on its page first.", e.Name))
+		return notShownToMembers.Because(e.Name + " isn't shown to Members. Turn on Show to Members on its page first.")
 	}
 	switch {
 	case errors.Is(err, mediaservers.ErrNotYet):
@@ -149,7 +149,7 @@ func answerMine(err error) error {
 		return accessState.Because(fmt.Sprintf("Your access to %s changed since this page loaded. Reload the page to see it.", e.Server))
 	}
 	if e, ok := errors.AsType[*mediaservers.AccessUnreachedError](err); ok {
-		return unreached.Because(fmt.Sprintf("%s isn't responding to SlipStream. Try again when it responds.", e.Server))
+		return unreached.Because(e.Server + " isn't responding to SlipStream. Try again when it responds.")
 	}
 	if e, ok := errors.AsType[*link.NameRefusedError](err); ok {
 		if e.Taken {
