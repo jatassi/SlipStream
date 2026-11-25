@@ -405,7 +405,7 @@ func testBrowser(ctx context.Context, root string, o testOptions) ([]failure, er
 	if err != nil {
 		return nil, err
 	}
-	first, err := runPlaywright(ctx, web, env, o, selected)
+	first, err := runPlaywright(ctx, web, env, o, selected, "run")
 	if !o.deadline.IsZero() && time.Now().After(o.deadline) {
 		return first.failed, err
 	}
@@ -431,12 +431,12 @@ func rerunPlaywright(ctx context.Context, web string, env []string, o testOption
 	if err := os.WriteFile(list, []byte(strings.Join(lines, "\n")+"\n"), 0o644); err != nil {
 		return results{}, fmt.Errorf("write the rerun's test list: %w", err)
 	}
-	return runPlaywright(ctx, web, env, testOptions{repeat: 1, deadline: o.deadline}, list)
+	return runPlaywright(ctx, web, env, testOptions{repeat: 1, deadline: o.deadline}, list, "rerun")
 }
 
 // runPlaywright runs the tests in the list selected and records their
-// timings when o asks for them.
-func runPlaywright(ctx context.Context, web string, env []string, o testOptions, selected string) (results, error) {
+// timings when o asks for them. label names its runs' output dirs.
+func runPlaywright(ctx context.Context, web string, env []string, o testOptions, selected, label string) (results, error) {
 	reporter := "list"
 	if inCI() {
 		reporter = "dot"
@@ -449,7 +449,7 @@ func runPlaywright(ctx context.Context, web string, env []string, o testOptions,
 		}
 		report := filepath.Join(filepath.Dir(selected), "report-"+strconv.Itoa(i)+".json")
 		reports = append(reports, report)
-		runEnv := append(slices.Clone(env), "PLAYWRIGHT_JSON_OUTPUT_FILE="+report)
+		runEnv := playwrightEnv(env, label+"-"+strconv.Itoa(i+1), report)
 		args = append([]string{"--reporter=" + reporter + ",json"}, args...)
 		if err = run(ctx, web, runEnv, "bun", append([]string{"run", "e2e"}, args...)...); err != nil {
 			break
@@ -465,6 +465,21 @@ func runPlaywright(ctx context.Context, web string, env []string, o testOptions,
 		recordErr = recordBrowserTimings(o.record, parsed)
 	}
 	return r, errors.Join(err, readErr, recordErr)
+}
+
+// playwrightEnv is env for one Playwright run, which writes its report to
+// report. Playwright empties its outputDir, under TEST_FAKEWORLD_RUNS, as
+// each run starts, so each run gets its own dir there: a later run, such as
+// the rerun of a failed test, would otherwise delete the run dirs that the
+// failed tests left for CI to upload.
+func playwrightEnv(env []string, run, report string) []string {
+	env = append(slices.Clone(env), "PLAYWRIGHT_JSON_OUTPUT_FILE="+report)
+	for _, kv := range slices.Backward(env) {
+		if runs, ok := strings.CutPrefix(kv, "TEST_FAKEWORLD_RUNS="); ok {
+			return append(env, "TEST_FAKEWORLD_RUNS="+filepath.Join(runs, run))
+		}
+	}
+	return env
 }
 
 // browserTimings names the browser tier's entry in the timings, beside the
