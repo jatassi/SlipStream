@@ -86,8 +86,7 @@ type Reachability struct {
 	echoes  echoes
 	public  memo[string, bool]
 	exposed memo[link.ServerID, mediaSuggestion]
-	// lookups wakes lookUps: a suggestion's lookup is missing or old.
-	lookups chan struct{}
+	lookups lookups
 
 	mu sync.Mutex
 	// freshAfter is when each Node's last "Run again" or confirmed change
@@ -107,7 +106,7 @@ func New(cfg Config) *Reachability {
 	return &Reachability{
 		cfg:        cfg,
 		echoes:     echoes{live: map[string]*echo{}},
-		lookups:    make(chan struct{}, 1),
+		lookups:    lookups{wake: make(chan struct{}, 1)},
 		freshAfter: map[role.NodeID]time.Time{},
 		reruns:     map[role.NodeID]time.Time{},
 		churn:      map[role.NodeID]bool{},

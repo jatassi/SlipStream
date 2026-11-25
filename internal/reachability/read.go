@@ -212,10 +212,10 @@ type mediaSuggestion struct {
 
 // suggestions are the UI and portal when its Address is public, and each
 // Media Server that has remote access on or publishes a public address.
-// They read only what lookUp kept, so a page or first setup never waits on
-// a resolver or a Media Server: a lookup missing or older than
-// timings.reachability.suggest wakes lookUp, which publishes Changed when
-// it learns something new.
+// They read only what lookUp kept, so a page never waits on a resolver or
+// a Media Server: a lookup missing or older than
+// timings.reachability.suggest asks lookUp again, which publishes Changed
+// when it learns something new.
 func (r *Reachability) suggestions(wanted []Exposure, dismissed []db.ReachabilityDismissed, recs []mediaservers.Record, addr identity.Address) []Suggestion {
 	want := canSuggest(wanted, dismissed, recs, addr)
 	now := r.now()
@@ -240,9 +240,24 @@ func (r *Reachability) suggestions(wanted []Exposure, dismissed []db.Reachabilit
 		}
 	}
 	if stale {
-		r.wakeLookUp()
+		r.lookups.ask()
 	}
 	return out
+}
+
+// unanswered is whether a suggestion want could hold has never been looked
+// up.
+func (r *Reachability) unanswered(want suggestable) bool {
+	now := r.now()
+	if want.ui && !want.addr.IsZero() {
+		if _, known, _ := r.public.get(want.addr.String(), now, r.cfg.Timings.Suggest); !known {
+			return true
+		}
+	}
+	return slices.ContainsFunc(want.servers, func(rec mediaservers.Record) bool {
+		_, known, _ := r.exposed.get(rec.ID, now, r.cfg.Timings.Suggest)
+		return !known
+	})
 }
 
 // suggestable is what could be suggested: the UI and portal unless it is
@@ -251,6 +266,16 @@ type suggestable struct {
 	ui      bool
 	addr    identity.Address
 	servers []mediaservers.Record
+}
+
+func (r *Reachability) suggestable(ctx context.Context) (suggestable, error) {
+	var want suggestable
+	err := r.cfg.Library.Read(ctx, func(ctx context.Context, rd storage.Reader[storage.Library]) error {
+		in, err := r.pageRowsIn(ctx, rd)
+		want = canSuggest(in.wanted, in.dismissed, in.recs, in.addr)
+		return err
+	})
+	return want, err
 }
 
 func canSuggest(wanted []Exposure, dismissed []db.ReachabilityDismissed, recs []mediaservers.Record, addr identity.Address) suggestable {
@@ -273,21 +298,68 @@ func canSuggest(wanted []Exposure, dismissed []db.ReachabilityDismissed, recs []
 	return out
 }
 
-func (r *Reachability) wakeLookUp() {
-	select {
-	case r.lookups <- struct{}{}:
-	default:
-	}
+// lookups is the lookUps a read or an event asked for, run one at a time.
+type lookups struct {
+	wake chan struct{}
+	mu   sync.Mutex
+	// next closes when the lookUp after the last ask ends, and running
+	// when the one under way ends.
+	next, running chan struct{}
 }
 
-// lookUps runs each lookUp a read or an event asked for, one at a time.
+// ask has a lookUp run that starts after it, and closes the channel it
+// returns when that lookUp ends.
+func (l *lookups) ask() <-chan struct{} {
+	l.mu.Lock()
+	if l.next == nil {
+		l.next = make(chan struct{})
+	}
+	next := l.next
+	l.mu.Unlock()
+	select {
+	case l.wake <- struct{}{}:
+	default:
+	}
+	return next
+}
+
+// pending closes when every lookUp asked for so far has ended. It is nil
+// when none is asked for or under way.
+func (l *lookups) pending() <-chan struct{} {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if l.next != nil {
+		return l.next
+	}
+	return l.running
+}
+
+func (l *lookups) start() chan struct{} {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if l.next == nil {
+		l.next = make(chan struct{})
+	}
+	l.running, l.next = l.next, nil
+	return l.running
+}
+
+func (l *lookups) end(running chan struct{}) {
+	l.mu.Lock()
+	l.running = nil
+	l.mu.Unlock()
+	close(running)
+}
+
 func (r *Reachability) lookUps(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case <-r.lookups:
+		case <-r.lookups.wake:
+			running := r.lookups.start()
 			r.lookUp(ctx)
+			r.lookups.end(running)
 		}
 	}
 }
@@ -296,12 +368,7 @@ func (r *Reachability) lookUps(ctx context.Context) {
 // missing or older than timings.reachability.suggest: the Controller's
 // resolution of Address, and each Media Server's Exposure.
 func (r *Reachability) lookUp(ctx context.Context) {
-	var want suggestable
-	err := r.cfg.Library.Read(ctx, func(ctx context.Context, rd storage.Reader[storage.Library]) error {
-		in, err := r.pageRowsIn(ctx, rd)
-		want = canSuggest(in.wanted, in.dismissed, in.recs, in.addr)
-		return err
-	})
+	want, err := r.suggestable(ctx)
 	if err != nil {
 		r.cfg.Log.WarnContext(ctx, "read what Remote access could suggest", "err", err)
 		return

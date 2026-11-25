@@ -23,7 +23,7 @@ func (r *Reachability) Run(ctx context.Context) error {
 	servers := r.cfg.Hub.Watch(ctx, mediaservers.ChangedEvent)
 	roster := r.cfg.Hub.Watch(ctx, nodes.ChangedEvent)
 	go r.lookUps(ctx)
-	r.wakeLookUp()
+	r.lookups.ask()
 	r.rejudge(ctx)
 	r.serversChanged(ctx)
 	r.nodesChanged(ctx)
@@ -33,12 +33,15 @@ func (r *Reachability) Run(ctx context.Context) error {
 			return nil
 		case <-address:
 			r.addressChanged(ctx)
-			r.wakeLookUp()
+			r.lookups.ask()
 		case <-servers:
 			r.serversChanged(ctx)
-			r.wakeLookUp()
+			r.exposed.expire()
+			r.lookups.ask()
 		case <-roster:
 			r.nodesChanged(ctx)
+			r.exposed.expire()
+			r.lookups.ask()
 		}
 	}
 }

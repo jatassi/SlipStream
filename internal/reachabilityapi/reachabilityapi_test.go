@@ -18,6 +18,7 @@ import (
 	"github.com/jatassi/slipstream/internal/api/ownertest"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/identity/identitytest"
+	"github.com/jatassi/slipstream/internal/mediaservers"
 	"github.com/jatassi/slipstream/internal/reachability"
 	"github.com/jatassi/slipstream/internal/reachability/judge"
 	"github.com/jatassi/slipstream/internal/reachability/judge/judgetest"
@@ -189,6 +190,32 @@ func TestThePageNeverWaitsOnTheResolver(t *testing.T) {
 		synctest.Wait()
 		if got := kinds(); !slices.Equal(got, []string{"media-server", "ui-portal"}) {
 			t.Errorf("suggestions once it answered = %v, want the Media Server and the UI and portal", got)
+		}
+	})
+}
+
+// A Media Server looked up while its reaching Node was away is asked again
+// once it changes, not kept for timings.reachability.suggest.
+func TestAMediaServerChangeAsksItsSuggestionAgain(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		w := world(t, judgetest.Open())
+		o := ownertest.Serve(t, w.Lib, func(r *api.Router) { reachabilityapi.Routes(r, controller{w.Reach}) })
+		suggested := func() bool {
+			o.Call(t, http.MethodGet, "/api/v1/remote-access", "")
+			synctest.Wait()
+			_, reply := o.Call(t, http.MethodGet, "/api/v1/remote-access", "")
+			return strings.Contains(reply, `"kind":"media-server"`)
+		}
+		w.Away(judgetest.Atlas, true)
+		plex(t, w)
+		if suggested() {
+			t.Fatal("Plex is suggested while its reaching Node is away")
+		}
+		w.Away(judgetest.Atlas, false)
+		mediaservers.ChangedEvent.Bind(w.Hub).Publish(t.Context(), mediaservers.Changed{})
+		synctest.Wait()
+		if !suggested() {
+			t.Error("Plex isn't suggested after it changed with its reaching Node back")
 		}
 	})
 }

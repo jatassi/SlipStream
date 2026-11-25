@@ -25,6 +25,17 @@ func (m *memo[K, V]) get(k K, now time.Time, life time.Duration) (v V, known, fr
 	return e.v, ok, ok && now.Sub(e.at) < life
 }
 
+// expire keeps every answer but makes it old, so the next lookup asks
+// again.
+func (m *memo[K, V]) expire() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	for k, e := range m.kept {
+		e.at = time.Time{}
+		m.kept[k] = e
+	}
+}
+
 func (m *memo[K, V]) put(k K, v V, now time.Time) {
 	m.mu.Lock()
 	defer m.mu.Unlock()

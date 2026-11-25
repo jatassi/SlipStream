@@ -4,6 +4,7 @@ import (
 	"context"
 	"math/rand/v2"
 	"testing"
+	"testing/synctest"
 
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/mediaserverlink/link"
@@ -70,4 +71,40 @@ func removeNode(t *testing.T, w *reachabilitytest.World, id role.NodeID) {
 	t.Helper()
 	exec(t, w, "UPDATE nodes_node SET removed_at = 1, removed_key = public_key, public_key = NULL WHERE id = ?", id)
 	w.Removed(t, id)
+}
+
+// First setup's step list waits for the lookup its Remote access step
+// needs, so the step is there the first time the list is read.
+func TestTheRemoteAccessStepWaitsForItsLookup(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		w := world(t, judgetest.Open())
+		answer := make(chan struct{})
+		w.Site(judgetest.Atlas, func(s *reachabilitytest.Site) { s.Resolving = answer })
+		address(t, w, "https://slipstream.example.org")
+		step := w.Reach.Step()
+		shown := make(chan bool, 1)
+		go func() {
+			step.Settle(t.Context())
+			var shows bool
+			err := w.Lib.Read(t.Context(), func(ctx context.Context, rd storage.Reader[storage.Library]) error {
+				var err error
+				shows, err = step.Shows(ctx, rd)
+				return err
+			})
+			if err != nil {
+				t.Error(err)
+			}
+			shown <- shows
+		}()
+		synctest.Wait()
+		select {
+		case <-shown:
+			t.Fatal("the step list was read before the resolver answered")
+		default:
+		}
+		close(answer)
+		if !<-shown {
+			t.Error("the step is hidden once the resolver answered that Address is public")
+		}
+	})
 }
