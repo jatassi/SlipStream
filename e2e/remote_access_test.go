@@ -47,16 +47,16 @@ func TestRemoteAccess(t *testing.T) {
 				{play: denNeverTests, subject: plexName, want: verdict{"reachable", "", "", "none", true}},
 				{play: testerAway("seedbox"), subject: plexName, want: verdict{"reachable", "", "", "none", true}, facts: []string{"tester-away", "same-network"}},
 				{play: start("seedbox"), subject: plexName, want: verdict{"reachable", "", "", "none", true}},
-				{play: networkCue(`{"site":"home","wan":"203.0.113.10"}`), subject: plexName, want: verdict{"fixable", "outside.connect", "stale-a", "warn", false}, fails: "dns.a stale-a"},
+				{play: networkCue(`{"site":"home","wan":"203.0.113.10"}`), subject: plexName, want: verdict{"fixable", "outside.connect", "stale-a", "warn", true}, fails: "dns.a stale-a"},
 				{play: secondCue(`{"site":"home","wan":"203.0.113.9"}`), subject: plexName, want: verdict{"reachable", "", "", "none", true}, facts: []string{"address-churn"}},
 			},
 		},
 		{
 			name: "remote-mappable", scenario: "remote-mappable", plex: "http://plex.mappable.localhost:{port}",
 			rows: []matrixRow{
-				{subject: plexName, want: verdict{"fixable", "outside.connect", "mappable-plex", "warn", false}},
+				{subject: plexName, want: verdict{"fixable", "outside.connect", "mappable-plex", "warn", true}},
 				{play: mapPorts("atlas", true), subject: plexName, want: verdict{"reachable", "", "", "none", true}, by: "seedbox", writes: []string{"pcp map"}},
-				{play: mapPorts("atlas", false), subject: plexName, want: verdict{"fixable", "outside.connect", "mappable-plex", "warn", false}, writes: []string{"pcp map", "pcp delete"}},
+				{play: mapPorts("atlas", false), subject: plexName, want: verdict{"fixable", "outside.connect", "mappable-plex", "warn", true}, writes: []string{"pcp map", "pcp delete"}},
 				{play: mapPorts("atlas", true), subject: plexName, want: verdict{"reachable", "", "", "none", true}, by: "seedbox", writes: []string{"pcp map", "pcp delete", "pcp map"}},
 				{play: removePlex, writes: []string{"pcp map", "pcp delete", "pcp map", "pcp delete"}},
 			},
@@ -65,18 +65,18 @@ func TestRemoteAccess(t *testing.T) {
 			name: "remote-mappable on a Worker", scenario: "remote-mappable", plex: "http://plex.mappable.localhost:{port}",
 			edit: plexOnDen,
 			rows: []matrixRow{
-				{subject: plexName, want: verdict{"fixable", "outside.connect", "mappable-plex", "warn", false}},
+				{subject: plexName, want: verdict{"fixable", "outside.connect", "mappable-plex", "warn", true}},
 				{play: mapPorts("den", true), subject: plexName, want: verdict{"reachable", "", "", "none", true}, by: "seedbox", writes: []string{"pcp map"}},
 				{play: removeNode("den"), writes: []string{"pcp map", "pcp delete"}},
 			},
 		},
 		{
 			name: "remote-cgnat", scenario: "remote-cgnat", plex: "http://plex.cgnat.localhost:{port}",
-			rows: []matrixRow{{subject: plexName, want: verdict{"needs-relay", "origin.class", "cgnat", "fail", false}, facts: []string{"plex-relay-quality"}}},
+			rows: []matrixRow{{subject: plexName, want: verdict{"needs-relay", "outside.connect", "cgnat", "fail", true}, facts: []string{"plex-relay-quality"}}},
 		},
 		{
 			name: "remote-double-nat", scenario: "remote-double-nat", plex: "http://plex.double.localhost:{port}",
-			rows: []matrixRow{{subject: plexName, want: verdict{"fixable", "outside.connect", "double-nat", "warn", false}}},
+			rows: []matrixRow{{subject: plexName, want: verdict{"fixable", "outside.connect", "double-nat", "warn", true}}},
 		},
 		{
 			name: "remote-double-nat forwarded", scenario: "remote-double-nat", plex: "http://plex.double.localhost:{port}",
@@ -85,17 +85,17 @@ func TestRemoteAccess(t *testing.T) {
 		},
 		{
 			name: "remote-vpn", scenario: "remote-vpn", plex: "http://plex.vpn.localhost:{port}",
-			rows: []matrixRow{{subject: plexName, want: verdict{"fixable", "outside.connect", "vpn", "warn", false}}},
+			rows: []matrixRow{{subject: plexName, want: verdict{"fixable", "outside.connect", "vpn", "warn", true}}},
 		},
 		{
 			name: "remote-own-proxy", scenario: "remote-own-proxy", ui: "https://slipstream.proxy.fake.localhost", plex: "https://plex.proxy.fake.localhost",
 			rows: []matrixRow{
 				{subject: uiName, want: verdict{"reachable", "", "", "none", true}, facts: []string{"tested-through-proxy"}},
 				{subject: plexName, want: verdict{"reachable", "", "", "none", true}},
-				{play: proxyFault("tls=expired"), subject: plexName, want: verdict{"fixable", "tls.certificate", "certificate", "warn", false}},
-				{play: proxyFault("tls=wrong-name"), subject: uiName, want: verdict{"fixable", "tls.certificate", "certificate", "warn", false}},
+				{play: proxyFault("tls=expired"), subject: plexName, want: verdict{"fixable", "tls.certificate", "certificate", "warn", true}},
+				{play: proxyFault("tls=wrong-name"), subject: uiName, want: verdict{"fixable", "tls.certificate", "certificate", "warn", true}},
 				{play: proxyFault("status=401"), subject: uiName, want: verdict{"fixable", "identity", "sign-in-ui", "untested", false}},
-				{subject: plexName, want: verdict{"fixable", "identity", "sign-in-server", "warn", false}},
+				{subject: plexName, want: verdict{"fixable", "identity", "sign-in-server", "warn", true}},
 				{play: plexPublic("https://media.proxy.fake.localhost"), subject: plexName, want: verdict{"fixable", "plex.custom-url", "custom-url", "warn", true}},
 			},
 		},
@@ -109,8 +109,8 @@ func TestRemoteAccess(t *testing.T) {
 		{
 			name: "remote-ipv6", scenario: "remote-ipv6", plex: "http://plex.v6.localhost:{port}",
 			rows: []matrixRow{
-				{subject: plexName, want: verdict{"fixable", "outside.connect/ipv6", "firewall", "warn", false}},
-				{play: networkCue(`{"site":"home","prefix6":"2001:db8:2::/64"}`), subject: plexName, want: verdict{"fixable", "outside.connect/ipv6", "prefix-change", "warn", false}, fails: "dns.aaaa/ipv6 prefix-change"},
+				{subject: plexName, want: verdict{"fixable", "outside.connect/ipv6", "firewall", "warn", true}},
+				{play: networkCue(`{"site":"home","prefix6":"2001:db8:2::/64"}`), subject: plexName, want: verdict{"fixable", "outside.connect/ipv6", "prefix-change", "warn", true}, fails: "dns.aaaa/ipv6 prefix-change"},
 			},
 		},
 	} {
