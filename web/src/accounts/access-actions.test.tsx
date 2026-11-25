@@ -45,7 +45,11 @@ const rowOf = (state: Access["state"], actions: readonly Action[]) => {
 };
 
 /** The button each action draws. */
-const buttonOf: { readonly [A in Action]?: string } = {
+const buttonOf: { readonly [A in Action]: string } = {
+  shareFriend: "Share on Plex",
+  shareHome: "Add to Plex Home",
+  markAdded: "Share by hand instead",
+  check: "Check again",
   link: "Link an existing account",
   offer: "Offer again",
   retryRemove: "Try again",
@@ -54,7 +58,7 @@ const buttonOf: { readonly [A in Action]?: string } = {
 
 type Sent = { method: string; path: string; body: unknown };
 
-function graceAccess(sent: Sent[]) {
+function graceAccess(sent: Sent[], plexHomeUsed = false) {
   const record = async (request: Request) => {
     const text = await request.text();
     sent.push({
@@ -67,11 +71,14 @@ function graceAccess(sent: Sent[]) {
   return [
     getGetAccountMockHandler(graceDetail),
     http.get("/api/v1/media-servers/access", () =>
-      HttpResponse.json({ rows, offerable: [], plexPass: true, plexHomeUsed: false }),
+      HttpResponse.json({ rows, offerable: [], plexPass: true, plexHomeUsed }),
     ),
     http.delete("/api/v1/media-servers/access/:id", ({ request }) => record(request)),
     http.put("/api/v1/accounts/:id/media-servers/:serverId", ({ request }) => record(request)),
     http.post("/api/v1/media-servers/access/:id/link", ({ request }) => record(request)),
+    http.post("/api/v1/media-servers/access/:id/share", ({ request }) => record(request)),
+    http.post("/api/v1/media-servers/access/:id/mark-added", ({ request }) => record(request)),
+    http.post("/api/v1/media-servers/access/:id/check", ({ request }) => record(request)),
     ...mediaServerAccessHandlers(),
     ...mediaServerHandlers(),
   ];
@@ -89,15 +96,22 @@ test("each access row draws exactly the buttons its actions name, in their order
       .getByRole("button")
       .all()
       .map((button) => button.element().textContent);
-    expect(names, row.state).toEqual(row.actions.flatMap((action) => buttonOf[action] ?? []));
+    expect(names, row.state).toEqual(row.actions.map((action) => buttonOf[action]));
   }
 });
 
-test.each([
+type Press = { in: "dialog" | "row"; role: "button" | "radio"; name: string };
+const press = (where: Press["in"], role: Press["role"], name: string): Press => ({
+  in: where,
+  role,
+  name,
+});
+
+test.each<{ row: Access; open: string; next: Press[]; sent: (row: Access) => Sent }>([
   {
     row: rowOf("active", ["remove"]),
     open: "Remove access",
-    next: ["Remove access"],
+    next: [press("dialog", "button", "Remove access")],
     sent: (row: Access) => ({
       method: "DELETE",
       path: `/api/v1/media-servers/access/${row.id}`,
@@ -125,9 +139,39 @@ test.each([
     }),
   },
   {
+    row: rowOf("waiting", ["shareFriend", "shareHome", "markAdded", "remove"]),
+    open: "Share on Plex",
+    next: [],
+    sent: (row: Access) => ({
+      method: "POST",
+      path: `/api/v1/media-servers/access/${row.id}/share`,
+      body: { as: "friend" },
+    }),
+  },
+  {
+    row: rowOf("waiting", ["shareFriend", "shareHome", "markAdded", "remove"]),
+    open: "Share by hand instead",
+    next: [press("row", "button", "Mark as added")],
+    sent: (row: Access) => ({
+      method: "POST",
+      path: `/api/v1/media-servers/access/${row.id}/mark-added`,
+      body: null,
+    }),
+  },
+  {
+    row: rowOf("shared", ["check", "remove"]),
+    open: "Check again",
+    next: [],
+    sent: (row: Access) => ({
+      method: "POST",
+      path: `/api/v1/media-servers/access/${row.id}/check`,
+      body: null,
+    }),
+  },
+  {
     row: rowOf("offered", ["link", "remove"]),
     open: "Link an existing account",
-    next: ["kids", "Link"],
+    next: [press("dialog", "radio", "kids"), press("dialog", "button", "Link")],
     sent: (row: Access) => ({
       method: "POST",
       path: `/api/v1/media-servers/access/${row.id}/link`,
@@ -138,12 +182,38 @@ test.each([
   const calls: Sent[] = [];
   renderApp({ path: `/accounts/${grace.id}`, handlers: graceAccess(calls) });
   await userEvent.click(rowItem(row).getByRole("button", { name: open }));
-  for (const name of next) {
-    const dialog = page.getByRole("dialog");
+  for (const step of next) {
+    const scope = step.in === "dialog" ? page.getByRole("dialog") : rowItem(row);
     // oxlint-disable-next-line no-await-in-loop -- each press follows the last
-    await userEvent.click(
-      name === "kids" ? dialog.getByRole("radio", { name }) : dialog.getByRole("button", { name }),
-    );
+    await userEvent.click(scope.getByRole(step.role, { name: step.name }));
   }
   await expect.poll(() => calls).toEqual([sent(row)]);
 });
+
+test.each([
+  { plexHomeUsed: false, warned: true },
+  { plexHomeUsed: true, warned: false },
+])(
+  "Add to Plex Home warns first only while nobody is in the Plex Home (used: $plexHomeUsed)",
+  async ({ plexHomeUsed, warned }) => {
+    const calls: Sent[] = [];
+    const row = rowOf("waiting", ["shareFriend", "shareHome", "markAdded", "remove"]);
+    renderApp({ path: `/accounts/${grace.id}`, handlers: graceAccess(calls, plexHomeUsed) });
+    await userEvent.click(rowItem(row).getByRole("button", { name: "Add to Plex Home" }));
+    if (warned) {
+      expect(calls).toEqual([]);
+      await userEvent.click(
+        page.getByRole("dialog").getByRole("button", { name: "Add to Plex Home" }),
+      );
+    }
+    await expect
+      .poll(() => calls)
+      .toEqual([
+        {
+          method: "POST",
+          path: `/api/v1/media-servers/access/${row.id}/share`,
+          body: { as: "home" },
+        },
+      ]);
+  },
+);
