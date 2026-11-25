@@ -40,6 +40,9 @@ export function RemoveServer({ server }: { server: Server }) {
         <p>
           {`Removing it also deletes its waiting changes and its play history. Nothing changes on ${server.name} itself.`}
         </p>
+        {server.memberCount > 0 && (
+          <p>{`Members keep their access on ${server.name}. SlipStream stops tracking it.`}</p>
+        )}
       </ConfirmDialog>
     </>
   );
