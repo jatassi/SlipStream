@@ -136,6 +136,8 @@ func accessAnswer(err error) error {
 		return accessNotFound
 	case errors.Is(err, mediaservers.ErrNoMemberLibraries):
 		return noMemberLibraries.On("memberLibraries", "Pick at least one library for Members.")
+	case errors.Is(err, mediaservers.ErrMemberAddressOnPlex):
+		return api.Invalid.On("memberAddress", "A Plex server has no Address for Members, because Plex apps connect through the Member's Plex account. Clear the address.")
 	case errors.Is(err, identity.ErrNoAccount):
 		return accountNotFound
 	}
