@@ -5,6 +5,7 @@ import { useListMediaServerAccessSuspense } from "../api/gen/query/mediaservers/
 import { Chip } from "../ui/chip";
 import { List, ListRow } from "../ui/list";
 import { Section } from "../ui/section";
+import { SignalLine } from "../ui/signal-line";
 import { AccessActions, accessLine } from "./access-actions";
 
 function Member({ member }: { member: Access["member"] }) {
@@ -28,12 +29,21 @@ function Member({ member }: { member: Access["member"] }) {
 
 /** Members' access waiting on an Admin: a share to make or accept, or a removal to try again. */
 export function NeedsYou() {
-  const rows = useListMediaServerAccessSuspense().data.rows.filter((row) => row.needsYou);
+  const { rows: all, plexPass } = useListMediaServerAccessSuspense().data;
+  const rows = all.filter((row) => row.needsYou);
   if (rows.length === 0) {
     return null;
   }
   return (
     <Section title="Needs you" count={rows.length}>
+      {!plexPass && rows.some((row) => row.server.access === "plex_tv") && (
+        <div className="mb-3">
+          <SignalLine tone="warn">
+            Your Plex account has no Plex Pass. Away from home, Members need their own Plex Pass or
+            Remote Watch Pass to play videos in Plex.
+          </SignalLine>
+        </div>
+      )}
       <List label="Needs you">
         {rows.map((row) => (
           <ListRow

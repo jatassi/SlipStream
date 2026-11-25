@@ -2,7 +2,9 @@ import { type ReactElement, Suspense, useState } from "react";
 
 import { sentenceOf } from "../api/errors";
 import type {
+  MailOutcome,
   MediaserversAccessView as Access,
+  MediaserversActed as Acted,
   MediaserversAccessViewActionsItem as Action,
   MediaserversAccessViewState as State,
   MediaserversServerUser as ServerUser,
@@ -22,6 +24,7 @@ import { RadioGroup } from "../ui/radio";
 // oxlint-disable-next-line import/max-dependencies -- each action draws its own button and dialog
 import { Skeleton } from "../ui/skeleton";
 import { toast } from "../ui/toast";
+import { AddToPlexHome, CheckAgain, ShareByHand, ShareOnPlex } from "./plex-share";
 
 const accountName = (row: Access) => row.plex?.username ?? row.user?.username;
 
@@ -94,17 +97,40 @@ function RemoveAccess({ row }: { row: Access }) {
   );
 }
 
+const mailWords: {
+  readonly [O in MailOutcome["outcome"]]: (row: Access, detail: string | undefined) => string;
+} = {
+  sent: ({ member, server }) => `Emailed ${member.name} about ${server.name}`,
+  failed: ({ member, server }, detail) =>
+    `The email to ${member.name} failed${detail === undefined ? "" : `: ${detail}`}. Tell ${member.name} about ${server.name} yourself.`,
+  "not-set-up": ({ member, server }) =>
+    `Email isn't set up. Tell ${member.name} about ${server.name} yourself.`,
+};
+
+/** Toasts what an operation did, then what became of the email it sent the Member. */
+export function toastActed({ row, mail }: Acted, words: string) {
+  toast(words);
+  if (row !== undefined && mail !== undefined) {
+    toast(mailWords[mail.outcome](row, mail.detail), {
+      kind: mail.outcome === "sent" ? "done" : "fail",
+    });
+  }
+}
+
 /**
  * Runs one access operation from a button and toasts what it did, or why it
  * was refused. The live channel's media-servers.access-changed reads the access again.
  */
-export function useAccessRun(act: () => Promise<unknown>, words: string) {
+export function useAccessRun(
+  act: () => Promise<Acted>,
+  words: string | ((acted: Acted) => string),
+) {
   const [busy, setBusy] = useState(false);
   const run = () => {
     setBusy(true);
     void act()
-      .then(() => {
-        toast(words);
+      .then((acted) => {
+        toastActed(acted, typeof words === "string" ? words : words(acted));
         return null;
       })
       .catch((error: unknown) => {
@@ -247,7 +273,11 @@ function LinkAccount({ row }: { row: Access }) {
 type ActionButton = (props: { row: Access }) => ReactElement | null;
 
 /** The button each action draws. */
-const buttons: { readonly [A in Action]?: ActionButton } = {
+const buttons: { readonly [A in Action]: ActionButton } = {
+  shareFriend: ShareOnPlex,
+  shareHome: AddToPlexHome,
+  markAdded: ShareByHand,
+  check: CheckAgain,
   link: LinkAccount,
   offer: ({ row }) =>
     row.member.accountId === undefined ? null : (
@@ -263,7 +293,7 @@ export function AccessActions({ row }: { row: Access }) {
     <div className="flex flex-wrap items-center gap-2">
       {row.actions.map((action) => {
         const Draw = buttons[action];
-        return Draw === undefined ? null : <Draw key={action} row={row} />;
+        return <Draw key={action} row={row} />;
       })}
     </div>
   );

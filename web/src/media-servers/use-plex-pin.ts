@@ -1,4 +1,9 @@
-import { queryOptions, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
+import {
+  type QueryClient,
+  queryOptions,
+  useQueryClient,
+  useSuspenseQuery,
+} from "@tanstack/react-query";
 import { useEffect } from "react";
 
 import { isApiError } from "../api/errors";
@@ -12,6 +17,7 @@ import {
   getGetPlexSignInQueryKey,
   getPlexAccount,
   getPlexSignIn,
+  replacePlexAccount,
   startPlexSignIn,
 } from "../api/gen/query/mediaservers/mediaservers";
 import { adoptPlexSignIn } from "../live/adopt-media-servers";
@@ -60,8 +66,10 @@ export async function startPlexTab(): Promise<PlexPin> {
 }
 
 /**
- * Polls a Plex sign-in until it signs in or expires, then forgets it. A PIN
- * the Controller no longer has reads as expired.
+ * Polls a Plex sign-in until it signs in, expires or names a different Plex
+ * account. It forgets a PIN that signed in or expired, and keeps one waiting
+ * on the different-account confirmation, so a reload asks again. A PIN the
+ * Controller no longer has reads as expired.
  */
 export function useWatchPin(
   pinId: number,
@@ -86,6 +94,10 @@ export function useWatchPin(
     if (state === "waiting") {
       return;
     }
+    if (state === "other_account") {
+      onSettled(state);
+      return;
+    }
     writePref("plexPin", null);
     if (state === "expired") {
       onSettled(state);
@@ -96,4 +108,14 @@ export function useWatchPin(
       return null;
     });
   }, [state, onSettled, queryClient]);
+}
+
+/**
+ * Signs SlipStream in to the different Plex account a PIN names, which
+ * removes every Plex server. It resolves once the account is read again.
+ */
+export async function replacePlexSignIn(queryClient: QueryClient, pinId: number) {
+  await replacePlexAccount(pinId);
+  writePref("plexPin", null);
+  await adoptPlexSignIn(queryClient);
 }
