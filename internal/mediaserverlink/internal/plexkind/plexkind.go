@@ -25,7 +25,7 @@ var Kind link.Kind = kind{}
 type kind struct{}
 
 func (kind) About() link.About {
-	return link.About{Name: "plex", Label: "Plex", Form: link.SignInPlexPIN, Floor: link.MustVersion("1.43"), MovedHold: link.StepRestored}
+	return link.About{Name: "plex", Label: "Plex", Form: link.SignInPlexPIN, Floor: link.MustVersion("1.43"), MovedHold: link.StepRestored, Access: link.AccessPlexTV}
 }
 
 // OpenIn is the item in Plex's web app, which reaches the server through

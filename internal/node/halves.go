@@ -63,6 +63,7 @@ import (
 	"github.com/jatassi/slipstream/internal/ports/port"
 	"github.com/jatassi/slipstream/internal/providers/gestdown"
 	"github.com/jatassi/slipstream/internal/providers/omdb"
+	"github.com/jatassi/slipstream/internal/providers/plextv"
 	"github.com/jatassi/slipstream/internal/providers/subdl"
 	"github.com/jatassi/slipstream/internal/providers/subsource"
 	"github.com/jatassi/slipstream/internal/providers/tmdb"
@@ -336,6 +337,12 @@ func (n *Node) startController(ctx context.Context) error {
 		Facts: func(node role.NodeID) (*msv1.Facts, bool) { return linked.Facts(node) },
 		Zone:  n.zone(),
 		Log:   n.rootLog.With("subsystem", "mediaservers"),
+		Admins: func(ctx context.Context) ([]mail.Address, error) {
+			return identity.EnabledAdminAddresses(ctx, lib.db)
+		},
+		Mail:      lib.mail,
+		Outbox:    lib.outbox,
+		PlexFacts: plextv.Recorded,
 	})
 	linked = mediaserverlink.Def.Serve(servers.Intent, servers.Apply)
 	reach := reachability.New(reachability.Config{

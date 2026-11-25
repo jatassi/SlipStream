@@ -39,7 +39,23 @@ type About struct {
 	// its source files: the last step the kind can take while the old item
 	// is still on disk.
 	MovedHold Step
+	// Access is how Members get access to a server of this kind.
+	Access Access
 }
+
+// Access is how Members get access to a server of a kind.
+type Access string
+
+const (
+	// AccessPlexTV is a share or Plex Home invite through plex.tv, from the
+	// Controller.
+	AccessPlexTV Access = "plex_tv"
+	// AccessUsers is a user the Member makes, or the Admin links.
+	AccessUsers Access = "users"
+	// AccessUsersLinked is a user the Admin links. The Member can't make
+	// one.
+	AccessUsersLinked Access = "users_linked"
+)
 
 // Kind is everything SlipStream knows about one Media Server product.
 type Kind interface {

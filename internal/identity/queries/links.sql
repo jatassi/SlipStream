@@ -1,8 +1,9 @@
 -- name: InsertLink :exec
-INSERT INTO identity_link (id, kind, token_hash, token_sealed, email, account_id, remove_passkeys, issued_by, issued_at, expires_at)
+INSERT INTO identity_link (id, kind, token_hash, token_sealed, email, account_id, remove_passkeys, issued_by, issued_at, expires_at, grants)
 VALUES (
     sqlc.arg(id), sqlc.arg(kind), sqlc.arg(token_hash), sqlc.arg(token_sealed), sqlc.arg(email),
-    sqlc.narg(account_id), sqlc.arg(remove_passkeys), sqlc.narg(issued_by), sqlc.arg(issued_at), sqlc.arg(expires_at)
+    sqlc.narg(account_id), sqlc.arg(remove_passkeys), sqlc.narg(issued_by), sqlc.arg(issued_at), sqlc.arg(expires_at),
+    sqlc.narg(grants)
 );
 
 -- name: WithdrawLiveSignupLink :one
@@ -44,6 +45,7 @@ SELECT
     l.email,
     l.issued_at,
     l.expires_at,
+    l.grants,
     COALESCE(issuer.display_name, '') AS issuer_name
 FROM identity_link AS l
 LEFT JOIN identity_account AS issuer ON issuer.id = l.issued_by
@@ -57,6 +59,7 @@ SELECT
     l.token_sealed,
     l.issued_at,
     l.expires_at,
+    l.grants,
     COALESCE(issuer.display_name, '') AS issuer_name
 FROM identity_link AS l
 LEFT JOIN identity_account AS issuer ON issuer.id = l.issued_by

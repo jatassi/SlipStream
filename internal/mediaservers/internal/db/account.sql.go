@@ -22,7 +22,7 @@ func (q *Queries) DeletePlexServers(ctx context.Context) error {
 }
 
 const getPlexAccount = `-- name: GetPlexAccount :one
-SELECT id, client_identifier, key_sealed, jwt_sealed, jwt_expires_at, account_name, plex_pass, signed_in_at, renewed_at, refused_at FROM mediaservers_plex_account WHERE id = 1
+SELECT id, client_identifier, key_sealed, jwt_sealed, jwt_expires_at, account_name, plex_pass, signed_in_at, renewed_at, refused_at, plex_id FROM mediaservers_plex_account WHERE id = 1
 `
 
 func (q *Queries) GetPlexAccount(ctx context.Context) (MediaserversPlexAccount, error) {
@@ -39,6 +39,7 @@ func (q *Queries) GetPlexAccount(ctx context.Context) (MediaserversPlexAccount, 
 		&i.SignedInAt,
 		&i.RenewedAt,
 		&i.RefusedAt,
+		&i.PlexID,
 	)
 	return i, err
 }
@@ -59,7 +60,7 @@ func (q *Queries) InsertPlexDevice(ctx context.Context, arg InsertPlexDevicePara
 }
 
 const listPlexServers = `-- name: ListPlexServers :many
-SELECT id, kind, name, address, fallback_address, browser_address, identity, version, monitor_delay_ms, reaching_node_id, runs_on_node_id, device_id, secrets_sealed, settings_version, fallback, checked_at, contact, contact_since, contact_found, last_contact_at, sends, sends_since, last_send_at, unhealthy_since, unhealthy_reason, created_at, updated_at FROM mediaservers_server WHERE kind = 'plex' ORDER BY id
+SELECT id, kind, name, address, fallback_address, browser_address, identity, version, monitor_delay_ms, reaching_node_id, runs_on_node_id, device_id, secrets_sealed, settings_version, fallback, checked_at, contact, contact_since, contact_found, last_contact_at, sends, sends_since, last_send_at, unhealthy_since, unhealthy_reason, created_at, updated_at, members_see, member_address FROM mediaservers_server WHERE kind = 'plex' ORDER BY id
 `
 
 func (q *Queries) ListPlexServers(ctx context.Context) ([]MediaserversServer, error) {
@@ -99,6 +100,8 @@ func (q *Queries) ListPlexServers(ctx context.Context) ([]MediaserversServer, er
 			&i.UnhealthyReason,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.MembersSee,
+			&i.MemberAddress,
 		); err != nil {
 			return nil, err
 		}
