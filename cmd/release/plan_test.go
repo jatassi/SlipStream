@@ -198,6 +198,61 @@ func TestPlanShardsEachTimedLaneByItsRecordedTime(t *testing.T) {
 	}
 }
 
+// TestPlanKeepsAMergesE2EShardsOffTheTimeout plans a merge, whose budget
+// takes shards from its timed lanes, from the timings a run left as
+// fetchTimings lays them out: under the run's ID, an artifact directory per
+// shard. Timings from before the plan sized lanes carry neither tier nor
+// seconds, as PR #708's merge checks read from run 45420722753; their run
+// still splits the shards' packages.
+func TestPlanKeepsAMergesE2EShardsOffTheTimeout(t *testing.T) {
+	for _, c := range []struct {
+		name  string
+		files map[string]string
+		want  string
+	}{
+		{"no run recorded e2e", nil, `4/4 timings ""`},
+		{
+			"a run before the plan sized lanes",
+			map[string]string{"timings-linux-amd64-e2e-1/linux-amd64-e2e-1.json": `{"target":"linux-amd64","cpus":4,"packages":{"e2e":{"seconds":866}}}`},
+			`4/4 timings "7"`,
+		},
+		{
+			"a run whose shards took 4758 s",
+			map[string]string{
+				"timings-linux-amd64-e2e-1/linux-amd64-e2e-1.json": `{"target":"linux-amd64","tier":"e2e","seconds":2400,"cpus":4,"packages":{}}`,
+				"timings-linux-amd64-e2e-2/linux-amd64-e2e-2.json": `{"target":"linux-amd64","tier":"e2e","seconds":2358,"cpus":4,"packages":{}}`,
+			},
+			`4/4 timings "7"`,
+		},
+		{
+			"a run whose shards took 2000 s",
+			map[string]string{"timings-linux-amd64-e2e-1/linux-amd64-e2e-1.json": `{"target":"linux-amd64","seconds":2000,"cpus":4,"packages":{}}`},
+			`2/2 timings "7"`,
+		},
+	} {
+		dir := t.TempDir()
+		for name, content := range c.files {
+			path := filepath.Join(dir, "7", name)
+			if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			writeTimings(t, filepath.Dir(path), filepath.Base(path), content)
+		}
+		rec, err := loadRecords(dir)
+		if err != nil {
+			t.Fatal(err)
+		}
+		p, err := plan(planInputs, runKinds["merge"], changescope.PR, touched{diagram: true}, nil, "all", testImage, nil, rec)
+		if err != nil {
+			t.Fatal(err)
+		}
+		e2e := p.Lanes["e2e"].Include
+		if last := e2e[len(e2e)-1]; fmt.Sprintf("%d/%d timings %q", last.Shard, last.Shards, last.Timings) != c.want || p.Jobs() > runKinds["merge"].budget {
+			t.Errorf("%s: a merge plans e2e %v in %d jobs, want shards up to %s within its budget of %d", c.name, shardNames(p.Lanes["e2e"]), p.Jobs(), c.want, runKinds["merge"].budget)
+		}
+	}
+}
+
 func TestPlanFitsEachRunKindsBudget(t *testing.T) {
 	in := testInputs(t)
 	jobs := func(k runKind, rec map[laneTarget]recorded, tch touched) int {

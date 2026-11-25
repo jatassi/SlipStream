@@ -79,9 +79,9 @@ var lanes = []lane{
 	{kind: "build", limit: 45},
 	{kind: "lint", tier: "lint", targets: []string{"linux-amd64", "windows-amd64", "darwin-arm64"}, limit: 20},
 	{kind: "go", tier: "go", shardTime: 10 * time.Minute, defaultShards: 4, limit: 30},
-	// An e2e shard trimmed past 20 minutes runs its heaviest packages
-	// together on 4 CPUs, which takes a part of fakes/world/sim past go
-	// test's 25 minute -timeout (PR #708's first merge check).
+	// A budget trims no e2e shard past 20 minutes: a longer shard runs
+	// longer package parts, each of which go test's 25 minute -timeout
+	// bounds.
 	{kind: "e2e", tier: "e2e", shardTime: 20 * time.Minute, maxShardTime: 20 * time.Minute, defaultShards: 4, limit: 45},
 	{kind: "browser", tier: "browser", targets: []string{"linux-amd64", "darwin-arm64"}, playwright: true, shardTime: 30 * time.Minute, defaultShards: 4, limit: 45},
 	{kind: "component", tier: "component", playwright: true, targets: []string{"linux-amd64"}, limit: 20},
@@ -372,15 +372,18 @@ func laneTiers() []string {
 type laneTarget struct{ lane, target string }
 
 // recorded is what one run recorded of a timed lane on a target: the run's
-// ID, and the test step seconds its shards took together.
+// ID, and the test step seconds its shards took together, zero when its
+// timings predate the seconds.
 type recorded struct {
 	run     string
 	seconds float64
 }
 
 // loadRecords reads the timings in dir, a subdirectory per run named by its
-// ID, as fetchTimings lays them out: one run for each lane on a target. A
-// missing dir holds none.
+// ID, as fetchTimings lays them out: one run for each lane on a target. Each
+// file is named <target>-<lane>-<shard>.json, as the jobs record it; the
+// name, not the content, says the lane, since timings from before the plan
+// sized lanes carry no tier. A missing dir holds none.
 func loadRecords(dir string) (map[laneTarget]recorded, error) {
 	rec := map[laneTarget]recorded{}
 	if dir == "" {
@@ -413,7 +416,8 @@ func loadRecords(dir string) (map[laneTarget]recorded, error) {
 			if err := json.Unmarshal(b, &t); err != nil {
 				return nil, fmt.Errorf("%s: %w", f, err)
 			}
-			key := laneTarget{t.Tier, t.Target}
+			lane, _, _ := strings.Cut(strings.TrimPrefix(strings.TrimSuffix(filepath.Base(f), ".json"), t.Target+"-"), "-")
+			key := laneTarget{lane, t.Target}
 			rec[key] = recorded{run.Name(), rec[key].seconds + t.Seconds}
 		}
 	}
@@ -583,19 +587,18 @@ func withoutCoveredPlatform(runs []sized) []sized {
 const maxShardTime = 40 * time.Minute
 
 // sized gives a timed lane the shards its recorded test time on the target
-// needs, or its default shards when no run recorded it there.
+// needs. A lane no run recorded the seconds of there takes its default
+// shards, each a full shard time, which a budget trims no further than a
+// recorded time of that length.
 func (l lane) sized(t plannedTarget, r recorded) sized {
 	s := sized{lane: l, target: t, shards: 1, run: r.run}
-	switch {
-	case l.shardTime == 0:
-	case r.run == "":
-		s.shards = l.defaultShards
-		s.load = float64(l.defaultShards)
-	default:
-		s.load = r.seconds / l.shardTime.Seconds()
-		s.shards = max(1, int(math.Ceil(s.load)))
-		s.floor = int(math.Ceil(r.seconds / cmp.Or(l.maxShardTime, maxShardTime).Seconds()))
+	if l.shardTime == 0 {
+		return s
 	}
+	seconds := cmp.Or(r.seconds, float64(l.defaultShards)*l.shardTime.Seconds())
+	s.load = seconds / l.shardTime.Seconds()
+	s.shards = max(1, int(math.Ceil(s.load)))
+	s.floor = int(math.Ceil(seconds / cmp.Or(l.maxShardTime, maxShardTime).Seconds()))
 	return s
 }
 

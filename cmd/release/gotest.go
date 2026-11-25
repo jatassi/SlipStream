@@ -42,10 +42,9 @@ func testGoPackages(ctx context.Context, root string, o testOptions, tier string
 	if err != nil {
 		return results{}, err
 	}
-	// A simulation package, worksapi's 20,000-Work and 32,767-Item cases,
-	// and the e2e package when no timings split it across shards run for
-	// most of twenty minutes under -race on a busy runner; the e2e job's
-	// own limit is forty-five.
+	// A simulation package and worksapi's 20,000-Work and 32,767-Item
+	// cases run for most of twenty minutes under -race on a busy runner;
+	// the e2e job's own limit is forty-five.
 	base := []string{"-race", "-shuffle=on", "-timeout", "25m"}
 	if len(o.goArgs) > 0 {
 		return results{}, goTest(ctx, root, env, append(base, o.goArgs...), os.Stdout)
@@ -71,6 +70,9 @@ func testGoPackages(ctx context.Context, root string, o testOptions, tier string
 		if err != nil {
 			return results{}, err
 		}
+		// Every shard of the lane runs on the same kind of runner, so each
+		// partitions by the same CPUs.
+		past.CPUs = cmp.Or(past.CPUs, runtime.NumCPU())
 		runs = partition(pkgs, past, s.count, o.filter == "")[s.index-1]
 		if tier == "e2e" {
 			// An e2e part runs beside the whole packages, and its budget
@@ -90,7 +92,6 @@ func testGoPackages(ctx context.Context, root string, o testOptions, tier string
 	recorded, first, err := runShard(ctx, root, env, flags, runs)
 	if o.record != "" {
 		recorded.Target = target.Name
-		recorded.Tier = tier
 		recorded.Seconds = time.Since(start).Seconds()
 		if err := recorded.write(o.record); err != nil {
 			return results{}, err
@@ -294,23 +295,55 @@ type weighed struct {
 // package with no test files weighs nothing. A shard runs its packages on
 // every CPU at once, so it can finish no sooner than its longest
 // package: with splitTests, a package longer than a shard's share spread
-// over the timed runner's CPUs splits by its top-level tests, into a part
-// per such span, on as many shards. The timings may come from other targets,
-// as loadTimings says, which works because only their ratios matter.
+// over the runner's CPUs splits by its top-level tests, into a part per
+// such span, on as many shards. It splits so whether or not the timings
+// have its tests, since a package that runs whole can outlast go test's
+// -timeout. The timings may come from other targets, as loadTimings says,
+// which works because only their ratios matter.
 func partition(pkgs []goPackage, past timings, shards int, splitTests bool) [][]goRun {
 	seconds, total := weigh(pkgs, past)
 	span := total / float64(shards*max(past.CPUs, 1))
 	var items []weighed
 	for _, p := range pkgs {
 		w := seconds[p.path]
-		tests := past.Packages[p.path].Tests
+		tests, covered := testWeights(past.Packages[p.path].Tests, p.testNames)
 		if !splitTests || w <= span || len(tests) < 2 || shards < 2 {
 			items = append(items, weighed{pkg: p.path, seconds: w})
 			continue
 		}
-		items = append(items, splitPackage(p.path, w, tests, p.testNames, min(shards, len(tests), int(math.Ceil(w/span))))...)
+		items = append(items, splitPackage(p.path, w, tests, covered, min(shards, len(tests), int(math.Ceil(w/span))))...)
 	}
 	return packShards(items, shards)
+}
+
+// testWeights weighs each of a package's top-level tests, timed or
+// declared, by its timed seconds. A declared test the timings have not seen
+// weighs as their mean, so a batch of new tests spreads over the parts
+// instead of piling into the rest part; when they have timed none, every
+// test weighs 1. covered sums the weights the package's seconds stand for:
+// the timed tests', or every test's when none is timed.
+func testWeights(timed map[string]float64, declared []string) (weights map[string]float64, covered float64) {
+	for _, name := range slices.Sorted(maps.Keys(timed)) {
+		covered += timed[name]
+	}
+	unseen := 1.0
+	if covered > 0 {
+		unseen = covered / float64(len(timed))
+	}
+	weights = map[string]float64{}
+	maps.Copy(weights, timed)
+	for _, name := range declared {
+		if _, ok := weights[name]; !ok {
+			weights[name] = unseen
+		}
+	}
+	if covered == 0 {
+		for name := range weights {
+			weights[name] = 1
+		}
+		covered = float64(len(weights))
+	}
+	return weights, covered
 }
 
 // weigh gives each package its seconds, or its test-file bytes when the
@@ -388,26 +421,12 @@ func packShards(items []weighed, shards int) [][]goRun {
 	return out
 }
 
-// splitPackage packs a package's top-level tests into n parts, longest
-// first, scaled so the timed tests weigh the package's seconds. A declared
-// test the timings have not seen weighs as their mean, so a batch of new
-// tests spreads over the parts instead of piling into the rest part.
-func splitPackage(pkg string, seconds float64, timed map[string]float64, declared []string, n int) []weighed {
-	var sum float64
-	for _, name := range slices.Sorted(maps.Keys(timed)) {
-		sum += timed[name]
-	}
-	tests := maps.Clone(timed)
-	for _, name := range declared {
-		if _, ok := tests[name]; !ok {
-			tests[name] = sum / float64(len(timed))
-		}
-	}
+// splitPackage packs a package's top-level tests, as testWeights weighs
+// them, into n parts, longest first, scaled so the covered weights weigh
+// the package's seconds.
+func splitPackage(pkg string, seconds float64, tests map[string]float64, covered float64, n int) []weighed {
 	names := slices.SortedFunc(maps.Keys(tests), func(a, b string) int { return cmp.Or(cmp.Compare(tests[b], tests[a]), cmp.Compare(a, b)) })
-	scale := 1.0
-	if sum > 0 {
-		scale = seconds / sum
-	}
+	scale := seconds / covered
 	parts := make([]weighed, n)
 	for i := range parts {
 		parts[i] = weighed{pkg: pkg, tests: []string{}, rest: i == n-1}
@@ -456,9 +475,8 @@ func testsPattern(tests []string) string {
 // go test -json reports them.
 type timings struct {
 	Target string `json:"target"`
-	// Tier is the tier a shard recorded, and Seconds how long its tests ran,
-	// which the plan sizes the tier's shards by.
-	Tier    string  `json:"tier,omitempty"`
+	// Seconds is how long a shard's tests ran, which the plan sizes the
+	// tier's shards by.
 	Seconds float64 `json:"seconds,omitempty"`
 	// CPUs is how many CPUs the runner that took the timings had.
 	CPUs     int                       `json:"cpus"`
