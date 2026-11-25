@@ -44,14 +44,14 @@ jobs:
         run: go run ./cmd/release scope -explain -base "origin/$BASE" -head HEAD
         env:
           BASE: ${{ github.base_ref }}
-      # A pull request into a feature branch is a wave. One labelled ci: full
-      # runs the merge check's lanes on linux-amd64.
+      # A pull request into main is the merge check; one into a feature
+      # branch is a wave.
       - name: Plan the run
         id: plan
         run: go run ./cmd/release plan -kind "$KIND" -scope "$SCOPE" -package="$PACKAGE" -diagram="$DIAGRAM" -targets "$TARGETS" -timings "$RUNNER_TEMP/timings" -fetch-timings
         env:
           KIND: >-
-            ${{ (github.base_ref == 'main' || contains(github.event.pull_request.labels.*.name, 'ci: full')) && 'merge' || 'wave' }}
+            ${{ github.base_ref == 'main' && 'merge' || 'wave' }}
           SCOPE: ${{ steps.scope.outputs.scope }}
           PACKAGE: ${{ steps.scope.outputs.package }}
           DIAGRAM: ${{ steps.scope.outputs.diagram }}

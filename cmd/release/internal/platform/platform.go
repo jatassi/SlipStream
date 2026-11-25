@@ -46,6 +46,13 @@ var Tests = []Test{
 	{Package: "internal/downloading", Run: "^(TestFreesCountsOnlyFilesWithNoOtherLink|TestPlacePayloadLinksOnOneVolumeAndCopiesAcrossVolumes)$"},
 	{Package: "internal/link", Run: "^TestKeyFileIsOwnerOnly$"},
 	{Package: "internal/link/internal/mux", Run: "^TestMeasureStream$"},
+	{Package: "internal/netfacts", Run: "^TestDialReportsHowFarEachConnectionGot$"},
+	{
+		Package: "internal/netfacts/internal/host",
+		Run: "^(TestSocketsReadEachPortsFamilies|TestTheDefaultGatewayIsTheInterfaces|TestTheFirewallReadsUnknown|" +
+			"TestNetstatListening|TestApplicationFirewall|TestMacOSReaders|" +
+			"TestWindowsSocketsNameFamiliesAndOwner|TestWindowsLoopbackLeavesByAnInterfaceWithNoGateway|TestWindowsFirewallReadsWithoutElevation)$",
+	},
 	{
 		Package: "internal/node",
 		Run: "^(TestARestoreInPlaceKeepsTheBeforeRestoreBackupNewerBackupsAndCredentials|TestARestoreOnANewMachineFencesTheOldControllerThroughAWorker|" +
