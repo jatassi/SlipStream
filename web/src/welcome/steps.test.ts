@@ -22,8 +22,8 @@ const rows = [...welcomeSteps.slice(0, -1), later, ...welcomeSteps.slice(-1)];
 const ids = (shown: readonly WelcomeRow[]) => shown.map((row) => row.id);
 
 test.each<[WelcomeFacts, string[]]>([
-  [{ passkeys: true, servers: 2 }, ["passkey", "later", "done"]],
-  [{ passkeys: false, servers: 1 }, ["later", "done"]],
+  [{ passkeys: true, servers: 2 }, ["passkey", "watch", "later", "done"]],
+  [{ passkeys: false, servers: 1 }, ["watch", "later", "done"]],
   [{ passkeys: true, servers: 0 }, ["passkey", "done"]],
   [{ passkeys: false, servers: 0 }, ["done"]],
 ])("with %o the welcome steps walk %o", (facts, walk) => {

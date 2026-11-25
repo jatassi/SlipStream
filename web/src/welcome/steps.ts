@@ -1,6 +1,7 @@
 import type { HistoryState } from "@tanstack/react-router";
 import type { ComponentType } from "react";
 
+import { WatchStep } from "../media-servers/access/watch-step";
 import { DoneStep, PasskeyStep } from "./screens";
 
 declare module "@tanstack/react-router" {
@@ -33,6 +34,7 @@ export type WelcomeRow = {
 
 export const welcomeSteps: readonly WelcomeRow[] = [
   { id: "passkey", title: "Add a passkey", shows: (facts) => facts.passkeys, Step: PasskeyStep },
+  { id: "watch", title: "Watch", shows: (facts) => facts.servers > 0, Step: WatchStep },
   // S42 (Portal inbox and Member notifications) inserts "email" here, S41 (Member portal) "request"
   { id: "done", title: "Welcome", shows: () => true, Step: DoneStep },
 ];

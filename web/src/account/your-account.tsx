@@ -28,10 +28,12 @@ export function YourAccount({
   adding,
   onAddingChange,
   action,
+  children,
 }: {
   adding: boolean;
   onAddingChange: (adding: boolean) => void;
   action?: ReactNode;
+  children?: ReactNode;
 }) {
   return (
     <Page action={action}>
@@ -39,6 +41,7 @@ export function YourAccount({
       <Pin />
       <Passkeys adding={adding} onAddingChange={onAddingChange} />
       <Devices />
+      {children}
     </Page>
   );
 }
