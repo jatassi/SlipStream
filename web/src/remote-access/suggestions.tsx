@@ -57,7 +57,7 @@ function InterfaceForm({ suggestion }: { suggestion: ReachabilitySuggestionView 
   if (suggestion.addressPrivate) {
     return (
       <div className="flex flex-col gap-3">
-        <p className="text-ink-2">
+        <p className="text-(length:--body-size) leading-(--body-line-height) text-ink-2">
           People outside your home need an https:// Address they can reach. Enter the name they use.
         </p>
         <AddressForm onSaved={add}>
@@ -71,7 +71,7 @@ function InterfaceForm({ suggestion }: { suggestion: ReachabilitySuggestionView 
   }
   return (
     <div className="flex flex-col items-start gap-3">
-      <p className="text-ink-2">
+      <p className="text-(length:--body-size) leading-(--body-line-height) text-ink-2">
         Players outside your home use your Address, <Data>{suggestion.public}</Data>.
       </p>
       <div className="flex flex-wrap gap-2">

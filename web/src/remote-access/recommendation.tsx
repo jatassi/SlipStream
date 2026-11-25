@@ -43,7 +43,7 @@ export function Recommendation({ card, pair }: { card: ReachabilityCard; pair: (
     return (
       <div
         id={recommendationAnchor}
-        className="flex scroll-mt-20 flex-wrap items-start gap-x-4 gap-y-3 rounded-card bg-glass px-4 py-3 ring-1 ring-hairline ring-inset"
+        className="flex scroll-mt-20 flex-wrap items-start gap-x-4 gap-y-3 rounded-card bg-glass px-4 py-3 text-(length:--body-size) leading-(--body-line-height) ring-1 ring-hairline ring-inset"
       >
         <div className="flex min-w-0 flex-[1_1_32ch] flex-col gap-1">
           <p className="font-bold text-ink-1">{card.subject}</p>
