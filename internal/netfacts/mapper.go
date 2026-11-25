@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/netip"
 	"slices"
+	"sync"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/netfacts/gateway"
@@ -32,8 +33,11 @@ type Want struct{ External, Internal uint16 }
 // mapper keeps this Node's router mappings to its wants. Its rows in
 // local.db are what it holds, so a restart still deletes what it mapped.
 type mapper struct {
-	local  *storage.DB[storage.Local]
-	client *gateway.Client
+	// reconciling holds one reconcile at a time, so a pass and a Release
+	// never both delete the same row's mapping.
+	reconciling sync.Mutex
+	local       *storage.DB[storage.Local]
+	client      *gateway.Client
 	// description names this Node's UPnP entries, by which it knows its
 	// own when local.db lost their rows.
 	description string
@@ -73,6 +77,8 @@ func refusalOf(s *string) netmodel.MapRefusal {
 // listed that carries this Node's description and has no row. With gw nil
 // the router is unknown, so it only deletes.
 func (m *mapper) reconcile(ctx context.Context, gw *gateway.Target, speaks netmodel.Protocols, want []Want, listed []netmodel.Forward) error {
+	m.reconciling.Lock()
+	defer m.reconciling.Unlock()
 	rows, err := m.rows(ctx)
 	if err != nil {
 		return err
