@@ -9,7 +9,6 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"runtime"
 	"slices"
 	"strconv"
 	"strings"
@@ -328,7 +327,7 @@ func testQuarantined(ctx context.Context, root string, o testOptions) (results, 
 		fmt.Printf("The quarantine tier runs the tests %s lists for the %s tier on %s:\n  %s\n", quarantinePath, t.name, target, strings.Join(ids, "\n  "))
 		// A Linux runner outside Playwright's container lacks the browsers'
 		// system libraries, which the browsers' own install adds.
-		browsers := inCI() && runtime.GOOS == "linux" && slices.ContainsFunc(tierRunners[t.name], func(r testRunner) bool { return r != goRunner })
+		browsers := inCI() && strings.HasPrefix(target, "linux-") && slices.ContainsFunc(tierRunners[t.name], func(r testRunner) bool { return r != goRunner })
 		r, err := t.run(ctx, root, testOptions{repeat: 1, quarantined: ids, onlyQuarantined: true, systemDeps: browsers})
 		for i := range r.failed {
 			r.failed[i].Tier = t.name
