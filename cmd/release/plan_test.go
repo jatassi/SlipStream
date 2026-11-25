@@ -71,7 +71,7 @@ func TestPlanTargets(t *testing.T) {
 	}{
 		{"merge", changescope.Docs, false, "all", nil, nil, false},
 		{"merge", changescope.PR, false, "all", nil, merge, false},
-		{"merge", changescope.Native, false, "all", nil, with(merge, "build", all), false},
+		{"merge", changescope.Native, false, "all", nil, merge, false},
 		{"merge", changescope.PR, true, "all", nil, with(merge, "build", all), true},
 		{"merge", changescope.PR, false, "all", linux, map[string][]string{
 			"build": linux, "lint": linux, "lint-repo": linux, "go": linux, "e2e": linux, "browser": linux, "component": linux, "diagram": linux,
@@ -170,7 +170,10 @@ func TestPlanFitsEachRunKindsBudget(t *testing.T) {
 		uncapped := k
 		uncapped.budget = 0
 		for _, rec := range []map[laneTarget]recorded{testRecords(t), nil} {
-			for _, tch := range []touched{{}, {packages: true, diagram: true}} {
+			// A change to the packages builds them on every target, and may
+			// pass the budget by a job, since no shard may run past its job's
+			// limit to make room.
+			for _, tch := range []touched{{}, {diagram: true}} {
 				if got, want := jobs(k, rec, tch), min(k.budget, jobs(uncapped, rec, tch)); k.budget > 0 && got != want {
 					t.Errorf("a %s touching %+v with %d recorded lanes plans %d jobs, want %d of its budget of %d", kind, tch, len(rec), got, want, k.budget)
 				}

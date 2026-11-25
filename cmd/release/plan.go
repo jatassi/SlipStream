@@ -95,18 +95,20 @@ type reach int
 const (
 	// prTargets are the targets every pull request tests.
 	prTargets reach = iota
-	// nativeTargets are every target when the change touches the native
-	// libraries or the packages, and the pull request targets otherwise.
-	nativeTargets
+	// packageTargets are every target when the change touches what the
+	// packages are built from, and the pull request targets otherwise. A
+	// change to the native libraries alone needs no build there, since the
+	// platform tests build on each target.
+	packageTargets
 	allTargets
 )
 
 // gates are the gates of the targets the reach takes a change of scope to.
-func (r reach) gates(scope changescope.Scope) []native.Gate {
+func (r reach) gates(scope changescope.Scope, packaging bool) []native.Gate {
 	switch {
 	case scope == changescope.Docs:
 		return nil
-	case r == allTargets || r == nativeTargets && scope == changescope.Native:
+	case r == allTargets || r == packageTargets && packaging:
 		return []native.Gate{native.GatePR, native.GateNative}
 	default:
 		return []native.Gate{native.GatePR}
@@ -153,10 +155,10 @@ var runKinds = map[string]runKind{
 	},
 	"merge": {
 		lanes: map[string]reach{
-			"build": nativeTargets, "lint": allTargets, "lint-repo": prTargets, "go": prTargets, "e2e": prTargets,
+			"build": packageTargets, "lint": allTargets, "lint-repo": prTargets, "go": prTargets, "e2e": prTargets,
 			"browser": prTargets, "component": prTargets, "diagram": prTargets, "platform": allTargets,
 		},
-		budget: 16,
+		budget: 18,
 	},
 	"push":     {lanes: reaching(allTargets, "lint", "go-cache"), everyTarget: true},
 	"dispatch": {lanes: reaching(allTargets, append(testLanes, "platform")...), everyTarget: true},
@@ -472,7 +474,10 @@ type sized struct {
 	shards int
 	// load is the lane's test time on the target in shard times.
 	load float64
-	run  string
+	// floor is the fewest shards whose test steps end inside the job's
+	// limit, which no budget takes the lane below.
+	floor int
+	run   string
 }
 
 // plan runs the Linux jobs of the playwright lanes in image, and splits
@@ -493,7 +498,7 @@ func plan(in native.Inputs, k runKind, scope changescope.Scope, t touched, keep 
 		if !ok || (!k.everyTarget && l.onlyWhen != nil && !l.onlyWhen(t)) {
 			continue
 		}
-		targets, err := planTargets(in, r.gates(scope), keep)
+		targets, err := planTargets(in, r.gates(scope, packaging), keep)
 		if err != nil {
 			return Plan{}, err
 		}
@@ -529,6 +534,10 @@ func withoutCoveredPlatform(runs []sized) []sized {
 	return slices.DeleteFunc(runs, func(s sized) bool { return s.lane.kind == "platform" && full[s.target.Name] == 2 })
 }
 
+// maxShardTime is the longest test step a shard may plan: the e2e and
+// browser jobs end at 45 minutes, and setup takes up to 5.
+const maxShardTime = 40 * time.Minute
+
 // sized gives a timed lane the shards its recorded test time on the target
 // needs, or its default shards when no run recorded it there.
 func (l lane) sized(t plannedTarget, r recorded) sized {
@@ -541,6 +550,7 @@ func (l lane) sized(t plannedTarget, r recorded) sized {
 	default:
 		s.load = r.seconds / l.shardTime.Seconds()
 		s.shards = max(1, int(math.Ceil(s.load)))
+		s.floor = int(math.Ceil(r.seconds / maxShardTime.Seconds()))
 	}
 	return s
 }
@@ -556,7 +566,7 @@ func fit(runs []sized, budget int) {
 	for ; budget > 0 && jobs > budget; jobs-- {
 		best := -1
 		for i, s := range runs {
-			if s.shards > 1 && (best < 0 || s.load/float64(s.shards-1) < runs[best].load/float64(runs[best].shards-1)) {
+			if s.shards > max(1, s.floor) && (best < 0 || s.load/float64(s.shards-1) < runs[best].load/float64(runs[best].shards-1)) {
 				best = i
 			}
 		}
