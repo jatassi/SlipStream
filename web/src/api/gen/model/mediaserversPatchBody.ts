@@ -1,3 +1,5 @@
+import type { MediaserversLibraryChoice } from "./mediaserversLibraryChoice.ts";
+
 export interface MediaserversPatchBody {
   /**
    * @minLength 1
@@ -20,6 +22,18 @@ export interface MediaserversPatchBody {
    * @nullable
    */
   fallbackAddress?: string | null;
+  /**
+   * Jellyfin and Emby: the address How to watch gives Members; null to give none
+   * @nullable
+   */
+  memberAddress?: string | null;
+  /**
+   * The Libraries for Members, from listMediaServerLibraries; never empty while membersSee is on
+   * @maxItems 1000
+   */
+  memberLibraries?: MediaserversLibraryChoice[];
+  /** Show to Members. Turning it on the first time picks the libraries behind the shown Path mappings, unless memberLibraries names others */
+  membersSee?: boolean;
   /**
    * @minLength 1
    * @maxLength 100

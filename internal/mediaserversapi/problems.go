@@ -7,6 +7,8 @@ import (
 	"strings"
 
 	"github.com/jatassi/slipstream/internal/api"
+	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/mediaserverlink/link"
 	"github.com/jatassi/slipstream/internal/mediaservers"
 	"github.com/jatassi/slipstream/internal/settingapi"
 )
@@ -29,7 +31,22 @@ var (
 	plexPinNotFound    = api.NewCode(http.StatusNotFound, "plex_pin_not_found", "No Plex sign-in has this id")
 	plexTVUnreached    = api.NewCode(http.StatusBadGateway, "plex_tv_unreached", "plex.tv didn't respond")
 	marginTooShort     = api.NewCode(http.StatusUnprocessableEntity, "renew_margin_too_short", "The renewal window isn't longer than the renewal interval")
+	accountNotFound    = api.NewCode(http.StatusNotFound, "account_not_found", "No Account has that id")
+	accessNotFound     = api.NewCode(http.StatusNotFound, "media_server_access_not_found", "No Media Server access has this id")
+	accessState        = api.NewCode(http.StatusConflict, "access_state", "The access changed since this page loaded")
+	plexRefused        = api.NewCode(http.StatusUnprocessableEntity, "plex_refused", "Plex refused the share")
+	plexLibsShort      = api.NewCode(http.StatusConflict, "plex_libraries_short", "plex.tv doesn't list a library for Members yet")
+	usernameTaken      = api.NewCode(http.StatusConflict, "username_taken", "The server has a user with this name")
+	serverRefused      = api.NewCode(http.StatusUnprocessableEntity, "server_refused", "The server refused this name")
+	notShownToMembers  = api.NewCode(http.StatusConflict, "not_shown_to_members", "The Media Server isn't shown to Members")
+	plexHomeNotPlex    = api.NewCode(http.StatusUnprocessableEntity, "plex_home_not_plex", "Plex Home is a choice for Plex servers only")
+	noMemberLibraries  = api.NewCode(http.StatusUnprocessableEntity, "no_member_libraries", "Show to Members needs at least one library for Members")
+	notBuilt           = api.NewCode(http.StatusNotImplemented, "not_built_yet", "This part of SlipStream isn't built yet")
 )
+
+// building is the codes of an operation S43 (Member access to Media
+// Servers) adds, which answers not_built_yet until its lane lands.
+func building(codes ...*api.Code) []*api.Code { return append(codes, notBuilt) }
 
 // answer is err as the problem an Admin reads.
 func answer(err error) error {
@@ -52,6 +69,9 @@ func answer(err error) error {
 	}
 	if outside, ok := errors.AsType[*mediaservers.OutsideLibrariesError](err); ok {
 		return outsideFields(outside)
+	}
+	if a := accessAnswer(err); a != nil {
+		return a
 	}
 	switch {
 	case errors.Is(err, mediaservers.ErrNotFound):
@@ -86,4 +106,62 @@ func outsideFields(e *mediaservers.OutsideLibrariesError) error {
 		}
 	}
 	return outsideLibraries.Fields(errs...)
+}
+
+// accessAnswer is an error of Member access to Media Servers as the
+// problem an Admin reads, nil for any other error.
+func accessAnswer(err error) error {
+	if e, ok := errors.AsType[*mediaservers.AccessStateError](err); ok {
+		return accessState.Because(fmt.Sprintf("%s's access to %s changed since this page loaded. Reload the page to see it.", e.Member, e.Server))
+	}
+	if e, ok := errors.AsType[*mediaservers.LibrariesShortError](err); ok {
+		return plexLibsShort.Because(fmt.Sprintf("plex.tv doesn't list %s on %s yet. Try again in a few minutes.", e.Library, e.Server))
+	}
+	if e, ok := errors.AsType[*mediaservers.PlexRefusedError](err); ok {
+		return plexRefused.Because(fmt.Sprintf("Plex refused to share %s. Its response was %q.", e.Server, e.Reply))
+	}
+	if e, ok := errors.AsType[*mediaservers.AccessUnreachedError](err); ok {
+		return unreached.Because(fmt.Sprintf("%s isn't responding to SlipStream. Check that it is running, then try again.", e.Server))
+	}
+	if e, ok := errors.AsType[*identity.NotGrantableError](err); ok {
+		if e.Why == identity.NotPlexWay {
+			return plexHomeNotPlex.Because(fmt.Sprintf("%s isn't a Plex server, so it has no Plex Home. Offer it without Plex Home.", e.Name))
+		}
+		return notShownToMembers.Because(fmt.Sprintf("%s isn't shown to Members. Turn on Show to Members on its page first.", e.Name))
+	}
+	switch {
+	case errors.Is(err, mediaservers.ErrNotYet):
+		return notBuilt
+	case errors.Is(err, mediaservers.ErrAccessNotFound):
+		return accessNotFound
+	case errors.Is(err, mediaservers.ErrNoMemberLibraries):
+		return noMemberLibraries.On("memberLibraries", "Pick at least one library for Members.")
+	case errors.Is(err, identity.ErrNoAccount):
+		return accountNotFound
+	}
+	return nil
+}
+
+// answerMine is err as the problem a Member reads about their own access,
+// which never carries a reply meant for an Admin.
+func answerMine(err error) error {
+	if e, ok := errors.AsType[*mediaservers.AccessStateError](err); ok {
+		return accessState.Because(fmt.Sprintf("Your access to %s changed since this page loaded. Reload the page to see it.", e.Server))
+	}
+	if e, ok := errors.AsType[*mediaservers.AccessUnreachedError](err); ok {
+		return unreached.Because(fmt.Sprintf("%s isn't responding to SlipStream. Try again when it responds.", e.Server))
+	}
+	if e, ok := errors.AsType[*link.NameRefusedError](err); ok {
+		if e.Taken {
+			return usernameTaken.On("username", "The server has a user with this name. Choose another username.")
+		}
+		return serverRefused.On("username", fmt.Sprintf("The server refused this username. Its response was %q. Choose another username.", e.Reply))
+	}
+	switch {
+	case errors.Is(err, mediaservers.ErrPlexNotSignedIn):
+		return plexNotSignedIn.Because("SlipStream isn't signed in to Plex. Ask an Admin to sign in with Plex on the Media Servers page.")
+	case errors.Is(err, mediaservers.ErrPlexTVUnreached):
+		return plexTVUnreached.Because("plex.tv isn't responding. Try again in a few minutes.")
+	}
+	return answer(err)
 }

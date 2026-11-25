@@ -45,6 +45,10 @@ export const denJellyfin: MediaserversServerView = {
   lastSendAt: "2026-11-14T09:20:00Z",
   state: { level: "ok", words: "Den Jellyfin is up to date." },
   mappingsNeeded: 0,
+  membersSee: true,
+  memberLibraries: [{ key: "a1f0", name: "Films" }],
+  memberAddress: "https://den.example.test",
+  memberCount: 2,
 };
 
 /** A Plex server reached through a Worker, unhealthy and with a root still to map. */
@@ -71,6 +75,9 @@ export const livingRoomPlex: MediaserversServerView = {
   },
   mappingsNeeded: 1,
   plexPass: true,
+  membersSee: false,
+  memberLibraries: [],
+  memberCount: 0,
 };
 
 export const servers = [denJellyfin, livingRoomPlex];

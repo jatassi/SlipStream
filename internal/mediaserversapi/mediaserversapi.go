@@ -1,7 +1,8 @@
 // Package mediaserversapi is the Media Servers' operations: the servers an
 // Admin adds, their Path mappings, changes, sessions and credential
-// holders, the Jellyfin and Emby administrator sign-in, and the Plex
-// account. Every operation is the Admin's.
+// holders, the Jellyfin and Emby administrator sign-in, the Plex account,
+// and Members' access to the servers. Every operation is the Admin's but a
+// Member's own access, under /account/media-servers.
 package mediaserversapi
 
 import (
@@ -41,13 +42,16 @@ type draftBody struct {
 type addInput struct{ Body draftBody }
 
 type patchBody struct {
-	Name            *string           `json:"name,omitempty" minLength:"1" maxLength:"100"`
-	Address         *string           `json:"address,omitempty" minLength:"1" maxLength:"2048"`
-	FallbackAddress api.Patch[string] `json:"fallbackAddress,omitempty" doc:"null to use address"`
-	BrowserAddress  api.Patch[string] `json:"browserAddress,omitempty" doc:"null to hide the Open in button"`
-	ReachingNodeID  *string           `json:"reachingNodeId,omitempty" format:"uuid"`
-	RunsOnNodeID    api.Patch[string] `json:"runsOnNodeId,omitempty" doc:"A Node id; null when the server runs on no Node"`
-	APIKey          *string           `json:"apiKey,omitempty" minLength:"1" maxLength:"1024" doc:"Jellyfin and Emby. Write-only. A key from signInToMediaServer keeps the server's saved deviceId, since the key isn't tied to a device"`
+	Name            *string                       `json:"name,omitempty" minLength:"1" maxLength:"100"`
+	Address         *string                       `json:"address,omitempty" minLength:"1" maxLength:"2048"`
+	FallbackAddress api.Patch[string]             `json:"fallbackAddress,omitempty" doc:"null to use address"`
+	BrowserAddress  api.Patch[string]             `json:"browserAddress,omitempty" doc:"null to hide the Open in button"`
+	ReachingNodeID  *string                       `json:"reachingNodeId,omitempty" format:"uuid"`
+	RunsOnNodeID    api.Patch[string]             `json:"runsOnNodeId,omitempty" doc:"A Node id; null when the server runs on no Node"`
+	APIKey          *string                       `json:"apiKey,omitempty" minLength:"1" maxLength:"1024" doc:"Jellyfin and Emby. Write-only. A key from signInToMediaServer keeps the server's saved deviceId, since the key isn't tied to a device"`
+	MembersSee      *bool                         `json:"membersSee,omitempty" doc:"Show to Members. Turning it on the first time picks the libraries behind the shown Path mappings, unless memberLibraries names others"`
+	MemberLibraries *[]mediaservers.LibraryChoice `json:"memberLibraries,omitempty" maxItems:"1000" doc:"The Libraries for Members, from listMediaServerLibraries; never empty while membersSee is on"`
+	MemberAddress   api.Patch[string]             `json:"memberAddress,omitempty" doc:"Jellyfin and Emby: the address How to watch gives Members; null to give none"`
 }
 
 type updateInput struct {
@@ -192,6 +196,7 @@ func (b patchBody) patch() (mediaservers.Patch, error) {
 	p := mediaservers.Patch{
 		Name: b.Name, Address: b.Address, APIKey: b.APIKey,
 		FallbackAddress: setOf(b.FallbackAddress), BrowserAddress: setOf(b.BrowserAddress),
+		MembersSee: b.MembersSee, MemberLibraries: b.MemberLibraries, MemberAddress: setOf(b.MemberAddress),
 	}
 	if b.ReachingNodeID != nil {
 		n, err := nodeID(*b.ReachingNodeID)
@@ -502,7 +507,7 @@ func (h handlers) plexServers(ctx context.Context, _ identity.Admin, _ *struct{}
 
 // Routes registers the Media Servers' operations.
 func Routes(r *api.Router, servers Servers) {
-	o := r.Owner("mediaservers", api.Admin)
+	o := r.Owner("mediaservers", api.Account)
 	h := handlers{servers}
 	const base = "/media-servers"
 	saved := []*api.Code{tooOld, otherServer, unreached, signInRefused, localhostOnWorker, nameTaken, nodeNotFound, nodeNotLinked}
@@ -540,7 +545,7 @@ func Routes(r *api.Router, servers Servers) {
 	api.Register(o, api.Admin, api.Op{
 		ID: "updateMediaServer", Method: http.MethodPatch, Path: base + "/{id}", Status: http.StatusOK,
 		Summary: "Change a Media Server, testing it again when the change is to its address, Connect from Node or API key",
-		Errors:  update,
+		Errors:  building(append(update, noMemberLibraries)...),
 	}, h.update)
 	api.Register(o, api.Admin, api.Op{
 		ID: "removeMediaServer", Method: http.MethodDelete, Path: base + "/{id}", Status: http.StatusNoContent,
@@ -616,4 +621,6 @@ func Routes(r *api.Router, servers Servers) {
 		Summary: "List the Plex account's servers and which Nodes reach each of their connections",
 		Errors:  append([]*api.Code{signInRefused}, plex...),
 	}, h.plexServers)
+	accessRoutes(o, h)
+	mineRoutes(o, h)
 }

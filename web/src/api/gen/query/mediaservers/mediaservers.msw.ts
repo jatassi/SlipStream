@@ -7,9 +7,15 @@ import type {
   HoldersOutputBody,
   KindsOutputBody,
   MappingsOutputBody,
+  MediaserversAccessList,
   MediaserversAccountView,
+  MediaserversActed,
   MediaserversChanges,
   MediaserversLibraries,
+  MediaserversMemberPin,
+  MediaserversMemberPinState,
+  MediaserversMyAccess,
+  MediaserversMyAccessRow,
   MediaserversPlexPin,
   MediaserversPlexPinState,
   MediaserversServerView,
@@ -18,6 +24,7 @@ import type {
   MediaserversSignedIn,
   MediaserversTested,
   PlexServersOutputBody,
+  ServerUsersOutputBody,
   ServersOutputBody,
   SettingAddressField,
   SettingChoiceField,
@@ -34,6 +41,211 @@ import type {
   SettingTemplateField,
   SettingWindowField,
 } from "../../model";
+
+export const getListMyMediaServerAccessResponseMock = (
+  overrideResponse: Partial<Extract<MediaserversMyAccess, object>> = {},
+): MediaserversMyAccess => ({
+  mailSetUp: faker.datatype.boolean(),
+  ...(faker.datatype.boolean()
+    ? { plex: { username: faker.string.alpha({ length: { min: 10, max: 20 } }) } }
+    : {}),
+  plexPassLine: faker.datatype.boolean(),
+  rows: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
+    actions: faker.helpers.arrayElements(["check", "anotherPlex", "makeAccount"] as const),
+    adminName: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? {
+          howToWatch: {
+            ...(faker.datatype.boolean() ? { address: faker.internet.url() } : {}),
+            app: faker.string.alpha({ length: { min: 10, max: 20 } }),
+            signInAs: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          },
+        }
+      : {}),
+    id: faker.string.uuid(),
+    pending: faker.datatype.boolean(),
+    server: {
+      access: faker.helpers.arrayElement(["plex_tv", "users", "users_linked"] as const),
+      label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    },
+    state: faker.helpers.arrayElement([
+      "offered",
+      "waiting",
+      "shared",
+      "making",
+      "active",
+    ] as const),
+  })),
+  ...overrideResponse,
+});
+
+export const getStartMemberPlexSignInResponseMock = (
+  overrideResponse: Partial<Extract<MediaserversMemberPin, object>> = {},
+): MediaserversMemberPin => ({
+  authUrl: faker.internet.url(),
+  expiresAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+  pinId: faker.number.int(),
+  ...overrideResponse,
+});
+
+export const getGetMemberPlexSignInResponseMock = (
+  overrideResponse: Partial<Extract<MediaserversMemberPinState, object>> = {},
+): MediaserversMemberPinState => ({
+  ...(faker.datatype.boolean()
+    ? {
+        refusal: faker.helpers.arrayElement([
+          "plex_account_taken",
+          "plex_account_owner",
+          "plex_account_other",
+        ] as const),
+      }
+    : {}),
+  state: faker.helpers.arrayElement(["waiting", "expired", "signed_in", "refused"] as const),
+  ...overrideResponse,
+});
+
+export const getMakeMediaServerAccountResponseMock = (
+  overrideResponse: Partial<Extract<MediaserversMyAccessRow, object>> = {},
+): MediaserversMyAccessRow => ({
+  actions: faker.helpers.arrayElements(["check", "anotherPlex", "makeAccount"] as const),
+  adminName: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  ...(faker.datatype.boolean()
+    ? {
+        howToWatch: {
+          ...(faker.datatype.boolean() ? { address: faker.internet.url() } : {}),
+          app: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          signInAs: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        },
+      }
+    : {}),
+  id: faker.string.uuid(),
+  pending: faker.datatype.boolean(),
+  server: {
+    access: faker.helpers.arrayElement(["plex_tv", "users", "users_linked"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
+  state: faker.helpers.arrayElement(["offered", "waiting", "shared", "making", "active"] as const),
+  ...overrideResponse,
+});
+
+export const getCheckMyMediaServerAccessResponseMock = (
+  overrideResponse: Partial<Extract<MediaserversMyAccessRow, object>> = {},
+): MediaserversMyAccessRow => ({
+  actions: faker.helpers.arrayElements(["check", "anotherPlex", "makeAccount"] as const),
+  adminName: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  ...(faker.datatype.boolean()
+    ? {
+        howToWatch: {
+          ...(faker.datatype.boolean() ? { address: faker.internet.url() } : {}),
+          app: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          signInAs: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        },
+      }
+    : {}),
+  id: faker.string.uuid(),
+  pending: faker.datatype.boolean(),
+  server: {
+    access: faker.helpers.arrayElement(["plex_tv", "users", "users_linked"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
+  state: faker.helpers.arrayElement(["offered", "waiting", "shared", "making", "active"] as const),
+  ...overrideResponse,
+});
+
+export const getOfferMediaServerResponseMock = (
+  overrideResponse: Partial<Extract<MediaserversActed, object>> = {},
+): MediaserversActed => ({
+  ...(faker.datatype.boolean()
+    ? {
+        mail: {
+          ...(faker.datatype.boolean()
+            ? { detail: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+            : {}),
+          outcome: faker.helpers.arrayElement(["sent", "failed", "not-set-up"] as const),
+        },
+      }
+    : {}),
+  ...(faker.datatype.boolean()
+    ? {
+        row: {
+          actions: faker.helpers.arrayElements([
+            "shareFriend",
+            "shareHome",
+            "markAdded",
+            "check",
+            "link",
+            "offer",
+            "retryRemove",
+            "remove",
+          ] as const),
+          changedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+          id: faker.string.uuid(),
+          libraries: Array.from(
+            { length: faker.number.int({ min: 1, max: 10 }) },
+            (_, i) => i + 1,
+          ).map(() => faker.string.alpha({ length: { min: 10, max: 20 } })),
+          member: {
+            ...(faker.datatype.boolean() ? { accountId: faker.string.uuid() } : {}),
+            disabled: faker.datatype.boolean(),
+            ...(faker.datatype.boolean() ? { email: faker.internet.email() } : {}),
+            name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          },
+          needsYou: faker.datatype.boolean(),
+          ...(faker.datatype.boolean()
+            ? {
+                plex: {
+                  byHand: faker.datatype.boolean(),
+                  ...(faker.datatype.boolean() ? { email: faker.internet.email() } : {}),
+                  plexHome: faker.datatype.boolean(),
+                  ...(faker.datatype.boolean()
+                    ? { username: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+                    : {}),
+                },
+              }
+            : {}),
+          ...(faker.datatype.boolean()
+            ? {
+                problem: {
+                  code: faker.helpers.arrayElement([
+                    "plex_refused",
+                    "plex_libraries_short",
+                    "username_taken",
+                    "server_refused",
+                    "media_server_unreached",
+                    "failed",
+                  ] as const),
+                  ...(faker.datatype.boolean()
+                    ? { detail: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+                    : {}),
+                },
+              }
+            : {}),
+          server: {
+            access: faker.helpers.arrayElement(["plex_tv", "users", "users_linked"] as const),
+            id: faker.string.uuid(),
+            kind: faker.helpers.arrayElement(["plex", "jellyfin", "emby"] as const),
+            name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          },
+          state: faker.helpers.arrayElement([
+            "offered",
+            "waiting",
+            "shared",
+            "making",
+            "active",
+            "removing",
+            "removed",
+          ] as const),
+          ...(faker.datatype.boolean()
+            ? { user: { username: faker.string.alpha({ length: { min: 10, max: 20 } }) } }
+            : {}),
+        },
+      }
+    : {}),
+  ...overrideResponse,
+});
 
 export const getListMediaServersResponseMock = (
   overrideResponse: Partial<Extract<ServersOutputBody, object>> = {},
@@ -71,6 +283,18 @@ export const getListMediaServersResponseMock = (
         ? { lastSendAt: faker.date.past().toISOString().slice(0, 19) + "Z" }
         : {}),
       mappingsNeeded: faker.number.int({ min: 0 }),
+      ...(faker.datatype.boolean()
+        ? { memberAddress: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+        : {}),
+      memberCount: faker.number.int({ min: 0 }),
+      memberLibraries: Array.from(
+        { length: faker.number.int({ min: 1, max: 10 }) },
+        (_, i) => i + 1,
+      ).map(() => ({
+        key: faker.string.alpha({ length: { min: 1, max: 256 } }),
+        name: faker.string.alpha({ length: { min: 1, max: 256 } }),
+      })),
+      membersSee: faker.datatype.boolean(),
       name: faker.string.alpha({ length: { min: 10, max: 20 } }),
       ...(faker.datatype.boolean() ? { plexPass: faker.datatype.boolean() } : {}),
       reachingNode: {
@@ -143,6 +367,18 @@ export const getAddMediaServerResponseMock = (
     ? { lastSendAt: faker.date.past().toISOString().slice(0, 19) + "Z" }
     : {}),
   mappingsNeeded: faker.number.int({ min: 0 }),
+  ...(faker.datatype.boolean()
+    ? { memberAddress: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+    : {}),
+  memberCount: faker.number.int({ min: 0 }),
+  memberLibraries: Array.from(
+    { length: faker.number.int({ min: 1, max: 10 }) },
+    (_, i) => i + 1,
+  ).map(() => ({
+    key: faker.string.alpha({ length: { min: 1, max: 256 } }),
+    name: faker.string.alpha({ length: { min: 1, max: 256 } }),
+  })),
+  membersSee: faker.datatype.boolean(),
   name: faker.string.alpha({ length: { min: 10, max: 20 } }),
   ...(faker.datatype.boolean() ? { plexPass: faker.datatype.boolean() } : {}),
   reachingNode: {
@@ -176,6 +412,554 @@ export const getAddMediaServerResponseMock = (
       }
     : {}),
   version: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  ...overrideResponse,
+});
+
+export const getListMediaServerAccessResponseMock = (
+  overrideResponse: Partial<Extract<MediaserversAccessList, object>> = {},
+): MediaserversAccessList => ({
+  offerable: faker.helpers.arrayElement([
+    Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
+      access: faker.helpers.arrayElement(["plex_tv", "users", "users_linked"] as const),
+      id: faker.string.uuid(),
+      kind: faker.helpers.arrayElement(["plex", "jellyfin", "emby"] as const),
+      name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    })),
+    null,
+  ]),
+  plexHomeUsed: faker.datatype.boolean(),
+  plexPass: faker.datatype.boolean(),
+  rows: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
+    actions: faker.helpers.arrayElements([
+      "shareFriend",
+      "shareHome",
+      "markAdded",
+      "check",
+      "link",
+      "offer",
+      "retryRemove",
+      "remove",
+    ] as const),
+    changedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+    id: faker.string.uuid(),
+    libraries: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+      () => faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ),
+    member: {
+      ...(faker.datatype.boolean() ? { accountId: faker.string.uuid() } : {}),
+      disabled: faker.datatype.boolean(),
+      ...(faker.datatype.boolean() ? { email: faker.internet.email() } : {}),
+      name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    },
+    needsYou: faker.datatype.boolean(),
+    ...(faker.datatype.boolean()
+      ? {
+          plex: {
+            byHand: faker.datatype.boolean(),
+            ...(faker.datatype.boolean() ? { email: faker.internet.email() } : {}),
+            plexHome: faker.datatype.boolean(),
+            ...(faker.datatype.boolean()
+              ? { username: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+              : {}),
+          },
+        }
+      : {}),
+    ...(faker.datatype.boolean()
+      ? {
+          problem: {
+            code: faker.helpers.arrayElement([
+              "plex_refused",
+              "plex_libraries_short",
+              "username_taken",
+              "server_refused",
+              "media_server_unreached",
+              "failed",
+            ] as const),
+            ...(faker.datatype.boolean()
+              ? { detail: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+              : {}),
+          },
+        }
+      : {}),
+    server: {
+      access: faker.helpers.arrayElement(["plex_tv", "users", "users_linked"] as const),
+      id: faker.string.uuid(),
+      kind: faker.helpers.arrayElement(["plex", "jellyfin", "emby"] as const),
+      name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    },
+    state: faker.helpers.arrayElement([
+      "offered",
+      "waiting",
+      "shared",
+      "making",
+      "active",
+      "removing",
+      "removed",
+    ] as const),
+    ...(faker.datatype.boolean()
+      ? { user: { username: faker.string.alpha({ length: { min: 10, max: 20 } }) } }
+      : {}),
+  })),
+  ...overrideResponse,
+});
+
+export const getRemoveMediaServerAccessResponseMock = (
+  overrideResponse: Partial<Extract<MediaserversActed, object>> = {},
+): MediaserversActed => ({
+  ...(faker.datatype.boolean()
+    ? {
+        mail: {
+          ...(faker.datatype.boolean()
+            ? { detail: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+            : {}),
+          outcome: faker.helpers.arrayElement(["sent", "failed", "not-set-up"] as const),
+        },
+      }
+    : {}),
+  ...(faker.datatype.boolean()
+    ? {
+        row: {
+          actions: faker.helpers.arrayElements([
+            "shareFriend",
+            "shareHome",
+            "markAdded",
+            "check",
+            "link",
+            "offer",
+            "retryRemove",
+            "remove",
+          ] as const),
+          changedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+          id: faker.string.uuid(),
+          libraries: Array.from(
+            { length: faker.number.int({ min: 1, max: 10 }) },
+            (_, i) => i + 1,
+          ).map(() => faker.string.alpha({ length: { min: 10, max: 20 } })),
+          member: {
+            ...(faker.datatype.boolean() ? { accountId: faker.string.uuid() } : {}),
+            disabled: faker.datatype.boolean(),
+            ...(faker.datatype.boolean() ? { email: faker.internet.email() } : {}),
+            name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          },
+          needsYou: faker.datatype.boolean(),
+          ...(faker.datatype.boolean()
+            ? {
+                plex: {
+                  byHand: faker.datatype.boolean(),
+                  ...(faker.datatype.boolean() ? { email: faker.internet.email() } : {}),
+                  plexHome: faker.datatype.boolean(),
+                  ...(faker.datatype.boolean()
+                    ? { username: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+                    : {}),
+                },
+              }
+            : {}),
+          ...(faker.datatype.boolean()
+            ? {
+                problem: {
+                  code: faker.helpers.arrayElement([
+                    "plex_refused",
+                    "plex_libraries_short",
+                    "username_taken",
+                    "server_refused",
+                    "media_server_unreached",
+                    "failed",
+                  ] as const),
+                  ...(faker.datatype.boolean()
+                    ? { detail: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+                    : {}),
+                },
+              }
+            : {}),
+          server: {
+            access: faker.helpers.arrayElement(["plex_tv", "users", "users_linked"] as const),
+            id: faker.string.uuid(),
+            kind: faker.helpers.arrayElement(["plex", "jellyfin", "emby"] as const),
+            name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          },
+          state: faker.helpers.arrayElement([
+            "offered",
+            "waiting",
+            "shared",
+            "making",
+            "active",
+            "removing",
+            "removed",
+          ] as const),
+          ...(faker.datatype.boolean()
+            ? { user: { username: faker.string.alpha({ length: { min: 10, max: 20 } }) } }
+            : {}),
+        },
+      }
+    : {}),
+  ...overrideResponse,
+});
+
+export const getCheckMediaServerAccessResponseMock = (
+  overrideResponse: Partial<Extract<MediaserversActed, object>> = {},
+): MediaserversActed => ({
+  ...(faker.datatype.boolean()
+    ? {
+        mail: {
+          ...(faker.datatype.boolean()
+            ? { detail: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+            : {}),
+          outcome: faker.helpers.arrayElement(["sent", "failed", "not-set-up"] as const),
+        },
+      }
+    : {}),
+  ...(faker.datatype.boolean()
+    ? {
+        row: {
+          actions: faker.helpers.arrayElements([
+            "shareFriend",
+            "shareHome",
+            "markAdded",
+            "check",
+            "link",
+            "offer",
+            "retryRemove",
+            "remove",
+          ] as const),
+          changedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+          id: faker.string.uuid(),
+          libraries: Array.from(
+            { length: faker.number.int({ min: 1, max: 10 }) },
+            (_, i) => i + 1,
+          ).map(() => faker.string.alpha({ length: { min: 10, max: 20 } })),
+          member: {
+            ...(faker.datatype.boolean() ? { accountId: faker.string.uuid() } : {}),
+            disabled: faker.datatype.boolean(),
+            ...(faker.datatype.boolean() ? { email: faker.internet.email() } : {}),
+            name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          },
+          needsYou: faker.datatype.boolean(),
+          ...(faker.datatype.boolean()
+            ? {
+                plex: {
+                  byHand: faker.datatype.boolean(),
+                  ...(faker.datatype.boolean() ? { email: faker.internet.email() } : {}),
+                  plexHome: faker.datatype.boolean(),
+                  ...(faker.datatype.boolean()
+                    ? { username: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+                    : {}),
+                },
+              }
+            : {}),
+          ...(faker.datatype.boolean()
+            ? {
+                problem: {
+                  code: faker.helpers.arrayElement([
+                    "plex_refused",
+                    "plex_libraries_short",
+                    "username_taken",
+                    "server_refused",
+                    "media_server_unreached",
+                    "failed",
+                  ] as const),
+                  ...(faker.datatype.boolean()
+                    ? { detail: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+                    : {}),
+                },
+              }
+            : {}),
+          server: {
+            access: faker.helpers.arrayElement(["plex_tv", "users", "users_linked"] as const),
+            id: faker.string.uuid(),
+            kind: faker.helpers.arrayElement(["plex", "jellyfin", "emby"] as const),
+            name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          },
+          state: faker.helpers.arrayElement([
+            "offered",
+            "waiting",
+            "shared",
+            "making",
+            "active",
+            "removing",
+            "removed",
+          ] as const),
+          ...(faker.datatype.boolean()
+            ? { user: { username: faker.string.alpha({ length: { min: 10, max: 20 } }) } }
+            : {}),
+        },
+      }
+    : {}),
+  ...overrideResponse,
+});
+
+export const getLinkMediaServerUserResponseMock = (
+  overrideResponse: Partial<Extract<MediaserversActed, object>> = {},
+): MediaserversActed => ({
+  ...(faker.datatype.boolean()
+    ? {
+        mail: {
+          ...(faker.datatype.boolean()
+            ? { detail: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+            : {}),
+          outcome: faker.helpers.arrayElement(["sent", "failed", "not-set-up"] as const),
+        },
+      }
+    : {}),
+  ...(faker.datatype.boolean()
+    ? {
+        row: {
+          actions: faker.helpers.arrayElements([
+            "shareFriend",
+            "shareHome",
+            "markAdded",
+            "check",
+            "link",
+            "offer",
+            "retryRemove",
+            "remove",
+          ] as const),
+          changedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+          id: faker.string.uuid(),
+          libraries: Array.from(
+            { length: faker.number.int({ min: 1, max: 10 }) },
+            (_, i) => i + 1,
+          ).map(() => faker.string.alpha({ length: { min: 10, max: 20 } })),
+          member: {
+            ...(faker.datatype.boolean() ? { accountId: faker.string.uuid() } : {}),
+            disabled: faker.datatype.boolean(),
+            ...(faker.datatype.boolean() ? { email: faker.internet.email() } : {}),
+            name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          },
+          needsYou: faker.datatype.boolean(),
+          ...(faker.datatype.boolean()
+            ? {
+                plex: {
+                  byHand: faker.datatype.boolean(),
+                  ...(faker.datatype.boolean() ? { email: faker.internet.email() } : {}),
+                  plexHome: faker.datatype.boolean(),
+                  ...(faker.datatype.boolean()
+                    ? { username: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+                    : {}),
+                },
+              }
+            : {}),
+          ...(faker.datatype.boolean()
+            ? {
+                problem: {
+                  code: faker.helpers.arrayElement([
+                    "plex_refused",
+                    "plex_libraries_short",
+                    "username_taken",
+                    "server_refused",
+                    "media_server_unreached",
+                    "failed",
+                  ] as const),
+                  ...(faker.datatype.boolean()
+                    ? { detail: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+                    : {}),
+                },
+              }
+            : {}),
+          server: {
+            access: faker.helpers.arrayElement(["plex_tv", "users", "users_linked"] as const),
+            id: faker.string.uuid(),
+            kind: faker.helpers.arrayElement(["plex", "jellyfin", "emby"] as const),
+            name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          },
+          state: faker.helpers.arrayElement([
+            "offered",
+            "waiting",
+            "shared",
+            "making",
+            "active",
+            "removing",
+            "removed",
+          ] as const),
+          ...(faker.datatype.boolean()
+            ? { user: { username: faker.string.alpha({ length: { min: 10, max: 20 } }) } }
+            : {}),
+        },
+      }
+    : {}),
+  ...overrideResponse,
+});
+
+export const getMarkMediaServerAccessAddedResponseMock = (
+  overrideResponse: Partial<Extract<MediaserversActed, object>> = {},
+): MediaserversActed => ({
+  ...(faker.datatype.boolean()
+    ? {
+        mail: {
+          ...(faker.datatype.boolean()
+            ? { detail: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+            : {}),
+          outcome: faker.helpers.arrayElement(["sent", "failed", "not-set-up"] as const),
+        },
+      }
+    : {}),
+  ...(faker.datatype.boolean()
+    ? {
+        row: {
+          actions: faker.helpers.arrayElements([
+            "shareFriend",
+            "shareHome",
+            "markAdded",
+            "check",
+            "link",
+            "offer",
+            "retryRemove",
+            "remove",
+          ] as const),
+          changedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+          id: faker.string.uuid(),
+          libraries: Array.from(
+            { length: faker.number.int({ min: 1, max: 10 }) },
+            (_, i) => i + 1,
+          ).map(() => faker.string.alpha({ length: { min: 10, max: 20 } })),
+          member: {
+            ...(faker.datatype.boolean() ? { accountId: faker.string.uuid() } : {}),
+            disabled: faker.datatype.boolean(),
+            ...(faker.datatype.boolean() ? { email: faker.internet.email() } : {}),
+            name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          },
+          needsYou: faker.datatype.boolean(),
+          ...(faker.datatype.boolean()
+            ? {
+                plex: {
+                  byHand: faker.datatype.boolean(),
+                  ...(faker.datatype.boolean() ? { email: faker.internet.email() } : {}),
+                  plexHome: faker.datatype.boolean(),
+                  ...(faker.datatype.boolean()
+                    ? { username: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+                    : {}),
+                },
+              }
+            : {}),
+          ...(faker.datatype.boolean()
+            ? {
+                problem: {
+                  code: faker.helpers.arrayElement([
+                    "plex_refused",
+                    "plex_libraries_short",
+                    "username_taken",
+                    "server_refused",
+                    "media_server_unreached",
+                    "failed",
+                  ] as const),
+                  ...(faker.datatype.boolean()
+                    ? { detail: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+                    : {}),
+                },
+              }
+            : {}),
+          server: {
+            access: faker.helpers.arrayElement(["plex_tv", "users", "users_linked"] as const),
+            id: faker.string.uuid(),
+            kind: faker.helpers.arrayElement(["plex", "jellyfin", "emby"] as const),
+            name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          },
+          state: faker.helpers.arrayElement([
+            "offered",
+            "waiting",
+            "shared",
+            "making",
+            "active",
+            "removing",
+            "removed",
+          ] as const),
+          ...(faker.datatype.boolean()
+            ? { user: { username: faker.string.alpha({ length: { min: 10, max: 20 } }) } }
+            : {}),
+        },
+      }
+    : {}),
+  ...overrideResponse,
+});
+
+export const getShareMediaServerAccessResponseMock = (
+  overrideResponse: Partial<Extract<MediaserversActed, object>> = {},
+): MediaserversActed => ({
+  ...(faker.datatype.boolean()
+    ? {
+        mail: {
+          ...(faker.datatype.boolean()
+            ? { detail: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+            : {}),
+          outcome: faker.helpers.arrayElement(["sent", "failed", "not-set-up"] as const),
+        },
+      }
+    : {}),
+  ...(faker.datatype.boolean()
+    ? {
+        row: {
+          actions: faker.helpers.arrayElements([
+            "shareFriend",
+            "shareHome",
+            "markAdded",
+            "check",
+            "link",
+            "offer",
+            "retryRemove",
+            "remove",
+          ] as const),
+          changedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+          id: faker.string.uuid(),
+          libraries: Array.from(
+            { length: faker.number.int({ min: 1, max: 10 }) },
+            (_, i) => i + 1,
+          ).map(() => faker.string.alpha({ length: { min: 10, max: 20 } })),
+          member: {
+            ...(faker.datatype.boolean() ? { accountId: faker.string.uuid() } : {}),
+            disabled: faker.datatype.boolean(),
+            ...(faker.datatype.boolean() ? { email: faker.internet.email() } : {}),
+            name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          },
+          needsYou: faker.datatype.boolean(),
+          ...(faker.datatype.boolean()
+            ? {
+                plex: {
+                  byHand: faker.datatype.boolean(),
+                  ...(faker.datatype.boolean() ? { email: faker.internet.email() } : {}),
+                  plexHome: faker.datatype.boolean(),
+                  ...(faker.datatype.boolean()
+                    ? { username: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+                    : {}),
+                },
+              }
+            : {}),
+          ...(faker.datatype.boolean()
+            ? {
+                problem: {
+                  code: faker.helpers.arrayElement([
+                    "plex_refused",
+                    "plex_libraries_short",
+                    "username_taken",
+                    "server_refused",
+                    "media_server_unreached",
+                    "failed",
+                  ] as const),
+                  ...(faker.datatype.boolean()
+                    ? { detail: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+                    : {}),
+                },
+              }
+            : {}),
+          server: {
+            access: faker.helpers.arrayElement(["plex_tv", "users", "users_linked"] as const),
+            id: faker.string.uuid(),
+            kind: faker.helpers.arrayElement(["plex", "jellyfin", "emby"] as const),
+            name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          },
+          state: faker.helpers.arrayElement([
+            "offered",
+            "waiting",
+            "shared",
+            "making",
+            "active",
+            "removing",
+            "removed",
+          ] as const),
+          ...(faker.datatype.boolean()
+            ? { user: { username: faker.string.alpha({ length: { min: 10, max: 20 } }) } }
+            : {}),
+        },
+      }
+    : {}),
   ...overrideResponse,
 });
 
@@ -218,7 +1002,21 @@ export const getStartPlexSignInResponseMock = (
 export const getGetPlexSignInResponseMock = (
   overrideResponse: Partial<Extract<MediaserversPlexPinState, object>> = {},
 ): MediaserversPlexPinState => ({
-  state: faker.helpers.arrayElement(["waiting", "expired", "signed_in"] as const),
+  state: faker.helpers.arrayElement(["waiting", "expired", "signed_in", "other_account"] as const),
+  ...overrideResponse,
+});
+
+export const getReplacePlexAccountResponseMock = (
+  overrideResponse: Partial<Extract<MediaserversAccountView, object>> = {},
+): MediaserversAccountView => ({
+  expiresAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+  name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  plexPass: faker.datatype.boolean(),
+  refused: faker.datatype.boolean(),
+  ...(faker.datatype.boolean()
+    ? { renewedAt: faker.date.past().toISOString().slice(0, 19) + "Z" }
+    : {}),
+  signedInAt: faker.date.past().toISOString().slice(0, 19) + "Z",
   ...overrideResponse,
 });
 
@@ -1355,6 +2153,18 @@ export const getGetMediaServerResponseMock = (
     ? { lastSendAt: faker.date.past().toISOString().slice(0, 19) + "Z" }
     : {}),
   mappingsNeeded: faker.number.int({ min: 0 }),
+  ...(faker.datatype.boolean()
+    ? { memberAddress: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+    : {}),
+  memberCount: faker.number.int({ min: 0 }),
+  memberLibraries: Array.from(
+    { length: faker.number.int({ min: 1, max: 10 }) },
+    (_, i) => i + 1,
+  ).map(() => ({
+    key: faker.string.alpha({ length: { min: 1, max: 256 } }),
+    name: faker.string.alpha({ length: { min: 1, max: 256 } }),
+  })),
+  membersSee: faker.datatype.boolean(),
   name: faker.string.alpha({ length: { min: 10, max: 20 } }),
   ...(faker.datatype.boolean() ? { plexPass: faker.datatype.boolean() } : {}),
   reachingNode: {
@@ -1425,6 +2235,18 @@ export const getUpdateMediaServerResponseMock = (
     ? { lastSendAt: faker.date.past().toISOString().slice(0, 19) + "Z" }
     : {}),
   mappingsNeeded: faker.number.int({ min: 0 }),
+  ...(faker.datatype.boolean()
+    ? { memberAddress: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+    : {}),
+  memberCount: faker.number.int({ min: 0 }),
+  memberLibraries: Array.from(
+    { length: faker.number.int({ min: 1, max: 10 }) },
+    (_, i) => i + 1,
+  ).map(() => ({
+    key: faker.string.alpha({ length: { min: 1, max: 256 } }),
+    name: faker.string.alpha({ length: { min: 1, max: 256 } }),
+  })),
+  membersSee: faker.datatype.boolean(),
   name: faker.string.alpha({ length: { min: 10, max: 20 } }),
   ...(faker.datatype.boolean() ? { plexPass: faker.datatype.boolean() } : {}),
   reachingNode: {
@@ -1554,6 +2376,18 @@ export const getConfirmMediaServerIdentityResponseMock = (
     ? { lastSendAt: faker.date.past().toISOString().slice(0, 19) + "Z" }
     : {}),
   mappingsNeeded: faker.number.int({ min: 0 }),
+  ...(faker.datatype.boolean()
+    ? { memberAddress: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+    : {}),
+  memberCount: faker.number.int({ min: 0 }),
+  memberLibraries: Array.from(
+    { length: faker.number.int({ min: 1, max: 10 }) },
+    (_, i) => i + 1,
+  ).map(() => ({
+    key: faker.string.alpha({ length: { min: 1, max: 256 } }),
+    name: faker.string.alpha({ length: { min: 1, max: 256 } }),
+  })),
+  membersSee: faker.datatype.boolean(),
   name: faker.string.alpha({ length: { min: 10, max: 20 } }),
   ...(faker.datatype.boolean() ? { plexPass: faker.datatype.boolean() } : {}),
   reachingNode: {
@@ -1720,6 +2554,179 @@ export const getTestMediaServerResponseMock = (
   ...overrideResponse,
 });
 
+export const getListMediaServerUsersResponseMock = (
+  overrideResponse: Partial<Extract<ServerUsersOutputBody, object>> = {},
+): ServerUsersOutputBody => ({
+  users: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
+    id: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  })),
+  ...overrideResponse,
+});
+
+export const getListMyMediaServerAccessMockHandler = (
+  overrideResponse?:
+    | MediaserversMyAccess
+    | ((
+        info: Parameters<Parameters<typeof http.get>[1]>[0],
+      ) => Promise<MediaserversMyAccess> | MediaserversMyAccess),
+  options?: RequestHandlerOptions,
+) => {
+  return http.get(
+    "*/api/v1/account/media-servers",
+    async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getListMyMediaServerAccessResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
+export const getUseAnotherPlexAccountMockHandler = (
+  overrideResponse?:
+    | void
+    | ((info: Parameters<Parameters<typeof http.delete>[1]>[0]) => Promise<void> | void),
+  options?: RequestHandlerOptions,
+) => {
+  return http.delete(
+    "*/api/v1/account/media-servers/plex",
+    async (info: Parameters<Parameters<typeof http.delete>[1]>[0]) => {
+      if (typeof overrideResponse === "function") {
+        await overrideResponse(info);
+      }
+
+      return new HttpResponse(null, { status: 204 });
+    },
+    options,
+  );
+};
+
+export const getStartMemberPlexSignInMockHandler = (
+  overrideResponse?:
+    | MediaserversMemberPin
+    | ((
+        info: Parameters<Parameters<typeof http.post>[1]>[0],
+      ) => Promise<MediaserversMemberPin> | MediaserversMemberPin),
+  options?: RequestHandlerOptions,
+) => {
+  return http.post(
+    "*/api/v1/account/media-servers/plex/pin",
+    async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getStartMemberPlexSignInResponseMock(),
+        { status: 201 },
+      );
+    },
+    options,
+  );
+};
+
+export const getGetMemberPlexSignInMockHandler = (
+  overrideResponse?:
+    | MediaserversMemberPinState
+    | ((
+        info: Parameters<Parameters<typeof http.get>[1]>[0],
+      ) => Promise<MediaserversMemberPinState> | MediaserversMemberPinState),
+  options?: RequestHandlerOptions,
+) => {
+  return http.get(
+    "*/api/v1/account/media-servers/plex/pin/:id",
+    async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getGetMemberPlexSignInResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
+export const getMakeMediaServerAccountMockHandler = (
+  overrideResponse?:
+    | MediaserversMyAccessRow
+    | ((
+        info: Parameters<Parameters<typeof http.post>[1]>[0],
+      ) => Promise<MediaserversMyAccessRow> | MediaserversMyAccessRow),
+  options?: RequestHandlerOptions,
+) => {
+  return http.post(
+    "*/api/v1/account/media-servers/:accessId/account",
+    async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getMakeMediaServerAccountResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
+export const getCheckMyMediaServerAccessMockHandler = (
+  overrideResponse?:
+    | MediaserversMyAccessRow
+    | ((
+        info: Parameters<Parameters<typeof http.post>[1]>[0],
+      ) => Promise<MediaserversMyAccessRow> | MediaserversMyAccessRow),
+  options?: RequestHandlerOptions,
+) => {
+  return http.post(
+    "*/api/v1/account/media-servers/:accessId/check",
+    async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getCheckMyMediaServerAccessResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
+export const getOfferMediaServerMockHandler = (
+  overrideResponse?:
+    | MediaserversActed
+    | ((
+        info: Parameters<Parameters<typeof http.put>[1]>[0],
+      ) => Promise<MediaserversActed> | MediaserversActed),
+  options?: RequestHandlerOptions,
+) => {
+  return http.put(
+    "*/api/v1/accounts/:id/media-servers/:serverId",
+    async (info: Parameters<Parameters<typeof http.put>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getOfferMediaServerResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
 export const getListMediaServersMockHandler = (
   overrideResponse?:
     | ServersOutputBody
@@ -1762,6 +2769,150 @@ export const getAddMediaServerMockHandler = (
             : overrideResponse
           : getAddMediaServerResponseMock(),
         { status: 201 },
+      );
+    },
+    options,
+  );
+};
+
+export const getListMediaServerAccessMockHandler = (
+  overrideResponse?:
+    | MediaserversAccessList
+    | ((
+        info: Parameters<Parameters<typeof http.get>[1]>[0],
+      ) => Promise<MediaserversAccessList> | MediaserversAccessList),
+  options?: RequestHandlerOptions,
+) => {
+  return http.get(
+    "*/api/v1/media-servers/access",
+    async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getListMediaServerAccessResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
+export const getRemoveMediaServerAccessMockHandler = (
+  overrideResponse?:
+    | MediaserversActed
+    | ((
+        info: Parameters<Parameters<typeof http.delete>[1]>[0],
+      ) => Promise<MediaserversActed> | MediaserversActed),
+  options?: RequestHandlerOptions,
+) => {
+  return http.delete(
+    "*/api/v1/media-servers/access/:id",
+    async (info: Parameters<Parameters<typeof http.delete>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getRemoveMediaServerAccessResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
+export const getCheckMediaServerAccessMockHandler = (
+  overrideResponse?:
+    | MediaserversActed
+    | ((
+        info: Parameters<Parameters<typeof http.post>[1]>[0],
+      ) => Promise<MediaserversActed> | MediaserversActed),
+  options?: RequestHandlerOptions,
+) => {
+  return http.post(
+    "*/api/v1/media-servers/access/:id/check",
+    async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getCheckMediaServerAccessResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
+export const getLinkMediaServerUserMockHandler = (
+  overrideResponse?:
+    | MediaserversActed
+    | ((
+        info: Parameters<Parameters<typeof http.post>[1]>[0],
+      ) => Promise<MediaserversActed> | MediaserversActed),
+  options?: RequestHandlerOptions,
+) => {
+  return http.post(
+    "*/api/v1/media-servers/access/:id/link",
+    async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getLinkMediaServerUserResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
+export const getMarkMediaServerAccessAddedMockHandler = (
+  overrideResponse?:
+    | MediaserversActed
+    | ((
+        info: Parameters<Parameters<typeof http.post>[1]>[0],
+      ) => Promise<MediaserversActed> | MediaserversActed),
+  options?: RequestHandlerOptions,
+) => {
+  return http.post(
+    "*/api/v1/media-servers/access/:id/mark-added",
+    async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getMarkMediaServerAccessAddedResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
+export const getShareMediaServerAccessMockHandler = (
+  overrideResponse?:
+    | MediaserversActed
+    | ((
+        info: Parameters<Parameters<typeof http.post>[1]>[0],
+      ) => Promise<MediaserversActed> | MediaserversActed),
+  options?: RequestHandlerOptions,
+) => {
+  return http.post(
+    "*/api/v1/media-servers/access/:id/share",
+    async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getShareMediaServerAccessResponseMock(),
+        { status: 200 },
       );
     },
     options,
@@ -1876,6 +3027,30 @@ export const getGetPlexSignInMockHandler = (
             ? await overrideResponse(info)
             : overrideResponse
           : getGetPlexSignInResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
+export const getReplacePlexAccountMockHandler = (
+  overrideResponse?:
+    | MediaserversAccountView
+    | ((
+        info: Parameters<Parameters<typeof http.post>[1]>[0],
+      ) => Promise<MediaserversAccountView> | MediaserversAccountView),
+  options?: RequestHandlerOptions,
+) => {
+  return http.post(
+    "*/api/v1/media-servers/plex/pin/:id/replace",
+    async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getReplacePlexAccountResponseMock(),
         { status: 200 },
       );
     },
@@ -2232,14 +3407,52 @@ export const getTestMediaServerMockHandler = (
     options,
   );
 };
+
+export const getListMediaServerUsersMockHandler = (
+  overrideResponse?:
+    | ServerUsersOutputBody
+    | ((
+        info: Parameters<Parameters<typeof http.get>[1]>[0],
+      ) => Promise<ServerUsersOutputBody> | ServerUsersOutputBody),
+  options?: RequestHandlerOptions,
+) => {
+  return http.get(
+    "*/api/v1/media-servers/:id/users",
+    async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getListMediaServerUsersResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
 export const getMediaserversMock = () => [
+  getListMyMediaServerAccessMockHandler(),
+  getUseAnotherPlexAccountMockHandler(),
+  getStartMemberPlexSignInMockHandler(),
+  getGetMemberPlexSignInMockHandler(),
+  getMakeMediaServerAccountMockHandler(),
+  getCheckMyMediaServerAccessMockHandler(),
+  getOfferMediaServerMockHandler(),
   getListMediaServersMockHandler(),
   getAddMediaServerMockHandler(),
+  getListMediaServerAccessMockHandler(),
+  getRemoveMediaServerAccessMockHandler(),
+  getCheckMediaServerAccessMockHandler(),
+  getLinkMediaServerUserMockHandler(),
+  getMarkMediaServerAccessAddedMockHandler(),
+  getShareMediaServerAccessMockHandler(),
   getListMediaServerKindsMockHandler(),
   getSignOutOfPlexMockHandler(),
   getGetPlexAccountMockHandler(),
   getStartPlexSignInMockHandler(),
   getGetPlexSignInMockHandler(),
+  getReplacePlexAccountMockHandler(),
   getListPlexServersMockHandler(),
   getGetMediaServerSettingsMockHandler(),
   getUpdateMediaServerSettingsMockHandler(),
@@ -2255,4 +3468,5 @@ export const getMediaserversMock = () => [
   getRefreshMediaServerMockHandler(),
   getListMediaServerSessionsMockHandler(),
   getTestMediaServerMockHandler(),
+  getListMediaServerUsersMockHandler(),
 ];
