@@ -10,9 +10,12 @@ import (
 
 	"github.com/jatassi/slipstream/fakes/fake/faketest"
 	"github.com/jatassi/slipstream/fakes/jellyfin"
+	fakeplextv "github.com/jatassi/slipstream/fakes/plextv"
 	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/mediaservers"
 	"github.com/jatassi/slipstream/internal/mediaservers/access"
 	"github.com/jatassi/slipstream/internal/mediaservers/mstest"
+	"github.com/jatassi/slipstream/internal/providers/plextv"
 )
 
 // walkRig is a Plex server and Den, both shown to Members, a Member and
@@ -26,7 +29,8 @@ type walkRig struct {
 
 func newWalkRig(t *testing.T) walkRig {
 	t.Helper()
-	r := newPlexRig(t)
+	base := newRig(t)
+	r := plexRig{rig: base, plex: base.w.Plex(t, sharedRoom, fakeplextv.Account{Username: "plex-admin", PlexPass: true}, samOnPlex)}
 	r.signIn(t)
 	plexServer := r.addPlex(t, r.w.Home.String()).ID
 	srv := den(floorVer)
@@ -37,6 +41,9 @@ func newWalkRig(t *testing.T) walkRig {
 	r.show(t, denServer)
 	return walkRig{plexRig: r, den: f, servers: map[access.Way]string{access.WayPlexTV: plexServer, access.WayUsers: denServer}, member: r.w.Member(t, "sam")}
 }
+
+// samOnPlex is the Plex account Sam signs in with.
+var samOnPlex = fakeplextv.Account{Username: "sam", Email: "sam@plex.example"}
 
 // walkRow is the fields of an access row the walk reads.
 type walkRow struct {
@@ -154,6 +161,29 @@ var presses = map[access.Event]func(t *testing.T, r walkRig, way access.Way){
 		}
 	},
 	access.Unmake: func(t *testing.T, r walkRig, _ access.Way) { r.w.Restart(t) },
+	access.PlexSignIn: func(t *testing.T, r walkRig, _ access.Way) {
+		if state := r.memberSignIn(t, r.member, samOnPlex.Username); state.State != mediaservers.PinSignedIn {
+			t.Fatalf("Sam's Plex sign-in is %+v", state)
+		}
+	},
+	access.AnotherPlex: func(t *testing.T, r walkRig, _ access.Way) {
+		if status, body := r.o.CallAs(t, http.MethodDelete, "/api/v1/account/media-servers/plex", "", r.member.Session); status != http.StatusNoContent {
+			t.Fatalf("use another Plex account = %d %s", status, body)
+		}
+	},
+}
+
+// sharesSam shares the Plex server with Sam's Plex account in Plex.
+func sharesSam(t *testing.T, r walkRig) plextv.ShareID {
+	t.Helper()
+	return r.w.ShareOnPlexTV(t, r.plex, plexID, samOnPlex.Username)
+}
+
+// sharedSam is the Admin's share to Sam left for Sam to accept.
+func sharedSam(t *testing.T, r walkRig) {
+	t.Helper()
+	row, _ := r.row(t, access.WayPlexTV)
+	r.w.Shared(t, row.ID, sharesSam(t, r))
 }
 
 // step is one press and the Table entries it walks, in order. fail is
@@ -164,6 +194,8 @@ type step struct {
 	fail  []string
 	gone  bool
 	walks []access.Transition
+	// before runs first, for a state Plex holds.
+	before func(t *testing.T, r walkRig)
 }
 
 func onUsers(from access.State, on access.Event, when access.Outcome) access.Transition {
@@ -177,6 +209,8 @@ func onPlex(from access.State, on access.Event, when access.Outcome) access.Tran
 func walk(ts ...access.Transition) step { return step{walks: ts} }
 
 func failing(s step, routes ...string) step { s.fail = routes; return s }
+
+func after(before func(t *testing.T, r walkRig), s step) step { s.before = before; return s }
 
 // samOnDen is the user Sam's access leaves on Den.
 type samOnDen uint8
@@ -198,6 +232,8 @@ var (
 		onUsers(access.Offered, access.MakeAccount, access.Done), onUsers(access.Making, access.Created, access.Done), onUsers(access.Making, access.Unmake, access.Failed),
 	), "user-policy", "delete-user")
 	removeFailing = failing(walk(onUsers(access.Active, access.Remove, access.Failed)), "user")
+	offerPlex     = walk(onPlex(access.None, access.Offer, access.NoIdentity))
+	signInPlex    = walk(onPlex(access.Offered, access.PlexSignIn, access.NotThere))
 )
 
 // TestTheTableWalk drives Table entries at the API seam: each case
@@ -216,6 +252,20 @@ func TestTheTableWalk(t *testing.T) {
 		{"offer Plex again", access.WayPlexTV, []step{walk(onPlex(access.None, access.Offer, access.NoIdentity)), walk(onPlex(access.Offered, access.Offer, access.Done))}, unchecked},
 		{"remove an offered Plex", access.WayPlexTV, []step{walk(onPlex(access.None, access.Offer, access.NoIdentity)), walk(onPlex(access.Offered, access.Remove, access.Done))}, unchecked},
 		{"leave an offered Plex", access.WayPlexTV, []step{walk(onPlex(access.None, access.Offer, access.NoIdentity)), walk(onPlex(access.Offered, access.Leave, access.Done))}, unchecked},
+
+		{"sign in to an offered Plex", access.WayPlexTV, []step{offerPlex, signInPlex}, unchecked},
+		{"sign in where Plex already shares", access.WayPlexTV, []step{offerPlex, after(func(t *testing.T, r walkRig) { sharesSam(t, r) },
+			walk(onPlex(access.Offered, access.PlexSignIn, access.AlreadyThere)))}, unchecked},
+		{"sign in again", access.WayPlexTV, []step{offerPlex, signInPlex, walk(onPlex(access.Waiting, access.PlexSignIn, access.NotThere))}, unchecked},
+		{"sign in again once Plex shares", access.WayPlexTV, []step{offerPlex, signInPlex, after(func(t *testing.T, r walkRig) { sharesSam(t, r) },
+			walk(onPlex(access.Waiting, access.PlexSignIn, access.AlreadyThere)))}, unchecked},
+		{"sign in again accepts the share", access.WayPlexTV, []step{offerPlex, signInPlex, after(sharedSam,
+			walk(onPlex(access.Shared, access.PlexSignIn, access.Accepted)))}, unchecked},
+		{"sign in again with the accept refused", access.WayPlexTV, []step{offerPlex, signInPlex, after(func(t *testing.T, r walkRig) {
+			sharedSam(t, r)
+			r.plex.TV.Cue(t, fakeplextv.RefuseNextAccept.Name, map[string]string{})
+		}, walk(onPlex(access.Shared, access.PlexSignIn, access.NotAccepted)))}, unchecked},
+		{"use another Plex account", access.WayPlexTV, []step{offerPlex, signInPlex, walk(onPlex(access.Waiting, access.AnotherPlex, access.Done))}, unchecked},
 
 		{"offer Den", access.WayUsers, []step{offerDen}, noUser},
 		{"remove an offered Den", access.WayUsers, []step{offerDen, walk(onUsers(access.Offered, access.Remove, access.Done))}, noUser},
@@ -274,6 +324,9 @@ func (r walkRig) press(t *testing.T, way access.Way, s step) {
 	}
 	if s.gone {
 		r.deleteOnDen(t)
+	}
+	if s.before != nil {
+		s.before(t, r)
 	}
 	for _, route := range s.fail {
 		r.den.Cue(t, "jellyfin-fail-next", jellyfin.FailNext{Route: route})

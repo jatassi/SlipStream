@@ -40,6 +40,7 @@ type MediaServers struct {
 	// next roots.changed.
 	unconfirmed unconfirmed
 	turns       turns
+	memberPins  memberPins
 }
 
 type Config struct {
@@ -127,7 +128,7 @@ type Roster interface {
 }
 
 func New(cfg Config) *MediaServers {
-	return &MediaServers{cfg: cfg, seen: newSeenSessions(), senders: newSenders(), lookups: newLookups(), contacted: pendingServers{byNode: map[role.NodeID][]string{}}}
+	return &MediaServers{cfg: cfg, seen: newSeenSessions(), senders: newSenders(), lookups: newLookups(), contacted: pendingServers{byNode: map[role.NodeID][]string{}}, memberPins: newMemberPins()}
 }
 
 // Owner keeps Media Server link on every Node that a server names as its
@@ -183,7 +184,8 @@ func (m *MediaServers) Intent(ctx context.Context, r storage.Reader[storage.Libr
 // whose reaching Node the Admin removed with a write-off, ends the plays
 // of a reaching Node away longer than Mark unhealthy after, wakes every
 // sender to route again, and deletes the users that a stop or an
-// unreached server left from Members' unfinished accounts. At each
+// unreached server left from Members' unfinished accounts. It polls the
+// Members' Plex sign-ins in the background. At each
 // roots.changed it publishes the servers a re-home unconfirmed. After each
 // Node's new facts it writes when their open plays were last seen.
 func (m *MediaServers) Run(ctx context.Context) error {
@@ -192,6 +194,7 @@ func (m *MediaServers) Run(ctx context.Context) error {
 	var wg sync.WaitGroup
 	defer wg.Wait()
 	wg.Go(func() { m.sweepMaking(ctx) })
+	wg.Go(func() { m.pollMembers(ctx) })
 	for {
 		changed := m.cfg.Roster.Changed()
 		m.repoint(ctx)
