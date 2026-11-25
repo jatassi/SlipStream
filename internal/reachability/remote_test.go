@@ -50,6 +50,14 @@ func stamp(node role.NodeID, at time.Time) func(*reachabilitytest.World) {
 	}
 }
 
+// unwatched makes node's Read answer as before it follows its watch
+// intent: interfaces alone, with no STUN answer.
+func unwatched(node role.NodeID) func(*reachabilitytest.World) {
+	return func(w *reachabilitytest.World) {
+		w.Site(node, func(s *reachabilitytest.Site) { s.Facts.STUN, s.Facts.Watched = nil, false })
+	}
+}
+
 func runNow(t *testing.T, w *reachabilitytest.World) {
 	t.Helper()
 	if _, err := w.Reach.RunNow(t.Context(), storage.NewUUID(), nil); err != nil {
@@ -72,6 +80,11 @@ func TestAUnitJudgesTheRouteFromTheNodesThatMayTestIt(t *testing.T) {
 		{name: "Jackson's shape is tested from atlas", shape: judgetest.OwnProxy, verdict: judge.Reachable, tested: true, testedBy: judgetest.Atlas},
 		{name: "an open home is tested from seedbox", shape: judgetest.Open, verdict: judge.Reachable, tested: true, testedBy: judgetest.Seedbox, never: []role.NodeID{judgetest.Atlas}},
 		{name: "den at home never tests", shape: func() *judgetest.B { return judgetest.Open().Inside() }, verdict: judge.Reachable, tested: true, testedBy: judgetest.Seedbox, never: []role.NodeID{judgetest.Den}},
+		{
+			name: "den never tests before atlas's network is read", shape: func() *judgetest.B { return judgetest.Open().Inside() }, verdict: judge.Fixable,
+			play:  unwatched(judgetest.Atlas),
+			never: []role.NodeID{judgetest.Den},
+		},
 		{name: "a single machine stays untested", shape: judgetest.SingleMachine, verdict: judge.Fixable},
 		{
 			name: "an offline tester leaves it untested", shape: judgetest.Open, verdict: judge.Reachable,
