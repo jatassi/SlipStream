@@ -6,6 +6,17 @@ import (
 	"github.com/jatassi/slipstream/internal/mediaservers/access"
 )
 
+// act runs on on row id under its turn: every Admin and Member operation
+// on one row that nothing else holds the turn for.
+func (m *MediaServers) act(ctx context.Context, id AccessID, on access.Event, run runStep) (Acted, error) {
+	r, release, err := m.lockRow(ctx, id)
+	if err != nil {
+		return Acted{}, err
+	}
+	defer release()
+	return m.actLocked(ctx, r, on, run)
+}
+
 // actLocked runs on on r for a caller that holds r's turn: every Admin
 // and Member operation on one row. An event already past answers the row
 // as it is, so the second of two Admins succeeds.

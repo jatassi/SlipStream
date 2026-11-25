@@ -22,6 +22,7 @@ function signOutWords(plex: readonly Server[]): string {
 export function SignOut({ plex }: { plex: readonly Server[] }) {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
+  const watched = plex.filter((server) => server.memberCount > 0).map((server) => server.name);
   return (
     <>
       <Button
@@ -48,6 +49,9 @@ export function SignOut({ plex }: { plex: readonly Server[] }) {
         }}
       >
         <p>{signOutWords(plex)}</p>
+        {watched.length > 0 && (
+          <p>{`Members keep their access on ${list.format(watched)}. SlipStream stops tracking it.`}</p>
+        )}
       </ConfirmDialog>
     </>
   );

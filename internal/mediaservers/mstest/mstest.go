@@ -99,6 +99,10 @@ type World struct {
 	found       []mediaservers.Found
 	// placed is the file whose bytes sit at each Rel of each root.
 	placed map[queue.At]files.ID
+	cfg    mediaservers.Config
+	// halt stops the running Media Servers.
+	halt   func()
+	logged *logged
 }
 
 // Schemas are the library schemas the Media Servers read.
@@ -129,12 +133,13 @@ func New(t *testing.T) *World {
 	if w.roots, err = roots.Open(t.Context(), cfg); err != nil {
 		t.Fatal(err)
 	}
-	log := slog.New(slog.NewTextHandler(t.Output(), nil))
+	w.logged = &logged{}
+	log := slog.New(slog.NewMultiHandler(slog.NewTextHandler(t.Output(), nil), slog.NewTextHandler(w.logged, &slog.HandlerOptions{Level: slog.LevelDebug})))
 	w.links = newLinks(t, w, mediaserverlink.Config{Kinds: mediaserverlink.Kinds, HTTP: w.net.client(), Timings: Timings, Log: log})
 	w.Mail = mailtest.New()
 	outbox := mail.NewOutbox(w.Mail, log)
 	t.Cleanup(func() { _ = outbox.Close(context.Background()) })
-	ms := mediaservers.New(mediaservers.Config{
+	w.cfg = mediaservers.Config{
 		Library: w.Lib, Sealer: w.Sealer, Roster: roster{w.Home, w.Seedbox, w.links}, Kinds: mediaserverlink.Kinds,
 		HTTP: w.net.client(), Timings: Timings, PlexTV: plexTV,
 		Link:         w.links.service,
@@ -159,8 +164,7 @@ func New(t *testing.T) *World {
 		Mail:      w.Mail,
 		Outbox:    outbox,
 		PlexFacts: plextv.Recorded,
-	})
-	w.ms, w.Service, w.Renewal = ms, ms.Service(), ms.RenewalTask()
+	}
 	keys, err := secret.Open(t.Context(), w.Lib, filepath.Join(t.TempDir(), secret.KeyFile))
 	if err != nil {
 		t.Fatal(err)
@@ -168,6 +172,18 @@ func New(t *testing.T) *World {
 	if w.Identity, err = identity.New(t.Context(), identity.Config{Library: w.Lib, Pepper: keys.PINPepper(), Sealer: w.Sealer, Hub: identitytest.Hub(t)}); err != nil {
 		t.Fatal(err)
 	}
+	w.boot()
+	t.Cleanup(func() { w.halt() })
+	w.links.start(w.Home)
+	w.links.start(w.Seedbox)
+	return w
+}
+
+// boot makes the Controller's Media Servers over the World's library and
+// runs them until halt.
+func (w *World) boot() {
+	ms := mediaservers.New(w.cfg)
+	w.ms, w.Service, w.Renewal = ms, ms.Service(), ms.RenewalTask()
 	w.Identity.SetGranter(ms.Granter())
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
@@ -175,14 +191,44 @@ func New(t *testing.T) *World {
 		defer close(done)
 		_ = ms.Run(ctx)
 	}()
-	t.Cleanup(func() {
+	w.halt = func() {
 		cancel()
 		<-done
-	})
-	w.links.start(w.Home)
-	w.links.start(w.Seedbox)
-	return w
+	}
 }
+
+// Restart stops the Controller's Media Servers as a Controller that stops
+// does, with whatever is in memory lost, and starts them again over the
+// same library. Run any call in flight to its end first.
+func (w *World) Restart(t *testing.T) {
+	t.Helper()
+	w.halt()
+	w.boot()
+}
+
+// logged is every log line of the World's Nodes, at debug.
+type logged struct {
+	mu  sync.Mutex
+	buf strings.Builder
+}
+
+func (l *logged) Write(p []byte) (int, error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.buf.Write(p)
+	return len(p), nil
+}
+
+// Logged is every line the World's Media Servers and Media Server links
+// logged so far, at debug.
+func (w *World) Logged() string {
+	w.logged.mu.Lock()
+	defer w.logged.mu.Unlock()
+	return w.logged.buf.String()
+}
+
+// Tap keeps the payload of every event the World publishes from now on.
+func (w *World) Tap(ctx context.Context) *live.Tap { return w.hub.Tap(ctx, hubEvents...) }
 
 // Member is a Member's Account and a fresh session of it.
 type Member struct {

@@ -2,10 +2,13 @@ package mediaservers
 
 import (
 	"context"
+	"fmt"
+	"slices"
 
 	"github.com/jatassi/slipstream/internal/health"
 	"github.com/jatassi/slipstream/internal/live"
 	"github.com/jatassi/slipstream/internal/mediaserverlink/link"
+	"github.com/jatassi/slipstream/internal/mediaservers/access"
 	"github.com/jatassi/slipstream/internal/mediaservers/internal/db"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/roots"
@@ -39,15 +42,19 @@ func mappingHealthKey(id link.ServerID, root roots.ID) health.Key {
 
 func (m *MediaServers) healthAnswer(ctx context.Context) (health.Answer, error) {
 	var (
-		w    world
-		rows []db.MediaserversServer
+		w        world
+		rows     []db.MediaserversServer
+		removing []db.MediaserversMemberAccess
 	)
 	err := m.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[storage.Library]) error {
 		var err error
 		if w, err = m.world(ctx, r); err != nil {
 			return err
 		}
-		rows, err = db.New(r).ListServers(ctx)
+		if rows, err = db.New(r).ListServers(ctx); err != nil {
+			return err
+		}
+		removing, err = db.New(r).ListAccessIn(ctx, access.Removing)
 		return err
 	})
 	if err != nil {
@@ -77,7 +84,28 @@ func (m *MediaServers) healthAnswer(ctx context.Context) (health.Answer, error) 
 			}})
 		}
 	}
+	for _, r := range removing {
+		a.Items = append(a.Items, removingItem(r, rows))
+	}
 	return a, nil
+}
+
+// accessHealthKey is the Health item of access row id whose removal
+// failed.
+func accessHealthKey(id AccessID) health.Key { return health.KeyOf("access", id.String()) }
+
+func removingItem(r db.MediaserversMemberAccess, servers []db.MediaserversServer) health.Item {
+	server := servers[slices.IndexFunc(servers, func(s db.MediaserversServer) bool { return s.ID == r.ServerID })].Name
+	var detail []health.Fact
+	if r.ProblemDetail != nil {
+		detail = []health.Fact{{Label: "Problem", Text: *r.ProblemDetail}}
+	}
+	return health.Item{Key: accessHealthKey(r.ID), Level: health.Warn, Says: health.Says{
+		Subject: fmt.Sprintf("%s's access to %s", r.MemberName, server),
+		Text:    fmt.Sprintf("SlipStream couldn't remove %s's access to %s. Try again from Accounts, or remove it in %s yourself.", r.MemberName, server, server),
+		Detail:  detail,
+		Action:  health.LinkAction("/accounts", "Open Accounts"),
+	}}
 }
 
 func (m *MediaServers) unhealthyWords(row db.MediaserversServer, k link.Kind, w world, reason string) string {
