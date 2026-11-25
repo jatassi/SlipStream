@@ -52,6 +52,7 @@ func Run(t *testing.T, tg Target) {
 	for _, c := range jf {
 		cases = append(cases, mediaservers.Case{Name: c.name, Run: func(t *testing.T) { c.run(t, tg, shared, s) }})
 	}
+	cases = append(cases, s.UserCases()...)
 	mediaservers.Each(t, cases)
 }
 
