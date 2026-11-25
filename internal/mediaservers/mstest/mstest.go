@@ -9,6 +9,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"maps"
 	"net/http"
 	"net/netip"
 	"net/url"
@@ -39,12 +40,14 @@ import (
 	"github.com/jatassi/slipstream/internal/mediaserverlink"
 	"github.com/jatassi/slipstream/internal/mediaserverlink/link"
 	"github.com/jatassi/slipstream/internal/mediaservers"
+	"github.com/jatassi/slipstream/internal/mediaservers/access"
 	"github.com/jatassi/slipstream/internal/mediaservers/internal/db"
 	"github.com/jatassi/slipstream/internal/mediaservers/queue"
 	"github.com/jatassi/slipstream/internal/node/endpoint"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/nodes/nodestest"
 	msv1 "github.com/jatassi/slipstream/internal/pb/slipstream/mediaserver/v1"
+	"github.com/jatassi/slipstream/internal/providers/plex"
 	"github.com/jatassi/slipstream/internal/providers/plextv"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
@@ -305,11 +308,13 @@ const (
 // plexTV is where the World's plex.tv is served.
 var plexTV = plextv.Endpoints{
 	API:     endpoint.MustParseURL("https://plextv.fake.localhost"),
+	Web:     endpoint.MustParseURL("https://plextv-web.fake.localhost"),
 	Auth:    endpoint.MustParseURL("http://plextv-auth.fake.localhost/auth"),
 	Desktop: endpoint.MustParseURL("https://app.plex.invalid/desktop"),
 }
 
-// Plex is plex.tv signing in to account, which owns srv, and srv served
+// Plex is plex.tv signing in to account, which owns srv, with members'
+// accounts beside it, and srv served
 // at home's and seedbox's addresses on port 32400, in that order in
 // resources. Each connection is that Node's front, as in the world, so a
 // fault rule's origin names the connection, whoever dials it.
@@ -317,7 +322,7 @@ type Plex struct {
 	TV, Server faketest.Served
 }
 
-func (w *World) Plex(t *testing.T, srv fakeplex.Server, a fakeplextv.Account) Plex {
+func (w *World) Plex(t *testing.T, srv fakeplex.Server, a fakeplextv.Account, members ...fakeplextv.Account) Plex {
 	t.Helper()
 	s := scenario.Scenario{Seed: "mstest"}
 	shared := fake.NewShared()
@@ -329,7 +334,8 @@ func (w *World) Plex(t *testing.T, srv fakeplex.Server, a fakeplextv.Account) Pl
 		fronts = append(fronts, fake.Front{Target: "plex", Node: f.node, Address: fake.Address{AddrPort: at}})
 		hosts[at.String()] = f.node
 	}
-	p.TV = faketest.InMemory(t, fakeplextv.Playing(a), s, faketest.WithShared(shared), faketest.WithFronts(fronts))
+	p.TV = faketest.InMemory(t, fakeplextv.Playing(a, members...), s, faketest.WithShared(shared), faketest.WithFronts(fronts))
+	web := faketest.InMemory(t, fakeplextv.Web, s, faketest.WithShared(shared))
 	w.net.mu.Lock()
 	defer w.net.mu.Unlock()
 	for host, node := range hosts {
@@ -337,6 +343,7 @@ func (w *World) Plex(t *testing.T, srv fakeplex.Server, a fakeplextv.Account) Pl
 		w.net.down[host] = stopper{faults: p.Server.Faults, target: fault.Target(fakeplex.Fake.Name), origin: node}
 	}
 	w.net.served[plexTV.API.Hostname()] = p.TV.Client.Transport
+	w.net.served[plexTV.Web.Hostname()] = web.Client.Transport
 	return p
 }
 
@@ -350,6 +357,115 @@ func (p Plex) Approve(t *testing.T, authURL string) {
 		t.Fatal(err)
 	}
 	p.TV.Cue(t, fakeplextv.Approve.Name, map[string]string{"code": q.Get("code")})
+}
+
+// ApproveAs signs username's Plex account in on the sign-in page at
+// authURL, as a Member does on plex.tv.
+func (p Plex) ApproveAs(t *testing.T, authURL, username string) {
+	t.Helper()
+	_, fragment, _ := strings.Cut(authURL, "#?")
+	q, err := url.ParseQuery(fragment)
+	if err != nil {
+		t.Fatal(err)
+	}
+	p.TV.Cue(t, fakeplextv.Approve.Name, map[string]string{"code": q.Get("code"), "account": username})
+}
+
+// PlexTVToken is a token of username's Plex account, the Admin's for "",
+// signed in on a device of their own.
+func (w *World) PlexTVToken(t *testing.T, p Plex, username string) plextv.MemberToken {
+	t.Helper()
+	m := plextv.NewMember(plexTV, plex.Headers{ClientID: "elsewhere-" + username, Product: "Plex Web"}, w.net.client())
+	pin, err := m.CreateLegacyPin(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	p.TV.Cue(t, fakeplextv.Approve.Name, map[string]string{"code": pin.Code, "account": username})
+	token, ok, err := m.PollLegacyPin(t.Context(), pin.ID)
+	if err != nil || !ok {
+		t.Fatalf("poll %q's PIN = %v, %v", username, ok, err)
+	}
+	return token
+}
+
+// PlexTVUser is the Plex account token signs in, false once plex.tv no
+// longer holds token.
+func (w *World) PlexTVUser(t *testing.T, token plextv.MemberToken) (plextv.User, bool) {
+	t.Helper()
+	m := plextv.NewMember(plexTV, plex.Headers{ClientID: "elsewhere", Product: "Plex Web"}, w.net.client())
+	u, err := m.User(t.Context(), token)
+	if plextv.Refused(err) {
+		return plextv.User{}, false
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	return u, true
+}
+
+// MemberPinToken is the token plex.tv gave account's device for its PIN
+// pin, read as that device polls it.
+func (w *World) MemberPinToken(t *testing.T, account identity.AccountID, pin int64) plextv.MemberToken {
+	t.Helper()
+	var p db.MediaserversMemberPlex
+	err := w.Lib.Read(t.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {
+		var err error
+		p, err = db.New(r).GetMemberPlex(ctx, account)
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := plextv.NewMember(plexTV, plex.Headers{ClientID: p.ClientIdentifier, Product: "SlipStream"}, w.net.client())
+	token, ok, err := m.PollLegacyPin(t.Context(), pin)
+	if err != nil || !ok {
+		t.Fatalf("poll PIN %d = %v, %v", pin, ok, err)
+	}
+	return token
+}
+
+// ShareOnPlexTV shares the Plex server machine with username's Plex
+// account with every library, as the Admin does in Plex, and answers the
+// share.
+func (w *World) ShareOnPlexTV(t *testing.T, p Plex, machine, username string) plextv.ShareID {
+	t.Helper()
+	admin := w.PlexTVToken(t, p, "").Reveal()
+	member, _ := w.PlexTVUser(t, w.PlexTVToken(t, p, username))
+	c := plextv.New(plexTV, plex.Headers{ClientID: "elsewhere", Product: "Plex Web"}, nil, w.net.client())
+	sections, err := c.Sections(t.Context(), admin, machine)
+	if err != nil {
+		t.Fatal(err)
+	}
+	share, err := c.Share(t.Context(), admin, machine, member.ID, slices.Collect(maps.Values(sections)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return share
+}
+
+// Shared moves access row id to shared on share, as the Admin's Share on
+// Plex does when the Member's accept fails.
+func (w *World) Shared(t *testing.T, id string, share plextv.ShareID) {
+	t.Helper()
+	row, err := storage.ParseUUID(id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = w.Lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+		q := db.New(tx)
+		a, err := q.GetAccess(ctx, mediaservers.AccessID{UUID: row})
+		if err != nil {
+			return err
+		}
+		_, err = q.MoveAccess(ctx, db.MoveAccessParams{
+			ID: a.ID, FromState: access.Waiting, State: access.Shared, ChangedAt: storage.Now(), AccountID: a.AccountID,
+			PlexID: a.PlexID, PlexUuid: a.PlexUuid, SharedServerID: &share, ByHand: a.ByHand, PlexHome: a.PlexHome,
+		})
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
 }
 
 // Intent is node's intent as the Role sends it.
