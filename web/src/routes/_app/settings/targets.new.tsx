@@ -54,7 +54,7 @@ function NewTargetPage() {
             const made = await createTarget(bodyOf(draft));
             toast(
               from
-                ? `Created ${made.name}. Add it to a Profile so that SlipStream looks for files for it.`
+                ? `Created ${made.name}. Add it to a Profile so that Works get a file for it.`
                 : `Created ${made.name}.`,
             );
             await navigate({ to: "/settings/$section", params: { section: "targets" } });

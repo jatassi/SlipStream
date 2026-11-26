@@ -6,6 +6,7 @@ import {
 } from "@hugeicons/core-free-icons";
 
 import type {
+  PlaybackBlocked as Blocked,
   PlaybackBlockedDimension as Dimension,
   PlaybackEvidenceFact as FactKind,
   MediaserversSessionView as Session,
@@ -120,7 +121,7 @@ export const hdrWord = (value: string): string => hdrWords[value] ?? value;
 
 const megabits = new Intl.NumberFormat("en", { maximumFractionDigits: 1 });
 
-const bitrateWords = (bits: string) => `${megabits.format(Number(bits) / 1_000_000)} Mb/s`;
+const bitrateWords = (bits: string) => `${megabits.format(Number(bits) / 1_000_000)} Mbps`;
 
 /** A dimension a Target can choose, whose envelope a player proves value by value. */
 type Choosable = {
@@ -222,6 +223,26 @@ export const dimensionWords: { readonly [D in Dimension]: Choosable | Fixed } = 
     follow: () => "Check the player's quality setting.",
   },
 };
+
+const leadWords = (blocked: Blocked) => dimensionWords[blocked.dimension].lead(blocked.value);
+
+const playerCant = "the player can't ";
+
+/** The causes a line names, joined as "the player can't show Dolby Vision or HDR10 or play TrueHD audio". */
+export function causeWords(cause: readonly Blocked[]): string {
+  const clauses = cause.map((blocked) => leadWords(blocked));
+  return clauses
+    .map((words, i) => {
+      const before = clauses[i - 1];
+      if (before === undefined || !before.startsWith(playerCant) || !words.startsWith(playerCant)) {
+        return words;
+      }
+      const rest = words.slice(playerCant.length);
+      const [verb = ""] = rest.split(" ", 1);
+      return before.startsWith(`${playerCant}${verb} `) ? rest.slice(verb.length + 1) : rest;
+    })
+    .join(" or ");
+}
 
 /** A tracked fact's value as a sentence names it after "its", such as "MP4 container". */
 export const factWords: { readonly [F in FactKind]: (value: string) => string } = {

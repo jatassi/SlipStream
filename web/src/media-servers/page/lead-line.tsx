@@ -12,15 +12,15 @@ import type {
 import { type Noun, countWords, nounOf } from "../../format";
 import { openManualSearch } from "../../manual/sheet-state";
 import { Button } from "../../ui/button";
-import { dimensionWords, factWords } from "./playback-words";
+import { causeWords, dimensionWords, factWords } from "./playback-words";
 
 /** What a lead line reads against: the server and player it names, the report's window and the Content Types. */
 export type LeadContext = {
   readonly server: string;
   readonly player: string;
-  /** "in the last 30 days", or "since Nov 12 at 8:00 PM" while the history starts later. */
+  /** "in the last 30 days", or "since Nov 12" while the history starts later. */
   readonly window: string;
-  /** Where the report starts, "since Oct 15 at 8:00 PM". */
+  /** Where the report starts, "since Oct 15". */
   readonly since: string;
   readonly plex: boolean;
   readonly types: readonly WorksContentType[];
@@ -41,7 +41,7 @@ const workPart = (work: WorkLine): Part => ({
 });
 
 const plays: Noun = { one: "play", many: "plays" };
-const titles: Noun = { one: "title", many: "titles" };
+const mixed: Noun = { one: "Work", many: "Works" };
 
 const were = (count: number) => (count === 1 ? "was" : "were");
 
@@ -52,19 +52,11 @@ function need<T>(value: T | undefined, what: string): T {
   return value;
 }
 
-const leadWords = (blocked: Blocked) => dimensionWords[blocked.dimension].lead(blocked.value);
-
-/** The cause a line names, two joined as "the player can't show Dolby Vision or play TrueHD audio". */
-export function causeWords(cause: readonly Blocked[]): string {
-  const [first, ...rest] = cause.map((blocked) => leadWords(blocked));
-  return [first, ...rest.map((words) => words.replace(/^the player can't /u, ""))].join(" or ");
-}
-
 function worksNoun(works: readonly WorkLine[], types: readonly WorksContentType[]): Noun {
   const ids = new Set(works.map((work) => work.contentType));
   const type = ids.size === 1 ? types.find((each) => ids.has(each.id)) : undefined;
   return type === undefined
-    ? titles
+    ? mixed
     : { one: type.work.one.toLowerCase(), many: type.work.many.toLowerCase() };
 }
 

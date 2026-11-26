@@ -5,7 +5,7 @@ export interface MediaserversReceivedView {
    */
   audioCodec: string | null;
   /**
-   * null when unreported, in bits a second
+   * Bits a second; null when unreported
    * @nullable
    */
   bitrate: number | null;

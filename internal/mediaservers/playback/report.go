@@ -69,7 +69,7 @@ type Outcome struct {
 type Version struct {
 	FileID       string `json:"fileId" format:"uuid"`
 	Label        string `json:"label"`
-	SeparateItem bool   `json:"separateItem" doc:"The server lists it as its own item, not as a version the player can choose"`
+	SeparateItem bool   `json:"separateItem" doc:"The server lists the file as a separate item, which the player can't choose as a version"`
 }
 
 // Suggestion is a Target that would give the player files it plays

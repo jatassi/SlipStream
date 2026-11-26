@@ -22,7 +22,7 @@ export function PlayerRow({
       title={player.name}
       meta={
         <>
-          {`${player.product} · ${player.platform} · Last played `}
+          {`${[player.product, player.platform, "Last played"].filter(Boolean).join(" · ")} `}
           <PlainTime at={player.lastPlayedAt} form="age" />
         </>
       }

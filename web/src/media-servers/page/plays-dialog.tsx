@@ -1,33 +1,12 @@
 import { useSuspenseInfiniteQuery } from "@tanstack/react-query";
 import { Suspense } from "react";
 
-import type { MediaserversPlayView as Play } from "../../api/gen/model";
 import { Button } from "../../ui/button";
 import { Dialog } from "../../ui/dialog";
-import { List, ListRow } from "../../ui/list";
-import { PlainTime } from "../../ui/relative-time";
+import { List } from "../../ui/list";
 import { Skeleton } from "../../ui/skeleton";
-import { Mark } from "../../ui/state-mark";
-import { fileName } from "./paths";
-// oxlint-disable-next-line import/max-dependencies -- a play row reads its file, time and decision mark, and the list pages
-import { decisionTerm } from "./playback-words";
+import { PlayRow } from "./play-row";
 import { playsQuery } from "./plays-query";
-
-function PlayRow({ play }: { play: Play }) {
-  return (
-    <ListRow
-      title={play.work?.title ?? fileName(play.path)}
-      meta={
-        <>
-          {`${play.user} · ${play.work === undefined ? "" : `${fileName(play.path)} · `}`}
-          <PlainTime at={play.startedAt} form="clock" />
-          {play.endedAt === null ? " · Playing now" : ""}
-        </>
-      }
-      trailing={<Mark mark={decisionTerm(play)} />}
-    />
-  );
-}
 
 function Plays({ serverId, player, name }: { serverId: string; player: string; name: string }) {
   const { data, hasNextPage, fetchNextPage, isFetchingNextPage } = useSuspenseInfiniteQuery(
