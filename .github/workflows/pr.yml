@@ -17,12 +17,11 @@ defaults:
     shell: bash
 
 jobs:
-  # A draft pull request into main is a feature's final PR while its waves
-  # merge. The train tests its head, so it runs the merge check only once
-  # marked ready for review.
+  # A draft pull request runs no checks until it's marked ready for review.
+  # A feature's draft final PR still gets the train's checks on its head.
   plan:
     name: Plan
-    if: ${{ !(github.base_ref == 'main' && github.event.pull_request.draft) }}
+    if: ${{ !github.event.pull_request.draft }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
