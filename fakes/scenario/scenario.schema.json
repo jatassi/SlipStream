@@ -1507,6 +1507,26 @@
             },
             "index_page": {
               "type": "integer"
+            },
+            "missed_polls": {
+              "type": "integer"
+            },
+            "sessions_push": {
+              "type": "string",
+              "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+            },
+            "string_cap": {
+              "type": "integer"
+            },
+            "path_cap": {
+              "type": "integer"
+            },
+            "reason_cap": {
+              "type": "integer"
+            },
+            "future_skew": {
+              "type": "string",
+              "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
             }
           },
           "additionalProperties": false,
