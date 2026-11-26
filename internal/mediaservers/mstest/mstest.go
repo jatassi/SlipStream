@@ -169,6 +169,7 @@ func New(t *testing.T) *World {
 		Mail:      w.Mail,
 		Outbox:    outbox,
 		PlexFacts: plextv.Recorded,
+		Batch:     2,
 	}
 	keys, err := secret.Open(t.Context(), w.Lib, filepath.Join(t.TempDir(), secret.KeyFile))
 	if err != nil {
