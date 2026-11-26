@@ -9,6 +9,7 @@ import (
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/mediaserverlink/link"
 	"github.com/jatassi/slipstream/internal/mediaservers/access"
+	"github.com/jatassi/slipstream/internal/mediaservers/playback"
 	"github.com/jatassi/slipstream/internal/mediaservers/queue"
 	"github.com/jatassi/slipstream/internal/providers/plextv"
 	"github.com/jatassi/slipstream/internal/role"
@@ -125,20 +126,31 @@ type MediaserversMemberPlex struct {
 }
 
 type MediaserversPlay struct {
-	ServerID   link.ServerID
-	ID         link.PlayID
-	SessionKey string
-	FileID     files.ID
-	ServerPath string
-	UserName   string
-	Player     string
-	Product    string
-	Decision   link.Decision
-	Hardware   bool
-	Reasons    string
-	StartedAt  storage.Time
-	LastSeenAt storage.Time
-	EndedAt    storage.Time
+	ServerID      link.ServerID
+	ID            link.PlayID
+	SessionKey    string
+	ServerPath    string
+	PathKey       string
+	PlayerKey     string
+	Player        string
+	Platform      string
+	Product       string
+	UserName      string
+	Decision      link.Decision
+	Video         link.StreamDecision
+	Audio         link.StreamDecision
+	Subtitles     link.SubtitleDecision
+	Hardware      bool
+	Reasons       string
+	Received      link.Received
+	AudioTrack    *link.Track
+	SubtitleTrack *link.Track
+	FileID        files.ID
+	Snapshot      *playback.Snapshot
+	StartedAt     storage.Time
+	LastSeenAt    storage.Time
+	EndedAt       storage.Time
+	ItemKeys      string
 }
 
 type MediaserversPlexAccount struct {
@@ -185,6 +197,7 @@ type MediaserversServer struct {
 	UpdatedAt       storage.Time
 	MembersSee      bool
 	MemberAddress   *string
+	PlaysSince      storage.Time
 }
 
 type MediaserversSetting struct {

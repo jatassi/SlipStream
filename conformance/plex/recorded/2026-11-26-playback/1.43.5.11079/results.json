@@ -1,0 +1,907 @@
+{
+ "kind": "plex",
+ "recorded": "2026-11-26",
+ "player": "Plex Web served by the PMS, in Playwright WebKit on macOS",
+ "cases": {
+  "A": {
+   "predicted": "The Media with selected=\"1\" names the version played.",
+   "happened": "The session lists 2 Media (6, 5 selected). The selected Media 5 is Twoversion (2020) - 1080p.mkv. video copy, audio copy, subtitle (absent), Part.decision transcode.",
+   "verdict": "pass",
+   "session": {
+    "ratingKey": "6",
+    "playerState": "playing",
+    "media": [
+     {
+      "id": "6",
+      "selected": null,
+      "container": "mkv",
+      "videoCodec": "hevc",
+      "audioCodec": "aac",
+      "audioChannels": 2,
+      "height": 2160,
+      "bitrate": 8173,
+      "videoResolution": "4k"
+     },
+     {
+      "id": "5",
+      "selected": true,
+      "container": "mp4",
+      "videoCodec": "h264",
+      "audioCodec": "aac",
+      "audioChannels": 2,
+      "height": 1080,
+      "bitrate": 4133,
+      "videoResolution": "1080p"
+     }
+    ],
+    "part": {
+     "id": "5",
+     "decision": "transcode",
+     "container": "mp4",
+     "file": ""
+    },
+    "streams": [
+     {
+      "id": "11",
+      "streamType": 1,
+      "codec": "h264",
+      "index": null,
+      "language": "eng",
+      "decision": "copy",
+      "selected": null,
+      "burn": null,
+      "location": "segments-video"
+     },
+     {
+      "id": "12",
+      "streamType": 2,
+      "codec": "aac",
+      "index": null,
+      "language": "eng",
+      "decision": "copy",
+      "selected": true,
+      "burn": null,
+      "location": "segments-audio"
+     }
+    ],
+    "transcodeSession": {
+     "key": "/transcode/sessions/41rpfowjgxh1e0tdpu3cj6nr",
+     "videoDecision": "copy",
+     "audioDecision": "copy",
+     "subtitleDecision": null,
+     "container": "mp4",
+     "videoCodec": "h264",
+     "audioCodec": "aac",
+     "audioChannels": 2,
+     "height": 1080,
+     "width": 1920,
+     "protocol": "dash",
+     "sourceVideoCodec": "h264",
+     "sourceAudioCodec": "aac",
+     "transcodeHwRequested": false,
+     "transcodeHwDecoding": null,
+     "transcodeHwEncoding": null
+    },
+    "session": {
+     "bandwidth": 10000000,
+     "location": "lan"
+    },
+    "player": {
+     "machineIdentifier": "<machine-id-2>",
+     "title": "Safari",
+     "platform": "Safari",
+     "product": "Plex Web",
+     "device": "OSX",
+     "model": "bundled",
+     "local": true
+    }
+   },
+   "metadataMedia": [
+    {
+     "id": 6,
+     "file": "Twoversion (2020) - 2160p.mkv",
+     "streams": [
+      {
+       "id": 13,
+       "streamType": 1,
+       "codec": "hevc",
+       "index": 0
+      },
+      {
+       "id": 14,
+       "streamType": 2,
+       "codec": "aac",
+       "index": 1
+      }
+     ]
+    },
+    {
+     "id": 5,
+     "file": "Twoversion (2020) - 1080p.mkv",
+     "streams": [
+      {
+       "id": 11,
+       "streamType": 1,
+       "codec": "h264",
+       "index": 0
+      },
+      {
+       "id": 12,
+       "streamType": 2,
+       "codec": "aac",
+       "index": 1
+      }
+     ]
+    }
+   ]
+  },
+  "B": {
+   "predicted": "A forced transcode reads videoDecision transcode, with the received facts on TranscodeSession.",
+   "happened": "2 Mbps: video transcode, audio transcode, subtitle (absent), Part.decision transcode; TranscodeSession {\"container\":\"mp4\",\"videoCodec\":\"h264\",\"height\":null,\"audioCodec\":\"aac\",\"audioChannels\":2}; session Media bitrate 1459, height 404; Session.bandwidth 1532. 2160p HEVC at full quality: video copy, audio copy, subtitle (absent), Part.decision transcode.",
+   "verdict": "pass",
+   "lowQuality": {
+    "ratingKey": "3",
+    "playerState": "playing",
+    "media": [
+     {
+      "id": "3",
+      "selected": true,
+      "container": "mp4",
+      "videoCodec": "h264",
+      "audioCodec": "aac",
+      "audioChannels": 2,
+      "height": 404,
+      "bitrate": 1459,
+      "videoResolution": "SD"
+     }
+    ],
+    "part": {
+     "id": "3",
+     "decision": "transcode",
+     "container": "mp4",
+     "file": ""
+    },
+    "streams": [
+     {
+      "id": "7",
+      "streamType": 1,
+      "codec": "h264",
+      "index": null,
+      "language": null,
+      "decision": "transcode",
+      "selected": null,
+      "burn": null,
+      "location": "segments-video"
+     },
+     {
+      "id": "8",
+      "streamType": 2,
+      "codec": "aac",
+      "index": null,
+      "language": "eng",
+      "decision": "transcode",
+      "selected": true,
+      "burn": null,
+      "location": "segments-audio"
+     }
+    ],
+    "transcodeSession": {
+     "key": "/transcode/sessions/t3rqx1da45a3a0pekt1avjgy",
+     "videoDecision": "transcode",
+     "audioDecision": "transcode",
+     "subtitleDecision": null,
+     "container": "mp4",
+     "videoCodec": "h264",
+     "audioCodec": "aac",
+     "audioChannels": 2,
+     "height": null,
+     "width": null,
+     "protocol": "dash",
+     "sourceVideoCodec": "h264",
+     "sourceAudioCodec": "aac",
+     "transcodeHwRequested": false,
+     "transcodeHwDecoding": null,
+     "transcodeHwEncoding": null
+    },
+    "session": {
+     "bandwidth": 1532,
+     "location": "lan"
+    },
+    "player": {
+     "machineIdentifier": "<machine-id-2>",
+     "title": "Safari",
+     "platform": "Safari",
+     "product": "Plex Web",
+     "device": "OSX",
+     "model": "bundled",
+     "local": true
+    }
+   },
+   "fullQuality2160p": {
+    "ratingKey": "6",
+    "playerState": "playing",
+    "media": [
+     {
+      "id": "6",
+      "selected": true,
+      "container": "mp4",
+      "videoCodec": "hevc",
+      "audioCodec": "aac",
+      "audioChannels": 2,
+      "height": 2160,
+      "bitrate": 8173,
+      "videoResolution": "4K"
+     },
+     {
+      "id": "5",
+      "selected": null,
+      "container": "mkv",
+      "videoCodec": "h264",
+      "audioCodec": "aac",
+      "audioChannels": 2,
+      "height": 1080,
+      "bitrate": 4133,
+      "videoResolution": "1080"
+     }
+    ],
+    "part": {
+     "id": "6",
+     "decision": "transcode",
+     "container": "mp4",
+     "file": ""
+    },
+    "streams": [
+     {
+      "id": "13",
+      "streamType": 1,
+      "codec": "hevc",
+      "index": null,
+      "language": "eng",
+      "decision": "copy",
+      "selected": null,
+      "burn": null,
+      "location": "segments-video"
+     },
+     {
+      "id": "14",
+      "streamType": 2,
+      "codec": "aac",
+      "index": null,
+      "language": "eng",
+      "decision": "copy",
+      "selected": true,
+      "burn": null,
+      "location": "segments-audio"
+     }
+    ],
+    "transcodeSession": {
+     "key": "/transcode/sessions/vo55562kivn392jqn1lanvoz",
+     "videoDecision": "copy",
+     "audioDecision": "copy",
+     "subtitleDecision": null,
+     "container": "mp4",
+     "videoCodec": "hevc",
+     "audioCodec": "aac",
+     "audioChannels": 2,
+     "height": 2160,
+     "width": 3840,
+     "protocol": "dash",
+     "sourceVideoCodec": "hevc",
+     "sourceAudioCodec": "aac",
+     "transcodeHwRequested": false,
+     "transcodeHwDecoding": null,
+     "transcodeHwEncoding": null
+    },
+    "session": {
+     "bandwidth": 10000000,
+     "location": "lan"
+    },
+    "player": {
+     "machineIdentifier": "<machine-id-2>",
+     "title": "Safari",
+     "platform": "Safari",
+     "product": "Plex Web",
+     "device": "OSX",
+     "model": "bundled",
+     "local": true
+    }
+   }
+  },
+  "C": {
+   "predicted": "A remux reads Part.decision transcode with video and audio copy.",
+   "happened": "video copy, audio copy, subtitle (absent), Part.decision transcode",
+   "verdict": "pass",
+   "session": {
+    "ratingKey": "4",
+    "playerState": "playing",
+    "media": [
+     {
+      "id": "4",
+      "selected": true,
+      "container": "mp4",
+      "videoCodec": "h264",
+      "audioCodec": "aac",
+      "audioChannels": 2,
+      "height": 1080,
+      "bitrate": 4133,
+      "videoResolution": "1080p"
+     }
+    ],
+    "part": {
+     "id": "4",
+     "decision": "transcode",
+     "container": "mp4",
+     "file": ""
+    },
+    "streams": [
+     {
+      "id": "9",
+      "streamType": 1,
+      "codec": "h264",
+      "index": null,
+      "language": "eng",
+      "decision": "copy",
+      "selected": null,
+      "burn": null,
+      "location": "segments-video"
+     },
+     {
+      "id": "10",
+      "streamType": 2,
+      "codec": "aac",
+      "index": null,
+      "language": "eng",
+      "decision": "copy",
+      "selected": true,
+      "burn": null,
+      "location": "segments-audio"
+     }
+    ],
+    "transcodeSession": {
+     "key": "/transcode/sessions/6hksx9ygvxm2e46acqr0euel",
+     "videoDecision": "copy",
+     "audioDecision": "copy",
+     "subtitleDecision": null,
+     "container": "mp4",
+     "videoCodec": "h264",
+     "audioCodec": "aac",
+     "audioChannels": 2,
+     "height": 1080,
+     "width": 1920,
+     "protocol": "dash",
+     "sourceVideoCodec": "h264",
+     "sourceAudioCodec": "aac",
+     "transcodeHwRequested": false,
+     "transcodeHwDecoding": null,
+     "transcodeHwEncoding": null
+    },
+    "session": {
+     "bandwidth": 10000000,
+     "location": "lan"
+    },
+    "player": {
+     "machineIdentifier": "<machine-id-2>",
+     "title": "Safari",
+     "platform": "Safari",
+     "product": "Plex Web",
+     "device": "OSX",
+     "model": "bundled",
+     "local": true
+    }
+   }
+  },
+  "D": {
+   "predicted": "An audio-only transcode reads videoDecision copy and audioDecision transcode, and the session names the French track.",
+   "happened": "video copy, audio transcode, subtitle (absent), Part.decision transcode; session audio Stream id 3 (fra, decision transcode); metadata audio streams [{\"id\":2,\"index\":1,\"languageCode\":\"eng\",\"selected\":null},{\"id\":3,\"index\":2,\"languageCode\":\"fra\",\"selected\":true}].",
+   "verdict": "pass",
+   "session": {
+    "ratingKey": "1",
+    "playerState": "playing",
+    "media": [
+     {
+      "id": "1",
+      "selected": true,
+      "container": "mp4",
+      "videoCodec": "h264",
+      "audioCodec": "aac",
+      "audioChannels": 2,
+      "height": 1080,
+      "bitrate": 5807,
+      "videoResolution": "1080p"
+     }
+    ],
+    "part": {
+     "id": "1",
+     "decision": "transcode",
+     "container": "mp4",
+     "file": ""
+    },
+    "streams": [
+     {
+      "id": "1",
+      "streamType": 1,
+      "codec": "h264",
+      "index": null,
+      "language": "eng",
+      "decision": "copy",
+      "selected": null,
+      "burn": null,
+      "location": "segments-video"
+     },
+     {
+      "id": "3",
+      "streamType": 2,
+      "codec": "aac",
+      "index": null,
+      "language": "fra",
+      "decision": "transcode",
+      "selected": true,
+      "burn": null,
+      "location": "segments-audio"
+     }
+    ],
+    "transcodeSession": {
+     "key": "/transcode/sessions/4ftx5gyojqo1p4dl27h90qa9",
+     "videoDecision": "copy",
+     "audioDecision": "transcode",
+     "subtitleDecision": null,
+     "container": "mp4",
+     "videoCodec": "h264",
+     "audioCodec": "aac",
+     "audioChannels": 2,
+     "height": 1080,
+     "width": 1920,
+     "protocol": "dash",
+     "sourceVideoCodec": "h264",
+     "sourceAudioCodec": "dca",
+     "transcodeHwRequested": false,
+     "transcodeHwDecoding": null,
+     "transcodeHwEncoding": null
+    },
+    "session": {
+     "bandwidth": 11926,
+     "location": "lan"
+    },
+    "player": {
+     "machineIdentifier": "<machine-id-2>",
+     "title": "Safari",
+     "platform": "Safari",
+     "product": "Plex Web",
+     "device": "OSX",
+     "model": "bundled",
+     "local": true
+    }
+   },
+   "metadataAudioStreams": [
+    {
+     "id": 2,
+     "index": 1,
+     "languageCode": "eng",
+     "selected": null
+    },
+    {
+     "id": 3,
+     "index": 2,
+     "languageCode": "fra",
+     "selected": true
+    }
+   ]
+  },
+  "E": {
+   "predicted": "Burned image subtitles read subtitleDecision burn.",
+   "happened": "video transcode, audio copy, subtitle burn, Part.decision transcode; subtitle Stream id 6 codec pgs, decision burn, burn 1.",
+   "verdict": "pass",
+   "session": {
+    "ratingKey": "2",
+    "playerState": "playing",
+    "media": [
+     {
+      "id": "2",
+      "selected": true,
+      "container": "mp4",
+      "videoCodec": "h264",
+      "audioCodec": "aac",
+      "audioChannels": 2,
+      "height": 1080,
+      "bitrate": 20000,
+      "videoResolution": "1080p"
+     }
+    ],
+    "part": {
+     "id": "2",
+     "decision": "transcode",
+     "container": "mp4",
+     "file": ""
+    },
+    "streams": [
+     {
+      "id": "4",
+      "streamType": 1,
+      "codec": "h264",
+      "index": null,
+      "language": "eng",
+      "decision": "transcode",
+      "selected": null,
+      "burn": null,
+      "location": "segments-video"
+     },
+     {
+      "id": "5",
+      "streamType": 2,
+      "codec": "aac",
+      "index": null,
+      "language": "eng",
+      "decision": "copy",
+      "selected": true,
+      "burn": null,
+      "location": "segments-audio"
+     },
+     {
+      "id": "6",
+      "streamType": 3,
+      "codec": "pgs",
+      "index": null,
+      "language": "eng",
+      "decision": "burn",
+      "selected": true,
+      "burn": "1",
+      "location": "segments-video"
+     }
+    ],
+    "transcodeSession": {
+     "key": "/transcode/sessions/eu8ff7kw85g5zoybhlt31kn7",
+     "videoDecision": "transcode",
+     "audioDecision": "copy",
+     "subtitleDecision": "burn",
+     "container": "mp4",
+     "videoCodec": "h264",
+     "audioCodec": "aac",
+     "audioChannels": 2,
+     "height": null,
+     "width": null,
+     "protocol": "dash",
+     "sourceVideoCodec": "h264",
+     "sourceAudioCodec": "aac",
+     "transcodeHwRequested": false,
+     "transcodeHwDecoding": null,
+     "transcodeHwEncoding": null
+    },
+    "session": {
+     "bandwidth": 10000000,
+     "location": "lan"
+    },
+    "player": {
+     "machineIdentifier": "<machine-id-2>",
+     "title": "Safari",
+     "platform": "Safari",
+     "product": "Plex Web",
+     "device": "OSX",
+     "model": "bundled",
+     "local": true
+    }
+   }
+  },
+  "F": {
+   "predicted": "Player.machineIdentifier stays the same across plays and a rename.",
+   "happened": "machineIdentifier same over both plays (one id over every case: true); Player.title [\"Safari\"] after renaming the browser's plex.tv device (PUT 200); platform Safari, product Plex Web, device OSX; direct play video (no TranscodeSession), audio -, subtitle (absent), Part.decision directplay.",
+   "verdict": "pass",
+   "play1": {
+    "ratingKey": "3",
+    "playerState": "playing",
+    "media": [
+     {
+      "id": "3",
+      "selected": true,
+      "container": "mp4",
+      "videoCodec": "h264",
+      "audioCodec": "aac",
+      "audioChannels": 2,
+      "height": 1080,
+      "bitrate": 4135,
+      "videoResolution": "1080"
+     }
+    ],
+    "part": {
+     "id": "3",
+     "decision": "directplay",
+     "container": "mp4",
+     "file": "Direct (2020).mp4"
+    },
+    "streams": [
+     {
+      "id": "7",
+      "streamType": 1,
+      "codec": "h264",
+      "index": 0,
+      "language": null,
+      "decision": null,
+      "selected": null,
+      "burn": null,
+      "location": "direct"
+     },
+     {
+      "id": "8",
+      "streamType": 2,
+      "codec": "aac",
+      "index": 1,
+      "language": "eng",
+      "decision": null,
+      "selected": true,
+      "burn": null,
+      "location": "direct"
+     }
+    ],
+    "transcodeSession": null,
+    "session": {
+     "bandwidth": 8671,
+     "location": "lan"
+    },
+    "player": {
+     "machineIdentifier": "<machine-id-2>",
+     "title": "Safari",
+     "platform": "Safari",
+     "product": "Plex Web",
+     "device": "OSX",
+     "model": "bundled",
+     "local": true
+    }
+   },
+   "play2": {
+    "ratingKey": "3",
+    "playerState": "playing",
+    "media": [
+     {
+      "id": "3",
+      "selected": true,
+      "container": "mp4",
+      "videoCodec": "h264",
+      "audioCodec": "aac",
+      "audioChannels": 2,
+      "height": 1080,
+      "bitrate": 4135,
+      "videoResolution": "1080"
+     }
+    ],
+    "part": {
+     "id": "3",
+     "decision": "directplay",
+     "container": "mp4",
+     "file": "Direct (2020).mp4"
+    },
+    "streams": [
+     {
+      "id": "7",
+      "streamType": 1,
+      "codec": "h264",
+      "index": 0,
+      "language": null,
+      "decision": null,
+      "selected": null,
+      "burn": null,
+      "location": "direct"
+     },
+     {
+      "id": "8",
+      "streamType": 2,
+      "codec": "aac",
+      "index": 1,
+      "language": "eng",
+      "decision": null,
+      "selected": true,
+      "burn": null,
+      "location": "direct"
+     }
+    ],
+    "transcodeSession": null,
+    "session": {
+     "bandwidth": 8671,
+     "location": "lan"
+    },
+    "player": {
+     "machineIdentifier": "<machine-id-2>",
+     "title": "Safari",
+     "platform": "Safari",
+     "product": "Plex Web",
+     "device": "OSX",
+     "model": "bundled",
+     "local": true
+    }
+   }
+  }
+ },
+ "rows": [
+  {
+   "row": 1,
+   "question": "Decision words per play type",
+   "answer": {
+    "directPlay": "video (no TranscodeSession), audio -, subtitle (absent), Part.decision directplay",
+    "remux": "video copy, audio copy, subtitle (absent), Part.decision transcode",
+    "audioOnlyTranscode": "video copy, audio transcode, subtitle (absent), Part.decision transcode",
+    "videoTranscode": "video transcode, audio transcode, subtitle (absent), Part.decision transcode",
+    "burnedSubtitles": "video transcode, audio copy, subtitle burn, Part.decision transcode",
+    "twoVersions1080p": "video copy, audio copy, subtitle (absent), Part.decision transcode",
+    "twoVersions2160pHevc": "video copy, audio copy, subtitle (absent), Part.decision transcode"
+   }
+  },
+  {
+   "row": 2,
+   "question": "Part.decision on a container change",
+   "answer": "Remux (MKV to mp4): Part.decision transcode. Direct play: directplay. Video transcode: transcode."
+  },
+  {
+   "row": 3,
+   "question": "selected on the playing Media; one Media or all",
+   "answer": "Two-version item: the session lists all 2 Media; only the playing one carries selected ([[\"6\",null],[\"5\",true]]). In JSON it is boolean true; the XML form is selected=\"1\". One-version items list one Media, also selected."
+  },
+  {
+   "row": 4,
+   "question": "Received fields on TranscodeSession; Media.bitrate unit",
+   "answer": {
+    "videoTranscode": {
+     "key": "/transcode/sessions/t3rqx1da45a3a0pekt1avjgy",
+     "videoDecision": "transcode",
+     "audioDecision": "transcode",
+     "subtitleDecision": null,
+     "container": "mp4",
+     "videoCodec": "h264",
+     "audioCodec": "aac",
+     "audioChannels": 2,
+     "height": null,
+     "width": null,
+     "protocol": "dash",
+     "sourceVideoCodec": "h264",
+     "sourceAudioCodec": "aac",
+     "transcodeHwRequested": false,
+     "transcodeHwDecoding": null,
+     "transcodeHwEncoding": null
+    },
+    "burn": {
+     "key": "/transcode/sessions/eu8ff7kw85g5zoybhlt31kn7",
+     "videoDecision": "transcode",
+     "audioDecision": "copy",
+     "subtitleDecision": "burn",
+     "container": "mp4",
+     "videoCodec": "h264",
+     "audioCodec": "aac",
+     "audioChannels": 2,
+     "height": null,
+     "width": null,
+     "protocol": "dash",
+     "sourceVideoCodec": "h264",
+     "sourceAudioCodec": "aac",
+     "transcodeHwRequested": false,
+     "transcodeHwDecoding": null,
+     "transcodeHwEncoding": null
+    },
+    "remux": {
+     "key": "/transcode/sessions/6hksx9ygvxm2e46acqr0euel",
+     "videoDecision": "copy",
+     "audioDecision": "copy",
+     "subtitleDecision": null,
+     "container": "mp4",
+     "videoCodec": "h264",
+     "audioCodec": "aac",
+     "audioChannels": 2,
+     "height": 1080,
+     "width": 1920,
+     "protocol": "dash",
+     "sourceVideoCodec": "h264",
+     "sourceAudioCodec": "aac",
+     "transcodeHwRequested": false,
+     "transcodeHwDecoding": null,
+     "transcodeHwEncoding": null
+    },
+    "sessionMediaDuringVideoTranscode": {
+     "id": "3",
+     "selected": true,
+     "container": "mp4",
+     "videoCodec": "h264",
+     "audioCodec": "aac",
+     "audioChannels": 2,
+     "height": 404,
+     "bitrate": 1459,
+     "videoResolution": "SD"
+    },
+    "libraryMediaBitrate": 4135,
+    "sessionBandwidth": 1532
+   }
+  },
+  {
+   "row": 5,
+   "question": "Selected Stream ids in /status/sessions match /library/metadata",
+   "answer": [
+    {
+     "case": "A",
+     "sessionStreamIds": [
+      "11",
+      "12"
+     ],
+     "inMetadata": true,
+     "idTypes": {
+      "session": "string",
+      "metadata": "number"
+     }
+    },
+    {
+     "case": "C",
+     "sessionStreamIds": [
+      "9",
+      "10"
+     ],
+     "inMetadata": true,
+     "idTypes": {
+      "session": "string",
+      "metadata": "number"
+     }
+    },
+    {
+     "case": "E",
+     "sessionStreamIds": [
+      "4",
+      "5",
+      "6"
+     ],
+     "inMetadata": true,
+     "idTypes": {
+      "session": "string",
+      "metadata": "number"
+     }
+    },
+    {
+     "case": "D",
+     "sessionStreamIds": [
+      "1",
+      "3"
+     ],
+     "inMetadata": true
+    }
+   ]
+  },
+  {
+   "row": 6,
+   "question": "machineIdentifier across a rename; platform, product, device",
+   "answer": {
+    "sameAcrossPlaysAndRename": true,
+    "oneIdOverAllCases": true,
+    "titles": [
+     "Safari"
+    ],
+    "platform": "Safari",
+    "product": "Plex Web",
+    "device": "OSX",
+    "model": "bundled"
+   }
+  },
+  {
+   "row": 7,
+   "question": "Codec and container names",
+   "answer": [
+    "Media.audioCodec aac",
+    "Media.container mkv",
+    "Media.container mp4",
+    "Media.videoCodec h264",
+    "Media.videoCodec hevc",
+    "Stream(1).codec h264",
+    "Stream(1).codec hevc",
+    "Stream(2).codec aac",
+    "Stream(3).codec pgs",
+    "TranscodeSession.container mp4",
+    "TranscodeSession.sourceAudioCodec aac",
+    "TranscodeSession.sourceAudioCodec dca",
+    "TranscodeSession.sourceVideoCodec h264",
+    "TranscodeSession.sourceVideoCodec hevc",
+    "library Media.audioCodec aac",
+    "library Media.audioCodec dca",
+    "library Media.container mkv",
+    "library Media.container mp4",
+    "library Media.videoCodec h264",
+    "library Media.videoCodec hevc",
+    "library Stream(1).codec h264",
+    "library Stream(1).codec hevc",
+    "library Stream(2).codec aac",
+    "library Stream(2).codec dca",
+    "library Stream(3).codec pgs"
+   ]
+  }
+ ]
+}

@@ -309,7 +309,7 @@ func TestTheHolderReportsPlaysAndKeepsThemAcrossAWatchStartedAgain(t *testing.T)
 		if err != nil {
 			t.Fatal(err)
 		}
-		metropolis := link.Session{Key: "1", Path: p, User: "jackson", Decision: link.DecisionDirectPlay}
+		metropolis := link.Session{Key: "1", Version: link.Version{Path: p}, User: "jackson", Streams: link.Streams{Video: link.StreamDirect, Audio: link.StreamDirect, Subtitles: link.SubtitlesNone}}
 		w := start(t)
 		w.send(intent(1))
 		w.look(metropolis)

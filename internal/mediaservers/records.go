@@ -462,7 +462,9 @@ func (s service) Update(ctx context.Context, id link.ServerID, p Patch) (ServerV
 			return ServerView{}, err
 		}
 	}
+	var ended []link.ServerID
 	err = s.m.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+		ended = nil
 		q := db.New(tx)
 		taken, err := nameTaken(ctx, q, next.Name, id)
 		switch {
@@ -483,26 +485,31 @@ func (s service) Update(ctx context.Context, id link.ServerID, p Patch) (ServerV
 		if err := s.m.saveMembers(ctx, q, next, p); err != nil || !routed {
 			return err
 		}
-		return s.m.rerouted(ctx, q, id, row.ReachingNodeID, next)
+		ended, err = s.m.rerouted(ctx, q, id, row.ReachingNodeID, next)
+		return err
 	})
 	if err != nil {
 		return ServerView{}, err
 	}
 	s.m.cfg.Touch(row.ReachingNodeID, next.ReachingNodeID)
 	s.m.changed(ctx, id)
+	s.m.playsEnded(ctx, ended)
 	s.m.membersChanged(ctx, p)
 	return s.Get(ctx, id)
 }
 
 // rerouted records that next's reaching Node holds its credential, and
-// ends the plays was saw when next names another reaching Node.
-func (m *MediaServers) rerouted(ctx context.Context, q *db.Queries, id link.ServerID, was role.NodeID, next db.MediaserversServer) error {
+// ends the plays was saw when next names another reaching Node, answering
+// the server of each play it ended.
+func (m *MediaServers) rerouted(ctx context.Context, q *db.Queries, id link.ServerID, was role.NodeID, next db.MediaserversServer) ([]link.ServerID, error) {
+	var ended []link.ServerID
 	if next.ReachingNodeID != was {
-		if _, err := q.EndServerPlays(ctx, id); err != nil {
-			return err
+		var err error
+		if ended, err = q.EndServerPlays(ctx, id); err != nil {
+			return nil, err
 		}
 	}
-	return m.recordFetch(ctx, q, id, next.ReachingNodeID, next.SettingsVersion)
+	return ended, m.recordFetch(ctx, q, id, next.ReachingNodeID, next.SettingsVersion)
 }
 
 // onto is row and cred with the patch's fields.

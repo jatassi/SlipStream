@@ -314,11 +314,22 @@ type Session struct {
 	User          string   `protobuf:"bytes,4,opt,name=user,proto3" json:"user,omitempty"`
 	Player        string   `protobuf:"bytes,5,opt,name=player,proto3" json:"player,omitempty"`
 	Product       string   `protobuf:"bytes,6,opt,name=product,proto3" json:"product,omitempty"`
-	Decision      string   `protobuf:"bytes,7,opt,name=decision,proto3" json:"decision,omitempty"`
 	Hardware      bool     `protobuf:"varint,8,opt,name=hardware,proto3" json:"hardware,omitempty"`
 	Reasons       []string `protobuf:"bytes,9,rep,name=reasons,proto3" json:"reasons,omitempty"`
 	StartedUnixMs int64    `protobuf:"varint,10,opt,name=started_unix_ms,json=startedUnixMs,proto3" json:"started_unix_ms,omitempty"`
 	SeenUnixMs    int64    `protobuf:"varint,11,opt,name=seen_unix_ms,json=seenUnixMs,proto3" json:"seen_unix_ms,omitempty"`
+	// player_key is the id the server gives the player: Plex
+	// machineIdentifier, Jellyfin and Emby DeviceId.
+	PlayerKey     string    `protobuf:"bytes,12,opt,name=player_key,json=playerKey,proto3" json:"player_key,omitempty"`
+	Platform      string    `protobuf:"bytes,13,opt,name=platform,proto3" json:"platform,omitempty"`
+	Streams       *Streams  `protobuf:"bytes,15,opt,name=streams,proto3" json:"streams,omitempty"`
+	Received      *Received `protobuf:"bytes,16,opt,name=received,proto3" json:"received,omitempty"`
+	AudioTrack    *Track    `protobuf:"bytes,17,opt,name=audio_track,json=audioTrack,proto3" json:"audio_track,omitempty"`
+	SubtitleTrack *Track    `protobuf:"bytes,18,opt,name=subtitle_track,json=subtitleTrack,proto3" json:"subtitle_track,omitempty"`
+	// item_keys are the server's items that hold the played file and the
+	// versions its player can choose instead: Plex the ratingKey, Jellyfin
+	// and Emby each MediaSource's item.
+	ItemKeys      []string `protobuf:"bytes,19,rep,name=item_keys,json=itemKeys,proto3" json:"item_keys,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -395,13 +406,6 @@ func (x *Session) GetProduct() string {
 	return ""
 }
 
-func (x *Session) GetDecision() string {
-	if x != nil {
-		return x.Decision
-	}
-	return ""
-}
-
 func (x *Session) GetHardware() bool {
 	if x != nil {
 		return x.Hardware
@@ -430,6 +434,348 @@ func (x *Session) GetSeenUnixMs() int64 {
 	return 0
 }
 
+func (x *Session) GetPlayerKey() string {
+	if x != nil {
+		return x.PlayerKey
+	}
+	return ""
+}
+
+func (x *Session) GetPlatform() string {
+	if x != nil {
+		return x.Platform
+	}
+	return ""
+}
+
+func (x *Session) GetStreams() *Streams {
+	if x != nil {
+		return x.Streams
+	}
+	return nil
+}
+
+func (x *Session) GetReceived() *Received {
+	if x != nil {
+		return x.Received
+	}
+	return nil
+}
+
+func (x *Session) GetAudioTrack() *Track {
+	if x != nil {
+		return x.AudioTrack
+	}
+	return nil
+}
+
+func (x *Session) GetSubtitleTrack() *Track {
+	if x != nil {
+		return x.SubtitleTrack
+	}
+	return nil
+}
+
+func (x *Session) GetItemKeys() []string {
+	if x != nil {
+		return x.ItemKeys
+	}
+	return nil
+}
+
+// Streams is a play's decision per stream, in the words of the lists in
+// internal/mediaserverlink/link. The Controller derives the play's decision
+// from them.
+type Streams struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	Video            string                 `protobuf:"bytes,1,opt,name=video,proto3" json:"video,omitempty"`
+	Audio            string                 `protobuf:"bytes,2,opt,name=audio,proto3" json:"audio,omitempty"`
+	Subtitles        string                 `protobuf:"bytes,3,opt,name=subtitles,proto3" json:"subtitles,omitempty"`
+	ContainerChanged bool                   `protobuf:"varint,4,opt,name=container_changed,json=containerChanged,proto3" json:"container_changed,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *Streams) Reset() {
+	*x = Streams{}
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Streams) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Streams) ProtoMessage() {}
+
+func (x *Streams) ProtoReflect() protoreflect.Message {
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Streams.ProtoReflect.Descriptor instead.
+func (*Streams) Descriptor() ([]byte, []int) {
+	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *Streams) GetVideo() string {
+	if x != nil {
+		return x.Video
+	}
+	return ""
+}
+
+func (x *Streams) GetAudio() string {
+	if x != nil {
+		return x.Audio
+	}
+	return ""
+}
+
+func (x *Streams) GetSubtitles() string {
+	if x != nil {
+		return x.Subtitles
+	}
+	return ""
+}
+
+func (x *Streams) GetContainerChanged() bool {
+	if x != nil {
+		return x.ContainerChanged
+	}
+	return false
+}
+
+// Received is what the player received while the server transcoded, zero
+// where unreported. bitrate is in bits a second.
+type Received struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Container     string                 `protobuf:"bytes,1,opt,name=container,proto3" json:"container,omitempty"`
+	VideoCodec    string                 `protobuf:"bytes,2,opt,name=video_codec,json=videoCodec,proto3" json:"video_codec,omitempty"`
+	Height        int32                  `protobuf:"varint,3,opt,name=height,proto3" json:"height,omitempty"`
+	Bitrate       int64                  `protobuf:"varint,4,opt,name=bitrate,proto3" json:"bitrate,omitempty"`
+	AudioCodec    string                 `protobuf:"bytes,5,opt,name=audio_codec,json=audioCodec,proto3" json:"audio_codec,omitempty"`
+	Channels      int32                  `protobuf:"varint,6,opt,name=channels,proto3" json:"channels,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Received) Reset() {
+	*x = Received{}
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Received) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Received) ProtoMessage() {}
+
+func (x *Received) ProtoReflect() protoreflect.Message {
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Received.ProtoReflect.Descriptor instead.
+func (*Received) Descriptor() ([]byte, []int) {
+	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *Received) GetContainer() string {
+	if x != nil {
+		return x.Container
+	}
+	return ""
+}
+
+func (x *Received) GetVideoCodec() string {
+	if x != nil {
+		return x.VideoCodec
+	}
+	return ""
+}
+
+func (x *Received) GetHeight() int32 {
+	if x != nil {
+		return x.Height
+	}
+	return 0
+}
+
+func (x *Received) GetBitrate() int64 {
+	if x != nil {
+		return x.Bitrate
+	}
+	return 0
+}
+
+func (x *Received) GetAudioCodec() string {
+	if x != nil {
+		return x.AudioCodec
+	}
+	return ""
+}
+
+func (x *Received) GetChannels() int32 {
+	if x != nil {
+		return x.Channels
+	}
+	return 0
+}
+
+// Track is a stream the player chose: its position among the version's
+// embedded streams of its type, or a stream in a separate file.
+type Track struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Types that are valid to be assigned to Track:
+	//
+	//	*Track_Position
+	//	*Track_External
+	Track         isTrack_Track `protobuf_oneof:"track"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Track) Reset() {
+	*x = Track{}
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Track) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Track) ProtoMessage() {}
+
+func (x *Track) ProtoReflect() protoreflect.Message {
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Track.ProtoReflect.Descriptor instead.
+func (*Track) Descriptor() ([]byte, []int) {
+	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *Track) GetTrack() isTrack_Track {
+	if x != nil {
+		return x.Track
+	}
+	return nil
+}
+
+func (x *Track) GetPosition() int32 {
+	if x != nil {
+		if x, ok := x.Track.(*Track_Position); ok {
+			return x.Position
+		}
+	}
+	return 0
+}
+
+func (x *Track) GetExternal() *ExternalTrack {
+	if x != nil {
+		if x, ok := x.Track.(*Track_External); ok {
+			return x.External
+		}
+	}
+	return nil
+}
+
+type isTrack_Track interface {
+	isTrack_Track()
+}
+
+type Track_Position struct {
+	Position int32 `protobuf:"varint,1,opt,name=position,proto3,oneof"`
+}
+
+type Track_External struct {
+	External *ExternalTrack `protobuf:"bytes,2,opt,name=external,proto3,oneof"`
+}
+
+func (*Track_Position) isTrack_Track() {}
+
+func (*Track_External) isTrack_Track() {}
+
+type ExternalTrack struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Codec         string                 `protobuf:"bytes,1,opt,name=codec,proto3" json:"codec,omitempty"`
+	Language      string                 `protobuf:"bytes,2,opt,name=language,proto3" json:"language,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ExternalTrack) Reset() {
+	*x = ExternalTrack{}
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ExternalTrack) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ExternalTrack) ProtoMessage() {}
+
+func (x *ExternalTrack) ProtoReflect() protoreflect.Message {
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ExternalTrack.ProtoReflect.Descriptor instead.
+func (*ExternalTrack) Descriptor() ([]byte, []int) {
+	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *ExternalTrack) GetCodec() string {
+	if x != nil {
+		return x.Codec
+	}
+	return ""
+}
+
+func (x *ExternalTrack) GetLanguage() string {
+	if x != nil {
+		return x.Language
+	}
+	return ""
+}
+
 // Report goes through the Node's outbox. The Controller applies it once,
 // and only when the Node is the server's reaching Node at apply time.
 type Report struct {
@@ -450,7 +796,7 @@ type Report struct {
 
 func (x *Report) Reset() {
 	*x = Report{}
-	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[5]
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -462,7 +808,7 @@ func (x *Report) String() string {
 func (*Report) ProtoMessage() {}
 
 func (x *Report) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[5]
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -475,7 +821,7 @@ func (x *Report) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Report.ProtoReflect.Descriptor instead.
 func (*Report) Descriptor() ([]byte, []int) {
-	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{5}
+	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *Report) GetServerId() []byte {
@@ -602,7 +948,7 @@ type Contact struct {
 
 func (x *Contact) Reset() {
 	*x = Contact{}
-	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[6]
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -614,7 +960,7 @@ func (x *Contact) String() string {
 func (*Contact) ProtoMessage() {}
 
 func (x *Contact) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[6]
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -627,7 +973,7 @@ func (x *Contact) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Contact.ProtoReflect.Descriptor instead.
 func (*Contact) Descriptor() ([]byte, []int) {
-	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{6}
+	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *Contact) GetState() string {
@@ -667,7 +1013,7 @@ type PlayStarted struct {
 
 func (x *PlayStarted) Reset() {
 	*x = PlayStarted{}
-	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[7]
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -679,7 +1025,7 @@ func (x *PlayStarted) String() string {
 func (*PlayStarted) ProtoMessage() {}
 
 func (x *PlayStarted) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[7]
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -692,7 +1038,7 @@ func (x *PlayStarted) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PlayStarted.ProtoReflect.Descriptor instead.
 func (*PlayStarted) Descriptor() ([]byte, []int) {
-	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{7}
+	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *PlayStarted) GetSession() *Session {
@@ -702,22 +1048,26 @@ func (x *PlayStarted) GetSession() *Session {
 	return nil
 }
 
-// PlayChanged is a session's new decision, hardware or reasons. A play the
-// Controller already ended stays ended.
+// PlayChanged is a session's new streams, hardware, reasons, tracks or
+// received facts, with its latest bitrate. A play the Controller already
+// ended stays ended.
 type PlayChanged struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	PlayId        []byte                 `protobuf:"bytes,1,opt,name=play_id,json=playId,proto3" json:"play_id,omitempty"`
-	Decision      string                 `protobuf:"bytes,2,opt,name=decision,proto3" json:"decision,omitempty"`
 	Hardware      bool                   `protobuf:"varint,3,opt,name=hardware,proto3" json:"hardware,omitempty"`
 	Reasons       []string               `protobuf:"bytes,4,rep,name=reasons,proto3" json:"reasons,omitempty"`
 	SeenUnixMs    int64                  `protobuf:"varint,5,opt,name=seen_unix_ms,json=seenUnixMs,proto3" json:"seen_unix_ms,omitempty"`
+	Streams       *Streams               `protobuf:"bytes,6,opt,name=streams,proto3" json:"streams,omitempty"`
+	Received      *Received              `protobuf:"bytes,7,opt,name=received,proto3" json:"received,omitempty"`
+	AudioTrack    *Track                 `protobuf:"bytes,8,opt,name=audio_track,json=audioTrack,proto3" json:"audio_track,omitempty"`
+	SubtitleTrack *Track                 `protobuf:"bytes,9,opt,name=subtitle_track,json=subtitleTrack,proto3" json:"subtitle_track,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *PlayChanged) Reset() {
 	*x = PlayChanged{}
-	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[8]
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -729,7 +1079,7 @@ func (x *PlayChanged) String() string {
 func (*PlayChanged) ProtoMessage() {}
 
 func (x *PlayChanged) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[8]
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -742,7 +1092,7 @@ func (x *PlayChanged) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PlayChanged.ProtoReflect.Descriptor instead.
 func (*PlayChanged) Descriptor() ([]byte, []int) {
-	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{8}
+	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *PlayChanged) GetPlayId() []byte {
@@ -750,13 +1100,6 @@ func (x *PlayChanged) GetPlayId() []byte {
 		return x.PlayId
 	}
 	return nil
-}
-
-func (x *PlayChanged) GetDecision() string {
-	if x != nil {
-		return x.Decision
-	}
-	return ""
 }
 
 func (x *PlayChanged) GetHardware() bool {
@@ -780,6 +1123,34 @@ func (x *PlayChanged) GetSeenUnixMs() int64 {
 	return 0
 }
 
+func (x *PlayChanged) GetStreams() *Streams {
+	if x != nil {
+		return x.Streams
+	}
+	return nil
+}
+
+func (x *PlayChanged) GetReceived() *Received {
+	if x != nil {
+		return x.Received
+	}
+	return nil
+}
+
+func (x *PlayChanged) GetAudioTrack() *Track {
+	if x != nil {
+		return x.AudioTrack
+	}
+	return nil
+}
+
+func (x *PlayChanged) GetSubtitleTrack() *Track {
+	if x != nil {
+		return x.SubtitleTrack
+	}
+	return nil
+}
+
 type PlayEnded struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
 	PlayId         []byte                 `protobuf:"bytes,1,opt,name=play_id,json=playId,proto3" json:"play_id,omitempty"`
@@ -790,7 +1161,7 @@ type PlayEnded struct {
 
 func (x *PlayEnded) Reset() {
 	*x = PlayEnded{}
-	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[9]
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -802,7 +1173,7 @@ func (x *PlayEnded) String() string {
 func (*PlayEnded) ProtoMessage() {}
 
 func (x *PlayEnded) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[9]
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -815,7 +1186,7 @@ func (x *PlayEnded) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PlayEnded.ProtoReflect.Descriptor instead.
 func (*PlayEnded) Descriptor() ([]byte, []int) {
-	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{9}
+	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *PlayEnded) GetPlayId() []byte {
@@ -845,7 +1216,7 @@ type Watching struct {
 
 func (x *Watching) Reset() {
 	*x = Watching{}
-	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[10]
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -857,7 +1228,7 @@ func (x *Watching) String() string {
 func (*Watching) ProtoMessage() {}
 
 func (x *Watching) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[10]
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -870,7 +1241,7 @@ func (x *Watching) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Watching.ProtoReflect.Descriptor instead.
 func (*Watching) Descriptor() ([]byte, []int) {
-	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{10}
+	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *Watching) GetPlayIds() [][]byte {
@@ -898,7 +1269,7 @@ type IndexHint struct {
 
 func (x *IndexHint) Reset() {
 	*x = IndexHint{}
-	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[11]
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -910,7 +1281,7 @@ func (x *IndexHint) String() string {
 func (*IndexHint) ProtoMessage() {}
 
 func (x *IndexHint) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[11]
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -923,7 +1294,7 @@ func (x *IndexHint) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use IndexHint.ProtoReflect.Descriptor instead.
 func (*IndexHint) Descriptor() ([]byte, []int) {
-	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{11}
+	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *IndexHint) GetItemKeys() []string {
@@ -943,7 +1314,7 @@ type ReachRequest struct {
 
 func (x *ReachRequest) Reset() {
 	*x = ReachRequest{}
-	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[12]
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -955,7 +1326,7 @@ func (x *ReachRequest) String() string {
 func (*ReachRequest) ProtoMessage() {}
 
 func (x *ReachRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[12]
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -968,7 +1339,7 @@ func (x *ReachRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReachRequest.ProtoReflect.Descriptor instead.
 func (*ReachRequest) Descriptor() ([]byte, []int) {
-	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{12}
+	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *ReachRequest) GetKind() string {
@@ -997,7 +1368,7 @@ type ReachResponse struct {
 
 func (x *ReachResponse) Reset() {
 	*x = ReachResponse{}
-	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[13]
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1009,7 +1380,7 @@ func (x *ReachResponse) String() string {
 func (*ReachResponse) ProtoMessage() {}
 
 func (x *ReachResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[13]
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1022,7 +1393,7 @@ func (x *ReachResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReachResponse.ProtoReflect.Descriptor instead.
 func (*ReachResponse) Descriptor() ([]byte, []int) {
-	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{13}
+	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *ReachResponse) GetIdentity() *Identity {
@@ -1051,7 +1422,7 @@ type CheckRequest struct {
 
 func (x *CheckRequest) Reset() {
 	*x = CheckRequest{}
-	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[14]
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1063,7 +1434,7 @@ func (x *CheckRequest) String() string {
 func (*CheckRequest) ProtoMessage() {}
 
 func (x *CheckRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[14]
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1076,7 +1447,7 @@ func (x *CheckRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CheckRequest.ProtoReflect.Descriptor instead.
 func (*CheckRequest) Descriptor() ([]byte, []int) {
-	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{14}
+	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *CheckRequest) GetKind() string {
@@ -1119,7 +1490,7 @@ type CheckResponse struct {
 
 func (x *CheckResponse) Reset() {
 	*x = CheckResponse{}
-	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[15]
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1131,7 +1502,7 @@ func (x *CheckResponse) String() string {
 func (*CheckResponse) ProtoMessage() {}
 
 func (x *CheckResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[15]
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1144,7 +1515,7 @@ func (x *CheckResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CheckResponse.ProtoReflect.Descriptor instead.
 func (*CheckResponse) Descriptor() ([]byte, []int) {
-	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{15}
+	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *CheckResponse) GetIdentity() *Identity {
@@ -1188,7 +1559,7 @@ type SignInRequest struct {
 
 func (x *SignInRequest) Reset() {
 	*x = SignInRequest{}
-	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[16]
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1200,7 +1571,7 @@ func (x *SignInRequest) String() string {
 func (*SignInRequest) ProtoMessage() {}
 
 func (x *SignInRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[16]
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1213,7 +1584,7 @@ func (x *SignInRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SignInRequest.ProtoReflect.Descriptor instead.
 func (*SignInRequest) Descriptor() ([]byte, []int) {
-	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{16}
+	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *SignInRequest) GetKind() string {
@@ -1261,7 +1632,7 @@ type SignInResponse struct {
 
 func (x *SignInResponse) Reset() {
 	*x = SignInResponse{}
-	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[17]
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1273,7 +1644,7 @@ func (x *SignInResponse) String() string {
 func (*SignInResponse) ProtoMessage() {}
 
 func (x *SignInResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[17]
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1286,7 +1657,7 @@ func (x *SignInResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SignInResponse.ProtoReflect.Descriptor instead.
 func (*SignInResponse) Descriptor() ([]byte, []int) {
-	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{17}
+	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *SignInResponse) GetCredential() *Credential {
@@ -1316,7 +1687,7 @@ type AdvanceRequest struct {
 
 func (x *AdvanceRequest) Reset() {
 	*x = AdvanceRequest{}
-	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[18]
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1328,7 +1699,7 @@ func (x *AdvanceRequest) String() string {
 func (*AdvanceRequest) ProtoMessage() {}
 
 func (x *AdvanceRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[18]
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1341,7 +1712,7 @@ func (x *AdvanceRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdvanceRequest.ProtoReflect.Descriptor instead.
 func (*AdvanceRequest) Descriptor() ([]byte, []int) {
-	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{18}
+	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *AdvanceRequest) GetServerId() []byte {
@@ -1384,7 +1755,7 @@ type AdvanceResponse struct {
 
 func (x *AdvanceResponse) Reset() {
 	*x = AdvanceResponse{}
-	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[19]
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1396,7 +1767,7 @@ func (x *AdvanceResponse) String() string {
 func (*AdvanceResponse) ProtoMessage() {}
 
 func (x *AdvanceResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[19]
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1409,7 +1780,7 @@ func (x *AdvanceResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdvanceResponse.ProtoReflect.Descriptor instead.
 func (*AdvanceResponse) Descriptor() ([]byte, []int) {
-	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{19}
+	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *AdvanceResponse) GetJob() *Job {
@@ -1472,7 +1843,7 @@ type ExposedRequest struct {
 
 func (x *ExposedRequest) Reset() {
 	*x = ExposedRequest{}
-	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[20]
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1484,7 +1855,7 @@ func (x *ExposedRequest) String() string {
 func (*ExposedRequest) ProtoMessage() {}
 
 func (x *ExposedRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[20]
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1497,7 +1868,7 @@ func (x *ExposedRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExposedRequest.ProtoReflect.Descriptor instead.
 func (*ExposedRequest) Descriptor() ([]byte, []int) {
-	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{20}
+	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *ExposedRequest) GetServerId() []byte {
@@ -1534,7 +1905,7 @@ type ExposedResponse struct {
 
 func (x *ExposedResponse) Reset() {
 	*x = ExposedResponse{}
-	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[21]
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1546,7 +1917,7 @@ func (x *ExposedResponse) String() string {
 func (*ExposedResponse) ProtoMessage() {}
 
 func (x *ExposedResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[21]
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1559,7 +1930,7 @@ func (x *ExposedResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExposedResponse.ProtoReflect.Descriptor instead.
 func (*ExposedResponse) Descriptor() ([]byte, []int) {
-	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{21}
+	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *ExposedResponse) GetLocal() string {
@@ -1625,7 +1996,7 @@ type PlexMapping struct {
 
 func (x *PlexMapping) Reset() {
 	*x = PlexMapping{}
-	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[22]
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1637,7 +2008,7 @@ func (x *PlexMapping) String() string {
 func (*PlexMapping) ProtoMessage() {}
 
 func (x *PlexMapping) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[22]
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1650,7 +2021,7 @@ func (x *PlexMapping) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PlexMapping.ProtoReflect.Descriptor instead.
 func (*PlexMapping) Descriptor() ([]byte, []int) {
-	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{22}
+	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *PlexMapping) GetState() string {
@@ -1690,7 +2061,7 @@ type MediaServerSecretsRequest struct {
 
 func (x *MediaServerSecretsRequest) Reset() {
 	*x = MediaServerSecretsRequest{}
-	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[23]
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1702,7 +2073,7 @@ func (x *MediaServerSecretsRequest) String() string {
 func (*MediaServerSecretsRequest) ProtoMessage() {}
 
 func (x *MediaServerSecretsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[23]
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1715,7 +2086,7 @@ func (x *MediaServerSecretsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MediaServerSecretsRequest.ProtoReflect.Descriptor instead.
 func (*MediaServerSecretsRequest) Descriptor() ([]byte, []int) {
-	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{23}
+	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *MediaServerSecretsRequest) GetServerId() []byte {
@@ -1736,7 +2107,7 @@ type MediaServerSecretsResponse struct {
 
 func (x *MediaServerSecretsResponse) Reset() {
 	*x = MediaServerSecretsResponse{}
-	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[24]
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1748,7 +2119,7 @@ func (x *MediaServerSecretsResponse) String() string {
 func (*MediaServerSecretsResponse) ProtoMessage() {}
 
 func (x *MediaServerSecretsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[24]
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1761,7 +2132,7 @@ func (x *MediaServerSecretsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MediaServerSecretsResponse.ProtoReflect.Descriptor instead.
 func (*MediaServerSecretsResponse) Descriptor() ([]byte, []int) {
-	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{24}
+	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *MediaServerSecretsResponse) GetCredential() *Credential {
@@ -1789,7 +2160,7 @@ type Identity struct {
 
 func (x *Identity) Reset() {
 	*x = Identity{}
-	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[25]
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1801,7 +2172,7 @@ func (x *Identity) String() string {
 func (*Identity) ProtoMessage() {}
 
 func (x *Identity) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[25]
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1814,7 +2185,7 @@ func (x *Identity) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Identity.ProtoReflect.Descriptor instead.
 func (*Identity) Descriptor() ([]byte, []int) {
-	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{25}
+	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *Identity) GetId() string {
@@ -1848,7 +2219,7 @@ type Credential struct {
 
 func (x *Credential) Reset() {
 	*x = Credential{}
-	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[26]
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1860,7 +2231,7 @@ func (x *Credential) String() string {
 func (*Credential) ProtoMessage() {}
 
 func (x *Credential) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[26]
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1873,7 +2244,7 @@ func (x *Credential) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Credential.ProtoReflect.Descriptor instead.
 func (*Credential) Descriptor() ([]byte, []int) {
-	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{26}
+	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *Credential) GetToken() string {
@@ -1903,7 +2274,7 @@ type Problem struct {
 
 func (x *Problem) Reset() {
 	*x = Problem{}
-	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[27]
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1915,7 +2286,7 @@ func (x *Problem) String() string {
 func (*Problem) ProtoMessage() {}
 
 func (x *Problem) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[27]
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1928,7 +2299,7 @@ func (x *Problem) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Problem.ProtoReflect.Descriptor instead.
 func (*Problem) Descriptor() ([]byte, []int) {
-	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{27}
+	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *Problem) GetReason() string {
@@ -1970,7 +2341,7 @@ type Library struct {
 
 func (x *Library) Reset() {
 	*x = Library{}
-	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[28]
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1982,7 +2353,7 @@ func (x *Library) String() string {
 func (*Library) ProtoMessage() {}
 
 func (x *Library) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[28]
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1995,7 +2366,7 @@ func (x *Library) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Library.ProtoReflect.Descriptor instead.
 func (*Library) Descriptor() ([]byte, []int) {
-	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{28}
+	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *Library) GetKey() string {
@@ -2039,7 +2410,7 @@ type Job struct {
 
 func (x *Job) Reset() {
 	*x = Job{}
-	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[29]
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2051,7 +2422,7 @@ func (x *Job) String() string {
 func (*Job) ProtoMessage() {}
 
 func (x *Job) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[29]
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2064,7 +2435,7 @@ func (x *Job) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Job.ProtoReflect.Descriptor instead.
 func (*Job) Descriptor() ([]byte, []int) {
-	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{29}
+	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *Job) GetWork() isJob_Work {
@@ -2215,7 +2586,7 @@ type JobChange struct {
 
 func (x *JobChange) Reset() {
 	*x = JobChange{}
-	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[30]
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2227,7 +2598,7 @@ func (x *JobChange) String() string {
 func (*JobChange) ProtoMessage() {}
 
 func (x *JobChange) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[30]
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2240,7 +2611,7 @@ func (x *JobChange) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use JobChange.ProtoReflect.Descriptor instead.
 func (*JobChange) Descriptor() ([]byte, []int) {
-	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{30}
+	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *JobChange) GetId() []byte {
@@ -2301,7 +2672,7 @@ type Refresh struct {
 
 func (x *Refresh) Reset() {
 	*x = Refresh{}
-	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[31]
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2313,7 +2684,7 @@ func (x *Refresh) String() string {
 func (*Refresh) ProtoMessage() {}
 
 func (x *Refresh) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[31]
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2326,7 +2697,7 @@ func (x *Refresh) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Refresh.ProtoReflect.Descriptor instead.
 func (*Refresh) Descriptor() ([]byte, []int) {
-	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{31}
+	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *Refresh) GetChanges() []*JobChange {
@@ -2345,7 +2716,7 @@ type Carry struct {
 
 func (x *Carry) Reset() {
 	*x = Carry{}
-	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[32]
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2357,7 +2728,7 @@ func (x *Carry) String() string {
 func (*Carry) ProtoMessage() {}
 
 func (x *Carry) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[32]
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2370,7 +2741,7 @@ func (x *Carry) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Carry.ProtoReflect.Descriptor instead.
 func (*Carry) Descriptor() ([]byte, []int) {
-	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{32}
+	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{36}
 }
 
 func (x *Carry) GetChanges() []*JobChange {
@@ -2393,7 +2764,7 @@ type Fresh struct {
 
 func (x *Fresh) Reset() {
 	*x = Fresh{}
-	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[33]
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2405,7 +2776,7 @@ func (x *Fresh) String() string {
 func (*Fresh) ProtoMessage() {}
 
 func (x *Fresh) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[33]
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2418,7 +2789,7 @@ func (x *Fresh) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Fresh.ProtoReflect.Descriptor instead.
 func (*Fresh) Descriptor() ([]byte, []int) {
-	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{33}
+	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *Fresh) GetLibrary() string {
@@ -2466,7 +2837,7 @@ type Rescan struct {
 
 func (x *Rescan) Reset() {
 	*x = Rescan{}
-	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[34]
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2478,7 +2849,7 @@ func (x *Rescan) String() string {
 func (*Rescan) ProtoMessage() {}
 
 func (x *Rescan) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[34]
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2491,7 +2862,7 @@ func (x *Rescan) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Rescan.ProtoReflect.Descriptor instead.
 func (*Rescan) Descriptor() ([]byte, []int) {
-	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{34}
+	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *Rescan) GetLibraries() []string {
@@ -2517,7 +2888,7 @@ type Lookup struct {
 
 func (x *Lookup) Reset() {
 	*x = Lookup{}
-	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[35]
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2529,7 +2900,7 @@ func (x *Lookup) String() string {
 func (*Lookup) ProtoMessage() {}
 
 func (x *Lookup) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[35]
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2542,7 +2913,7 @@ func (x *Lookup) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Lookup.ProtoReflect.Descriptor instead.
 func (*Lookup) Descriptor() ([]byte, []int) {
-	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{35}
+	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{39}
 }
 
 func (x *Lookup) GetPaths() []string {
@@ -2562,7 +2933,7 @@ type Index struct {
 
 func (x *Index) Reset() {
 	*x = Index{}
-	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[36]
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[40]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2574,7 +2945,7 @@ func (x *Index) String() string {
 func (*Index) ProtoMessage() {}
 
 func (x *Index) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[36]
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[40]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2587,7 +2958,7 @@ func (x *Index) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Index.ProtoReflect.Descriptor instead.
 func (*Index) Descriptor() ([]byte, []int) {
-	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{36}
+	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{40}
 }
 
 func (x *Index) GetLibrary() string {
@@ -2612,7 +2983,7 @@ type Libraries struct {
 
 func (x *Libraries) Reset() {
 	*x = Libraries{}
-	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[37]
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2624,7 +2995,7 @@ func (x *Libraries) String() string {
 func (*Libraries) ProtoMessage() {}
 
 func (x *Libraries) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[37]
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2637,7 +3008,7 @@ func (x *Libraries) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Libraries.ProtoReflect.Descriptor instead.
 func (*Libraries) Descriptor() ([]byte, []int) {
-	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{37}
+	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{41}
 }
 
 type Snapshot struct {
@@ -2651,7 +3022,7 @@ type Snapshot struct {
 
 func (x *Snapshot) Reset() {
 	*x = Snapshot{}
-	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[38]
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[42]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2663,7 +3034,7 @@ func (x *Snapshot) String() string {
 func (*Snapshot) ProtoMessage() {}
 
 func (x *Snapshot) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[38]
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[42]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2676,7 +3047,7 @@ func (x *Snapshot) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Snapshot.ProtoReflect.Descriptor instead.
 func (*Snapshot) Descriptor() ([]byte, []int) {
-	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{38}
+	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{42}
 }
 
 func (x *Snapshot) GetItem() *ItemKey {
@@ -2710,7 +3081,7 @@ type ItemKey struct {
 
 func (x *ItemKey) Reset() {
 	*x = ItemKey{}
-	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[39]
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[43]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2722,7 +3093,7 @@ func (x *ItemKey) String() string {
 func (*ItemKey) ProtoMessage() {}
 
 func (x *ItemKey) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[39]
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[43]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2735,7 +3106,7 @@ func (x *ItemKey) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ItemKey.ProtoReflect.Descriptor instead.
 func (*ItemKey) Descriptor() ([]byte, []int) {
-	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{39}
+	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{43}
 }
 
 func (x *ItemKey) GetItem() string {
@@ -2767,7 +3138,7 @@ type UserData struct {
 
 func (x *UserData) Reset() {
 	*x = UserData{}
-	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[40]
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[44]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2779,7 +3150,7 @@ func (x *UserData) String() string {
 func (*UserData) ProtoMessage() {}
 
 func (x *UserData) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[40]
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[44]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2792,7 +3163,7 @@ func (x *UserData) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UserData.ProtoReflect.Descriptor instead.
 func (*UserData) Descriptor() ([]byte, []int) {
-	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{40}
+	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{44}
 }
 
 func (x *UserData) GetUser() string {
@@ -2855,7 +3226,7 @@ type Outcome struct {
 
 func (x *Outcome) Reset() {
 	*x = Outcome{}
-	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[41]
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[45]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2867,7 +3238,7 @@ func (x *Outcome) String() string {
 func (*Outcome) ProtoMessage() {}
 
 func (x *Outcome) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[41]
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[45]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2880,7 +3251,7 @@ func (x *Outcome) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Outcome.ProtoReflect.Descriptor instead.
 func (*Outcome) Descriptor() ([]byte, []int) {
-	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{41}
+	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{45}
 }
 
 func (x *Outcome) GetChangeId() []byte {
@@ -2916,7 +3287,7 @@ type IndexEntry struct {
 
 func (x *IndexEntry) Reset() {
 	*x = IndexEntry{}
-	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[42]
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[46]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2928,7 +3299,7 @@ func (x *IndexEntry) String() string {
 func (*IndexEntry) ProtoMessage() {}
 
 func (x *IndexEntry) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[42]
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[46]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2941,7 +3312,7 @@ func (x *IndexEntry) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use IndexEntry.ProtoReflect.Descriptor instead.
 func (*IndexEntry) Descriptor() ([]byte, []int) {
-	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{42}
+	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{46}
 }
 
 func (x *IndexEntry) GetPath() string {
@@ -2995,7 +3366,7 @@ type MembersRequest struct {
 
 func (x *MembersRequest) Reset() {
 	*x = MembersRequest{}
-	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[43]
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[47]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3007,7 +3378,7 @@ func (x *MembersRequest) String() string {
 func (*MembersRequest) ProtoMessage() {}
 
 func (x *MembersRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[43]
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[47]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3020,7 +3391,7 @@ func (x *MembersRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MembersRequest.ProtoReflect.Descriptor instead.
 func (*MembersRequest) Descriptor() ([]byte, []int) {
-	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{43}
+	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{47}
 }
 
 func (x *MembersRequest) GetServerId() []byte {
@@ -3166,7 +3537,7 @@ type CreateUser struct {
 
 func (x *CreateUser) Reset() {
 	*x = CreateUser{}
-	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[44]
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[48]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3178,7 +3549,7 @@ func (x *CreateUser) String() string {
 func (*CreateUser) ProtoMessage() {}
 
 func (x *CreateUser) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[44]
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[48]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3191,7 +3562,7 @@ func (x *CreateUser) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateUser.ProtoReflect.Descriptor instead.
 func (*CreateUser) Descriptor() ([]byte, []int) {
-	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{44}
+	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{48}
 }
 
 func (x *CreateUser) GetName() string {
@@ -3211,7 +3582,7 @@ type RestrictUser struct {
 
 func (x *RestrictUser) Reset() {
 	*x = RestrictUser{}
-	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[45]
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[49]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3223,7 +3594,7 @@ func (x *RestrictUser) String() string {
 func (*RestrictUser) ProtoMessage() {}
 
 func (x *RestrictUser) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[45]
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[49]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3236,7 +3607,7 @@ func (x *RestrictUser) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RestrictUser.ProtoReflect.Descriptor instead.
 func (*RestrictUser) Descriptor() ([]byte, []int) {
-	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{45}
+	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{49}
 }
 
 func (x *RestrictUser) GetUserId() string {
@@ -3263,7 +3634,7 @@ type MemberPassword struct {
 
 func (x *MemberPassword) Reset() {
 	*x = MemberPassword{}
-	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[46]
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[50]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3275,7 +3646,7 @@ func (x *MemberPassword) String() string {
 func (*MemberPassword) ProtoMessage() {}
 
 func (x *MemberPassword) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[46]
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[50]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3288,7 +3659,7 @@ func (x *MemberPassword) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MemberPassword.ProtoReflect.Descriptor instead.
 func (*MemberPassword) Descriptor() ([]byte, []int) {
-	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{46}
+	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{50}
 }
 
 func (x *MemberPassword) GetUserId() string {
@@ -3315,7 +3686,7 @@ type RenameUser struct {
 
 func (x *RenameUser) Reset() {
 	*x = RenameUser{}
-	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[47]
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[51]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3327,7 +3698,7 @@ func (x *RenameUser) String() string {
 func (*RenameUser) ProtoMessage() {}
 
 func (x *RenameUser) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[47]
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[51]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3340,7 +3711,7 @@ func (x *RenameUser) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RenameUser.ProtoReflect.Descriptor instead.
 func (*RenameUser) Descriptor() ([]byte, []int) {
-	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{47}
+	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{51}
 }
 
 func (x *RenameUser) GetUserId() string {
@@ -3365,7 +3736,7 @@ type ListUsers struct {
 
 func (x *ListUsers) Reset() {
 	*x = ListUsers{}
-	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[48]
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[52]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3377,7 +3748,7 @@ func (x *ListUsers) String() string {
 func (*ListUsers) ProtoMessage() {}
 
 func (x *ListUsers) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[48]
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[52]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3390,7 +3761,7 @@ func (x *ListUsers) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListUsers.ProtoReflect.Descriptor instead.
 func (*ListUsers) Descriptor() ([]byte, []int) {
-	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{48}
+	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{52}
 }
 
 type ServerUser struct {
@@ -3405,7 +3776,7 @@ type ServerUser struct {
 
 func (x *ServerUser) Reset() {
 	*x = ServerUser{}
-	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[49]
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[53]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3417,7 +3788,7 @@ func (x *ServerUser) String() string {
 func (*ServerUser) ProtoMessage() {}
 
 func (x *ServerUser) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[49]
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[53]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3430,7 +3801,7 @@ func (x *ServerUser) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerUser.ProtoReflect.Descriptor instead.
 func (*ServerUser) Descriptor() ([]byte, []int) {
-	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{49}
+	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{53}
 }
 
 func (x *ServerUser) GetId() string {
@@ -3478,7 +3849,7 @@ type MembersResponse struct {
 
 func (x *MembersResponse) Reset() {
 	*x = MembersResponse{}
-	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[50]
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[54]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3490,7 +3861,7 @@ func (x *MembersResponse) String() string {
 func (*MembersResponse) ProtoMessage() {}
 
 func (x *MembersResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[50]
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[54]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3503,7 +3874,7 @@ func (x *MembersResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MembersResponse.ProtoReflect.Descriptor instead.
 func (*MembersResponse) Descriptor() ([]byte, []int) {
-	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{50}
+	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{54}
 }
 
 func (x *MembersResponse) GetUserId() string {
@@ -3544,7 +3915,7 @@ type NameRefused struct {
 
 func (x *NameRefused) Reset() {
 	*x = NameRefused{}
-	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[51]
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[55]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3556,7 +3927,7 @@ func (x *NameRefused) String() string {
 func (*NameRefused) ProtoMessage() {}
 
 func (x *NameRefused) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[51]
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[55]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3569,7 +3940,7 @@ func (x *NameRefused) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NameRefused.ProtoReflect.Descriptor instead.
 func (*NameRefused) Descriptor() ([]byte, []int) {
-	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{51}
+	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{55}
 }
 
 func (x *NameRefused) GetTaken() bool {
@@ -3611,7 +3982,7 @@ const file_slipstream_mediaserver_v1_mediaserver_proto_rawDesc = "" +
 	"responding\x18\x02 \x01(\bR\n" +
 	"responding\x12>\n" +
 	"\bsessions\x18\x03 \x03(\v2\".slipstream.mediaserver.v1.SessionR\bsessions\x12 \n" +
-	"\vtranscoding\x18\x04 \x01(\bR\vtranscoding\"\xc6\x02\n" +
+	"\vtranscoding\x18\x04 \x01(\bR\vtranscoding\"\xad\x05\n" +
 	"\aSession\x12\x17\n" +
 	"\aplay_id\x18\x01 \x01(\fR\x06playId\x12\x1f\n" +
 	"\vsession_key\x18\x02 \x01(\tR\n" +
@@ -3621,13 +3992,42 @@ const file_slipstream_mediaserver_v1_mediaserver_proto_rawDesc = "" +
 	"\x04user\x18\x04 \x01(\tR\x04user\x12\x16\n" +
 	"\x06player\x18\x05 \x01(\tR\x06player\x12\x18\n" +
 	"\aproduct\x18\x06 \x01(\tR\aproduct\x12\x1a\n" +
-	"\bdecision\x18\a \x01(\tR\bdecision\x12\x1a\n" +
 	"\bhardware\x18\b \x01(\bR\bhardware\x12\x18\n" +
 	"\areasons\x18\t \x03(\tR\areasons\x12&\n" +
 	"\x0fstarted_unix_ms\x18\n" +
 	" \x01(\x03R\rstartedUnixMs\x12 \n" +
 	"\fseen_unix_ms\x18\v \x01(\x03R\n" +
-	"seenUnixMs\"\xda\x03\n" +
+	"seenUnixMs\x12\x1d\n" +
+	"\n" +
+	"player_key\x18\f \x01(\tR\tplayerKey\x12\x1a\n" +
+	"\bplatform\x18\r \x01(\tR\bplatform\x12<\n" +
+	"\astreams\x18\x0f \x01(\v2\".slipstream.mediaserver.v1.StreamsR\astreams\x12?\n" +
+	"\breceived\x18\x10 \x01(\v2#.slipstream.mediaserver.v1.ReceivedR\breceived\x12A\n" +
+	"\vaudio_track\x18\x11 \x01(\v2 .slipstream.mediaserver.v1.TrackR\n" +
+	"audioTrack\x12G\n" +
+	"\x0esubtitle_track\x18\x12 \x01(\v2 .slipstream.mediaserver.v1.TrackR\rsubtitleTrack\x12\x1b\n" +
+	"\titem_keys\x18\x13 \x03(\tR\bitemKeysJ\x04\b\a\x10\bJ\x04\b\x0e\x10\x0fR\bdecisionR\bitem_key\"\x80\x01\n" +
+	"\aStreams\x12\x14\n" +
+	"\x05video\x18\x01 \x01(\tR\x05video\x12\x14\n" +
+	"\x05audio\x18\x02 \x01(\tR\x05audio\x12\x1c\n" +
+	"\tsubtitles\x18\x03 \x01(\tR\tsubtitles\x12+\n" +
+	"\x11container_changed\x18\x04 \x01(\bR\x10containerChanged\"\xb8\x01\n" +
+	"\bReceived\x12\x1c\n" +
+	"\tcontainer\x18\x01 \x01(\tR\tcontainer\x12\x1f\n" +
+	"\vvideo_codec\x18\x02 \x01(\tR\n" +
+	"videoCodec\x12\x16\n" +
+	"\x06height\x18\x03 \x01(\x05R\x06height\x12\x18\n" +
+	"\abitrate\x18\x04 \x01(\x03R\abitrate\x12\x1f\n" +
+	"\vaudio_codec\x18\x05 \x01(\tR\n" +
+	"audioCodec\x12\x1a\n" +
+	"\bchannels\x18\x06 \x01(\x05R\bchannels\"v\n" +
+	"\x05Track\x12\x1c\n" +
+	"\bposition\x18\x01 \x01(\x05H\x00R\bposition\x12F\n" +
+	"\bexternal\x18\x02 \x01(\v2(.slipstream.mediaserver.v1.ExternalTrackH\x00R\bexternalB\a\n" +
+	"\x05track\"A\n" +
+	"\rExternalTrack\x12\x14\n" +
+	"\x05codec\x18\x01 \x01(\tR\x05codec\x12\x1a\n" +
+	"\blanguage\x18\x02 \x01(\tR\blanguage\"\xda\x03\n" +
 	"\x06Report\x12\x1b\n" +
 	"\tserver_id\x18\x01 \x01(\fR\bserverId\x12>\n" +
 	"\acontact\x18\x02 \x01(\v2\".slipstream.mediaserver.v1.ContactH\x00R\acontact\x12K\n" +
@@ -3646,14 +4046,18 @@ const file_slipstream_mediaserver_v1_mediaserver_proto_rawDesc = "" +
 	"at_unix_ms\x18\x03 \x01(\x03R\batUnixMs\x12\x14\n" +
 	"\x05found\x18\x04 \x01(\tR\x05found\"K\n" +
 	"\vPlayStarted\x12<\n" +
-	"\asession\x18\x01 \x01(\v2\".slipstream.mediaserver.v1.SessionR\asession\"\x9a\x01\n" +
+	"\asession\x18\x01 \x01(\v2\".slipstream.mediaserver.v1.SessionR\asession\"\x99\x03\n" +
 	"\vPlayChanged\x12\x17\n" +
 	"\aplay_id\x18\x01 \x01(\fR\x06playId\x12\x1a\n" +
-	"\bdecision\x18\x02 \x01(\tR\bdecision\x12\x1a\n" +
 	"\bhardware\x18\x03 \x01(\bR\bhardware\x12\x18\n" +
 	"\areasons\x18\x04 \x03(\tR\areasons\x12 \n" +
 	"\fseen_unix_ms\x18\x05 \x01(\x03R\n" +
-	"seenUnixMs\"O\n" +
+	"seenUnixMs\x12<\n" +
+	"\astreams\x18\x06 \x01(\v2\".slipstream.mediaserver.v1.StreamsR\astreams\x12?\n" +
+	"\breceived\x18\a \x01(\v2#.slipstream.mediaserver.v1.ReceivedR\breceived\x12A\n" +
+	"\vaudio_track\x18\b \x01(\v2 .slipstream.mediaserver.v1.TrackR\n" +
+	"audioTrack\x12G\n" +
+	"\x0esubtitle_track\x18\t \x01(\v2 .slipstream.mediaserver.v1.TrackR\rsubtitleTrackJ\x04\b\x02\x10\x03R\bdecision\"O\n" +
 	"\tPlayEnded\x12\x17\n" +
 	"\aplay_id\x18\x01 \x01(\fR\x06playId\x12)\n" +
 	"\x11last_seen_unix_ms\x18\x02 \x01(\x03R\x0elastSeenUnixMs\"C\n" +
@@ -3879,129 +4283,142 @@ func file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP() []byte {
 	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescData
 }
 
-var file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes = make([]protoimpl.MessageInfo, 52)
+var file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes = make([]protoimpl.MessageInfo, 56)
 var file_slipstream_mediaserver_v1_mediaserver_proto_goTypes = []any{
 	(*Intent)(nil),                     // 0: slipstream.mediaserver.v1.Intent
 	(*Server)(nil),                     // 1: slipstream.mediaserver.v1.Server
 	(*Facts)(nil),                      // 2: slipstream.mediaserver.v1.Facts
 	(*ServerFacts)(nil),                // 3: slipstream.mediaserver.v1.ServerFacts
 	(*Session)(nil),                    // 4: slipstream.mediaserver.v1.Session
-	(*Report)(nil),                     // 5: slipstream.mediaserver.v1.Report
-	(*Contact)(nil),                    // 6: slipstream.mediaserver.v1.Contact
-	(*PlayStarted)(nil),                // 7: slipstream.mediaserver.v1.PlayStarted
-	(*PlayChanged)(nil),                // 8: slipstream.mediaserver.v1.PlayChanged
-	(*PlayEnded)(nil),                  // 9: slipstream.mediaserver.v1.PlayEnded
-	(*Watching)(nil),                   // 10: slipstream.mediaserver.v1.Watching
-	(*IndexHint)(nil),                  // 11: slipstream.mediaserver.v1.IndexHint
-	(*ReachRequest)(nil),               // 12: slipstream.mediaserver.v1.ReachRequest
-	(*ReachResponse)(nil),              // 13: slipstream.mediaserver.v1.ReachResponse
-	(*CheckRequest)(nil),               // 14: slipstream.mediaserver.v1.CheckRequest
-	(*CheckResponse)(nil),              // 15: slipstream.mediaserver.v1.CheckResponse
-	(*SignInRequest)(nil),              // 16: slipstream.mediaserver.v1.SignInRequest
-	(*SignInResponse)(nil),             // 17: slipstream.mediaserver.v1.SignInResponse
-	(*AdvanceRequest)(nil),             // 18: slipstream.mediaserver.v1.AdvanceRequest
-	(*AdvanceResponse)(nil),            // 19: slipstream.mediaserver.v1.AdvanceResponse
-	(*ExposedRequest)(nil),             // 20: slipstream.mediaserver.v1.ExposedRequest
-	(*ExposedResponse)(nil),            // 21: slipstream.mediaserver.v1.ExposedResponse
-	(*PlexMapping)(nil),                // 22: slipstream.mediaserver.v1.PlexMapping
-	(*MediaServerSecretsRequest)(nil),  // 23: slipstream.mediaserver.v1.MediaServerSecretsRequest
-	(*MediaServerSecretsResponse)(nil), // 24: slipstream.mediaserver.v1.MediaServerSecretsResponse
-	(*Identity)(nil),                   // 25: slipstream.mediaserver.v1.Identity
-	(*Credential)(nil),                 // 26: slipstream.mediaserver.v1.Credential
-	(*Problem)(nil),                    // 27: slipstream.mediaserver.v1.Problem
-	(*Library)(nil),                    // 28: slipstream.mediaserver.v1.Library
-	(*Job)(nil),                        // 29: slipstream.mediaserver.v1.Job
-	(*JobChange)(nil),                  // 30: slipstream.mediaserver.v1.JobChange
-	(*Refresh)(nil),                    // 31: slipstream.mediaserver.v1.Refresh
-	(*Carry)(nil),                      // 32: slipstream.mediaserver.v1.Carry
-	(*Fresh)(nil),                      // 33: slipstream.mediaserver.v1.Fresh
-	(*Rescan)(nil),                     // 34: slipstream.mediaserver.v1.Rescan
-	(*Lookup)(nil),                     // 35: slipstream.mediaserver.v1.Lookup
-	(*Index)(nil),                      // 36: slipstream.mediaserver.v1.Index
-	(*Libraries)(nil),                  // 37: slipstream.mediaserver.v1.Libraries
-	(*Snapshot)(nil),                   // 38: slipstream.mediaserver.v1.Snapshot
-	(*ItemKey)(nil),                    // 39: slipstream.mediaserver.v1.ItemKey
-	(*UserData)(nil),                   // 40: slipstream.mediaserver.v1.UserData
-	(*Outcome)(nil),                    // 41: slipstream.mediaserver.v1.Outcome
-	(*IndexEntry)(nil),                 // 42: slipstream.mediaserver.v1.IndexEntry
-	(*MembersRequest)(nil),             // 43: slipstream.mediaserver.v1.MembersRequest
-	(*CreateUser)(nil),                 // 44: slipstream.mediaserver.v1.CreateUser
-	(*RestrictUser)(nil),               // 45: slipstream.mediaserver.v1.RestrictUser
-	(*MemberPassword)(nil),             // 46: slipstream.mediaserver.v1.MemberPassword
-	(*RenameUser)(nil),                 // 47: slipstream.mediaserver.v1.RenameUser
-	(*ListUsers)(nil),                  // 48: slipstream.mediaserver.v1.ListUsers
-	(*ServerUser)(nil),                 // 49: slipstream.mediaserver.v1.ServerUser
-	(*MembersResponse)(nil),            // 50: slipstream.mediaserver.v1.MembersResponse
-	(*NameRefused)(nil),                // 51: slipstream.mediaserver.v1.NameRefused
+	(*Streams)(nil),                    // 5: slipstream.mediaserver.v1.Streams
+	(*Received)(nil),                   // 6: slipstream.mediaserver.v1.Received
+	(*Track)(nil),                      // 7: slipstream.mediaserver.v1.Track
+	(*ExternalTrack)(nil),              // 8: slipstream.mediaserver.v1.ExternalTrack
+	(*Report)(nil),                     // 9: slipstream.mediaserver.v1.Report
+	(*Contact)(nil),                    // 10: slipstream.mediaserver.v1.Contact
+	(*PlayStarted)(nil),                // 11: slipstream.mediaserver.v1.PlayStarted
+	(*PlayChanged)(nil),                // 12: slipstream.mediaserver.v1.PlayChanged
+	(*PlayEnded)(nil),                  // 13: slipstream.mediaserver.v1.PlayEnded
+	(*Watching)(nil),                   // 14: slipstream.mediaserver.v1.Watching
+	(*IndexHint)(nil),                  // 15: slipstream.mediaserver.v1.IndexHint
+	(*ReachRequest)(nil),               // 16: slipstream.mediaserver.v1.ReachRequest
+	(*ReachResponse)(nil),              // 17: slipstream.mediaserver.v1.ReachResponse
+	(*CheckRequest)(nil),               // 18: slipstream.mediaserver.v1.CheckRequest
+	(*CheckResponse)(nil),              // 19: slipstream.mediaserver.v1.CheckResponse
+	(*SignInRequest)(nil),              // 20: slipstream.mediaserver.v1.SignInRequest
+	(*SignInResponse)(nil),             // 21: slipstream.mediaserver.v1.SignInResponse
+	(*AdvanceRequest)(nil),             // 22: slipstream.mediaserver.v1.AdvanceRequest
+	(*AdvanceResponse)(nil),            // 23: slipstream.mediaserver.v1.AdvanceResponse
+	(*ExposedRequest)(nil),             // 24: slipstream.mediaserver.v1.ExposedRequest
+	(*ExposedResponse)(nil),            // 25: slipstream.mediaserver.v1.ExposedResponse
+	(*PlexMapping)(nil),                // 26: slipstream.mediaserver.v1.PlexMapping
+	(*MediaServerSecretsRequest)(nil),  // 27: slipstream.mediaserver.v1.MediaServerSecretsRequest
+	(*MediaServerSecretsResponse)(nil), // 28: slipstream.mediaserver.v1.MediaServerSecretsResponse
+	(*Identity)(nil),                   // 29: slipstream.mediaserver.v1.Identity
+	(*Credential)(nil),                 // 30: slipstream.mediaserver.v1.Credential
+	(*Problem)(nil),                    // 31: slipstream.mediaserver.v1.Problem
+	(*Library)(nil),                    // 32: slipstream.mediaserver.v1.Library
+	(*Job)(nil),                        // 33: slipstream.mediaserver.v1.Job
+	(*JobChange)(nil),                  // 34: slipstream.mediaserver.v1.JobChange
+	(*Refresh)(nil),                    // 35: slipstream.mediaserver.v1.Refresh
+	(*Carry)(nil),                      // 36: slipstream.mediaserver.v1.Carry
+	(*Fresh)(nil),                      // 37: slipstream.mediaserver.v1.Fresh
+	(*Rescan)(nil),                     // 38: slipstream.mediaserver.v1.Rescan
+	(*Lookup)(nil),                     // 39: slipstream.mediaserver.v1.Lookup
+	(*Index)(nil),                      // 40: slipstream.mediaserver.v1.Index
+	(*Libraries)(nil),                  // 41: slipstream.mediaserver.v1.Libraries
+	(*Snapshot)(nil),                   // 42: slipstream.mediaserver.v1.Snapshot
+	(*ItemKey)(nil),                    // 43: slipstream.mediaserver.v1.ItemKey
+	(*UserData)(nil),                   // 44: slipstream.mediaserver.v1.UserData
+	(*Outcome)(nil),                    // 45: slipstream.mediaserver.v1.Outcome
+	(*IndexEntry)(nil),                 // 46: slipstream.mediaserver.v1.IndexEntry
+	(*MembersRequest)(nil),             // 47: slipstream.mediaserver.v1.MembersRequest
+	(*CreateUser)(nil),                 // 48: slipstream.mediaserver.v1.CreateUser
+	(*RestrictUser)(nil),               // 49: slipstream.mediaserver.v1.RestrictUser
+	(*MemberPassword)(nil),             // 50: slipstream.mediaserver.v1.MemberPassword
+	(*RenameUser)(nil),                 // 51: slipstream.mediaserver.v1.RenameUser
+	(*ListUsers)(nil),                  // 52: slipstream.mediaserver.v1.ListUsers
+	(*ServerUser)(nil),                 // 53: slipstream.mediaserver.v1.ServerUser
+	(*MembersResponse)(nil),            // 54: slipstream.mediaserver.v1.MembersResponse
+	(*NameRefused)(nil),                // 55: slipstream.mediaserver.v1.NameRefused
 }
 var file_slipstream_mediaserver_v1_mediaserver_proto_depIdxs = []int32{
 	1,  // 0: slipstream.mediaserver.v1.Intent.servers:type_name -> slipstream.mediaserver.v1.Server
 	3,  // 1: slipstream.mediaserver.v1.Facts.servers:type_name -> slipstream.mediaserver.v1.ServerFacts
 	4,  // 2: slipstream.mediaserver.v1.ServerFacts.sessions:type_name -> slipstream.mediaserver.v1.Session
-	6,  // 3: slipstream.mediaserver.v1.Report.contact:type_name -> slipstream.mediaserver.v1.Contact
-	7,  // 4: slipstream.mediaserver.v1.Report.play_started:type_name -> slipstream.mediaserver.v1.PlayStarted
-	8,  // 5: slipstream.mediaserver.v1.Report.play_changed:type_name -> slipstream.mediaserver.v1.PlayChanged
-	9,  // 6: slipstream.mediaserver.v1.Report.play_ended:type_name -> slipstream.mediaserver.v1.PlayEnded
-	10, // 7: slipstream.mediaserver.v1.Report.watching:type_name -> slipstream.mediaserver.v1.Watching
-	11, // 8: slipstream.mediaserver.v1.Report.index_hint:type_name -> slipstream.mediaserver.v1.IndexHint
-	4,  // 9: slipstream.mediaserver.v1.PlayStarted.session:type_name -> slipstream.mediaserver.v1.Session
-	25, // 10: slipstream.mediaserver.v1.ReachResponse.identity:type_name -> slipstream.mediaserver.v1.Identity
-	27, // 11: slipstream.mediaserver.v1.ReachResponse.problem:type_name -> slipstream.mediaserver.v1.Problem
-	26, // 12: slipstream.mediaserver.v1.CheckRequest.credential:type_name -> slipstream.mediaserver.v1.Credential
-	25, // 13: slipstream.mediaserver.v1.CheckResponse.identity:type_name -> slipstream.mediaserver.v1.Identity
-	28, // 14: slipstream.mediaserver.v1.CheckResponse.libraries:type_name -> slipstream.mediaserver.v1.Library
-	27, // 15: slipstream.mediaserver.v1.CheckResponse.problem:type_name -> slipstream.mediaserver.v1.Problem
-	26, // 16: slipstream.mediaserver.v1.SignInResponse.credential:type_name -> slipstream.mediaserver.v1.Credential
-	27, // 17: slipstream.mediaserver.v1.SignInResponse.problem:type_name -> slipstream.mediaserver.v1.Problem
-	29, // 18: slipstream.mediaserver.v1.AdvanceRequest.job:type_name -> slipstream.mediaserver.v1.Job
-	29, // 19: slipstream.mediaserver.v1.AdvanceResponse.job:type_name -> slipstream.mediaserver.v1.Job
-	41, // 20: slipstream.mediaserver.v1.AdvanceResponse.outcomes:type_name -> slipstream.mediaserver.v1.Outcome
-	42, // 21: slipstream.mediaserver.v1.AdvanceResponse.learned:type_name -> slipstream.mediaserver.v1.IndexEntry
-	28, // 22: slipstream.mediaserver.v1.AdvanceResponse.libraries:type_name -> slipstream.mediaserver.v1.Library
-	27, // 23: slipstream.mediaserver.v1.AdvanceResponse.problem:type_name -> slipstream.mediaserver.v1.Problem
-	22, // 24: slipstream.mediaserver.v1.ExposedResponse.mapping:type_name -> slipstream.mediaserver.v1.PlexMapping
-	27, // 25: slipstream.mediaserver.v1.ExposedResponse.problem:type_name -> slipstream.mediaserver.v1.Problem
-	26, // 26: slipstream.mediaserver.v1.MediaServerSecretsResponse.credential:type_name -> slipstream.mediaserver.v1.Credential
-	31, // 27: slipstream.mediaserver.v1.Job.refresh:type_name -> slipstream.mediaserver.v1.Refresh
-	32, // 28: slipstream.mediaserver.v1.Job.carry:type_name -> slipstream.mediaserver.v1.Carry
-	33, // 29: slipstream.mediaserver.v1.Job.fresh:type_name -> slipstream.mediaserver.v1.Fresh
-	34, // 30: slipstream.mediaserver.v1.Job.rescan:type_name -> slipstream.mediaserver.v1.Rescan
-	35, // 31: slipstream.mediaserver.v1.Job.lookup:type_name -> slipstream.mediaserver.v1.Lookup
-	36, // 32: slipstream.mediaserver.v1.Job.index:type_name -> slipstream.mediaserver.v1.Index
-	37, // 33: slipstream.mediaserver.v1.Job.libraries:type_name -> slipstream.mediaserver.v1.Libraries
-	38, // 34: slipstream.mediaserver.v1.JobChange.snapshot:type_name -> slipstream.mediaserver.v1.Snapshot
-	30, // 35: slipstream.mediaserver.v1.Refresh.changes:type_name -> slipstream.mediaserver.v1.JobChange
-	30, // 36: slipstream.mediaserver.v1.Carry.changes:type_name -> slipstream.mediaserver.v1.JobChange
-	39, // 37: slipstream.mediaserver.v1.Snapshot.item:type_name -> slipstream.mediaserver.v1.ItemKey
-	40, // 38: slipstream.mediaserver.v1.Snapshot.users:type_name -> slipstream.mediaserver.v1.UserData
-	39, // 39: slipstream.mediaserver.v1.IndexEntry.item:type_name -> slipstream.mediaserver.v1.ItemKey
-	44, // 40: slipstream.mediaserver.v1.MembersRequest.create_user:type_name -> slipstream.mediaserver.v1.CreateUser
-	45, // 41: slipstream.mediaserver.v1.MembersRequest.restrict_user:type_name -> slipstream.mediaserver.v1.RestrictUser
-	46, // 42: slipstream.mediaserver.v1.MembersRequest.member_password:type_name -> slipstream.mediaserver.v1.MemberPassword
-	47, // 43: slipstream.mediaserver.v1.MembersRequest.rename_user:type_name -> slipstream.mediaserver.v1.RenameUser
-	48, // 44: slipstream.mediaserver.v1.MembersRequest.list_users:type_name -> slipstream.mediaserver.v1.ListUsers
-	49, // 45: slipstream.mediaserver.v1.MembersResponse.users:type_name -> slipstream.mediaserver.v1.ServerUser
-	51, // 46: slipstream.mediaserver.v1.MembersResponse.name_refused:type_name -> slipstream.mediaserver.v1.NameRefused
-	27, // 47: slipstream.mediaserver.v1.MembersResponse.problem:type_name -> slipstream.mediaserver.v1.Problem
-	12, // 48: slipstream.mediaserver.v1.MediaServerLinkService.Reach:input_type -> slipstream.mediaserver.v1.ReachRequest
-	14, // 49: slipstream.mediaserver.v1.MediaServerLinkService.Check:input_type -> slipstream.mediaserver.v1.CheckRequest
-	16, // 50: slipstream.mediaserver.v1.MediaServerLinkService.SignIn:input_type -> slipstream.mediaserver.v1.SignInRequest
-	18, // 51: slipstream.mediaserver.v1.MediaServerLinkService.Advance:input_type -> slipstream.mediaserver.v1.AdvanceRequest
-	20, // 52: slipstream.mediaserver.v1.MediaServerLinkService.Exposed:input_type -> slipstream.mediaserver.v1.ExposedRequest
-	43, // 53: slipstream.mediaserver.v1.MediaServerLinkService.Members:input_type -> slipstream.mediaserver.v1.MembersRequest
-	23, // 54: slipstream.mediaserver.v1.MediaServerControlService.MediaServerSecrets:input_type -> slipstream.mediaserver.v1.MediaServerSecretsRequest
-	13, // 55: slipstream.mediaserver.v1.MediaServerLinkService.Reach:output_type -> slipstream.mediaserver.v1.ReachResponse
-	15, // 56: slipstream.mediaserver.v1.MediaServerLinkService.Check:output_type -> slipstream.mediaserver.v1.CheckResponse
-	17, // 57: slipstream.mediaserver.v1.MediaServerLinkService.SignIn:output_type -> slipstream.mediaserver.v1.SignInResponse
-	19, // 58: slipstream.mediaserver.v1.MediaServerLinkService.Advance:output_type -> slipstream.mediaserver.v1.AdvanceResponse
-	21, // 59: slipstream.mediaserver.v1.MediaServerLinkService.Exposed:output_type -> slipstream.mediaserver.v1.ExposedResponse
-	50, // 60: slipstream.mediaserver.v1.MediaServerLinkService.Members:output_type -> slipstream.mediaserver.v1.MembersResponse
-	24, // 61: slipstream.mediaserver.v1.MediaServerControlService.MediaServerSecrets:output_type -> slipstream.mediaserver.v1.MediaServerSecretsResponse
-	55, // [55:62] is the sub-list for method output_type
-	48, // [48:55] is the sub-list for method input_type
-	48, // [48:48] is the sub-list for extension type_name
-	48, // [48:48] is the sub-list for extension extendee
-	0,  // [0:48] is the sub-list for field type_name
+	5,  // 3: slipstream.mediaserver.v1.Session.streams:type_name -> slipstream.mediaserver.v1.Streams
+	6,  // 4: slipstream.mediaserver.v1.Session.received:type_name -> slipstream.mediaserver.v1.Received
+	7,  // 5: slipstream.mediaserver.v1.Session.audio_track:type_name -> slipstream.mediaserver.v1.Track
+	7,  // 6: slipstream.mediaserver.v1.Session.subtitle_track:type_name -> slipstream.mediaserver.v1.Track
+	8,  // 7: slipstream.mediaserver.v1.Track.external:type_name -> slipstream.mediaserver.v1.ExternalTrack
+	10, // 8: slipstream.mediaserver.v1.Report.contact:type_name -> slipstream.mediaserver.v1.Contact
+	11, // 9: slipstream.mediaserver.v1.Report.play_started:type_name -> slipstream.mediaserver.v1.PlayStarted
+	12, // 10: slipstream.mediaserver.v1.Report.play_changed:type_name -> slipstream.mediaserver.v1.PlayChanged
+	13, // 11: slipstream.mediaserver.v1.Report.play_ended:type_name -> slipstream.mediaserver.v1.PlayEnded
+	14, // 12: slipstream.mediaserver.v1.Report.watching:type_name -> slipstream.mediaserver.v1.Watching
+	15, // 13: slipstream.mediaserver.v1.Report.index_hint:type_name -> slipstream.mediaserver.v1.IndexHint
+	4,  // 14: slipstream.mediaserver.v1.PlayStarted.session:type_name -> slipstream.mediaserver.v1.Session
+	5,  // 15: slipstream.mediaserver.v1.PlayChanged.streams:type_name -> slipstream.mediaserver.v1.Streams
+	6,  // 16: slipstream.mediaserver.v1.PlayChanged.received:type_name -> slipstream.mediaserver.v1.Received
+	7,  // 17: slipstream.mediaserver.v1.PlayChanged.audio_track:type_name -> slipstream.mediaserver.v1.Track
+	7,  // 18: slipstream.mediaserver.v1.PlayChanged.subtitle_track:type_name -> slipstream.mediaserver.v1.Track
+	29, // 19: slipstream.mediaserver.v1.ReachResponse.identity:type_name -> slipstream.mediaserver.v1.Identity
+	31, // 20: slipstream.mediaserver.v1.ReachResponse.problem:type_name -> slipstream.mediaserver.v1.Problem
+	30, // 21: slipstream.mediaserver.v1.CheckRequest.credential:type_name -> slipstream.mediaserver.v1.Credential
+	29, // 22: slipstream.mediaserver.v1.CheckResponse.identity:type_name -> slipstream.mediaserver.v1.Identity
+	32, // 23: slipstream.mediaserver.v1.CheckResponse.libraries:type_name -> slipstream.mediaserver.v1.Library
+	31, // 24: slipstream.mediaserver.v1.CheckResponse.problem:type_name -> slipstream.mediaserver.v1.Problem
+	30, // 25: slipstream.mediaserver.v1.SignInResponse.credential:type_name -> slipstream.mediaserver.v1.Credential
+	31, // 26: slipstream.mediaserver.v1.SignInResponse.problem:type_name -> slipstream.mediaserver.v1.Problem
+	33, // 27: slipstream.mediaserver.v1.AdvanceRequest.job:type_name -> slipstream.mediaserver.v1.Job
+	33, // 28: slipstream.mediaserver.v1.AdvanceResponse.job:type_name -> slipstream.mediaserver.v1.Job
+	45, // 29: slipstream.mediaserver.v1.AdvanceResponse.outcomes:type_name -> slipstream.mediaserver.v1.Outcome
+	46, // 30: slipstream.mediaserver.v1.AdvanceResponse.learned:type_name -> slipstream.mediaserver.v1.IndexEntry
+	32, // 31: slipstream.mediaserver.v1.AdvanceResponse.libraries:type_name -> slipstream.mediaserver.v1.Library
+	31, // 32: slipstream.mediaserver.v1.AdvanceResponse.problem:type_name -> slipstream.mediaserver.v1.Problem
+	26, // 33: slipstream.mediaserver.v1.ExposedResponse.mapping:type_name -> slipstream.mediaserver.v1.PlexMapping
+	31, // 34: slipstream.mediaserver.v1.ExposedResponse.problem:type_name -> slipstream.mediaserver.v1.Problem
+	30, // 35: slipstream.mediaserver.v1.MediaServerSecretsResponse.credential:type_name -> slipstream.mediaserver.v1.Credential
+	35, // 36: slipstream.mediaserver.v1.Job.refresh:type_name -> slipstream.mediaserver.v1.Refresh
+	36, // 37: slipstream.mediaserver.v1.Job.carry:type_name -> slipstream.mediaserver.v1.Carry
+	37, // 38: slipstream.mediaserver.v1.Job.fresh:type_name -> slipstream.mediaserver.v1.Fresh
+	38, // 39: slipstream.mediaserver.v1.Job.rescan:type_name -> slipstream.mediaserver.v1.Rescan
+	39, // 40: slipstream.mediaserver.v1.Job.lookup:type_name -> slipstream.mediaserver.v1.Lookup
+	40, // 41: slipstream.mediaserver.v1.Job.index:type_name -> slipstream.mediaserver.v1.Index
+	41, // 42: slipstream.mediaserver.v1.Job.libraries:type_name -> slipstream.mediaserver.v1.Libraries
+	42, // 43: slipstream.mediaserver.v1.JobChange.snapshot:type_name -> slipstream.mediaserver.v1.Snapshot
+	34, // 44: slipstream.mediaserver.v1.Refresh.changes:type_name -> slipstream.mediaserver.v1.JobChange
+	34, // 45: slipstream.mediaserver.v1.Carry.changes:type_name -> slipstream.mediaserver.v1.JobChange
+	43, // 46: slipstream.mediaserver.v1.Snapshot.item:type_name -> slipstream.mediaserver.v1.ItemKey
+	44, // 47: slipstream.mediaserver.v1.Snapshot.users:type_name -> slipstream.mediaserver.v1.UserData
+	43, // 48: slipstream.mediaserver.v1.IndexEntry.item:type_name -> slipstream.mediaserver.v1.ItemKey
+	48, // 49: slipstream.mediaserver.v1.MembersRequest.create_user:type_name -> slipstream.mediaserver.v1.CreateUser
+	49, // 50: slipstream.mediaserver.v1.MembersRequest.restrict_user:type_name -> slipstream.mediaserver.v1.RestrictUser
+	50, // 51: slipstream.mediaserver.v1.MembersRequest.member_password:type_name -> slipstream.mediaserver.v1.MemberPassword
+	51, // 52: slipstream.mediaserver.v1.MembersRequest.rename_user:type_name -> slipstream.mediaserver.v1.RenameUser
+	52, // 53: slipstream.mediaserver.v1.MembersRequest.list_users:type_name -> slipstream.mediaserver.v1.ListUsers
+	53, // 54: slipstream.mediaserver.v1.MembersResponse.users:type_name -> slipstream.mediaserver.v1.ServerUser
+	55, // 55: slipstream.mediaserver.v1.MembersResponse.name_refused:type_name -> slipstream.mediaserver.v1.NameRefused
+	31, // 56: slipstream.mediaserver.v1.MembersResponse.problem:type_name -> slipstream.mediaserver.v1.Problem
+	16, // 57: slipstream.mediaserver.v1.MediaServerLinkService.Reach:input_type -> slipstream.mediaserver.v1.ReachRequest
+	18, // 58: slipstream.mediaserver.v1.MediaServerLinkService.Check:input_type -> slipstream.mediaserver.v1.CheckRequest
+	20, // 59: slipstream.mediaserver.v1.MediaServerLinkService.SignIn:input_type -> slipstream.mediaserver.v1.SignInRequest
+	22, // 60: slipstream.mediaserver.v1.MediaServerLinkService.Advance:input_type -> slipstream.mediaserver.v1.AdvanceRequest
+	24, // 61: slipstream.mediaserver.v1.MediaServerLinkService.Exposed:input_type -> slipstream.mediaserver.v1.ExposedRequest
+	47, // 62: slipstream.mediaserver.v1.MediaServerLinkService.Members:input_type -> slipstream.mediaserver.v1.MembersRequest
+	27, // 63: slipstream.mediaserver.v1.MediaServerControlService.MediaServerSecrets:input_type -> slipstream.mediaserver.v1.MediaServerSecretsRequest
+	17, // 64: slipstream.mediaserver.v1.MediaServerLinkService.Reach:output_type -> slipstream.mediaserver.v1.ReachResponse
+	19, // 65: slipstream.mediaserver.v1.MediaServerLinkService.Check:output_type -> slipstream.mediaserver.v1.CheckResponse
+	21, // 66: slipstream.mediaserver.v1.MediaServerLinkService.SignIn:output_type -> slipstream.mediaserver.v1.SignInResponse
+	23, // 67: slipstream.mediaserver.v1.MediaServerLinkService.Advance:output_type -> slipstream.mediaserver.v1.AdvanceResponse
+	25, // 68: slipstream.mediaserver.v1.MediaServerLinkService.Exposed:output_type -> slipstream.mediaserver.v1.ExposedResponse
+	54, // 69: slipstream.mediaserver.v1.MediaServerLinkService.Members:output_type -> slipstream.mediaserver.v1.MembersResponse
+	28, // 70: slipstream.mediaserver.v1.MediaServerControlService.MediaServerSecrets:output_type -> slipstream.mediaserver.v1.MediaServerSecretsResponse
+	64, // [64:71] is the sub-list for method output_type
+	57, // [57:64] is the sub-list for method input_type
+	57, // [57:57] is the sub-list for extension type_name
+	57, // [57:57] is the sub-list for extension extendee
+	0,  // [0:57] is the sub-list for field type_name
 }
 
 func init() { file_slipstream_mediaserver_v1_mediaserver_proto_init() }
@@ -4009,7 +4426,11 @@ func file_slipstream_mediaserver_v1_mediaserver_proto_init() {
 	if File_slipstream_mediaserver_v1_mediaserver_proto != nil {
 		return
 	}
-	file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[5].OneofWrappers = []any{
+	file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[7].OneofWrappers = []any{
+		(*Track_Position)(nil),
+		(*Track_External)(nil),
+	}
+	file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[9].OneofWrappers = []any{
 		(*Report_Contact)(nil),
 		(*Report_PlayStarted)(nil),
 		(*Report_PlayChanged)(nil),
@@ -4017,8 +4438,8 @@ func file_slipstream_mediaserver_v1_mediaserver_proto_init() {
 		(*Report_Watching)(nil),
 		(*Report_IndexHint)(nil),
 	}
-	file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[21].OneofWrappers = []any{}
-	file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[29].OneofWrappers = []any{
+	file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[25].OneofWrappers = []any{}
+	file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[33].OneofWrappers = []any{
 		(*Job_Refresh)(nil),
 		(*Job_Carry)(nil),
 		(*Job_Fresh)(nil),
@@ -4027,7 +4448,7 @@ func file_slipstream_mediaserver_v1_mediaserver_proto_init() {
 		(*Job_Index)(nil),
 		(*Job_Libraries)(nil),
 	}
-	file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[43].OneofWrappers = []any{
+	file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[47].OneofWrappers = []any{
 		(*MembersRequest_CreateUser)(nil),
 		(*MembersRequest_RestrictUser)(nil),
 		(*MembersRequest_MemberPassword)(nil),
@@ -4042,7 +4463,7 @@ func file_slipstream_mediaserver_v1_mediaserver_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_slipstream_mediaserver_v1_mediaserver_proto_rawDesc), len(file_slipstream_mediaserver_v1_mediaserver_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   52,
+			NumMessages:   56,
 			NumExtensions: 0,
 			NumServices:   2,
 		},

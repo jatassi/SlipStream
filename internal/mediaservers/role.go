@@ -11,6 +11,7 @@ import (
 	"github.com/jatassi/slipstream/internal/mail"
 	"github.com/jatassi/slipstream/internal/mediaserverlink/link"
 	"github.com/jatassi/slipstream/internal/mediaservers/internal/db"
+	"github.com/jatassi/slipstream/internal/mediaservers/playback"
 	"github.com/jatassi/slipstream/internal/nodes"
 	msv1 "github.com/jatassi/slipstream/internal/pb/slipstream/mediaserver/v1"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/mediaserver/v1/mediaserverv1connect"
@@ -20,6 +21,7 @@ import (
 	"github.com/jatassi/slipstream/internal/secret"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storing"
+	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
@@ -36,6 +38,9 @@ type MediaServers struct {
 	// contacted is the servers whose contact each Node's reports changed,
 	// published once they commit.
 	contacted pendingServers
+	// played is the servers whose plays each Write changed, published once
+	// it commits.
+	played pendingServers
 	// unconfirmed is the servers a re-home unconfirmed, published at the
 	// next roots.changed.
 	unconfirmed unconfirmed
@@ -67,6 +72,17 @@ type Config struct {
 	// WorkFiles is files.LeftIn of one Work: its files whose bytes sit at
 	// their paths.
 	WorkFiles func(ctx context.Context, r storage.Reader[storage.Library], work works.WorkID) ([]files.File, error)
+	// Played is one library file as a play's snapshot reads it: its Work,
+	// its first Item, its label, every Target it meets and its probe.
+	Played func(ctx context.Context, r storage.Reader[storage.Library], id files.ID) (PlayedFile, error)
+	// Siblings is every file that holds each Item and isn't gone, Kept and
+	// moving files included, with each Work's Profile and its Targets in
+	// order.
+	Siblings func(ctx context.Context, r storage.Reader[storage.Library], items []works.ItemID) (playback.Siblings, error)
+	// Targets is every Target.
+	Targets func(ctx context.Context, r storage.Reader[storage.Library]) ([]targets.Target, error)
+	// Batch is timings.housekeeping.prune_batch: plays per prune Write.
+	Batch int
 	// RootWords names each root the way copy does.
 	RootWords func(ctx context.Context, r storage.Reader[storage.Library]) (map[roots.ID]string, error)
 	// RootsChanged wakes after each roots.changed until ctx ends.
@@ -104,10 +120,11 @@ type AccountPublisher[T any] interface {
 	Publish(ctx context.Context, account storage.UUID, v T)
 }
 
-// Events are the seven live events, bound once at the composition root.
+// Events are the eight live events, bound once at the composition root.
 type Events struct {
 	Changed         Publisher[Changed]
 	SessionsChanged Publisher[SessionsChanged]
+	PlaysChanged    Publisher[PlaysChanged]
 	Unhealthy       Publisher[WentUnhealthy]
 	Recovered       Publisher[Recovered]
 	ItemsFound      Publisher[Found]
@@ -128,7 +145,7 @@ type Roster interface {
 }
 
 func New(cfg Config) *MediaServers {
-	return &MediaServers{cfg: cfg, seen: newSeenSessions(), senders: newSenders(), lookups: newLookups(), contacted: pendingServers{byNode: map[role.NodeID][]string{}}, memberPins: newMemberPins()}
+	return &MediaServers{cfg: cfg, seen: newSeenSessions(), senders: newSenders(), lookups: newLookups(), contacted: newPendingServers(), played: newPendingServers(), memberPins: newMemberPins()}
 }
 
 // Owner keeps Media Server link on every Node that a server names as its
@@ -232,9 +249,9 @@ func (m *MediaServers) Run(ctx context.Context) error {
 func (m *MediaServers) endAway(ctx context.Context) time.Time {
 	self := m.cfg.Roster.Self()
 	var next time.Time
-	var ended int64
+	var ended []link.ServerID
 	err := m.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
-		next, ended = time.Time{}, 0
+		next, ended = time.Time{}, nil
 		q := db.New(tx)
 		row, err := q.GetSettings(ctx)
 		if err != nil {
@@ -253,24 +270,25 @@ func (m *MediaServers) endAway(ctx context.Context) time.Time {
 			case now.Before(due):
 				next = earlier(next, due)
 			default:
-				n, err := q.EndPlaysOn(ctx, node)
+				ids, err := q.EndPlaysOn(ctx, node)
 				if err != nil {
 					return err
 				}
-				ended += n
+				ended = append(ended, ids...)
 			}
 		}
 		return nil
 	})
 	if err != nil {
 		if ctx.Err() == nil {
-			m.cfg.Log.Error("couldn't end the plays on Connect from Nodes offline too long", "err", err.Error())
+			m.cfg.Log.Error("couldn't end the plays of Media Servers whose Connect from Node is offline longer than Mark unhealthy after", "err", err.Error())
 		}
 		return time.Time{}
 	}
-	if ended > 0 {
-		m.cfg.Log.Info("ended the plays on Connect from Nodes offline longer than the Mark unhealthy after setting", "plays", ended)
+	if len(ended) > 0 {
+		m.cfg.Log.Info("ended the plays of Media Servers whose Connect from Node is offline longer than Mark unhealthy after", "plays", len(ended))
 	}
+	m.playsEnded(ctx, ended)
 	return next
 }
 
@@ -296,9 +314,9 @@ func earlier(a, b time.Time) time.Time {
 // Controller. A second pass finds none left to move.
 func (m *MediaServers) repoint(ctx context.Context) {
 	self := m.cfg.Roster.Self()
-	var moved []link.ServerID
+	var moved, ended []link.ServerID
 	err := m.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
-		moved = nil
+		moved, ended = nil, nil
 		written, err := nodes.WrittenOffIn(ctx, tx, role.MediaServerLink)
 		if err != nil {
 			return err
@@ -312,11 +330,11 @@ func (m *MediaServers) repoint(ctx context.Context) {
 			if !written[node] {
 				continue
 			}
-			ids, err := repointFrom(ctx, q, node, self)
+			ids, played, err := repointFrom(ctx, q, node, self)
 			if err != nil {
 				return err
 			}
-			moved = append(moved, ids...)
+			moved, ended = append(moved, ids...), append(ended, played...)
 		}
 		return nil
 	})
@@ -331,18 +349,19 @@ func (m *MediaServers) repoint(ctx context.Context) {
 		m.cfg.Touch(self)
 		m.changed(ctx, moved...)
 	}
+	m.playsEnded(ctx, ended)
 }
 
 // repointFrom names self as the reaching Node of node's servers, ends the
-// plays node saw, and answers which servers they are.
-func repointFrom(ctx context.Context, q *db.Queries, node, self role.NodeID) ([]link.ServerID, error) {
-	ids, err := q.ListReachedIDs(ctx, node)
-	if err != nil {
-		return nil, err
+// plays node saw, and answers which servers they are and the server of
+// each play it ended.
+func repointFrom(ctx context.Context, q *db.Queries, node, self role.NodeID) (moved, ended []link.ServerID, err error) {
+	if moved, err = q.ListReachedIDs(ctx, node); err != nil {
+		return nil, nil, err
 	}
-	if _, err := q.EndPlaysOn(ctx, node); err != nil {
-		return nil, err
+	if ended, err = q.EndPlaysOn(ctx, node); err != nil {
+		return nil, nil, err
 	}
 	_, err = q.Repoint(ctx, db.RepointParams{Controller: self, At: storage.Now(), NodeID: node})
-	return ids, err
+	return moved, ended, err
 }

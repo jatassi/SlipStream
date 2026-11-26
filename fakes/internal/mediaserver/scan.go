@@ -102,6 +102,9 @@ func (s *Server) read(folder link.ServerPath) onDisk {
 		if perr != nil {
 			return nil //nolint:nilerr // a file outside the root isn't the server's
 		}
+		if s.skipped[p.Key()] {
+			return nil
+		}
 		switch {
 		case slices.Contains(videoExt, ext):
 			var size int64
@@ -341,7 +344,7 @@ func (s *Server) dropVanished(folder link.ServerPath, d onDisk, changed map[*Ite
 // for a new item.
 func (s *Server) place(l *library, v disked) (*Item, bool) {
 	n := describe(v.path)
-	part := Part{ID: s.partID(), File: v.path, Size: v.size}
+	part := Part{ID: s.partID(), File: v.path, Size: v.size, Streams: slices.Clone(s.streams[v.path.Key()])}
 	folder := v.path.Dir()
 	if it, ok := s.versionOf(l, folder, n); ok {
 		it.Parts = append(it.Parts, part)

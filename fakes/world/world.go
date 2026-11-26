@@ -243,6 +243,7 @@ func launch(ctx context.Context, opts Options, fakes []fake.Spec) (_ *Run, err e
 		r.setUp,
 		r.seedAccounts,
 		r.seedLibrary,
+		r.seedPlays,
 		r.seedNotify,
 		r.publish,
 	}
@@ -818,19 +819,10 @@ func (r *Run) seedLibrary(ctx context.Context, _ *unwind) error {
 		return err
 	}
 	r.log.Info("library seeded")
-	media := setup.MediaWorld{
-		Front: func(node, kind string) string {
-			at, _ := r.table.Find(fault.Target(kind), node)
-			return at.URL("")
-		},
-		Cue: func(ctx context.Context, name string, args any) error {
-			data, err := json.Marshal(args)
-			if err == nil {
-				_, err = r.Cue(ctx, name, data)
-			}
-			return err
-		},
+	if err := setup.AwaitPlayedFiles(ctx, http.DefaultClient, r.scenario, r.ready(), r.claims, r.mediaDir()); err != nil {
+		return err
 	}
+	media := r.mediaWorld()
 	if err := setup.MediaServers(ctx, http.DefaultClient, r.scenario, r.ready(), r.claims, r.mediaDir(), media); err != nil {
 		return err
 	}
@@ -848,6 +840,49 @@ func (r *Run) seedLibrary(ctx context.Context, _ *unwind) error {
 		r.log.Info("works added", "contentType", added.ContentType, "count", added.Count, "seconds", added.Seconds)
 	}
 	return nil
+}
+
+// seedPlays plays the Scenario's Media Server plays through the fakes.
+func (r *Run) seedPlays(ctx context.Context, _ *unwind) error {
+	if r.scenario.Library == nil {
+		return nil
+	}
+	if err := setup.Plays(ctx, http.DefaultClient, r.scenario, r.ready(), r.claims, r.mediaDir(), r.mediaWorld()); err != nil {
+		return err
+	}
+	r.log.Info("plays seeded")
+	return nil
+}
+
+// mediaWorld is the fronts and cues the Media Server steps reach the
+// fakes through.
+func (r *Run) mediaWorld() setup.MediaWorld {
+	return setup.MediaWorld{
+		Front: func(node, kind string) string {
+			at, _ := r.table.Find(fault.Target(kind), node)
+			return at.URL("")
+		},
+		Cue: func(ctx context.Context, name string, args, out any) error {
+			data, err := json.Marshal(args)
+			if err != nil {
+				return fmt.Errorf("cue %s: %w", name, err)
+			}
+			rec, err := r.Cue(ctx, name, data)
+			if err != nil || out == nil {
+				return err
+			}
+			var c struct {
+				Result json.RawMessage `json:"result"`
+			}
+			if err := json.Unmarshal(rec.Data, &c); err != nil {
+				return fmt.Errorf("cue %s: %w", name, err)
+			}
+			if err := json.Unmarshal(c.Result, out); err != nil {
+				return fmt.Errorf("cue %s: %w", name, err)
+			}
+			return nil
+		},
+	}
 }
 
 type worksAdded struct {

@@ -311,6 +311,136 @@
                     "failed",
                     "pending"
                   ]
+                },
+                "plays": {
+                  "items": {
+                    "properties": {
+                      "player": {
+                        "properties": {
+                          "name": {
+                            "type": "string"
+                          },
+                          "key": {
+                            "type": "string"
+                          },
+                          "platform": {
+                            "type": "string"
+                          },
+                          "product": {
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "name",
+                          "key"
+                        ]
+                      },
+                      "user": {
+                        "type": "string"
+                      },
+                      "file": {
+                        "type": "string"
+                      },
+                      "version": {
+                        "type": "string"
+                      },
+                      "video": {
+                        "type": "string",
+                        "enum": [
+                          "direct",
+                          "transcode",
+                          "none"
+                        ]
+                      },
+                      "audio": {
+                        "type": "string",
+                        "enum": [
+                          "direct",
+                          "transcode",
+                          "none"
+                        ]
+                      },
+                      "subtitles": {
+                        "type": "string",
+                        "enum": [
+                          "none",
+                          "direct",
+                          "burned"
+                        ]
+                      },
+                      "container_changed": {
+                        "type": "boolean"
+                      },
+                      "reasons": {
+                        "items": {
+                          "type": "string"
+                        },
+                        "type": "array"
+                      },
+                      "hardware": {
+                        "type": "boolean"
+                      },
+                      "received": {
+                        "properties": {
+                          "container": {
+                            "type": "string"
+                          },
+                          "video_codec": {
+                            "type": "string"
+                          },
+                          "height": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "bitrate": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "audio_codec": {
+                            "type": "string"
+                          },
+                          "channels": {
+                            "type": "integer",
+                            "minimum": 0
+                          }
+                        },
+                        "additionalProperties": false,
+                        "type": "object"
+                      },
+                      "audio_track": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "subtitle_track": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "count": {
+                        "type": "integer",
+                        "maximum": 50,
+                        "minimum": 0
+                      }
+                    },
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "player",
+                      "user",
+                      "file",
+                      "video",
+                      "audio",
+                      "subtitles"
+                    ]
+                  },
+                  "type": "array"
+                },
+                "unlisted": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
                 }
               },
               "additionalProperties": false,
@@ -1507,6 +1637,26 @@
             },
             "index_page": {
               "type": "integer"
+            },
+            "missed_polls": {
+              "type": "integer"
+            },
+            "sessions_push": {
+              "type": "string",
+              "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+            },
+            "string_cap": {
+              "type": "integer"
+            },
+            "path_cap": {
+              "type": "integer"
+            },
+            "reason_cap": {
+              "type": "integer"
+            },
+            "future_skew": {
+              "type": "string",
+              "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
             }
           },
           "additionalProperties": false,

@@ -16,6 +16,7 @@ import (
 	"github.com/jatassi/slipstream/internal/mediaserverlink"
 	"github.com/jatassi/slipstream/internal/mediaserverlink/link"
 	"github.com/jatassi/slipstream/internal/mediaservers"
+	"github.com/jatassi/slipstream/internal/mediaservers/playback"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/setting"
@@ -81,6 +82,12 @@ type changesInput struct {
 	Cursor string `query:"cursor" format:"uuid" doc:"The next member of the previous page; absent for the newest"`
 }
 
+type playsInput struct {
+	ID     string `path:"id" format:"uuid"`
+	Player string `query:"player" maxLength:"256" doc:"A player's key; absent for every player"`
+	Cursor string `query:"cursor" format:"uuid" doc:"The next member of the previous page; absent for the newest"`
+}
+
 type signInBody struct {
 	Kind     string `json:"kind" minLength:"1"`
 	Address  string `json:"address" minLength:"1" maxLength:"2048"`
@@ -128,6 +135,10 @@ type mappingsOutput struct {
 type sessionsOutput struct{ Body mediaservers.Sessions }
 
 type changesOutput struct{ Body mediaservers.Changes }
+
+type playbackOutput struct{ Body playback.Report }
+
+type playsOutput struct{ Body mediaservers.Plays }
 
 type holdersOutput struct {
 	Body struct {
@@ -437,6 +448,36 @@ func (h handlers) changes(ctx context.Context, _ identity.Admin, in *changesInpu
 	return &changesOutput{Body: c}, nil
 }
 
+func (h handlers) playback(ctx context.Context, _ identity.Admin, in *idInput) (*playbackOutput, error) {
+	id, err := serverID(in.ID)
+	if err != nil {
+		return nil, err
+	}
+	rep, err := h.svc().Playback(ctx, id)
+	if err != nil {
+		return nil, answer(err)
+	}
+	return &playbackOutput{Body: rep}, nil
+}
+
+func (h handlers) plays(ctx context.Context, _ identity.Admin, in *playsInput) (*playsOutput, error) {
+	id, err := serverID(in.ID)
+	if err != nil {
+		return nil, err
+	}
+	var cursor link.PlayID
+	if in.Cursor != "" {
+		if cursor.UUID, err = storage.ParseUUID(in.Cursor); err != nil {
+			return nil, err
+		}
+	}
+	p, err := h.svc().Plays(ctx, id, in.Player, cursor)
+	if err != nil {
+		return nil, answer(err)
+	}
+	return &playsOutput{Body: p}, nil
+}
+
 func (h handlers) holders(ctx context.Context, _ identity.Admin, in *idInput) (*holdersOutput, error) {
 	id, err := serverID(in.ID)
 	if err != nil {
@@ -588,6 +629,16 @@ func Routes(r *api.Router, servers Servers) {
 		Summary: "List a Media Server's recent changes, newest first, with their results and what each move couldn't carry",
 		Errors:  []*api.Code{serverNotFound},
 	}, h.changes)
+	api.Register(o, api.Admin, api.Op{
+		ID: "getMediaServerPlayback", Method: http.MethodGet, Path: base + "/{id}/playback", Status: http.StatusOK,
+		Summary: "Get a Media Server's Playback report: why the server transcoded each player's plays, and which file or Target would avoid it",
+		Errors:  []*api.Code{serverNotFound},
+	}, h.playback)
+	api.Register(o, api.Admin, api.Op{
+		ID: "listMediaServerPlays", Method: http.MethodGet, Path: base + "/{id}/plays", Status: http.StatusOK,
+		Summary: "List a Media Server's plays in the play history, newest first, for one player or all",
+		Errors:  []*api.Code{serverNotFound, playNotFound},
+	}, h.plays)
 	api.Register(o, api.Admin, api.Op{
 		ID: "listMediaServerCredentialHolders", Method: http.MethodGet, Path: base + "/{id}/credential-holders", Status: http.StatusOK,
 		Summary: "List every Node that fetched a Media Server's credential",

@@ -10,9 +10,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"slices"
+	"strings"
 
 	"github.com/jatassi/slipstream/fakes/fake"
 	"github.com/jatassi/slipstream/fakes/scenario"
+	"github.com/jatassi/slipstream/internal/mediaserverlink/link"
+	"github.com/jatassi/slipstream/internal/storing"
 )
 
 // Library is one library the Scenario's server plays: its Content Type's
@@ -31,6 +34,7 @@ type Played struct {
 	Version   string
 	Root      string
 	Libraries []Library
+	Streamed  []Streamed
 }
 
 // Playing is the Scenario's server of kind, false when it names none.
@@ -62,7 +66,43 @@ func Playing(s scenario.Scenario, kind string, versions []string) (Played, bool,
 		}
 		p.Libraries[i].Folders = append(p.Libraries[i].Folders, p.Folder(r.Folder))
 	}
+	for _, f := range unrooted(s, m) {
+		p.Libraries[0].Folders = append(p.Libraries[0].Folders, p.Folder(f))
+	}
+	files, err := streamed(s, p)
+	if err != nil {
+		return Played{}, false, err
+	}
+	p.Streamed = files
 	return p, true, nil
+}
+
+// unrooted are the folders of m's played files that no root names, in
+// the order m plays them.
+func unrooted(s scenario.Scenario, m scenario.MediaServerAt) []string {
+	var out []string
+	for _, pl := range m.Plays {
+		folder, _, _ := strings.Cut(pl.File, "/")
+		if !slices.ContainsFunc(s.Library.Roots, func(r scenario.LibraryRoot) bool { return r.Folder == folder }) && !slices.Contains(out, folder) {
+			out = append(out, folder)
+		}
+	}
+	return out
+}
+
+// Path is the file of library.folders at file, a folder/path, as the
+// server names it.
+func (p Played) Path(file string) (link.ServerPath, error) {
+	folder, rel, _ := strings.Cut(file, "/")
+	at, err := link.ParsePath(p.Folder(folder))
+	if err != nil {
+		return link.ServerPath{}, err
+	}
+	r, err := storing.ParseRel(rel)
+	if err != nil {
+		return link.ServerPath{}, err
+	}
+	return at.Join(r), nil
 }
 
 // Folder is the library root folder under the media dir as the server

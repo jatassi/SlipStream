@@ -16262,6 +16262,175 @@
         ],
         "type": "object"
       },
+      "MediaserversPlayView": {
+        "additionalProperties": false,
+        "properties": {
+          "audio": {
+            "enum": [
+              "direct",
+              "transcode",
+              "none"
+            ],
+            "type": "string"
+          },
+          "decision": {
+            "enum": [
+              "direct_play",
+              "direct_stream",
+              "transcode"
+            ],
+            "type": "string"
+          },
+          "endedAt": {
+            "description": "null while the play is open",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "hardware": {
+            "type": "boolean"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "lastSeenAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "path": {
+            "description": "The file as the server names it",
+            "type": "string"
+          },
+          "platform": {
+            "type": "string"
+          },
+          "player": {
+            "type": "string"
+          },
+          "playerKey": {
+            "type": "string"
+          },
+          "product": {
+            "type": "string"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "received": {
+            "$ref": "#/components/schemas/MediaserversReceivedView"
+          },
+          "startedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "subtitles": {
+            "enum": [
+              "none",
+              "direct",
+              "burned"
+            ],
+            "type": "string"
+          },
+          "user": {
+            "type": "string"
+          },
+          "video": {
+            "enum": [
+              "direct",
+              "transcode",
+              "none"
+            ],
+            "type": "string"
+          },
+          "work": {
+            "$ref": "#/components/schemas/MediaserversPlayWorkView",
+            "description": "Absent while the play has no snapshot"
+          }
+        },
+        "required": [
+          "id",
+          "playerKey",
+          "player",
+          "product",
+          "platform",
+          "user",
+          "path",
+          "decision",
+          "video",
+          "audio",
+          "subtitles",
+          "hardware",
+          "reasons",
+          "received",
+          "startedAt",
+          "lastSeenAt",
+          "endedAt"
+        ],
+        "type": "object"
+      },
+      "MediaserversPlayWorkView": {
+        "additionalProperties": false,
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "workId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "workId",
+          "title",
+          "label"
+        ],
+        "type": "object"
+      },
+      "MediaserversPlays": {
+        "additionalProperties": false,
+        "properties": {
+          "next": {
+            "description": "The cursor of the next page; absent on the last",
+            "type": "string"
+          },
+          "plays": {
+            "description": "Newest first",
+            "items": {
+              "$ref": "#/components/schemas/MediaserversPlayView"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "plays"
+        ],
+        "type": "object"
+      },
+      "MediaserversPlaysChanged": {
+        "additionalProperties": false,
+        "properties": {
+          "serverIds": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "serverIds"
+        ],
+        "type": "object"
+      },
       "MediaserversPlexConnection": {
         "additionalProperties": false,
         "properties": {
@@ -16411,6 +16580,65 @@
         "required": [
           "nodeId",
           "ok"
+        ],
+        "type": "object"
+      },
+      "MediaserversReceivedView": {
+        "additionalProperties": false,
+        "properties": {
+          "audioCodec": {
+            "description": "null when unreported",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "bitrate": {
+            "description": "Bits a second; null when unreported",
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "channels": {
+            "description": "null when unreported",
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "container": {
+            "description": "null when unreported",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "height": {
+            "description": "null when unreported",
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "videoCodec": {
+            "description": "null when unreported",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "container",
+          "videoCodec",
+          "height",
+          "bitrate",
+          "audioCodec",
+          "channels"
         ],
         "type": "object"
       },
@@ -16621,10 +16849,18 @@
       "MediaserversSessionView": {
         "additionalProperties": false,
         "properties": {
+          "audio": {
+            "enum": [
+              "direct",
+              "transcode",
+              "none"
+            ],
+            "type": "string"
+          },
           "decision": {
             "enum": [
               "direct_play",
-              "copy",
+              "direct_stream",
               "transcode"
             ],
             "type": "string"
@@ -16658,13 +16894,28 @@
             "format": "date-time",
             "type": "string"
           },
+          "subtitles": {
+            "enum": [
+              "none",
+              "direct",
+              "burned"
+            ],
+            "type": "string"
+          },
           "user": {
             "type": "string"
           },
-          "workId": {
-            "description": "The Work whose file plays; absent when no mapping leads to a library file",
-            "format": "uuid",
+          "video": {
+            "enum": [
+              "direct",
+              "transcode",
+              "none"
+            ],
             "type": "string"
+          },
+          "work": {
+            "$ref": "#/components/schemas/MediaserversPlayWorkView",
+            "description": "The library file that plays; absent when no mapping leads to one"
           }
         },
         "required": [
@@ -16674,6 +16925,9 @@
           "product",
           "path",
           "decision",
+          "video",
+          "audio",
+          "subtitles",
           "hardware",
           "reasons",
           "startedAt"
@@ -21076,6 +21330,549 @@
         },
         "required": [
           "scope"
+        ],
+        "type": "object"
+      },
+      "PlaybackBlocked": {
+        "additionalProperties": false,
+        "properties": {
+          "choosable": {
+            "description": "A Target can choose this dimension",
+            "type": "boolean"
+          },
+          "dimension": {
+            "enum": [
+              "resolution",
+              "video_codec",
+              "hdr",
+              "audio_codec",
+              "channels",
+              "container",
+              "subtitles",
+              "audio_track",
+              "stream_count",
+              "video_profile",
+              "bit_depth",
+              "frame_rate",
+              "video_shape",
+              "audio_format",
+              "bitrate",
+              "unreadable",
+              "player_error",
+              "unknown"
+            ],
+            "type": "string"
+          },
+          "value": {
+            "description": "The played file's value in release words; the reason's name for audio_track, video_shape and audio_format; empty where none applies",
+            "type": "string"
+          }
+        },
+        "required": [
+          "dimension",
+          "value",
+          "choosable"
+        ],
+        "type": "object"
+      },
+      "PlaybackEvidence": {
+        "additionalProperties": false,
+        "properties": {
+          "contentType": {
+            "type": "string"
+          },
+          "fact": {
+            "enum": [
+              "container",
+              "bitrate",
+              "resolution",
+              "video_codec",
+              "video_profile",
+              "bit_depth",
+              "hdr",
+              "dolby_vision",
+              "audio_codec",
+              "channels",
+              "subtitle_codec",
+              "subtitle_image"
+            ],
+            "type": "string"
+          },
+          "playId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "startedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          },
+          "workId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "playId",
+          "workId",
+          "title",
+          "contentType",
+          "startedAt",
+          "fact",
+          "value"
+        ],
+        "type": "object"
+      },
+      "PlaybackFactValue": {
+        "additionalProperties": false,
+        "properties": {
+          "fact": {
+            "enum": [
+              "container",
+              "bitrate",
+              "resolution",
+              "video_codec",
+              "video_profile",
+              "bit_depth",
+              "hdr",
+              "dolby_vision",
+              "audio_codec",
+              "channels",
+              "subtitle_codec",
+              "subtitle_image"
+            ],
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "fact",
+          "value"
+        ],
+        "type": "object"
+      },
+      "PlaybackGroup": {
+        "additionalProperties": false,
+        "properties": {
+          "cause": {
+            "description": "The dimensions the player's line names: the first no Target fixes, else at most two",
+            "items": {
+              "$ref": "#/components/schemas/PlaybackBlocked"
+            },
+            "type": "array"
+          },
+          "dimensions": {
+            "description": "In dimension table order",
+            "items": {
+              "$ref": "#/components/schemas/PlaybackBlocked"
+            },
+            "type": "array"
+          },
+          "outcomes": {
+            "description": "Largest first",
+            "items": {
+              "$ref": "#/components/schemas/PlaybackOutcome"
+            },
+            "type": "array"
+          },
+          "plays": {
+            "format": "int64",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "reasons": {
+            "description": "As the server gave them",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "targets": {
+            "description": "The Targets the transcoded files met when they played",
+            "items": {
+              "$ref": "#/components/schemas/PlaybackTargetRef"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "dimensions",
+          "cause",
+          "reasons",
+          "targets",
+          "plays",
+          "outcomes"
+        ],
+        "type": "object"
+      },
+      "PlaybackOutcome": {
+        "additionalProperties": false,
+        "properties": {
+          "evidence": {
+            "description": "Absent unless kind is version, suggest or existing: one per proven value",
+            "items": {
+              "$ref": "#/components/schemas/PlaybackEvidence"
+            },
+            "type": "array"
+          },
+          "kind": {
+            "enum": [
+              "version",
+              "suggest",
+              "existing",
+              "no_target",
+              "unproven"
+            ],
+            "type": "string"
+          },
+          "missing": {
+            "$ref": "#/components/schemas/PlaybackBlocked",
+            "description": "Absent unless kind is unproven: the first dimension with no proven value"
+          },
+          "plays": {
+            "format": "int64",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "suggestion": {
+            "$ref": "#/components/schemas/PlaybackSuggestion",
+            "description": "Absent unless kind is suggest"
+          },
+          "target": {
+            "$ref": "#/components/schemas/PlaybackTargetRef",
+            "description": "Absent unless kind is existing"
+          },
+          "version": {
+            "$ref": "#/components/schemas/PlaybackVersion",
+            "description": "Absent unless kind is version"
+          },
+          "works": {
+            "description": "Absent unless kind is existing",
+            "items": {
+              "$ref": "#/components/schemas/PlaybackWorkLine"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "kind",
+          "plays"
+        ],
+        "type": "object"
+      },
+      "PlaybackPlayer": {
+        "additionalProperties": false,
+        "properties": {
+          "directPlays": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "directStreams": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "groups": {
+            "description": "Largest first",
+            "items": {
+              "$ref": "#/components/schemas/PlaybackGroup"
+            },
+            "type": "array"
+          },
+          "key": {
+            "type": "string"
+          },
+          "lastPlayedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "platform": {
+            "type": "string"
+          },
+          "plays": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "product": {
+            "type": "string"
+          },
+          "transcoded": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "unmatched": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "key",
+          "name",
+          "product",
+          "platform",
+          "lastPlayedAt",
+          "plays",
+          "directPlays",
+          "directStreams",
+          "transcoded",
+          "unmatched",
+          "groups"
+        ],
+        "type": "object"
+      },
+      "PlaybackReport": {
+        "additionalProperties": false,
+        "properties": {
+          "players": {
+            "description": "Worst first",
+            "items": {
+              "$ref": "#/components/schemas/PlaybackPlayer"
+            },
+            "type": "array"
+          },
+          "plays": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "plex": {
+            "description": "The server is Plex, which gives no reasons",
+            "type": "boolean"
+          },
+          "reachable": {
+            "description": "false while the server's Connect from Node is offline, when nothing is recorded",
+            "type": "boolean"
+          },
+          "since": {
+            "description": "The report covers plays that started at or after this",
+            "format": "date-time",
+            "type": "string"
+          },
+          "transcoded": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "unmatched": {
+            "description": "Transcoded plays with no snapshot",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "window": {
+            "description": "Keep play history for, in seconds",
+            "format": "int64",
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "since",
+          "window",
+          "reachable",
+          "plex",
+          "plays",
+          "transcoded",
+          "unmatched",
+          "players"
+        ],
+        "type": "object"
+      },
+      "PlaybackSuggestion": {
+        "additionalProperties": false,
+        "properties": {
+          "blocked": {
+            "description": "Values left out because they blocked direct play",
+            "items": {
+              "$ref": "#/components/schemas/PlaybackBlocked"
+            },
+            "type": "array"
+          },
+          "highest": {
+            "enum": [
+              "2160p",
+              "1080p",
+              "720p",
+              "480p"
+            ],
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "notAudioCodecs": {
+            "items": {
+              "enum": [
+                "TrueHD",
+                "DTS-HD MA",
+                "DTS",
+                "DD+",
+                "DD",
+                "AAC",
+                "FLAC",
+                "PCM",
+                "Opus",
+                "MP3"
+              ],
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "notChannels": {
+            "items": {
+              "enum": [
+                "7.1",
+                "5.1",
+                "2.0",
+                "1.0"
+              ],
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "notHdr": {
+            "items": {
+              "enum": [
+                "DV",
+                "HDR10+",
+                "HDR10",
+                "HLG",
+                "SDR"
+              ],
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "unproven": {
+            "description": "Values left out because the player hasn't received them unchanged in the window",
+            "items": {
+              "$ref": "#/components/schemas/PlaybackBlocked"
+            },
+            "type": "array"
+          },
+          "videoCodecs": {
+            "items": {
+              "enum": [
+                "x264",
+                "x265",
+                "AV1",
+                "VP9",
+                "XviD",
+                "MPEG2"
+              ],
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "highest",
+          "videoCodecs",
+          "notHdr",
+          "notAudioCodecs",
+          "notChannels",
+          "blocked",
+          "unproven"
+        ],
+        "type": "object"
+      },
+      "PlaybackTargetRef": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "type": "object"
+      },
+      "PlaybackVersion": {
+        "additionalProperties": false,
+        "properties": {
+          "fileId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "separateItem": {
+            "description": "The server lists the file as a separate item, which the player can't choose as a version",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "fileId",
+          "label",
+          "separateItem"
+        ],
+        "type": "object"
+      },
+      "PlaybackWorkLine": {
+        "additionalProperties": false,
+        "properties": {
+          "contentType": {
+            "description": "The Work's Content Type, whose noun the line uses",
+            "type": "string"
+          },
+          "fact": {
+            "$ref": "#/components/schemas/PlaybackFactValue",
+            "description": "Absent unless state is not_proven: the first tracked fact not proven"
+          },
+          "itemId": {
+            "description": "The snapshot's Item, which Search for one scopes to",
+            "format": "uuid",
+            "type": "string"
+          },
+          "profile": {
+            "$ref": "#/components/schemas/PlaybackTargetRef",
+            "description": "Absent unless state is not_in_profile"
+          },
+          "state": {
+            "enum": [
+              "no_file",
+              "not_in_profile",
+              "not_listed",
+              "not_proven"
+            ],
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "workId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "workId",
+          "itemId",
+          "title",
+          "contentType",
+          "state"
         ],
         "type": "object"
       },
@@ -47008,6 +47805,32 @@
                       {
                         "properties": {
                           "data": {
+                            "$ref": "#/components/schemas/MediaserversPlaysChanged"
+                          },
+                          "event": {
+                            "const": "media-servers.plays-changed",
+                            "description": "The event name.",
+                            "type": "string"
+                          },
+                          "id": {
+                            "description": "The event ID.",
+                            "type": "integer"
+                          },
+                          "retry": {
+                            "description": "The retry time in milliseconds.",
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "data",
+                          "event"
+                        ],
+                        "title": "Event media-servers.plays-changed",
+                        "type": "object"
+                      },
+                      {
+                        "properties": {
+                          "data": {
                             "$ref": "#/components/schemas/MediaserversRecovered"
                           },
                           "event": {
@@ -68041,6 +68864,421 @@
           }
         ],
         "summary": "Save a Media Server's Path mappings once each shown folder sits inside one of its library folders",
+        "tags": [
+          "mediaservers"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/media-servers/{id}/playback": {
+      "get": {
+        "operationId": "getMediaServerPlayback",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlaybackReport"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "media_server_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "superseded",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Get a Media Server's Playback report: why the server transcoded each player's plays, and which file or Target would avoid it",
+        "tags": [
+          "mediaservers"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/media-servers/{id}/plays": {
+      "get": {
+        "operationId": "listMediaServerPlays",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "A player's key; absent for every player",
+            "explode": false,
+            "in": "query",
+            "name": "player",
+            "schema": {
+              "description": "A player's key; absent for every player",
+              "maxLength": 256,
+              "type": "string"
+            }
+          },
+          {
+            "description": "The next member of the previous page; absent for the newest",
+            "explode": false,
+            "in": "query",
+            "name": "cursor",
+            "schema": {
+              "description": "The next member of the previous page; absent for the newest",
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaserversPlays"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "media_server_not_found",
+                            "play_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "superseded",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "List a Media Server's plays in the play history, newest first, for one player or all",
         "tags": [
           "mediaservers"
         ],

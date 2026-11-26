@@ -279,6 +279,62 @@ func (q *Queries) ListSidecarsIn(ctx context.Context, ids []files.ID) ([]Subtitl
 	return items, nil
 }
 
+const listSidecarsOfFiles = `-- name: ListSidecarsOfFiles :many
+SELECT id, file_id, language, forced, hi, tail, source, provider, candidate_key, "release", ai_translated, human_made, sibling_of, final, timed, offset_ms, ratio, segments, "match", sha256, size, cues, timing_due, stray, added_at FROM subtitles_sidecar
+WHERE file_id IN (SELECT unhex(replace(value, '-', '')) FROM json_each(CAST(?1 AS TEXT)))
+ORDER BY file_id, language, forced
+`
+
+// Every Sidecar of the files file_ids names, a JSON array.
+func (q *Queries) ListSidecarsOfFiles(ctx context.Context, fileIds string) ([]SubtitlesSidecar, error) {
+	rows, err := q.db.QueryContext(ctx, listSidecarsOfFiles, fileIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []SubtitlesSidecar
+	for rows.Next() {
+		var i SubtitlesSidecar
+		if err := rows.Scan(
+			&i.ID,
+			&i.FileID,
+			&i.Language,
+			&i.Forced,
+			&i.Hi,
+			&i.Tail,
+			&i.Source,
+			&i.Provider,
+			&i.CandidateKey,
+			&i.Release,
+			&i.AiTranslated,
+			&i.HumanMade,
+			&i.SiblingOf,
+			&i.Final,
+			&i.Timed,
+			&i.OffsetMs,
+			&i.Ratio,
+			&i.Segments,
+			&i.Match,
+			&i.Sha256,
+			&i.Size,
+			&i.Cues,
+			&i.TimingDue,
+			&i.Stray,
+			&i.AddedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listWantsIn = `-- name: ListWantsIn :many
 SELECT file_id, language, forced, work_id, kind, unmet, due_at, gap_seconds, priority, queued_at, queue_rank, queue_order, attempt_id, last_searched_at, last_found, best_match, last_result FROM subtitles_want WHERE file_id IN (/*SLICE:ids*/?) ORDER BY file_id, language, forced
 `

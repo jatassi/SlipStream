@@ -24,6 +24,7 @@ type (
 	Root    = mediabrowser.Root
 	Admin   = mediabrowser.Admin
 	Played  = mediabrowser.Played
+	Play    = mediaservers.Played
 	Disk    = mediaservers.Disk
 	DirDisk = mediaservers.DirDisk
 	Library = mediaservers.Library
@@ -47,6 +48,9 @@ func Run(t *testing.T, tg Target) {
 		{"DeviceIDRevokes", DeviceIDRevokes},
 		{"KeyCreated", func(t *testing.T, _ Target, _ mediaservers.Target, s *mediabrowser.Server) { s.KeyCreated(t) }},
 		{"SocketPushesSessions", func(t *testing.T, _ Target, _ mediaservers.Target, s *mediabrowser.Server) { s.SocketPushesSessions(t) }},
+		{"AlternateVersion", func(t *testing.T, _ Target, shared mediaservers.Target, _ *mediabrowser.Server) {
+			mediaservers.AlternateVersion(t, shared)
+		}},
 	}
 	var cases []mediaservers.Case
 	for _, c := range jf {

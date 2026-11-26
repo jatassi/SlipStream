@@ -12,12 +12,17 @@ An Admin adds Plex, Jellyfin and Emby servers in Settings > Media Servers and gi
 - `media-servers-rename` a rename on Den Jellyfin keeps every user's watch data, and its change reads `Kept every user's watch data` (P-189).
 - `media-servers-fallback` with den stopped, the Controller sends Den Jellyfin's changes through home's front (P-189).
 - `media-servers-health` a server that stops responding reads `hasn't responded` on its row and raises a Health item after Mark unhealthy after (P-189).
+- `media-servers-playback-version` in the `playback` Scenario, Living room Jellyfin's `Playback report` lists Living Room TV, which transcoded Heat's Dolby Vision file on HDR and direct plays its 1080p SDR version, and suggests that version; Den Emby's Lounge TV reads the same of Night Ferry, whose files no server groups, the version listed as its own item (P-365).
+- `media-servers-playback-suggest` Bedroom TV, which direct plays HDR10 but transcoded The Quiet Orchard's Dolby Vision file, suggests a `1080p HDR10` Target, and `Add this Target` opens the new-Target page filled from it (P-365).
+- `media-servers-playback-existing` Den TV names the Target `1080p SDR AAC`, with one line per Work: Ember Lane has no file meeting it, The Tin Signal's Profile lacks it, Glass Harbor's file isn't listed by the server yet, and Paper Moon's file has a value Den TV hasn't played (P-365).
+- `media-servers-playback-other` Kitchen iPad's transcode reads unproven and its shelf play unmatched, Hallway Stick's burned subtitles name no Target, and Office Plex's Office PC reads that Plex gives no reasons (P-365).
 
 ## How to get to it (user POV)
 
 - Desktop shell: `Settings`, then `Media Servers` under `System`, at `/settings/media-servers`; a server's row opens its page with the tabs `Now playing`, `Changes`, `Path mappings`, `Settings` and `Details`. A Node's page lists the servers it reaches in its `Media Servers` section.
-- Phone shell: the `More` tab, `Settings`, then `Media Servers`; a server's page lists its sections as rows.
-- API (Admin): `GET /api/v1/media-servers`, `GET /api/v1/media-servers/{id}/libraries`, `GET /api/v1/media-servers/{id}/changes`, `GET /api/v1/media-servers/{id}/sessions`, `POST /api/v1/media-servers/{id}/test`; live events `media-servers.changed`, `media-servers.sessions-changed`.
+- Desktop shell: a server's `Playback report` tab, at `/settings/media-servers/<id>/playback`, lists its players worst first; `Show plays` opens a player's plays.
+- Phone shell: the `More` tab, `Settings`, then `Media Servers`; a server's page lists its sections as rows, `Playback report` among them.
+- API (Admin): `GET /api/v1/media-servers`, `GET /api/v1/media-servers/{id}/libraries`, `GET /api/v1/media-servers/{id}/changes`, `GET /api/v1/media-servers/{id}/sessions`, `GET /api/v1/media-servers/{id}/playback`, `GET /api/v1/media-servers/{id}/plays`, `POST /api/v1/media-servers/{id}/test`; live events `media-servers.changed`, `media-servers.sessions-changed`, `media-servers.plays-changed`.
 - Host CLI: none.
 
 ## Driving it with fakeworld and playwright cli
@@ -55,6 +60,18 @@ Steps:
   $FW exec $RUN --proof media-servers/media-servers-import -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/media-servers/<id>/changes'
   ```
 
+- **Read the Playback report.** In a `playback` run (`--scenario playback`), the plays have ended by the time `start` returns. Open Living room Jellyfin's `Playback report` tab and each player's row, then read the report the API serves and the plays behind it.
+
+  ```sh
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop goto {nodes.home.browserUrl}/settings/media-servers
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("list", { name: "Media Servers" }).getByRole("link", { name: /^Living room Jellyfin/ })'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("navigation", { name: "Living room Jellyfin" }).getByRole("link", { name: "Playback report" })'
+  $FW exec $RUN --proof media-servers/media-servers-playback-existing -- $PW cli -s={runId}-admin-desktop snapshot 'getByRole("main")' --filename={runDir}/proof/media-servers/media-servers-playback-existing/report.aria.yml
+  $FW exec $RUN --proof media-servers/media-servers-playback-existing -- $PW cli -s={runId}-admin-desktop screenshot --filename={runDir}/proof/media-servers/media-servers-playback-existing/report.png
+  $FW exec $RUN --proof media-servers/media-servers-playback-version -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/media-servers/<id>/playback'
+  $FW exec $RUN --proof media-servers/media-servers-playback-other -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/media-servers/<id>/plays'
+  ```
+
 - **Stop a server.** Reset every connection to Den Jellyfin; its row reads it hasn't responded once den reports, and Health raises it after Mark unhealthy after. Clear the rule to bring it back.
 
   ```sh
@@ -68,4 +85,5 @@ Steps:
 - Every library starts empty, so the first change into each root starts a full scan and waits for it before the folder refresh or path report. Expect the library refresh in the captures before the folder's.
 - Jellyfin takes a path report after its monitor delay, 60 s; Emby after 90 s. Wait on the capture, not on a fixed sleep.
 - `playwright cli screenshot` writes at CSS scale whatever the config's `deviceScaleFactor`; for a 2x image use `run-code` with `page.screenshot({ scale: "device" })`.
+- A Scenario's `plays` play at launch and end before `start` returns, so the report reads them since the run's start. A further play is a `jellyfin-play`, `emby-play` or `plex-play` cue ([references/world.md](../references/world.md)), and it counts once a later look sees it.
 - The world plays at most one server of each kind, which every Node's front answers as the same server. A fault rule `jellyfin@den` hits den's route only, and `jellyfin@home` the Controller's fallback.

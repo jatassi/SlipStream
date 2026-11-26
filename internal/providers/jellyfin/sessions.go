@@ -33,20 +33,32 @@ const (
 	Transcode    = "Transcode"
 )
 
+// PlayState is what a session plays. AudioStreamIndex and
+// SubtitleStreamIndex are the chosen streams' Index in the source's
+// MediaStreams, and a SubtitleStreamIndex of -1 shows none.
 type PlayState struct {
-	PlayMethod    string `json:"PlayMethod"`
-	PositionTicks int64  `json:"PositionTicks"`
-	MediaSourceID string `json:"MediaSourceId"`
+	PlayMethod          string `json:"PlayMethod"`
+	PositionTicks       int64  `json:"PositionTicks"`
+	MediaSourceID       string `json:"MediaSourceId"`
+	AudioStreamIndex    *int   `json:"AudioStreamIndex"`
+	SubtitleStreamIndex *int   `json:"SubtitleStreamIndex"`
 }
 
-// TranscodingInfo is a transcode. The video is re-encoded when
-// IsVideoDirect is false. Emby lists it only once the client reported its
-// playback (#71). It goes stale on Jellyfin when a client never reports
-// a stop.
+// TranscodingInfo is the server sending the player its own stream: the
+// video is re-encoded when IsVideoDirect is false and the audio when
+// IsAudioDirect is false. Container, the codecs, Height, Bitrate (bits a
+// second) and AudioChannels are what the player receives. Emby lists it
+// only once the client reported its playback (#71). It goes stale on
+// Jellyfin when a client never reports a stop.
 type TranscodingInfo struct {
 	IsVideoDirect            bool     `json:"IsVideoDirect"`
 	IsAudioDirect            bool     `json:"IsAudioDirect"`
+	Container                string   `json:"Container"`
 	VideoCodec               string   `json:"VideoCodec"`
+	AudioCodec               string   `json:"AudioCodec"`
+	Height                   int      `json:"Height"`
+	Bitrate                  int64    `json:"Bitrate"`
+	AudioChannels            int      `json:"AudioChannels"`
 	HardwareAccelerationType string   `json:"HardwareAccelerationType"`
 	VideoDecoderIsHardware   bool     `json:"VideoDecoderIsHardware"`
 	VideoEncoderIsHardware   bool     `json:"VideoEncoderIsHardware"`

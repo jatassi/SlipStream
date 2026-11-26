@@ -7,12 +7,13 @@ SELECT * FROM mediaservers_server WHERE id = sqlc.arg(id);
 -- name: InsertServer :exec
 INSERT INTO mediaservers_server (
     id, kind, name, address, fallback_address, browser_address, identity, version, monitor_delay_ms,
-    reaching_node_id, runs_on_node_id, device_id, secrets_sealed, fallback, checked_at, created_at, updated_at
+    reaching_node_id, runs_on_node_id, device_id, secrets_sealed, fallback, checked_at, created_at, updated_at,
+    plays_since
 ) VALUES (
     sqlc.arg(id), sqlc.arg(kind), sqlc.arg(name), sqlc.arg(address), sqlc.narg(fallback_address),
     sqlc.narg(browser_address), sqlc.arg(identity), sqlc.arg(version), sqlc.narg(monitor_delay_ms),
     sqlc.arg(reaching_node_id), sqlc.narg(runs_on_node_id), sqlc.narg(device_id), sqlc.arg(secrets_sealed),
-    sqlc.arg(fallback), sqlc.arg(checked_at), sqlc.arg(at), sqlc.arg(at)
+    sqlc.arg(fallback), sqlc.arg(checked_at), sqlc.arg(at), sqlc.arg(at), sqlc.arg(at)
 );
 
 -- UpdateServer writes the configuration the API owns. The contact, sends

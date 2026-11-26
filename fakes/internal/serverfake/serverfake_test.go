@@ -32,3 +32,64 @@ func TestARootNamingALibraryGetsALibraryOfItsOwn(t *testing.T) {
 		}
 	}
 }
+
+func TestAServerReportsTheScenariosStreamsInItsOwnNames(t *testing.T) {
+	s, err := scenario.Load("moves")
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.Library.Folders = append(s.Library.Folders, scenario.LibraryFolder{Folder: "movies-d", Files: []scenario.MediaFile{{
+		Path:      "Heat (1995)/Heat (1995).mkv",
+		Video:     scenario.MediaVideo{Width: 3840, Height: 2160, Seconds: 1, HDR: "dv8"},
+		Audio:     []scenario.MediaAudio{{Codec: "eac3", Channels: 6, Language: "eng", Default: true}},
+		Subtitles: []scenario.MediaSubtitle{{Language: "fre"}},
+	}}})
+	for kind, subrip := range map[string]string{"plex": "srt", "jellyfin": "subrip", "emby": "subrip"} {
+		p, _, err := serverfake.Playing(s, kind, []string{"1"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		want := fmt.Sprintf(`[/media/movies-d/Heat (1995)/Heat (1995).mkv [{video hevc Main 10 0 2160  false false} {audio eac3  6 0 eng true false} {subtitle %s  0 0 fre false false}]]`, subrip)
+		var got []string
+		for _, f := range p.Streamed {
+			got = append(got, fmt.Sprintf("%s %v", f.Path, f.Streams))
+		}
+		if fmt.Sprint(got) != want {
+			t.Errorf("%s reports %v, want %s", kind, got, want)
+		}
+	}
+}
+
+func TestAPlayedFolderNoRootNamesJoinsTheFirstLibraryAndUnlistedFilesAreSkipped(t *testing.T) {
+	s, err := scenario.Load("playback")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for kind, want := range map[string]struct {
+		libraries []string
+		unlisted  []string
+	}{
+		"jellyfin": {
+			[]string{`movie "" [/media/movies /media/shelf]`, `series "" [/media/tv]`},
+			[]string{"/media/movies/Glass Harbor (2019) {tmdb-9000303}/Glass.Harbor.2019.1080p.WEB-DL.H264-FKW.mkv"},
+		},
+		"plex": {[]string{`movie "" [/media/movies]`, `series "" [/media/tv]`}, nil},
+	} {
+		p, _, err := serverfake.Playing(s, kind, []string{"1"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		var libraries, unlisted []string
+		for _, l := range p.Libraries {
+			libraries = append(libraries, fmt.Sprintf("%s %q %v", l.ContentType, l.Name, l.Folders))
+		}
+		for _, f := range p.Streamed {
+			if f.Unlisted {
+				unlisted = append(unlisted, f.Path.String())
+			}
+		}
+		if !slices.Equal(libraries, want.libraries) || !slices.Equal(unlisted, want.unlisted) {
+			t.Errorf("%s plays libraries %q leaving out %q, want %q leaving out %q", kind, libraries, unlisted, want.libraries, want.unlisted)
+		}
+	}
+}

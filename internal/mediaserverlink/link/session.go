@@ -1,21 +1,157 @@
 package link
 
-import "time"
+import (
+	"database/sql/driver"
+	"encoding/json"
+	"fmt"
+	"time"
+)
 
-// Session is one playback a server lists, as the kind read it.
+// Session is one playback a server lists, as its kind read it, with the
+// version it plays resolved.
 type Session struct {
 	// Key is the server's own session key.
-	Key      string
-	Path     ServerPath
-	User     string
-	Player   string
-	Product  string
-	Decision Decision
+	Key string
+	// VersionID is the server's id for the version that plays: Plex Media
+	// id, Jellyfin and Emby MediaSourceId.
+	VersionID string
+	Version   Version
+	// PlayerKey is the id the server gives the player: Plex
+	// machineIdentifier, Jellyfin and Emby DeviceId.
+	PlayerKey, Player, Platform, Product, User string
+	Streams                                    Streams
 	// Hardware is whether the server reports hardware transcoding.
 	Hardware bool
 	// Reasons are the transcode reasons as the server gave them. Plex gives
 	// none.
-	Reasons []string
+	Reasons  []string
+	Received Received
+	// Audio and Subtitle are the tracks the player chose, nil when the
+	// server reports none.
+	Audio, Subtitle *Track
+}
+
+// Version is one file of an item as its server lists it.
+type Version struct {
+	Path ServerPath
+	// Items are the server's items that hold this file and the versions a
+	// player of it can choose instead: Plex the ratingKey, Jellyfin and
+	// Emby each MediaSource's item.
+	Items []string
+	// Audio and Subtitles are its embedded streams of each type, in stream
+	// order; External are streams in separate files.
+	Audio, Subtitles, External []Stream
+}
+
+type Stream struct{ ID, Codec, Language string }
+
+// Versions answers the versions a server's live plays resolved. A kind
+// asks it before it looks a version up.
+type Versions interface {
+	Version(id string) (Version, bool)
+}
+
+// Streams is a play's decision per stream, and whether the server put the
+// streams in a new container.
+type Streams struct {
+	Video, Audio     StreamDecision
+	Subtitles        SubtitleDecision
+	ContainerChanged bool
+}
+
+// Decision is transcode when the video or audio transcodes or subtitles
+// burn in, else direct_stream when the container changed, else
+// direct_play.
+func (s Streams) Decision() Decision {
+	switch {
+	case s.Video == StreamTranscode || s.Audio == StreamTranscode || s.Subtitles == SubtitlesBurned:
+		return DecisionTranscode
+	case s.ContainerChanged:
+		return DecisionDirectStream
+	}
+	return DecisionDirectPlay
+}
+
+// Received is what the player received while the server transcoded: codec
+// and container names in the release vocabulary, or the server's own name
+// when the vocabulary has none. Zero is unreported.
+type Received struct {
+	Container  string `json:"container,omitempty"`
+	VideoCodec string `json:"videoCodec,omitempty"`
+	Height     int    `json:"height,omitempty"`
+	// Bitrate is in bits a second.
+	Bitrate    int64  `json:"bitrate,omitempty"`
+	AudioCodec string `json:"audioCodec,omitempty"`
+	Channels   int    `json:"channels,omitempty"`
+}
+
+func (r *Received) Scan(src any) error { return scanJSON(src, r) }
+
+func (r Received) Value() (driver.Value, error) { return valueJSON(r) }
+
+// Track is a chosen stream: Position among the version's embedded streams
+// of its type, or External for one in a separate file.
+type Track struct {
+	Position int
+	External *ExternalTrack
+}
+
+type ExternalTrack struct {
+	Codec    string `json:"codec"`
+	Language string `json:"language"`
+}
+
+type trackJSON struct {
+	Position *int           `json:"position,omitempty"`
+	External *ExternalTrack `json:"external,omitempty"`
+}
+
+func (t *Track) Scan(src any) error {
+	var j trackJSON
+	if err := scanJSON(src, &j); err != nil {
+		return err
+	}
+	switch {
+	case j.External != nil:
+		*t = Track{External: j.External}
+	case j.Position != nil:
+		*t = Track{Position: *j.Position}
+	default:
+		return fmt.Errorf("a track names neither a position nor an external stream: %v", src)
+	}
+	return nil
+}
+
+func (t Track) Value() (driver.Value, error) {
+	j := trackJSON{External: t.External}
+	if t.External == nil {
+		j.Position = &t.Position
+	}
+	return valueJSON(j)
+}
+
+func scanJSON(src, v any) error {
+	var b []byte
+	switch x := src.(type) {
+	case string:
+		b = []byte(x)
+	case []byte:
+		b = x
+	default:
+		return fmt.Errorf("read %T from a JSON column holding %T", v, src)
+	}
+	if err := json.Unmarshal(b, v); err != nil {
+		return fmt.Errorf("read %T from a JSON column: %w", v, err)
+	}
+	return nil
+}
+
+func valueJSON(v any) (driver.Value, error) {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return nil, fmt.Errorf("write %T to a JSON column: %w", v, err)
+	}
+	return string(b), nil
 }
 
 // Seen is one look at a server's sessions: a poll, or a push from its
@@ -26,6 +162,11 @@ type Seen struct {
 	// missing from two polls. A push lists only what it carried.
 	Polled   bool
 	Sessions []Session
+	// Pending are the keys of sessions that name no version this look,
+	// such as a Plex session with several Media and none selected. One
+	// with a live play keeps it as it was; one with none waits. A session
+	// whose lookup failed is in neither Sessions nor Pending.
+	Pending []string
 	// Transcoding is whether the server re-encodes any video now, counted
 	// before the session cap and including a transcode no session lists.
 	// A poll sets it.

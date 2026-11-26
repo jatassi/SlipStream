@@ -93,17 +93,36 @@ func (s *Server) Client(k EventKind) {
 
 // Play is a playback a cue starts.
 type Play struct {
-	Path     link.ServerPath
-	User     string
-	Player   string
-	Product  string
-	Decision link.Decision
-	Reasons  []string
-	Hardware bool
+	// Version is the file that plays, Path's when zero.
+	Path, Version link.ServerPath
+	User          string
+	// Player.Key is stable across plays and required.
+	Player  Player
+	Streams link.Streams
+	// Received is in the product's own names and units, as it reports them.
+	Received Received
+	// AudioTrack is a position among the version's embedded audio streams,
+	// and SubtitleTrack among its embedded subtitles, or -1 for its first
+	// Sidecar.
+	AudioTrack, SubtitleTrack *int
+	Reasons                   []string
+	Hardware                  bool
 	// Unreported is a client that hasn't reported its playback: Plex lists
 	// it only in /transcode/sessions, and Emby gives it no transcode info
 	// (#71).
 	Unreported bool
+}
+
+type Player struct{ Key, Name, Product, Platform string }
+
+// Received is what a transcode sends the player.
+type Received struct {
+	Container  string `json:"container,omitempty"`
+	VideoCodec string `json:"videoCodec,omitempty"`
+	Height     int    `json:"height,omitempty"`
+	Bitrate    int64  `json:"bitrate,omitempty"`
+	AudioCodec string `json:"audioCodec,omitempty"`
+	Channels   int    `json:"channels,omitempty"`
 }
 
 // Session is one playback on the server.
@@ -114,16 +133,28 @@ type Session struct {
 	Started time.Time
 }
 
-// ErrNoItem is a call naming a path or key the server holds no item at.
-var ErrNoItem = errors.New("no item")
+var (
+	// ErrNoItem is a call naming a path or key the server holds no item at.
+	ErrNoItem = errors.New("no item")
+	// ErrNoPlayerKey is a play whose player has no key.
+	ErrNoPlayerKey = errors.New("the play names no player key")
+)
 
 // Start begins p on the item at its path.
 func (s *Server) Start(p Play) (Session, error) {
 	s.lock()
 	defer s.mu.Unlock()
+	if p.Player.Key == "" {
+		return Session{}, ErrNoPlayerKey
+	}
 	it, _, ok := s.partAt(p.Path)
 	if !ok {
 		return Session{}, fmt.Errorf("%s: %w", p.Path, ErrNoItem)
+	}
+	if p.Version.IsZero() {
+		p.Version = p.Path
+	} else if _, _, ok := s.partAt(p.Version); !ok {
+		return Session{}, fmt.Errorf("%s: %w", p.Version, ErrNoItem)
 	}
 	s.sessionKeys++
 	sess := &Session{Play: p, Key: strconv.Itoa(s.sessionKeys), Item: it.clone(), Started: time.Now()}
@@ -187,4 +218,19 @@ func (s *Server) Restart() {
 	}
 	s.task.Running = false
 	s.dropPending()
+}
+
+// Listed is a client reading the sessions list, as a poll does.
+func (s *Server) Listed() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	close(s.looked)
+	s.looked = make(chan struct{})
+}
+
+// NextLook closes at the next Listed.
+func (s *Server) NextLook() <-chan struct{} {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.looked
 }

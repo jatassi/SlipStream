@@ -14,12 +14,12 @@ func TestParseVersionReadsTheLeadingNumbers(t *testing.T) {
 		{"10.10.7", "10.10.7"},
 		{"12.4.0-beta1", "12.4.0"},
 	} {
-		v, err := link.ParseVersion(c.in)
+		v, err := link.ParseServerVersion(c.in)
 		if err != nil || v.String() != c.want {
 			t.Errorf("ParseVersion(%q) = %q, %v, want %q", c.in, v, err, c.want)
 		}
 	}
-	if _, err := link.ParseVersion("beta"); err == nil {
+	if _, err := link.ParseServerVersion("beta"); err == nil {
 		t.Error("ParseVersion(beta) parsed")
 	}
 }
@@ -34,7 +34,7 @@ func TestVersionsCompareByNumber(t *testing.T) {
 		{"1.43.5.11029", "1.43", 1},
 		{"4.9.9", "4.10", -1},
 	} {
-		if got := link.MustVersion(c.a).Compare(link.MustVersion(c.b)); got != c.want {
+		if got := link.MustServerVersion(c.a).Compare(link.MustServerVersion(c.b)); got != c.want {
 			t.Errorf("%s compared with %s = %d, want %d", c.a, c.b, got, c.want)
 		}
 	}

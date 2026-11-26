@@ -4,8 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"slices"
-	"sync"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/mediaserverlink/link"
@@ -47,17 +45,17 @@ func (m *MediaServers) Apply(ctx context.Context, tx *storage.Tx[storage.Library
 		}
 		if c.state != cur.Contact {
 			m.senders.wake(id)
-			m.contacted.add(node, id)
+			m.contacted.add(byNode(node), id)
 		}
 		return q.SetContact(ctx, c.next(id, cur))
 	case *msv1.Report_PlayStarted:
-		return startPlay(ctx, q, id, rep.PlayStarted)
+		return m.startPlay(ctx, tx, node, id, cur, rep.PlayStarted)
 	case *msv1.Report_PlayChanged:
-		return changePlay(ctx, q, id, rep.PlayChanged)
+		return m.changePlay(ctx, tx, node, id, rep.PlayChanged)
 	case *msv1.Report_PlayEnded:
-		return endPlay(ctx, q, id, rep.PlayEnded)
+		return m.endPlay(ctx, tx, node, id, rep.PlayEnded)
 	case *msv1.Report_Watching:
-		return watching(ctx, q, id, rep.Watching)
+		return m.watching(ctx, tx, node, id, rep.Watching)
 	case *msv1.Report_IndexHint:
 		m.senders.wake(id)
 		return hint(ctx, q, id, rep.IndexHint)
@@ -68,14 +66,16 @@ func (m *MediaServers) Apply(ctx context.Context, tx *storage.Tx[storage.Library
 
 // Applied follows a commit of node's Media Server link reports: it
 // publishes media-servers.changed for each server whose contact they
+// changed, and media-servers.plays-changed for each whose plays they
 // changed.
 func (m *MediaServers) Applied(node role.NodeID, scope string) {
 	if scope != string(role.MediaServerLink) {
 		return
 	}
-	if ids := m.contacted.take(node); len(ids) > 0 {
+	if ids := m.contacted.take(byNode(node)); len(ids) > 0 {
 		m.cfg.Events.Changed.Publish(context.Background(), Changed{ServerIDs: ids})
 	}
+	m.playsCommitted(context.Background(), byNode(node), nil)
 }
 
 // Television is whether any server node reaches responds, as its last
@@ -92,28 +92,6 @@ func responds(f *msv1.Facts) bool {
 		}
 	}
 	return false
-}
-
-// pendingServers is the servers each Node's applied reports changed, until
-// they commit.
-type pendingServers struct {
-	mu     sync.Mutex
-	byNode map[role.NodeID][]string
-}
-
-func (p *pendingServers) add(node role.NodeID, id link.ServerID) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	p.byNode[node] = append(p.byNode[node], id.String())
-}
-
-func (p *pendingServers) take(node role.NodeID) []string {
-	p.mu.Lock()
-	ids := p.byNode[node]
-	delete(p.byNode, node)
-	p.mu.Unlock()
-	slices.Sort(ids)
-	return slices.Compact(ids)
 }
 
 func serverIDOf(b []byte) (link.ServerID, error) {

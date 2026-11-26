@@ -418,22 +418,32 @@ func (it Item) Top() string {
 	return it.ID
 }
 
-// MediaSource is one version of an item.
+// MediaSource is one version of an item. ItemID is the item that holds
+// its file, which only Emby sends: a Jellyfin source's Id is its item's.
 type MediaSource struct {
 	ID           string   `json:"Id"`
+	ItemID       string   `json:"ItemId"`
 	Path         string   `json:"Path"`
 	Name         string   `json:"Name"`
 	MediaStreams []Stream `json:"MediaStreams"`
 }
 
-// Stream is one stream of a version. A Sidecar is an external stream with
-// its own Path.
+// Stream is one stream of a version, by its Index in MediaStreams. A
+// Sidecar is an external stream with its own Path.
 type Stream struct {
+	Index      int    `json:"Index"`
 	Type       string `json:"Type"`
 	Codec      string `json:"Codec"`
+	Language   string `json:"Language"`
 	IsExternal bool   `json:"IsExternal"`
 	Path       string `json:"Path"`
 }
+
+// Stream types a MediaStreams entry reads.
+const (
+	StreamAudio    = "Audio"
+	StreamSubtitle = "Subtitle"
+)
 
 // UserData is one user's data on an item. Positions are 100 ns ticks.
 type UserData struct {

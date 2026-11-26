@@ -11,6 +11,8 @@ import (
 	conformance "github.com/jatassi/slipstream/conformance/plex"
 	"github.com/jatassi/slipstream/fakes/fake"
 	"github.com/jatassi/slipstream/fakes/fake/faketest"
+	"github.com/jatassi/slipstream/fakes/internal/mediaserver"
+	"github.com/jatassi/slipstream/fakes/internal/serverfake"
 	"github.com/jatassi/slipstream/fakes/plex"
 	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/internal/mediaserverlink/link"
@@ -93,11 +95,32 @@ func target(t *testing.T, f faketest.Served, srv plex.Server) conformance.Target
 		Disk:   conformance.DirDisk{Dir: filepath.Join(f.Media, "Movies")},
 		Fresh:  &conformance.Library{Library: "4", Folder: folder(t, srv, "Fresh"), Disk: conformance.DirDisk{Dir: filepath.Join(f.Media, "Fresh")}},
 		Second: &conformance.Library{Library: "5", Folder: folder(t, srv, "Movies 4K"), Disk: conformance.DirDisk{Dir: filepath.Join(f.Media, "Movies 4K")}},
-		Play: func(t *testing.T, p link.ServerPath, d link.Decision) func() {
-			played, _ := f.Cue(t, "plex-play", plex.Play{Path: p.String(), User: "jackson", Player: "Living Room", Decision: d}).(plex.Played)
-			return func() { f.Cue(t, "plex-stop", plex.Stop(played)) }
+		Play: func(t *testing.T, p conformance.Play) func() {
+			if p.Audio != nil {
+				f.Cue(t, "plex-streams", serverfake.SetStreams{Path: p.Path.String(), Streams: audioTracks(p.Audio.Position)})
+			}
+			played, _ := f.Cue(t, "plex-play", cued(p)).(plex.Played)
+			return func() { f.Cue(t, "plex-stop", plex.Stop{Session: played.Session}) }
 		},
 		Fake: true, Settle: time.Second, Bound: 10 * time.Second,
 		Log: slog.New(slog.NewTextHandler(t.Output(), nil)),
 	}
+}
+
+// cued is the play cue for p, by jackson on Living Room.
+func cued(p conformance.Play) plex.Play {
+	return plex.Play{Play: serverfake.Play{
+		Path: p.Path.String(), Version: p.Version.String(), User: "jackson", Player: "Living Room", PlayerKey: p.PlayerKey, Platform: p.Platform,
+		Video: p.Streams.Video, Audio: p.Streams.Audio, Subtitles: p.Streams.Subtitles, ContainerChanged: p.Streams.ContainerChanged,
+		Received: plex.ReceivedOf(p.Received), AudioTrack: serverfake.Track(p.Audio), SubtitleTrack: serverfake.Track(p.Subtitle), Reasons: p.Reasons,
+	}}
+}
+
+// audioTracks are a file's streams with an audio track at position.
+func audioTracks(position int) []mediaserver.Stream {
+	out := []mediaserver.Stream{{Type: "video", Codec: "h264", Height: 1080}}
+	for range position + 1 {
+		out = append(out, mediaserver.Stream{Type: "audio", Codec: "aac", Channels: 2, Language: "eng"})
+	}
+	return out
 }

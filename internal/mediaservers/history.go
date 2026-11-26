@@ -118,10 +118,14 @@ func (m *MediaServers) Housekeeping() housekeeping.Step {
 	return housekeeping.Plain("media-server-history", "Media Server history", tasks.Runs, m.pruneHistory)
 }
 
+// pruneHistory moves plays_since to the cutoff before any batch deletes,
+// so no window ever claims days whose plays are gone.
 func (m *MediaServers) pruneHistory(ctx context.Context) error {
-	return m.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+	now := time.Now()
+	var cutoff storage.Time
+	err := m.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		q := db.New(tx)
-		n, err := q.PruneSent(ctx, storage.FromTime(time.Now().Add(-m.cfg.Timings.SentAge)))
+		n, err := q.PruneSent(ctx, storage.FromTime(now.Add(-m.cfg.Timings.SentAge)))
 		if err != nil {
 			return err
 		}
@@ -132,7 +136,23 @@ func (m *MediaServers) pruneHistory(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		_, err = q.PrunePlays(ctx, storage.FromTime(time.Now().Add(-KeepPlays.Value(row.KeepPlaysSeconds))))
-		return err
+		cutoff = storage.FromTime(now.Add(-KeepPlays.Value(row.KeepPlaysSeconds)))
+		return q.MovePlaysSince(ctx, cutoff)
 	})
+	if err != nil {
+		return err
+	}
+	t, err := housekeeping.Drain(ctx, m.cfg.Batch, func(ctx context.Context, _ struct{}, limit int) (housekeeping.Swept[struct{}], error) {
+		var n int64
+		err := m.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+			var err error
+			n, err = db.New(tx).PrunePlays(ctx, db.PrunePlaysParams{Before: cutoff, N: int64(limit)})
+			return err
+		})
+		return housekeeping.Swept[struct{}]{Seen: int(n), Deleted: int(n)}, err
+	})
+	if t.Deleted > 0 {
+		m.cfg.Log.Info("pruned Media Server plays", "plays", t.Deleted)
+	}
+	return err
 }

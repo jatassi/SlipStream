@@ -41,3 +41,7 @@ ORDER BY "order";
 
 -- name: ListFirstWorks :many
 SELECT * FROM library_work LIMIT sqlc.arg(count);
+
+-- name: EndWorks :many
+UPDATE library_work SET ended = 1 WHERE root_id = sqlc.arg(root_id)
+RETURNING id;

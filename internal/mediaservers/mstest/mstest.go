@@ -72,6 +72,7 @@ var Timings = link.Timings{
 	MovedConfirm: 2 * time.Minute, MovedStep: 5 * time.Minute, StepPoll: 2 * time.Second,
 	RenameSnapshot: 20 * time.Second, UpgradePairing: 2 * time.Minute, SectionFolders: 10, SessionCap: 100,
 	IndexAge: 24 * time.Hour, SentAge: 7 * 24 * time.Hour, IndexPage: 500,
+	MissedPolls: 2, SessionsPush: 1500 * time.Millisecond, StringCap: 200, PathCap: 4096, ReasonCap: 64, FutureSkew: time.Minute,
 }
 
 // World is the Media Servers of home, with seedbox paired.
@@ -96,10 +97,12 @@ type World struct {
 	mu       sync.Mutex
 	changed  []mediaservers.Changed
 	sessions []mediaservers.SessionsChanged
+	plays    []mediaservers.PlaysChanged
 	// hub carries the events Health follows.
 	hub         *live.Hub
 	transitions []Transition
 	files       map[works.WorkID][]files.File
+	library     *library
 	found       []mediaservers.Found
 	// placed is the file whose bytes sit at each Rel of each root.
 	placed map[queue.At]files.ID
@@ -121,7 +124,7 @@ func New(t *testing.T) *World {
 	w := &World{
 		Lib: storagetest.Library(t, Schemas()...), Sealer: secrettest.Sealer(t),
 		Home: role.NodeID{UUID: storage.NewUUID()}, Seedbox: role.NodeID{UUID: storage.NewUUID()},
-		net: &network{served: map[string]http.RoundTripper{}, down: map[string]stopper{}}, rehomed: make(chan struct{}, 1), files: map[works.WorkID][]files.File{}, placed: map[queue.At]files.ID{}, hub: live.NewHub(hubEvents),
+		net: &network{served: map[string]http.RoundTripper{}, down: map[string]stopper{}}, rehomed: make(chan struct{}, 1), files: map[works.WorkID][]files.File{}, library: newLibrary(), placed: map[queue.At]files.ID{}, hub: live.NewHub(hubEvents),
 	}
 	t.Cleanup(w.hub.Close)
 	err := w.Lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
@@ -151,10 +154,13 @@ func New(t *testing.T) *World {
 		FileIDs:      w.fileIDs,
 		FilePlaces:   w.filePlaces,
 		WorkFiles:    w.workFiles,
+		Played:       w.played,
+		Siblings:     w.siblings,
+		Targets:      w.allTargets,
 		RootsChanged: func(context.Context) <-chan struct{} { return w.rehomed },
 		Tasks:        &cadences{},
 		Events: mediaservers.Events{
-			Changed: changedEvents{w}, SessionsChanged: sessionsEvents{w}, Unhealthy: unhealthyEvents{w}, Recovered: recoveredEvents{w},
+			Changed: changedEvents{w}, SessionsChanged: sessionsEvents{w}, PlaysChanged: playsEvents{w}, Unhealthy: unhealthyEvents{w}, Recovered: recoveredEvents{w},
 			ItemsFound: foundEvents{w}, AccessChanged: mediaservers.AccessChangedEvent.Bind(w.hub),
 			MyAccessChanged: mediaservers.MyAccessChangedEvent.Bind(w.hub),
 		},
@@ -168,6 +174,7 @@ func New(t *testing.T) *World {
 		Mail:      w.Mail,
 		Outbox:    outbox,
 		PlexFacts: plextv.Recorded,
+		Batch:     2,
 	}
 	keys, err := secret.Open(t.Context(), w.Lib, filepath.Join(t.TempDir(), secret.KeyFile))
 	if err != nil {

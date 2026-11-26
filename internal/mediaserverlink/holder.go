@@ -180,7 +180,7 @@ func (l *Link) diff(id link.ServerID) sessions.Diff {
 	if d, ok := l.plays[id]; ok {
 		return d
 	}
-	return sessions.New(id)
+	return sessions.New(id, l.cfg.Timings)
 }
 
 // keep records id's plays and facts once their reports are queued, while
@@ -247,8 +247,20 @@ func (l *Link) dial(t target, h held) link.Conn {
 	ref.SettingsVersion = h.version
 	return k.Dial(link.Dialed{
 		Server: ref, Address: t.address, Credential: h.cred, DeviceID: t.deviceID,
-		MonitorDelay: t.monitorDelay, HTTP: l.cfg.HTTP, Timings: l.cfg.Timings,
+		MonitorDelay: t.monitorDelay, HTTP: l.cfg.HTTP, Timings: l.cfg.Timings, Log: l.cfg.Log,
+		Versions: versions{l, t.ref.ID},
 	})
+}
+
+type versions struct {
+	l  *Link
+	id link.ServerID
+}
+
+func (v versions) Version(id string) (link.Version, bool) {
+	v.l.mu.Lock()
+	defer v.l.mu.Unlock()
+	return v.l.plays[v.id].Version(id)
 }
 
 // running is one server's watch.

@@ -1,9 +1,12 @@
 package scenario
 
 import (
+	"cmp"
 	"net/url"
+	"path"
 	"slices"
 
+	"github.com/jatassi/slipstream/internal/mediaserverlink/link"
 	"github.com/jatassi/slipstream/internal/role"
 )
 
@@ -56,6 +59,66 @@ type MediaServer struct {
 	Published []string `yaml:"published,omitempty"`
 	// Mapping is where Plex's own check of its public address left it.
 	Mapping string `jsonschema:"enum=mapped,enum=failed,enum=pending" yaml:"mapping,omitempty"`
+	// Plays are what the world plays through the server once it is added,
+	// every entry at once, then stops.
+	Plays []ServerPlay `yaml:"plays,omitempty"`
+	// Unlisted are library files, as folder/path in library.folders, that
+	// the server's scans skip: a file it doesn't list yet.
+	Unlisted []string `yaml:"unlisted,omitempty"`
+}
+
+// ServerPlay is a play the world plays through the server at launch,
+// count times, each its own session. Codec and container names are the
+// server's own.
+type ServerPlay struct {
+	Player ScenarioPlayer `jsonschema:"required" yaml:"player"`
+	User   string         `jsonschema:"required" yaml:"user"`
+	// File is a file of library.folders as folder/path. A folder no root
+	// names joins the server's first library, so its plays match no root.
+	File string `jsonschema:"required" yaml:"file"`
+	// Version is the alternate version Jellyfin or Emby plays, a file in
+	// File's folder.
+	Version          string            `yaml:"version,omitempty"`
+	Video            string            `jsonschema:"required,enum=direct,enum=transcode,enum=none" yaml:"video"`
+	Audio            string            `jsonschema:"required,enum=direct,enum=transcode,enum=none" yaml:"audio"`
+	Subtitles        string            `jsonschema:"required,enum=none,enum=direct,enum=burned"    yaml:"subtitles"`
+	ContainerChanged bool              `yaml:"container_changed,omitempty"`
+	Reasons          []string          `yaml:"reasons,omitempty"`
+	Hardware         bool              `yaml:"hardware,omitempty"`
+	Received         *ScenarioReceived `yaml:"received,omitempty"`
+	// AudioTrack and SubtitleTrack are positions among the file's embedded
+	// audio and subtitle tracks.
+	AudioTrack    *int `jsonschema:"minimum=0" yaml:"audio_track,omitempty"`
+	SubtitleTrack *int `jsonschema:"minimum=0" yaml:"subtitle_track,omitempty"`
+	// Count is how many times the world plays it, 1 when unset.
+	Count int `jsonschema:"minimum=0,maximum=50" yaml:"count,omitempty"`
+}
+
+// ScenarioPlayer is a player, known by the key the server gives it.
+type ScenarioPlayer struct {
+	Name     string `jsonschema:"required" yaml:"name"`
+	Key      string `jsonschema:"required" yaml:"key"`
+	Platform string `yaml:"platform,omitempty"`
+	Product  string `yaml:"product,omitempty"`
+}
+
+// ScenarioReceived is what a transcode sends the player, in the server's
+// names and units: bitrate in bits a second.
+type ScenarioReceived struct {
+	Container  string `yaml:"container,omitempty"`
+	VideoCodec string `yaml:"video_codec,omitempty"`
+	Height     int    `jsonschema:"minimum=0" yaml:"height,omitempty"`
+	Bitrate    int64  `jsonschema:"minimum=0" yaml:"bitrate,omitempty"`
+	AudioCodec string `yaml:"audio_codec,omitempty"`
+	Channels   int    `jsonschema:"minimum=0" yaml:"channels,omitempty"`
+}
+
+// Times is how many times the world plays p.
+func (p ServerPlay) Times() int { return max(p.Count, 1) }
+
+// Transcodes is whether a stream of p transcodes.
+func (p ServerPlay) Transcodes() bool {
+	return p.Video == "transcode" || p.Audio == "transcode" || p.Subtitles == "burned"
 }
 
 // MediaServerRoot is one library root a server holds.
@@ -159,6 +222,59 @@ func (s Scenario) checkMediaServer(add func(format string, args ...any), m Media
 	}
 	if len(s.HeldRoots(m)) == 0 {
 		add("media server %s holds no library root", m.Name)
+	}
+	s.checkPlays(add, m)
+}
+
+var (
+	streamDecisions   = []string{"direct", "transcode", "none"}
+	subtitleDecisions = []string{"none", "direct", "burned"}
+)
+
+// checkVersion checks the version p plays.
+func (s Scenario) checkVersion(add func(format string, args ...any), at string, m MediaServerAt, p ServerPlay) {
+	switch {
+	case p.Version == "":
+	case m.Kind == "plex":
+		add("%s names a version, which only Jellyfin and Emby take", at)
+	case !s.Library.holds(p.Version):
+		add("%s names version %s, which no library folder holds", at, p.Version)
+	case path.Dir(p.Version) != path.Dir(p.File):
+		add("%s names version %s, which isn't in its folder", at, p.Version)
+	}
+}
+
+// checkPlays checks m's plays and unlisted files against the library
+// folders, and that its plays fit in one look at the server.
+func (s Scenario) checkPlays(add func(format string, args ...any), m MediaServerAt) {
+	for _, f := range m.Unlisted {
+		if !s.Library.holds(f) {
+			add("media server %s leaves out %s, which no library folder holds", m.Name, f)
+		}
+	}
+	sessions := 0
+	for _, p := range m.Plays {
+		at := "media server " + m.Name + " play of " + p.File
+		if !s.Library.holds(p.File) {
+			add("%s names a file no library folder holds", at)
+		}
+		s.checkVersion(add, at, m, p)
+		if p.Player.Key == "" {
+			add("%s names no player key", at)
+		}
+		if !slices.Contains(streamDecisions, p.Video) || !slices.Contains(streamDecisions, p.Audio) || !slices.Contains(subtitleDecisions, p.Subtitles) {
+			add("%s plays video %q, audio %q and subtitles %q; video and audio are direct, transcode or none, subtitles none, direct or burned", at, p.Video, p.Audio, p.Subtitles)
+		}
+		if (len(p.Reasons) > 0 || p.Hardware || p.Received != nil) && !p.Transcodes() {
+			add("%s gives reasons, hardware or received facts, but no stream transcodes", at)
+		}
+		if p.Count < 0 || p.Count > 50 {
+			add("%s plays %d times; it plays 1 to 50", at, p.Count)
+		}
+		sessions += p.Times()
+	}
+	if most := cmp.Or(s.Timings.MediaServers.SessionCap, link.DefaultTimings().SessionCap); sessions > most {
+		add("media server %s plays %d sessions at once; one look keeps %d", m.Name, sessions, most)
 	}
 }
 

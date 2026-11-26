@@ -29,7 +29,7 @@ var changeKinds = map[files.PathChangeKind]link.ChangeKind{
 // tx ends, so it always reads these rows. A Move's change goes as a carry
 // to each server that shows both roots, as an added to one that shows
 // only the destination and as a removed to one that shows only the
-// source.
+// source. Each server's path index entry at the change's path goes stale.
 func (m *MediaServers) Changed(ctx context.Context, tx *storage.Tx[storage.Library], cs []files.PathChange) error {
 	q := db.New(tx)
 	showing := showings{q: q, of: map[roots.ID][]link.ServerID{}}
@@ -127,5 +127,23 @@ func fold(ctx context.Context, q *db.Queries, in queue.Change) error {
 	if err != nil {
 		return err
 	}
-	return apply(ctx, q, queue.Fold(open, in))
+	if err := apply(ctx, q, queue.Fold(open, in)); err != nil {
+		return err
+	}
+	return relook(ctx, q, in)
+}
+
+// relook marks stale in's server's path index entry at in's path, whose
+// library file just changed, so the server's next pass looks the path up
+// and learn files the open plays there.
+func relook(ctx context.Context, q *db.Queries, in queue.Change) error {
+	folder, err := q.GetShownFolder(ctx, db.GetShownFolderParams{ServerID: in.Server, RootID: in.Root})
+	if err != nil {
+		return err
+	}
+	p, err := link.ParsePath(*folder)
+	if err != nil {
+		return err
+	}
+	return q.MarkPathStale(ctx, db.MarkPathStaleParams{ServerID: in.Server, PathKey: p.Join(in.Path).Key()})
 }

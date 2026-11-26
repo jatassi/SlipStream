@@ -203,6 +203,7 @@ export const timeForms = {
     return left === undefined ? "now" : `in ${left}`;
   },
   since: (placed) => lead("since", placed),
+  sinceDay: (placed) => (placed.days === 0 ? "today" : `since ${dayOf(placed).words}`),
   until: (placed) => lead("until", placed),
   from: (placed) => lead("from", placed),
   on: (placed) => (placed.days === 0 ? "today" : onDay(placed)),

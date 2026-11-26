@@ -11,7 +11,7 @@ import type {
   MediaserversSessionView,
   SettingDurationField,
 } from "../api/gen/model";
-import { orchardId } from "./library";
+import { orchard, orchardId } from "./library";
 import { home, seedbox } from "./nodes";
 import { archiveRoot, filmsRoot } from "./roots";
 
@@ -174,8 +174,11 @@ export const denSessions: MediaserversSessionView[] = [
     player: "Living room TV",
     product: "Jellyfin for Android TV",
     path: "/data/films/The Quiet Orchard (2021)/The Quiet Orchard (2021) Bluray-1080p.mkv",
-    workId: orchardId,
+    work: { workId: orchardId, title: orchard.label, label: "Bluray-1080p" },
     decision: "transcode",
+    video: "transcode",
+    audio: "direct",
+    subtitles: "none",
     hardware: true,
     reasons: ["ContainerNotSupported"],
     startedAt: "2026-11-14T20:00:00Z",

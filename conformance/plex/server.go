@@ -36,8 +36,19 @@ var _ mediaservers.Server = (*server)(nil)
 
 // Exposed is the Plex kind's own read, with the server's token.
 func (s *server) Exposed(ctx context.Context) (link.Exposed, error) {
+	k, d := s.kind()
+	return k.Dial(d).Exposed(ctx)
+}
+
+// Sessions is the Plex kind's own read, with the server's token.
+func (s *server) Sessions(ctx context.Context) ([]link.Session, error) {
+	k, d := s.kind()
+	return mediaservers.Sessions(ctx, k, d)
+}
+
+func (s *server) kind() (link.Kind, link.Dialed) {
 	k, _ := mediaserverlink.Kinds.Of("plex")
-	return k.Dial(link.Dialed{Address: s.tg.Address, Credential: link.Credential{Token: s.tg.Token}, DeviceID: headers.ClientID, HTTP: s.tg.HTTP}).Exposed(ctx)
+	return k, link.Dialed{Address: s.tg.Address, Credential: link.Credential{Token: s.tg.Token}, DeviceID: headers.ClientID, HTTP: s.tg.HTTP, Log: s.tg.Log}
 }
 
 func (s *server) Reach(ctx context.Context) (link.Identity, error) {
@@ -45,7 +56,7 @@ func (s *server) Reach(ctx context.Context) (link.Identity, error) {
 	if err != nil {
 		return link.Identity{}, err
 	}
-	v, err := link.ParseVersion(id.Version)
+	v, err := link.ParseServerVersion(id.Version)
 	if err != nil {
 		return link.Identity{}, err
 	}
@@ -320,34 +331,4 @@ func (s *server) send(ctx context.Context, method, path string, q url.Values) er
 		return fmt.Errorf("%s %s responded with status %d", method, path, resp.StatusCode)
 	}
 	return nil
-}
-
-func (s *server) Sessions(ctx context.Context) ([]link.Session, error) {
-	sessions, err := s.c.Sessions(ctx)
-	if err != nil {
-		return nil, err
-	}
-	out := make([]link.Session, 0, len(sessions))
-	for _, sess := range sessions {
-		ls := link.Session{Key: string(sess.SessionKey), Decision: link.DecisionDirectPlay}
-		if sess.User != nil {
-			ls.User = sess.User.Title
-		}
-		if sess.Player != nil {
-			ls.Player, ls.Product = sess.Player.Title, sess.Player.Product
-		}
-		if len(sess.Media) > 0 && len(sess.Media[0].Parts) > 0 {
-			if ls.Path, err = link.ParsePath(sess.Media[0].Parts[0].File); err != nil {
-				return nil, err
-			}
-		}
-		if t := sess.Transcode; t != nil {
-			ls.Decision, ls.Hardware = link.DecisionCopy, t.TranscodeHwRequested
-			if t.VideoDecision == "transcode" {
-				ls.Decision = link.DecisionTranscode
-			}
-		}
-		out = append(out, ls)
-	}
-	return out, nil
 }

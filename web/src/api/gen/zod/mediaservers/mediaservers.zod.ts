@@ -19,6 +19,7 @@ import {
   MediaserversMyAccessRow,
   MediaserversPatchBody,
   MediaserversPinBody,
+  MediaserversPlays,
   MediaserversPlexPin,
   MediaserversPlexPinState,
   MediaserversServerView,
@@ -28,6 +29,7 @@ import {
   MediaserversSignedIn,
   MediaserversTested,
   OfferInputBody,
+  PlaybackReport,
   PlexServersOutputBody,
   ServerUsersOutputBody,
   ServersOutputBody,
@@ -310,6 +312,38 @@ export const SaveMediaServerMappingsParams = zod.object({
 export const SaveMediaServerMappingsBody = MediaserversMappingsBody;
 
 export const SaveMediaServerMappingsResponse = MappingsOutputBody;
+
+/**
+ * @summary Get a Media Server's Playback report: why the server transcoded each player's plays, and which file or Target would avoid it
+ */
+export const GetMediaServerPlaybackParams = zod.object({
+  id: zod.uuid(),
+});
+
+export const GetMediaServerPlaybackResponse = PlaybackReport;
+
+/**
+ * @summary List a Media Server's plays in the play history, newest first, for one player or all
+ */
+export const ListMediaServerPlaysParams = zod.object({
+  id: zod.uuid(),
+});
+
+export const listMediaServerPlaysQueryPlayerMax = 256;
+
+export const ListMediaServerPlaysQueryParams = zod.object({
+  player: zod
+    .string()
+    .max(listMediaServerPlaysQueryPlayerMax)
+    .exactOptional()
+    .describe("A player's key; absent for every player"),
+  cursor: zod
+    .uuid()
+    .exactOptional()
+    .describe("The next member of the previous page; absent for the newest"),
+});
+
+export const ListMediaServerPlaysResponse = MediaserversPlays;
 
 /**
  * @summary Queue a whole library refresh of every library a Media Server's confirmed Path mappings lead into

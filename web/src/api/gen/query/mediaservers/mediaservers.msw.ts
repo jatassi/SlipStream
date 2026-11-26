@@ -16,6 +16,7 @@ import type {
   MediaserversMemberPinState,
   MediaserversMyAccess,
   MediaserversMyAccessRow,
+  MediaserversPlays,
   MediaserversPlexPin,
   MediaserversPlexPinState,
   MediaserversServerView,
@@ -23,6 +24,7 @@ import type {
   MediaserversSettings,
   MediaserversSignedIn,
   MediaserversTested,
+  PlaybackReport,
   PlexServersOutputBody,
   ServerUsersOutputBody,
   ServersOutputBody,
@@ -2516,13 +2518,395 @@ export const getSaveMediaServerMappingsResponseMock = (
   ...overrideResponse,
 });
 
+export const getGetMediaServerPlaybackResponseMock = (
+  overrideResponse: Partial<Extract<PlaybackReport, object>> = {},
+): PlaybackReport => ({
+  players: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+    () => ({
+      directPlays: faker.number.int({ min: 0 }),
+      directStreams: faker.number.int({ min: 0 }),
+      groups: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => ({
+          cause: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+            () => ({
+              choosable: faker.datatype.boolean(),
+              dimension: faker.helpers.arrayElement([
+                "resolution",
+                "video_codec",
+                "hdr",
+                "audio_codec",
+                "channels",
+                "container",
+                "subtitles",
+                "audio_track",
+                "stream_count",
+                "video_profile",
+                "bit_depth",
+                "frame_rate",
+                "video_shape",
+                "audio_format",
+                "bitrate",
+                "unreadable",
+                "player_error",
+                "unknown",
+              ] as const),
+              value: faker.string.alpha({ length: { min: 10, max: 20 } }),
+            }),
+          ),
+          dimensions: Array.from(
+            { length: faker.number.int({ min: 1, max: 10 }) },
+            (_, i) => i + 1,
+          ).map(() => ({
+            choosable: faker.datatype.boolean(),
+            dimension: faker.helpers.arrayElement([
+              "resolution",
+              "video_codec",
+              "hdr",
+              "audio_codec",
+              "channels",
+              "container",
+              "subtitles",
+              "audio_track",
+              "stream_count",
+              "video_profile",
+              "bit_depth",
+              "frame_rate",
+              "video_shape",
+              "audio_format",
+              "bitrate",
+              "unreadable",
+              "player_error",
+              "unknown",
+            ] as const),
+            value: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          })),
+          outcomes: Array.from(
+            { length: faker.number.int({ min: 1, max: 10 }) },
+            (_, i) => i + 1,
+          ).map(() => ({
+            ...(faker.datatype.boolean()
+              ? {
+                  evidence: Array.from(
+                    { length: faker.number.int({ min: 1, max: 10 }) },
+                    (_, i) => i + 1,
+                  ).map(() => ({
+                    contentType: faker.string.alpha({ length: { min: 10, max: 20 } }),
+                    fact: faker.helpers.arrayElement([
+                      "container",
+                      "bitrate",
+                      "resolution",
+                      "video_codec",
+                      "video_profile",
+                      "bit_depth",
+                      "hdr",
+                      "dolby_vision",
+                      "audio_codec",
+                      "channels",
+                      "subtitle_codec",
+                      "subtitle_image",
+                    ] as const),
+                    playId: faker.string.uuid(),
+                    startedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+                    title: faker.string.alpha({ length: { min: 10, max: 20 } }),
+                    value: faker.string.alpha({ length: { min: 10, max: 20 } }),
+                    workId: faker.string.uuid(),
+                  })),
+                }
+              : {}),
+            kind: faker.helpers.arrayElement([
+              "version",
+              "suggest",
+              "existing",
+              "no_target",
+              "unproven",
+            ] as const),
+            ...(faker.datatype.boolean()
+              ? {
+                  missing: {
+                    choosable: faker.datatype.boolean(),
+                    dimension: faker.helpers.arrayElement([
+                      "resolution",
+                      "video_codec",
+                      "hdr",
+                      "audio_codec",
+                      "channels",
+                      "container",
+                      "subtitles",
+                      "audio_track",
+                      "stream_count",
+                      "video_profile",
+                      "bit_depth",
+                      "frame_rate",
+                      "video_shape",
+                      "audio_format",
+                      "bitrate",
+                      "unreadable",
+                      "player_error",
+                      "unknown",
+                    ] as const),
+                    value: faker.string.alpha({ length: { min: 10, max: 20 } }),
+                  },
+                }
+              : {}),
+            plays: faker.number.int({ min: 1 }),
+            ...(faker.datatype.boolean()
+              ? {
+                  suggestion: {
+                    blocked: Array.from(
+                      { length: faker.number.int({ min: 1, max: 10 }) },
+                      (_, i) => i + 1,
+                    ).map(() => ({
+                      choosable: faker.datatype.boolean(),
+                      dimension: faker.helpers.arrayElement([
+                        "resolution",
+                        "video_codec",
+                        "hdr",
+                        "audio_codec",
+                        "channels",
+                        "container",
+                        "subtitles",
+                        "audio_track",
+                        "stream_count",
+                        "video_profile",
+                        "bit_depth",
+                        "frame_rate",
+                        "video_shape",
+                        "audio_format",
+                        "bitrate",
+                        "unreadable",
+                        "player_error",
+                        "unknown",
+                      ] as const),
+                      value: faker.string.alpha({ length: { min: 10, max: 20 } }),
+                    })),
+                    highest: faker.helpers.arrayElement([
+                      "2160p",
+                      "1080p",
+                      "720p",
+                      "480p",
+                    ] as const),
+                    name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+                    notAudioCodecs: faker.helpers.arrayElements([
+                      "TrueHD",
+                      "DTS-HD MA",
+                      "DTS",
+                      "DD+",
+                      "DD",
+                      "AAC",
+                      "FLAC",
+                      "PCM",
+                      "Opus",
+                      "MP3",
+                    ] as const),
+                    notChannels: faker.helpers.arrayElements(["7.1", "5.1", "2.0", "1.0"] as const),
+                    notHdr: faker.helpers.arrayElements([
+                      "DV",
+                      "HDR10+",
+                      "HDR10",
+                      "HLG",
+                      "SDR",
+                    ] as const),
+                    unproven: Array.from(
+                      { length: faker.number.int({ min: 1, max: 10 }) },
+                      (_, i) => i + 1,
+                    ).map(() => ({
+                      choosable: faker.datatype.boolean(),
+                      dimension: faker.helpers.arrayElement([
+                        "resolution",
+                        "video_codec",
+                        "hdr",
+                        "audio_codec",
+                        "channels",
+                        "container",
+                        "subtitles",
+                        "audio_track",
+                        "stream_count",
+                        "video_profile",
+                        "bit_depth",
+                        "frame_rate",
+                        "video_shape",
+                        "audio_format",
+                        "bitrate",
+                        "unreadable",
+                        "player_error",
+                        "unknown",
+                      ] as const),
+                      value: faker.string.alpha({ length: { min: 10, max: 20 } }),
+                    })),
+                    videoCodecs: faker.helpers.arrayElements([
+                      "x264",
+                      "x265",
+                      "AV1",
+                      "VP9",
+                      "XviD",
+                      "MPEG2",
+                    ] as const),
+                  },
+                }
+              : {}),
+            ...(faker.datatype.boolean()
+              ? {
+                  target: {
+                    id: faker.string.uuid(),
+                    name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+                  },
+                }
+              : {}),
+            ...(faker.datatype.boolean()
+              ? {
+                  version: {
+                    fileId: faker.string.uuid(),
+                    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+                    separateItem: faker.datatype.boolean(),
+                  },
+                }
+              : {}),
+            ...(faker.datatype.boolean()
+              ? {
+                  works: Array.from(
+                    { length: faker.number.int({ min: 1, max: 10 }) },
+                    (_, i) => i + 1,
+                  ).map(() => ({
+                    contentType: faker.string.alpha({ length: { min: 10, max: 20 } }),
+                    ...(faker.datatype.boolean()
+                      ? {
+                          fact: {
+                            fact: faker.helpers.arrayElement([
+                              "container",
+                              "bitrate",
+                              "resolution",
+                              "video_codec",
+                              "video_profile",
+                              "bit_depth",
+                              "hdr",
+                              "dolby_vision",
+                              "audio_codec",
+                              "channels",
+                              "subtitle_codec",
+                              "subtitle_image",
+                            ] as const),
+                            value: faker.string.alpha({ length: { min: 10, max: 20 } }),
+                          },
+                        }
+                      : {}),
+                    itemId: faker.string.uuid(),
+                    ...(faker.datatype.boolean()
+                      ? {
+                          profile: {
+                            id: faker.string.uuid(),
+                            name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+                          },
+                        }
+                      : {}),
+                    state: faker.helpers.arrayElement([
+                      "no_file",
+                      "not_in_profile",
+                      "not_listed",
+                      "not_proven",
+                    ] as const),
+                    title: faker.string.alpha({ length: { min: 10, max: 20 } }),
+                    workId: faker.string.uuid(),
+                  })),
+                }
+              : {}),
+          })),
+          plays: faker.number.int({ min: 1 }),
+          reasons: Array.from(
+            { length: faker.number.int({ min: 1, max: 10 }) },
+            (_, i) => i + 1,
+          ).map(() => faker.string.alpha({ length: { min: 10, max: 20 } })),
+          targets: Array.from(
+            { length: faker.number.int({ min: 1, max: 10 }) },
+            (_, i) => i + 1,
+          ).map(() => ({
+            id: faker.string.uuid(),
+            name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          })),
+        }),
+      ),
+      key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      lastPlayedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+      name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      platform: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      plays: faker.number.int({ min: 0 }),
+      product: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      transcoded: faker.number.int({ min: 0 }),
+      unmatched: faker.number.int({ min: 0 }),
+    }),
+  ),
+  plays: faker.number.int({ min: 0 }),
+  plex: faker.datatype.boolean(),
+  reachable: faker.datatype.boolean(),
+  since: faker.date.past().toISOString().slice(0, 19) + "Z",
+  transcoded: faker.number.int({ min: 0 }),
+  unmatched: faker.number.int({ min: 0 }),
+  window: faker.number.int({ min: 1 }),
+  ...overrideResponse,
+});
+
+export const getListMediaServerPlaysResponseMock = (
+  overrideResponse: Partial<Extract<MediaserversPlays, object>> = {},
+): MediaserversPlays => ({
+  ...(faker.datatype.boolean()
+    ? { next: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+    : {}),
+  plays: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
+    audio: faker.helpers.arrayElement(["direct", "transcode", "none"] as const),
+    decision: faker.helpers.arrayElement(["direct_play", "direct_stream", "transcode"] as const),
+    endedAt: faker.helpers.arrayElement([faker.date.past().toISOString().slice(0, 19) + "Z", null]),
+    hardware: faker.datatype.boolean(),
+    id: faker.string.uuid(),
+    lastSeenAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+    path: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    platform: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    player: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    playerKey: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    product: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    reasons: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+      () => faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ),
+    received: {
+      audioCodec: faker.helpers.arrayElement([
+        faker.string.alpha({ length: { min: 10, max: 20 } }),
+        null,
+      ]),
+      bitrate: faker.helpers.arrayElement([faker.number.int(), null]),
+      channels: faker.helpers.arrayElement([faker.number.int(), null]),
+      container: faker.helpers.arrayElement([
+        faker.string.alpha({ length: { min: 10, max: 20 } }),
+        null,
+      ]),
+      height: faker.helpers.arrayElement([faker.number.int(), null]),
+      videoCodec: faker.helpers.arrayElement([
+        faker.string.alpha({ length: { min: 10, max: 20 } }),
+        null,
+      ]),
+    },
+    startedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+    subtitles: faker.helpers.arrayElement(["none", "direct", "burned"] as const),
+    user: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    video: faker.helpers.arrayElement(["direct", "transcode", "none"] as const),
+    ...(faker.datatype.boolean()
+      ? {
+          work: {
+            label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+            title: faker.string.alpha({ length: { min: 10, max: 20 } }),
+            workId: faker.string.uuid(),
+          },
+        }
+      : {}),
+  })),
+  ...overrideResponse,
+});
+
 export const getListMediaServerSessionsResponseMock = (
   overrideResponse: Partial<Extract<MediaserversSessions, object>> = {},
 ): MediaserversSessions => ({
   reachable: faker.datatype.boolean(),
   sessions: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
     () => ({
-      decision: faker.helpers.arrayElement(["direct_play", "copy", "transcode"] as const),
+      audio: faker.helpers.arrayElement(["direct", "transcode", "none"] as const),
+      decision: faker.helpers.arrayElement(["direct_play", "direct_stream", "transcode"] as const),
       hardware: faker.datatype.boolean(),
       path: faker.string.alpha({ length: { min: 10, max: 20 } }),
       playId: faker.string.uuid(),
@@ -2532,8 +2916,18 @@ export const getListMediaServerSessionsResponseMock = (
         () => faker.string.alpha({ length: { min: 10, max: 20 } }),
       ),
       startedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+      subtitles: faker.helpers.arrayElement(["none", "direct", "burned"] as const),
       user: faker.string.alpha({ length: { min: 10, max: 20 } }),
-      ...(faker.datatype.boolean() ? { workId: faker.string.uuid() } : {}),
+      video: faker.helpers.arrayElement(["direct", "transcode", "none"] as const),
+      ...(faker.datatype.boolean()
+        ? {
+            work: {
+              label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+              title: faker.string.alpha({ length: { min: 10, max: 20 } }),
+              workId: faker.string.uuid(),
+            },
+          }
+        : {}),
     }),
   ),
   ...overrideResponse,
@@ -3341,6 +3735,54 @@ export const getSaveMediaServerMappingsMockHandler = (
   );
 };
 
+export const getGetMediaServerPlaybackMockHandler = (
+  overrideResponse?:
+    | PlaybackReport
+    | ((
+        info: Parameters<Parameters<typeof http.get>[1]>[0],
+      ) => Promise<PlaybackReport> | PlaybackReport),
+  options?: RequestHandlerOptions,
+) => {
+  return http.get(
+    "*/api/v1/media-servers/:id/playback",
+    async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getGetMediaServerPlaybackResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
+export const getListMediaServerPlaysMockHandler = (
+  overrideResponse?:
+    | MediaserversPlays
+    | ((
+        info: Parameters<Parameters<typeof http.get>[1]>[0],
+      ) => Promise<MediaserversPlays> | MediaserversPlays),
+  options?: RequestHandlerOptions,
+) => {
+  return http.get(
+    "*/api/v1/media-servers/:id/plays",
+    async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getListMediaServerPlaysResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
 export const getRefreshMediaServerMockHandler = (
   overrideResponse?:
     | void
@@ -3465,6 +3907,8 @@ export const getMediaserversMock = () => [
   getListMediaServerCredentialHoldersMockHandler(),
   getListMediaServerLibrariesMockHandler(),
   getSaveMediaServerMappingsMockHandler(),
+  getGetMediaServerPlaybackMockHandler(),
+  getListMediaServerPlaysMockHandler(),
   getRefreshMediaServerMockHandler(),
   getListMediaServerSessionsMockHandler(),
   getTestMediaServerMockHandler(),

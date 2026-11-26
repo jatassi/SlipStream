@@ -50,6 +50,12 @@ import type {
   GetMediaServer409,
   GetMediaServer422,
   GetMediaServer500,
+  GetMediaServerPlayback401,
+  GetMediaServerPlayback403,
+  GetMediaServerPlayback404,
+  GetMediaServerPlayback409,
+  GetMediaServerPlayback422,
+  GetMediaServerPlayback500,
   GetMediaServerSettings401,
   GetMediaServerSettings403,
   GetMediaServerSettings409,
@@ -112,6 +118,13 @@ import type {
   ListMediaServerLibraries422,
   ListMediaServerLibraries500,
   ListMediaServerLibraries502,
+  ListMediaServerPlays401,
+  ListMediaServerPlays403,
+  ListMediaServerPlays404,
+  ListMediaServerPlays409,
+  ListMediaServerPlays422,
+  ListMediaServerPlays500,
+  ListMediaServerPlaysParams,
   ListMediaServerSessions401,
   ListMediaServerSessions403,
   ListMediaServerSessions404,
@@ -167,6 +180,7 @@ import type {
   MediaserversMyAccessRow,
   MediaserversPatchBody,
   MediaserversPinBody,
+  MediaserversPlays,
   MediaserversPlexPin,
   MediaserversPlexPinState,
   MediaserversServerView,
@@ -183,6 +197,7 @@ import type {
   OfferMediaServer422,
   OfferMediaServer500,
   OfferMediaServer502,
+  PlaybackReport,
   PlexServersOutputBody,
   RefreshMediaServer401,
   RefreshMediaServer403,
@@ -4695,6 +4710,357 @@ export const useSaveMediaServerMappings = <
 > => {
   return useMutation(getSaveMediaServerMappingsMutationOptions(options), queryClient);
 };
+export const getGetMediaServerPlaybackUrl = (id: string) => {
+  return `/api/v1/media-servers/${id}/playback`;
+};
+
+/**
+ * @summary Get a Media Server's Playback report: why the server transcoded each player's plays, and which file or Target would avoid it
+ */
+export const getMediaServerPlayback = async (
+  id: string,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<PlaybackReport> => {
+  return apiFetch<PlaybackReport>(getGetMediaServerPlaybackUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetMediaServerPlaybackQueryKey = (id: string) => {
+  return [`/api/v1/media-servers/${id}/playback`] as const;
+};
+
+export const getGetMediaServerPlaybackSuspenseQueryOptions = <
+  TData = Awaited<ReturnType<typeof getMediaServerPlayback>>,
+  TError = ErrorType<
+    | GetMediaServerPlayback401
+    | GetMediaServerPlayback403
+    | GetMediaServerPlayback404
+    | GetMediaServerPlayback409
+    | GetMediaServerPlayback422
+    | GetMediaServerPlayback500
+  >,
+>(
+  id: string,
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof getMediaServerPlayback>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetMediaServerPlaybackQueryKey(id);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getMediaServerPlayback>>> = ({ signal }) =>
+    getMediaServerPlayback(id, { signal, ...requestOptions });
+
+  return queryOptionsBuilder({
+    queryKey,
+    ...queryOptions,
+    queryFn: queryOptions?.queryFn ?? queryFn,
+  }) as UseSuspenseQueryOptions<
+    Awaited<ReturnType<typeof getMediaServerPlayback>>,
+    TError,
+    TData
+  > & { queryKey: DataTag<QueryKey, TData, TError> } & {
+    throwOnError?: ((this: never, error: TError) => boolean) & { readonly __inferenceOnly: never };
+  };
+};
+
+export type GetMediaServerPlaybackSuspenseQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getMediaServerPlayback>>
+>;
+export type GetMediaServerPlaybackSuspenseQueryError = ErrorType<
+  | GetMediaServerPlayback401
+  | GetMediaServerPlayback403
+  | GetMediaServerPlayback404
+  | GetMediaServerPlayback409
+  | GetMediaServerPlayback422
+  | GetMediaServerPlayback500
+>;
+
+export function useGetMediaServerPlaybackSuspense<
+  TData = Awaited<ReturnType<typeof getMediaServerPlayback>>,
+  TError = ErrorType<
+    | GetMediaServerPlayback401
+    | GetMediaServerPlayback403
+    | GetMediaServerPlayback404
+    | GetMediaServerPlayback409
+    | GetMediaServerPlayback422
+    | GetMediaServerPlayback500
+  >,
+>(
+  id: string,
+  options: {
+    query: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof getMediaServerPlayback>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useGetMediaServerPlaybackSuspense<
+  TData = Awaited<ReturnType<typeof getMediaServerPlayback>>,
+  TError = ErrorType<
+    | GetMediaServerPlayback401
+    | GetMediaServerPlayback403
+    | GetMediaServerPlayback404
+    | GetMediaServerPlayback409
+    | GetMediaServerPlayback422
+    | GetMediaServerPlayback500
+  >,
+>(
+  id: string,
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof getMediaServerPlayback>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useGetMediaServerPlaybackSuspense<
+  TData = Awaited<ReturnType<typeof getMediaServerPlayback>>,
+  TError = ErrorType<
+    | GetMediaServerPlayback401
+    | GetMediaServerPlayback403
+    | GetMediaServerPlayback404
+    | GetMediaServerPlayback409
+    | GetMediaServerPlayback422
+    | GetMediaServerPlayback500
+  >,
+>(
+  id: string,
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof getMediaServerPlayback>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+/**
+ * @summary Get a Media Server's Playback report: why the server transcoded each player's plays, and which file or Target would avoid it
+ */
+
+export function useGetMediaServerPlaybackSuspense<
+  TData = Awaited<ReturnType<typeof getMediaServerPlayback>>,
+  TError = ErrorType<
+    | GetMediaServerPlayback401
+    | GetMediaServerPlayback403
+    | GetMediaServerPlayback404
+    | GetMediaServerPlayback409
+    | GetMediaServerPlayback422
+    | GetMediaServerPlayback500
+  >,
+>(
+  id: string,
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof getMediaServerPlayback>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+  const queryOptions = getGetMediaServerPlaybackSuspenseQueryOptions(id, options);
+
+  const query = useSuspenseQuery(queryOptions, queryClient) as UseSuspenseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+export const getListMediaServerPlaysUrl = (id: string, params?: ListMediaServerPlaysParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/v1/media-servers/${id}/plays?${stringifiedParams}`
+    : `/api/v1/media-servers/${id}/plays`;
+};
+
+/**
+ * @summary List a Media Server's plays in the play history, newest first, for one player or all
+ */
+export const listMediaServerPlays = async (
+  id: string,
+  params?: ListMediaServerPlaysParams,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<MediaserversPlays> => {
+  return apiFetch<MediaserversPlays>(getListMediaServerPlaysUrl(id, params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListMediaServerPlaysQueryKey = (
+  id: string,
+  params?: ListMediaServerPlaysParams,
+) => {
+  return [`/api/v1/media-servers/${id}/plays`, ...(params ? [params] : [])] as const;
+};
+
+export const getListMediaServerPlaysSuspenseQueryOptions = <
+  TData = Awaited<ReturnType<typeof listMediaServerPlays>>,
+  TError = ErrorType<
+    | ListMediaServerPlays401
+    | ListMediaServerPlays403
+    | ListMediaServerPlays404
+    | ListMediaServerPlays409
+    | ListMediaServerPlays422
+    | ListMediaServerPlays500
+  >,
+>(
+  id: string,
+  params?: ListMediaServerPlaysParams,
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof listMediaServerPlays>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListMediaServerPlaysQueryKey(id, params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listMediaServerPlays>>> = ({ signal }) =>
+    listMediaServerPlays(id, params, { signal, ...requestOptions });
+
+  return queryOptionsBuilder({
+    queryKey,
+    ...queryOptions,
+    queryFn: queryOptions?.queryFn ?? queryFn,
+  }) as UseSuspenseQueryOptions<Awaited<ReturnType<typeof listMediaServerPlays>>, TError, TData> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+  } & {
+    throwOnError?: ((this: never, error: TError) => boolean) & { readonly __inferenceOnly: never };
+  };
+};
+
+export type ListMediaServerPlaysSuspenseQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listMediaServerPlays>>
+>;
+export type ListMediaServerPlaysSuspenseQueryError = ErrorType<
+  | ListMediaServerPlays401
+  | ListMediaServerPlays403
+  | ListMediaServerPlays404
+  | ListMediaServerPlays409
+  | ListMediaServerPlays422
+  | ListMediaServerPlays500
+>;
+
+export function useListMediaServerPlaysSuspense<
+  TData = Awaited<ReturnType<typeof listMediaServerPlays>>,
+  TError = ErrorType<
+    | ListMediaServerPlays401
+    | ListMediaServerPlays403
+    | ListMediaServerPlays404
+    | ListMediaServerPlays409
+    | ListMediaServerPlays422
+    | ListMediaServerPlays500
+  >,
+>(
+  id: string,
+  params: undefined | ListMediaServerPlaysParams,
+  options: {
+    query: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof listMediaServerPlays>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useListMediaServerPlaysSuspense<
+  TData = Awaited<ReturnType<typeof listMediaServerPlays>>,
+  TError = ErrorType<
+    | ListMediaServerPlays401
+    | ListMediaServerPlays403
+    | ListMediaServerPlays404
+    | ListMediaServerPlays409
+    | ListMediaServerPlays422
+    | ListMediaServerPlays500
+  >,
+>(
+  id: string,
+  params?: ListMediaServerPlaysParams,
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof listMediaServerPlays>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useListMediaServerPlaysSuspense<
+  TData = Awaited<ReturnType<typeof listMediaServerPlays>>,
+  TError = ErrorType<
+    | ListMediaServerPlays401
+    | ListMediaServerPlays403
+    | ListMediaServerPlays404
+    | ListMediaServerPlays409
+    | ListMediaServerPlays422
+    | ListMediaServerPlays500
+  >,
+>(
+  id: string,
+  params?: ListMediaServerPlaysParams,
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof listMediaServerPlays>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+/**
+ * @summary List a Media Server's plays in the play history, newest first, for one player or all
+ */
+
+export function useListMediaServerPlaysSuspense<
+  TData = Awaited<ReturnType<typeof listMediaServerPlays>>,
+  TError = ErrorType<
+    | ListMediaServerPlays401
+    | ListMediaServerPlays403
+    | ListMediaServerPlays404
+    | ListMediaServerPlays409
+    | ListMediaServerPlays422
+    | ListMediaServerPlays500
+  >,
+>(
+  id: string,
+  params?: ListMediaServerPlaysParams,
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof listMediaServerPlays>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+  const queryOptions = getListMediaServerPlaysSuspenseQueryOptions(id, params, options);
+
+  const query = useSuspenseQuery(queryOptions, queryClient) as UseSuspenseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
 export const getRefreshMediaServerUrl = (id: string) => {
   return `/api/v1/media-servers/${id}/refresh`;
 };

@@ -211,6 +211,22 @@ type Part struct {
 	// Missing is a file gone from disk that the item still lists, because
 	// PurgesVacated is off.
 	Missing bool
+	// Streams are what SetStreams said the file holds.
+	Streams []Stream
+}
+
+// Stream is one stream of a file, in the product's own names.
+type Stream struct {
+	// Type is video, audio or subtitle.
+	Type     string `json:"type"`
+	Codec    string `json:"codec"`
+	Profile  string `json:"profile,omitempty"`
+	Channels int    `json:"channels,omitempty"`
+	Height   int    `json:"height,omitempty"`
+	Language string `json:"language,omitempty"`
+	Default  bool   `json:"default,omitempty"`
+	// External is a Sidecar.
+	External bool `json:"external,omitempty"`
 }
 
 func (it *Item) clone() Item {
@@ -219,6 +235,7 @@ func (it *Item) clone() Item {
 	for i, p := range it.Parts {
 		c.Parts[i] = p
 		c.Parts[i].Sidecars = slices.Clone(p.Sidecars)
+		c.Parts[i].Streams = slices.Clone(p.Streams)
 	}
 	return c
 }
@@ -242,10 +259,14 @@ type Server struct {
 	orphans     map[string]map[string]link.UserData
 	collections map[string][]string
 	sessions    []*Session
+	streams     map[string][]Stream
+	skipped     map[string]bool
 	pending     map[string]*time.Timer
 	batch       *batch
 	task        ScanState
 	subs        map[*Subscription]struct{}
+	// looked closes at the next read of the sessions list.
+	looked chan struct{}
 }
 
 type library struct {
@@ -280,6 +301,7 @@ func New(b Behavior, disk Disk, libs []Library) *Server {
 		items: map[string]*Item{}, shows: map[string]string{},
 		watch: map[watchKey]link.UserData{}, orphans: map[string]map[string]link.UserData{}, collections: map[string][]string{},
 		pending: map[string]*time.Timer{}, subs: map[*Subscription]struct{}{},
+		streams: map[string][]Stream{}, skipped: map[string]bool{}, looked: make(chan struct{}),
 	}
 	for _, l := range libs {
 		s.libs = append(s.libs, &library{Library: l, scanned: map[string]bool{}})
@@ -301,6 +323,28 @@ func (s *Server) lock() {
 				s.scanFolder(l, f, false)
 			}
 		}
+	}
+}
+
+// SetStreams sets the streams the server reports for the file at path,
+// now and at every later scan. It reads nothing from disk, so it may come
+// before the first call.
+func (s *Server) SetStreams(path link.ServerPath, streams []Stream) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.streams[path.Key()] = slices.Clone(streams)
+	if it, i, ok := s.partAt(path); ok {
+		it.Parts[i].Streams = slices.Clone(streams)
+	}
+}
+
+// Skip leaves paths out of every later scan, as a library file the server
+// doesn't list. Before the first call, the first scan leaves them out too.
+func (s *Server) Skip(paths []link.ServerPath) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, p := range paths {
+		s.skipped[p.Key()] = true
 	}
 }
 

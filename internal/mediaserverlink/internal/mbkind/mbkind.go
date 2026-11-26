@@ -38,14 +38,14 @@ type family struct {
 
 var (
 	Jellyfin link.Kind = family{
-		about:            link.About{Name: "jellyfin", Label: "Jellyfin", Form: link.SignInKeyOrAdmin, Browser: true, Floor: link.MustVersion("12.2"), MovedHold: link.StepSnapshotted, Access: link.AccessUsers},
+		about:            link.About{Name: "jellyfin", Label: "Jellyfin", Form: link.SignInKeyOrAdmin, Browser: true, Floor: link.MustServerVersion("12.2"), MovedHold: link.StepSnapshotted, Access: link.AccessUsers},
 		flavor:           jellyfin.Jellyfin,
 		scanDropsReports: true,
 		details:          "/web/#/details",
 		exposed:          jellyfinExposed,
 	}
 	Emby link.Kind = family{
-		about:         link.About{Name: "emby", Label: "Emby", Form: link.SignInKeyOrAdmin, Browser: true, Floor: link.MustVersion("4.10"), MovedHold: link.StepSnapshotted, Access: link.AccessUsers},
+		about:         link.About{Name: "emby", Label: "Emby", Form: link.SignInKeyOrAdmin, Browser: true, Floor: link.MustServerVersion("4.10"), MovedHold: link.StepSnapshotted, Access: link.AccessUsers},
 		flavor:        jellyfin.Emby,
 		favoriteApart: true,
 		foldersByGUID: true,
@@ -127,7 +127,7 @@ func (c *conn) identity(ctx context.Context) (link.Identity, error) {
 }
 
 func identityOf(info jellyfin.PublicInfo) (link.Identity, error) {
-	v, err := link.ParseVersion(info.Version)
+	v, err := link.ParseServerVersion(info.Version)
 	if err != nil {
 		return link.Identity{}, failed(err.Error())
 	}
@@ -231,8 +231,9 @@ func (c *conn) signIn(ctx context.Context, user, password string) (link.Credenti
 }
 
 // Watch polls GET /Sessions every every, and holds the server's socket
-// beside: its Sessions messages list the sessions, and a LibraryChanged
-// names the items it changed.
+// beside: its Sessions messages ask for a poll at once, so every session
+// read and version lookup runs on the poll, and a LibraryChanged names
+// the items it changed.
 func (c *conn) Watch(ctx context.Context, every time.Duration, seen func(link.Seen)) error {
 	if _, err := c.same(ctx); err != nil {
 		return problem(ctx, err)
@@ -247,61 +248,21 @@ func (c *conn) poll(ctx context.Context) link.Seen {
 		s.Problem = &p
 		return s
 	}
-	s.Sessions, s.Transcoding = c.sessions(all)
+	s.Sessions, s.Pending, s.Transcoding = c.sessions(ctx, all)
 	return s
 }
 
-// sessionsPush is the SessionsStart period, the one Jellyfin's own web
-// client asks for.
-const sessionsPush = 1500 * time.Millisecond
-
-func (c *conn) socket(ctx context.Context, opened func(), push func(link.Seen), _ func()) error {
-	return c.c.Socket(ctx, sessionsPush, opened, func(m jellyfin.Message) {
-		s := link.Seen{At: time.Now()}
+func (c *conn) socket(ctx context.Context, opened func(), push func(link.Seen), poll func()) error {
+	return c.c.Socket(ctx, c.d.Timings.SessionsPush, opened, func(m jellyfin.Message) {
 		switch m.MessageType {
 		case jellyfin.MessageSessions:
-			all, err := m.Sessions()
-			if err != nil {
-				return
-			}
-			s.Sessions, s.Transcoding = c.sessions(all)
+			poll()
 		case jellyfin.MessageLibraryChanged:
 			var lc jellyfin.LibraryChanged
 			if err := json.Unmarshal(m.Data, &lc); err != nil {
 				return
 			}
-			s.Items = slices.Concat(lc.ItemsAdded, lc.ItemsUpdated, lc.ItemsRemoved)
-		default:
-			return
+			push(link.Seen{At: time.Now(), Items: slices.Concat(lc.ItemsAdded, lc.ItemsUpdated, lc.ItemsRemoved)})
 		}
-		push(s)
 	})
-}
-
-// sessions are the sessions that play an item, capped, and whether any
-// session re-encodes its video, counted before the cap.
-func (c *conn) sessions(all []jellyfin.Session) ([]link.Session, bool) {
-	var out []link.Session
-	transcoding := false
-	for _, s := range all {
-		if s.NowPlayingItem == nil {
-			continue
-		}
-		ls := link.Session{Key: s.ID, User: s.UserName, Player: s.DeviceName, Product: s.Client, Decision: link.DecisionDirectPlay}
-		if ti := s.TranscodingInfo; ti != nil && s.PlayState != nil && s.PlayState.PlayMethod == jellyfin.Transcode {
-			ls.Decision, ls.Reasons = link.DecisionTranscode, slices.Clone(ti.TranscodeReasons)
-			if ti.IsVideoDirect {
-				ls.Decision = link.DecisionCopy
-			}
-			ls.Hardware = ti.VideoEncoderIsHardware || (ti.HardwareAccelerationType != "" && ti.HardwareAccelerationType != "none")
-		}
-		transcoding = transcoding || ls.Decision == link.DecisionTranscode
-		p, err := link.ParsePath(s.NowPlayingItem.Path)
-		if err != nil || len(out) == c.d.Timings.SessionCap {
-			continue
-		}
-		ls.Path = p
-		out = append(out, ls)
-	}
-	return out, transcoding
 }

@@ -15,6 +15,11 @@ type (
 	// Language is an ISO 639 language, two letters where ISO 639-1 has
 	// one, or Original.
 	Language string
+	// Container is a file's container as the Files section and the report
+	// name it.
+	Container string
+	// SubtitleCodec is a subtitle track's format.
+	SubtitleCodec string
 )
 
 const Original Language = "original"
@@ -111,6 +116,29 @@ func AudioCodecs() []AudioCodec {
 }
 
 func ChannelLayouts() []Channels { return []Channels{"7.1", "5.1", "2.0", "1.0"} }
+
+const (
+	MKV Container = "MKV"
+	MP4 Container = "MP4"
+	TS  Container = "TS"
+)
+
+func Containers() []Container { return []Container{MKV, MP4, TS} }
+
+const (
+	SRT     SubtitleCodec = "SRT"
+	ASS     SubtitleCodec = "ASS"
+	WebVTT  SubtitleCodec = "WebVTT"
+	MovText SubtitleCodec = "MovText"
+	PGS     SubtitleCodec = "PGS"
+	VobSub  SubtitleCodec = "VobSub"
+)
+
+func SubtitleCodecs() []SubtitleCodec { return []SubtitleCodec{SRT, ASS, WebVTT, MovText, PGS, VobSub} }
+
+// Image is whether the codec draws its subtitles as pictures, which a
+// player that can't show them needs burned in.
+func (c SubtitleCodec) Image() bool { return c == PGS || c == VobSub }
 
 // probedVideo is the video codec of each codec name ffprobe gives that the
 // vocabulary has a word for. MPEG-4 Part 2 is the family XviD names.

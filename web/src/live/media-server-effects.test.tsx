@@ -1,9 +1,11 @@
 import { expect, test } from "vitest";
 
 import {
+  getGetMediaServerPlaybackQueryKey,
   getGetMediaServerQueryKey,
   getListMediaServerAccessQueryKey,
   getListMediaServerChangesQueryKey,
+  getListMediaServerPlaysQueryKey,
   getListMediaServerSessionsQueryKey,
   getListMediaServersQueryKey,
   getListMyMediaServerAccessQueryKey,
@@ -49,6 +51,33 @@ test("media-servers.sessions-changed invalidates only the named servers' session
   await expect.poll(invalidated).toEqual({ den: false, plex: true, list: false });
 });
 
+test("media-servers.plays-changed invalidates only the named servers' playback and plays", async () => {
+  const server = liveServer();
+  const app = renderApp({ path: "/library", handlers: server.handlers });
+  await synced(app);
+  const invalidated = seeded(app, {
+    denPlayback: getGetMediaServerPlaybackQueryKey(denJellyfin.id),
+    denPlays: [...getListMediaServerPlaysQueryKey(denJellyfin.id), "pages"],
+    denOnePlayer: getListMediaServerPlaysQueryKey(denJellyfin.id, {
+      player: "lrtv",
+    }),
+    plexPlayback: getGetMediaServerPlaybackQueryKey(livingRoomPlex.id),
+    denSessions: getListMediaServerSessionsQueryKey(denJellyfin.id),
+  });
+
+  server.clients[0]?.send({
+    event: "media-servers.plays-changed",
+    data: { serverIds: [denJellyfin.id] },
+  });
+  await expect.poll(invalidated).toEqual({
+    denPlayback: true,
+    denPlays: true,
+    denOnePlayer: true,
+    plexPlayback: false,
+    denSessions: false,
+  });
+});
+
 test("media-servers.unhealthy invalidates the list and the server", async () => {
   const server = liveServer();
   const app = renderApp({ path: "/library", handlers: server.handlers });
@@ -60,7 +89,11 @@ test("media-servers.unhealthy invalidates the list and the server", async () => 
 
   server.clients[0]?.send({
     event: "media-servers.unhealthy",
-    data: { serverId: livingRoomPlex.id, kind: "plex", reason: "not_responding" },
+    data: {
+      serverId: livingRoomPlex.id,
+      kind: "plex",
+      reason: "not_responding",
+    },
   });
   await expect.poll(invalidated).toEqual({ list: true, plex: true });
 });
@@ -71,7 +104,10 @@ test("media-servers.items-found invalidates each named Work", async () => {
   await synced(app);
   const invalidated = seeded(app, { work: getGetWorkQueryKey(orchardId) });
 
-  server.clients[0]?.send({ event: "media-servers.items-found", data: { workIds: [orchardId] } });
+  server.clients[0]?.send({
+    event: "media-servers.items-found",
+    data: { workIds: [orchardId] },
+  });
   await expect.poll(invalidated).toEqual({ work: true });
 });
 

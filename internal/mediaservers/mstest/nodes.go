@@ -191,6 +191,16 @@ func (w *World) Offline(node role.NodeID) { w.links.set(node, true, false) }
 // Online brings node's link back.
 func (w *World) Online(node role.NodeID) { w.links.set(node, false, false) }
 
+// SetFacts sets node's facts to f, as a Node that sends them does, until
+// its holder's next look.
+func (w *World) SetFacts(node role.NodeID, f *msv1.Facts) {
+	w.links.mu.Lock()
+	w.links.facts[node] = f
+	w.links.mu.Unlock()
+	w.ms.Load().Noted(node, string(role.MediaServerLink))
+	synctest.Wait()
+}
+
 // Cut drops node's calls while the roster still sees it in step: a
 // flapping link.
 func (w *World) Cut(node role.NodeID) { w.links.set(node, false, true) }

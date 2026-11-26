@@ -8,13 +8,13 @@ import { ListRow } from "../../ui/list";
 import { PlainTime } from "../../ui/relative-time";
 import { Mark } from "../../ui/state-mark";
 import { fileName } from "./paths";
-import { decisionTerm, transcodeWhy } from "./transcode-reasons";
+import { decisionTerm, nowPlayingLine } from "./playback-words";
 
 function SessionDetail({ server, session }: { server: Server; session: Session }) {
-  const why = transcodeWhy(session);
+  const line = nowPlayingLine(server.name, session);
   return (
     <div className="flex flex-col gap-1 pt-1 pb-1 text-meta text-ink-2">
-      {why !== undefined && <p className="text-pretty">{why}</p>}
+      {line !== undefined && <p className="text-pretty">{line}</p>}
       <Details>
         <div className="flex flex-col gap-1 text-meta">
           <Data className="[overflow-wrap:anywhere]">{session.path}</Data>
@@ -27,14 +27,14 @@ function SessionDetail({ server, session }: { server: Server; session: Session }
   );
 }
 
-/** One play: the file, who plays it on which player, and what the server does with it. */
+/** One play: the Work or file, who plays it on which player, and what the server does with it. */
 export function SessionRow({ server, session }: { server: Server; session: Session }) {
   return (
     <ListRow
-      title={fileName(session.path)}
+      title={session.work?.title ?? fileName(session.path)}
       meta={
         <>
-          {`${session.user} on ${session.player} · ${session.product} · Started `}
+          {`${[`${session.user} on ${session.player}`, session.product, "Started"].filter(Boolean).join(" · ")} `}
           <PlainTime at={session.startedAt} form="age" />
         </>
       }

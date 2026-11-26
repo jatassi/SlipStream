@@ -19,12 +19,13 @@ import (
 	"github.com/jatassi/slipstream/internal/providers/plex"
 )
 
-// Disk, DirDisk and Library are the shared suite's, for the tests outside
+// Disk, DirDisk, Library and Play are the shared suite's, for the tests outside
 // conformance that build a Target.
 type (
 	Disk    = mediaservers.Disk
 	DirDisk = mediaservers.DirDisk
 	Library = mediaservers.Library
+	Play    = mediaservers.Played
 )
 
 // Target is the Plex under test.
@@ -41,7 +42,7 @@ type Target struct {
 	Fresh   *Library
 	// Second is a scanned section beside Section, of its type.
 	Second *Library
-	Play   func(t *testing.T, p link.ServerPath, d link.Decision) (stop func())
+	Play   func(t *testing.T, p Play) (stop func())
 	// Fake runs the cases that would destroy a real server's watch data.
 	Fake          bool
 	Settle, Bound time.Duration
@@ -80,6 +81,7 @@ func Run(t *testing.T, tg Target) {
 		{"BackslashPaths", BackslashPaths},
 		{"EditionsOnlyUnderPlexPass", EditionsOnlyUnderPlexPass},
 		{"TimelineOnAdd", TimelineOnAdd},
+		{"AlternateVersion", func(t *testing.T, _ Target, shared mediaservers.Target) { mediaservers.AlternateVersion(t, shared) }},
 	}
 	var cases []mediaservers.Case
 	for _, pc := range plexCases {

@@ -50,6 +50,23 @@ type Timings struct {
 	SentAge time.Duration `yaml:"sent_age"`
 	// IndexPage is how many items one Index step reads.
 	IndexPage int `yaml:"index_page"`
+	// MissedPolls is how many polls in a row a session is missing from
+	// before its play ends.
+	MissedPolls int `yaml:"missed_polls"`
+	// SessionsPush is the SessionsStart period Jellyfin and Emby are asked
+	// for. Neither honors it: both push when a session starts or ends.
+	SessionsPush time.Duration `yaml:"sessions_push"`
+	// StringCap is the most characters the Controller keeps of a reported
+	// name, key, product, platform, codec or container.
+	StringCap int `yaml:"string_cap"`
+	// PathCap is the longest server path a report may carry, in bytes.
+	PathCap int `yaml:"path_cap"`
+	// ReasonCap is the most reasons, and the most item keys, the
+	// Controller keeps of one play.
+	ReasonCap int `yaml:"reason_cap"`
+	// FutureSkew is how far ahead of the Controller's clock a reported time
+	// may be before it reads as now.
+	FutureSkew time.Duration `yaml:"future_skew"`
 }
 
 // ScanWait is the wait before the next look at a full scan the fresh
@@ -84,5 +101,11 @@ func DefaultTimings() Timings {
 		IndexAge:       24 * time.Hour,
 		SentAge:        7 * 24 * time.Hour,
 		IndexPage:      500,
+		MissedPolls:    2,
+		SessionsPush:   1500 * time.Millisecond,
+		StringCap:      200,
+		PathCap:        4096,
+		ReasonCap:      64,
+		FutureSkew:     time.Minute,
 	}
 }

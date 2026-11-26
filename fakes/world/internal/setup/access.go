@@ -87,7 +87,7 @@ func plexAccess(ctx context.Context, c *http.Client, controller string, admin, m
 		return nil
 	}
 	if state == scenario.AccessShared {
-		if err := w.Cue(ctx, plextv.SignOutMember.Name, map[string]string{"account": a.Plex.Username}); err != nil {
+		if err := w.Cue(ctx, plextv.SignOutMember.Name, map[string]string{"account": a.Plex.Username}, nil); err != nil {
 			return err
 		}
 	}

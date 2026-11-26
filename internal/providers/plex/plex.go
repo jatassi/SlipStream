@@ -313,10 +313,17 @@ type Tag struct {
 	Tag string `json:"tag"`
 }
 
-// Media is one version of an item.
+// Media is one version of an item. A session lists every Media of its
+// item, and only the one that plays is Selected. While the server
+// transcodes, the selected Media is what it sends: Bitrate in kbps and
+// Height are the player's, and its Part has no file (recorded run
+// 2026-11-26).
 type Media struct {
-	ID    ID     `json:"id"`
-	Parts []Part `json:"Part"`
+	ID       ID     `json:"id"`
+	Selected bool   `json:"selected"`
+	Bitrate  int64  `json:"bitrate"`
+	Height   int    `json:"height"`
+	Parts    []Part `json:"Part"`
 }
 
 // Part is one file of a version.
@@ -328,15 +335,25 @@ type Part struct {
 	Streams  []Stream `json:"Stream"`
 }
 
-// StreamSubtitle is a subtitle stream's streamType.
-const StreamSubtitle = 3
+// A stream's streamType.
+const (
+	StreamVideo    = 1
+	StreamAudio    = 2
+	StreamSubtitle = 3
+)
 
-// Stream is one stream of a part. An external Sidecar has a key.
+// Stream is one stream of a part. An external Sidecar has a key. A
+// session lists only the streams that play, its ids as strings where
+// /library/metadata gives numbers (recorded run 2026-11-26).
+// LanguageCode is ISO 639-2 and LanguageTag the short tag.
 type Stream struct {
-	ID         ID     `json:"id"`
-	StreamType int    `json:"streamType"`
-	Codec      string `json:"codec"`
-	Key        string `json:"key"`
+	ID           ID     `json:"id"`
+	StreamType   int    `json:"streamType"`
+	Codec        string `json:"codec"`
+	Key          string `json:"key"`
+	Channels     int    `json:"channels"`
+	LanguageCode string `json:"languageCode"`
+	LanguageTag  string `json:"languageTag"`
 }
 
 // Item is one item by its ratingKey, false on 404: a moved file's old item
