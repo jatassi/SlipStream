@@ -17,6 +17,7 @@ import (
 	msv1 "github.com/jatassi/slipstream/internal/pb/slipstream/mediaserver/v1"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/storage"
+	"github.com/jatassi/slipstream/internal/works"
 )
 
 // Sessions are what the server's reaching Node last saw playing, empty
@@ -34,8 +35,12 @@ func (s service) Sessions(ctx context.Context, id link.ServerID) (Sessions, erro
 		}
 		f, ok := s.m.cfg.Facts(cur.ReachingNodeID)
 		live := s.m.caps().facts(serverFactsOf(f, id), now)
-		snapped, err := q.ListSnapshotWorks(ctx, db.ListSnapshotWorksParams{ServerID: id, Plays: playIDsJSON(live)})
-		out = Sessions{Reachable: ok, Sessions: sessionViews(live, snapped)}
+		snapped, err := q.ListSnapshots(ctx, db.ListSnapshotsParams{ServerID: id, Plays: playIDsJSON(live)})
+		if err != nil {
+			return err
+		}
+		views, err := sessionViews(ctx, r, live, snapped)
+		out = Sessions{Reachable: ok, Sessions: views}
 		return err
 	})
 	return out, err
@@ -50,20 +55,28 @@ func playIDsJSON(live []reported) string {
 	return string(b)
 }
 
-func sessionViews(live []reported, snapped []db.ListSnapshotWorksRow) []SessionView {
-	workOf := make(map[link.PlayID]string, len(snapped))
-	for _, w := range snapped {
-		workOf[w.ID] = w.Work
+func sessionViews(ctx context.Context, r storage.Reader[storage.Library], live []reported, snapped []db.ListSnapshotsRow) ([]SessionView, error) {
+	ws := make([]works.WorkID, len(snapped))
+	for i, s := range snapped {
+		ws[i] = s.Snapshot.Work
+	}
+	titles, err := works.SummariesOf(ctx, r, ws)
+	if err != nil {
+		return nil, err
+	}
+	workOf := make(map[link.PlayID]*PlayWorkView, len(snapped))
+	for _, s := range snapped {
+		workOf[s.ID] = &PlayWorkView{WorkID: s.Snapshot.Work.String(), Title: titles[s.Snapshot.Work].Label, Label: s.Snapshot.Label}
 	}
 	out := make([]SessionView, len(live))
 	for i, p := range live {
 		out[i] = SessionView{
-			PlayID: p.id.String(), User: p.user, Player: p.player, Product: p.product, Path: p.path.String(), WorkID: workOf[p.id],
+			PlayID: p.id.String(), User: p.user, Player: p.player, Product: p.product, Path: p.path.String(), Work: workOf[p.id],
 			Decision: string(p.streams.Decision()), Video: string(p.streams.Video), Audio: string(p.streams.Audio),
 			Subtitles: string(p.streams.Subtitles), Hardware: p.hardware, Reasons: p.reasons, StartedAt: p.started,
 		}
 	}
-	return out
+	return out, nil
 }
 
 func serverFactsOf(f *msv1.Facts, id link.ServerID) *msv1.ServerFacts {

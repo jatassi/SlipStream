@@ -52,7 +52,9 @@ function OutcomeDetail({
   const { suggestion, works = [], evidence = [] } = outcome;
   return (
     <div className="flex flex-col gap-2">
-      <LeadLine ctx={ctx} parts={leadOf(ctx, player, group, outcome, outcome.plays)} />
+      {(group !== player.groups[0] || group.outcomes.length > 1) && (
+        <LeadLine ctx={ctx} parts={leadOf(ctx, player, group, outcome, outcome.plays)} />
+      )}
       {works.length > 1 && (
         <ul className="flex list-disc flex-col gap-1 pl-5">
           {works.map((work) => (
@@ -103,7 +105,7 @@ function GroupDetail({ ctx, player, group }: { ctx: LeadContext; player: Player;
 
 const choosing = new Set(["suggest", "existing"]);
 
-/** The machinery behind a player's lead: counts, every group and outcome, evidence, the window and the player's plays. */
+/** The machinery behind a player's lead: counts, every other outcome, each one's evidence, the window and the player's plays. */
 export function PlayerDetails({
   ctx,
   serverId,

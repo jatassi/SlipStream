@@ -9289,10 +9289,9 @@ export const MediaserversSessionView = zod.object({
   subtitles: zod.enum(["none", "direct", "burned"]),
   user: zod.string(),
   video: zod.enum(["direct", "transcode", "none"]),
-  workId: zod
-    .uuid()
-    .exactOptional()
-    .describe("The Work whose file plays; absent when no mapping leads to a library file"),
+  work: MediaserversPlayWorkView.exactOptional().describe(
+    "The library file that plays; absent when no mapping leads to one",
+  ),
 });
 
 export type MediaserversSessionView = zod.input<typeof MediaserversSessionView>;

@@ -1,6 +1,7 @@
 package playback
 
 import (
+	"cmp"
 	"slices"
 	"strconv"
 
@@ -108,7 +109,7 @@ func (f Facts) Tracked() []Fact {
 	if a := f.Audio; a != nil {
 		add(FactAudioCodec, string(a.Codec), 0)
 		if a.Channels > 0 {
-			add(FactChannels, strconv.Itoa(a.Channels), int64(a.Channels))
+			add(FactChannels, cmp.Or(string(a.Layout()), strconv.Itoa(a.Channels)), int64(a.Channels))
 		}
 	}
 	if s := f.Subtitle; s != nil {

@@ -1,3 +1,4 @@
+import type { MediaserversPlayWorkView } from "./mediaserversPlayWorkView.ts";
 import type { MediaserversSessionViewAudio } from "./mediaserversSessionViewAudio.ts";
 import type { MediaserversSessionViewDecision } from "./mediaserversSessionViewDecision.ts";
 import type { MediaserversSessionViewSubtitles } from "./mediaserversSessionViewSubtitles.ts";
@@ -19,6 +20,6 @@ export interface MediaserversSessionView {
   subtitles: MediaserversSessionViewSubtitles;
   user: string;
   video: MediaserversSessionViewVideo;
-  /** The Work whose file plays; absent when no mapping leads to a library file */
-  workId?: string;
+  /** The library file that plays; absent when no mapping leads to one */
+  work?: MediaserversPlayWorkView;
 }

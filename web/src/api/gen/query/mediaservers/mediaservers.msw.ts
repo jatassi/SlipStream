@@ -2919,7 +2919,15 @@ export const getListMediaServerSessionsResponseMock = (
       subtitles: faker.helpers.arrayElement(["none", "direct", "burned"] as const),
       user: faker.string.alpha({ length: { min: 10, max: 20 } }),
       video: faker.helpers.arrayElement(["direct", "transcode", "none"] as const),
-      ...(faker.datatype.boolean() ? { workId: faker.string.uuid() } : {}),
+      ...(faker.datatype.boolean()
+        ? {
+            work: {
+              label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+              title: faker.string.alpha({ length: { min: 10, max: 20 } }),
+              workId: faker.string.uuid(),
+            },
+          }
+        : {}),
     }),
   ),
   ...overrideResponse,

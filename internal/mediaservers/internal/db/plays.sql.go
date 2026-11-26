@@ -566,33 +566,33 @@ func (q *Queries) ListPlaysSince(ctx context.Context, arg ListPlaysSinceParams) 
 	return items, nil
 }
 
-const listSnapshotWorks = `-- name: ListSnapshotWorks :many
-SELECT id, CAST(snapshot ->> '$.work' AS TEXT) AS work FROM mediaservers_play
+const listSnapshots = `-- name: ListSnapshots :many
+SELECT id, snapshot FROM mediaservers_play
 WHERE server_id = ?1 AND snapshot IS NOT NULL
     AND id IN (SELECT unhex(replace(value, '-', '')) FROM json_each(CAST(?2 AS TEXT)))
 ORDER BY id
 `
 
-type ListSnapshotWorksParams struct {
+type ListSnapshotsParams struct {
 	ServerID link.ServerID
 	Plays    string
 }
 
-type ListSnapshotWorksRow struct {
-	ID   link.PlayID
-	Work string
+type ListSnapshotsRow struct {
+	ID       link.PlayID
+	Snapshot *playback.Snapshot
 }
 
-func (q *Queries) ListSnapshotWorks(ctx context.Context, arg ListSnapshotWorksParams) ([]ListSnapshotWorksRow, error) {
-	rows, err := q.db.QueryContext(ctx, listSnapshotWorks, arg.ServerID, arg.Plays)
+func (q *Queries) ListSnapshots(ctx context.Context, arg ListSnapshotsParams) ([]ListSnapshotsRow, error) {
+	rows, err := q.db.QueryContext(ctx, listSnapshots, arg.ServerID, arg.Plays)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ListSnapshotWorksRow
+	var items []ListSnapshotsRow
 	for rows.Next() {
-		var i ListSnapshotWorksRow
-		if err := rows.Scan(&i.ID, &i.Work); err != nil {
+		var i ListSnapshotsRow
+		if err := rows.Scan(&i.ID, &i.Snapshot); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

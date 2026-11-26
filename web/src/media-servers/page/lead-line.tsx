@@ -144,7 +144,7 @@ const outcomeWords: { readonly [K in Outcome["kind"]]: OutcomeWords } = {
     const suggestion = need(outcome.suggestion, "suggestion");
     return [
       text(
-        `A ${suggestion.name} version would avoid that, and Details lists the plays on ${ctx.player} that prove each of its values. `,
+        `A ${suggestion.name} Target would avoid that, and Details lists the plays on ${ctx.player} that prove each of its values. `,
       ),
       { kind: "add", suggestion },
     ];
@@ -210,14 +210,16 @@ export function playerLead(ctx: LeadContext, player: Player): Part[] {
   }
   const lead = leadOf(ctx, player, largest, need(largest.outcomes[0], "outcome"), largest.plays);
   const more = others.reduce((sum, group) => sum + group.plays, 0);
-  return more === 0
-    ? lead
-    : [
-        ...lead,
-        text(
-          ` ${more} more ${nounOf(more, plays)} on ${ctx.player} ${were(more)} transcoded for other reasons.`,
-        ),
-      ];
+  const { unmatched } = player;
+  const rest = [
+    more === 0
+      ? ""
+      : ` ${more} more ${nounOf(more, plays)} on ${ctx.player} ${were(more)} transcoded for other reasons.`,
+    unmatched === 0
+      ? ""
+      : ` ${unmatched} more ${nounOf(unmatched, plays)} on ${ctx.player} ${were(unmatched)} transcoded, and the report can't explain ${unmatched === 1 ? "it" : "them"}. Details lists the causes to check.`,
+  ];
+  return [...lead, ...rest.filter(Boolean).map((words) => text(words))];
 }
 
 const linkLook =
