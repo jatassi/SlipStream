@@ -71,6 +71,7 @@ var Timings = link.Timings{
 	MovedConfirm: 2 * time.Minute, MovedStep: 5 * time.Minute, StepPoll: 2 * time.Second,
 	RenameSnapshot: 20 * time.Second, UpgradePairing: 2 * time.Minute, SectionFolders: 10, SessionCap: 100,
 	IndexAge: 24 * time.Hour, SentAge: 7 * 24 * time.Hour, IndexPage: 500,
+	MissedPolls: 2, SessionsPush: 1500 * time.Millisecond, StringCap: 200, PathCap: 4096, ReasonCap: 64, FutureSkew: time.Minute,
 }
 
 // World is the Media Servers of home, with seedbox paired.
@@ -95,6 +96,7 @@ type World struct {
 	mu       sync.Mutex
 	changed  []mediaservers.Changed
 	sessions []mediaservers.SessionsChanged
+	plays    []mediaservers.PlaysChanged
 	// hub carries the events Health follows.
 	hub         *live.Hub
 	transitions []Transition
@@ -153,7 +155,7 @@ func New(t *testing.T) *World {
 		RootsChanged: func(context.Context) <-chan struct{} { return w.rehomed },
 		Tasks:        &cadences{},
 		Events: mediaservers.Events{
-			Changed: changedEvents{w}, SessionsChanged: sessionsEvents{w}, Unhealthy: unhealthyEvents{w}, Recovered: recoveredEvents{w},
+			Changed: changedEvents{w}, SessionsChanged: sessionsEvents{w}, PlaysChanged: playsEvents{w}, Unhealthy: unhealthyEvents{w}, Recovered: recoveredEvents{w},
 			ItemsFound: foundEvents{w}, AccessChanged: mediaservers.AccessChangedEvent.Bind(w.hub),
 			MyAccessChanged: mediaservers.MyAccessChangedEvent.Bind(w.hub),
 		},

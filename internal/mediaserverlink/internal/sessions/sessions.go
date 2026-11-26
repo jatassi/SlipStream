@@ -65,7 +65,7 @@ func (d Diff) Next(s link.Seen, newID func() storage.UUID) (Diff, []*msv1.Report
 			}})
 		case changed(p.session, x):
 			reports = append(reports, &msv1.Report{ServerId: d.server.Bytes(), Report: &msv1.Report_PlayChanged{PlayChanged: &msv1.PlayChanged{
-				PlayId: p.id.Bytes(), Decision: string(x.Decision), Hardware: x.Hardware, Reasons: x.Reasons, SeenUnixMs: s.At.UnixMilli(),
+				PlayId: p.id.Bytes(), Streams: streamsOf(x.Streams), Hardware: x.Hardware, Reasons: x.Reasons, SeenUnixMs: s.At.UnixMilli(),
 			}}})
 		}
 		p.session, p.seen, p.misses = x, s.At, 0
@@ -92,7 +92,7 @@ func (d Diff) Next(s link.Seen, newID func() storage.UUID) (Diff, []*msv1.Report
 
 // changed is whether a PlayChanged reports b over a.
 func changed(a, b link.Session) bool {
-	return a.Decision != b.Decision || a.Hardware != b.Hardware || !slices.Equal(a.Reasons, b.Reasons)
+	return a.Streams != b.Streams || a.Hardware != b.Hardware || !slices.Equal(a.Reasons, b.Reasons)
 }
 
 // Watching is the report a watch sends after its first poll: the plays
@@ -129,7 +129,13 @@ func sessionOf(p play, seen time.Time) *msv1.Session {
 	return &msv1.Session{
 		PlayId: p.id.Bytes(), SessionKey: p.session.Key, ServerPath: p.session.Path.String(),
 		User: p.session.User, Player: p.session.Player, Product: p.session.Product,
-		Decision: string(p.session.Decision), Hardware: p.session.Hardware, Reasons: p.session.Reasons,
+		Streams: streamsOf(p.session.Streams), Hardware: p.session.Hardware, Reasons: p.session.Reasons,
 		StartedUnixMs: p.started.UnixMilli(), SeenUnixMs: seen.UnixMilli(),
+	}
+}
+
+func streamsOf(s link.Streams) *msv1.Streams {
+	return &msv1.Streams{
+		Video: string(s.Video), Audio: string(s.Audio), Subtitles: string(s.Subtitles), ContainerChanged: s.ContainerChanged,
 	}
 }

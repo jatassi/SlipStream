@@ -120,6 +120,7 @@ var Events = []live.Event{
 	firstrun.ChangedEvent,
 	mediaservers.ChangedEvent,
 	mediaservers.SessionsChangedEvent,
+	mediaservers.PlaysChangedEvent,
 	mediaservers.UnhealthyEvent,
 	mediaservers.RecoveredEvent,
 	mediaservers.ItemsFoundEvent,

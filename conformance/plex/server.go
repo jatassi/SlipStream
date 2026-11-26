@@ -329,7 +329,7 @@ func (s *server) Sessions(ctx context.Context) ([]link.Session, error) {
 	}
 	out := make([]link.Session, 0, len(sessions))
 	for _, sess := range sessions {
-		ls := link.Session{Key: string(sess.SessionKey), Decision: link.DecisionDirectPlay}
+		ls := link.Session{Key: string(sess.SessionKey), Streams: link.Streams{Video: link.StreamDirect, Audio: link.StreamDirect, Subtitles: link.SubtitlesNone}}
 		if sess.User != nil {
 			ls.User = sess.User.Title
 		}
@@ -342,9 +342,9 @@ func (s *server) Sessions(ctx context.Context) ([]link.Session, error) {
 			}
 		}
 		if t := sess.Transcode; t != nil {
-			ls.Decision, ls.Hardware = link.DecisionCopy, t.TranscodeHwRequested
+			ls.Streams.ContainerChanged, ls.Hardware = true, t.TranscodeHwRequested
 			if t.VideoDecision == "transcode" {
-				ls.Decision = link.DecisionTranscode
+				ls.Streams.Video = link.StreamTranscode
 			}
 		}
 		out = append(out, ls)

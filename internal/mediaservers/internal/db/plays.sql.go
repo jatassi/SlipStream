@@ -17,26 +17,44 @@ import (
 const changePlay = `-- name: ChangePlay :exec
 UPDATE mediaservers_play
 SET decision = ?1,
-    hardware = ?2,
-    reasons = ?3,
-    last_seen_at = ?4
-WHERE server_id = ?5 AND id = ?6 AND ended_at IS NULL
+    video = ?2,
+    audio = ?3,
+    subtitles = ?4,
+    hardware = ?5,
+    reasons = ?6,
+    received = ?7,
+    audio_track = ?8,
+    subtitle_track = ?9,
+    last_seen_at = ?10
+WHERE server_id = ?11 AND id = ?12 AND ended_at IS NULL
 `
 
 type ChangePlayParams struct {
-	Decision   link.Decision
-	Hardware   bool
-	Reasons    string
-	LastSeenAt storage.Time
-	ServerID   link.ServerID
-	ID         link.PlayID
+	Decision      link.Decision
+	Video         link.StreamDecision
+	Audio         link.StreamDecision
+	Subtitles     link.SubtitleDecision
+	Hardware      bool
+	Reasons       string
+	Received      link.Received
+	AudioTrack    *link.Track
+	SubtitleTrack *link.Track
+	LastSeenAt    storage.Time
+	ServerID      link.ServerID
+	ID            link.PlayID
 }
 
 func (q *Queries) ChangePlay(ctx context.Context, arg ChangePlayParams) error {
 	_, err := q.db.ExecContext(ctx, changePlay,
 		arg.Decision,
+		arg.Video,
+		arg.Audio,
+		arg.Subtitles,
 		arg.Hardware,
 		arg.Reasons,
+		arg.Received,
+		arg.AudioTrack,
+		arg.SubtitleTrack,
 		arg.LastSeenAt,
 		arg.ServerID,
 		arg.ID,
@@ -154,7 +172,7 @@ func (q *Queries) ListOpenPlays(ctx context.Context, serverID link.ServerID) ([]
 }
 
 const listPlays = `-- name: ListPlays :many
-SELECT server_id, id, session_key, file_id, server_path, user_name, player, product, decision, hardware, reasons, started_at, last_seen_at, ended_at FROM mediaservers_play
+SELECT server_id, id, session_key, server_path, path_key, item_key, player_key, player, platform, product, user_name, decision, video, audio, subtitles, hardware, reasons, received, audio_track, subtitle_track, file_id, snapshot, started_at, last_seen_at, ended_at FROM mediaservers_play
 WHERE server_id = ?1
 ORDER BY started_at, id
 `
@@ -172,14 +190,25 @@ func (q *Queries) ListPlays(ctx context.Context, serverID link.ServerID) ([]Medi
 			&i.ServerID,
 			&i.ID,
 			&i.SessionKey,
-			&i.FileID,
 			&i.ServerPath,
-			&i.UserName,
+			&i.PathKey,
+			&i.ItemKey,
+			&i.PlayerKey,
 			&i.Player,
+			&i.Platform,
 			&i.Product,
+			&i.UserName,
 			&i.Decision,
+			&i.Video,
+			&i.Audio,
+			&i.Subtitles,
 			&i.Hardware,
 			&i.Reasons,
+			&i.Received,
+			&i.AudioTrack,
+			&i.SubtitleTrack,
+			&i.FileID,
+			&i.Snapshot,
 			&i.StartedAt,
 			&i.LastSeenAt,
 			&i.EndedAt,
@@ -229,30 +258,43 @@ func (q *Queries) SeePlay(ctx context.Context, arg SeePlayParams) error {
 
 const startPlay = `-- name: StartPlay :exec
 INSERT INTO mediaservers_play (
-    server_id, id, session_key, file_id, server_path, user_name, player, product,
-    decision, hardware, reasons, started_at, last_seen_at
+    server_id, id, session_key, file_id, server_path, path_key, item_key, player_key, player, platform, product,
+    user_name, decision, video, audio, subtitles, hardware, reasons, received, audio_track, subtitle_track,
+    started_at, last_seen_at
 ) VALUES (
     ?1, ?2, ?3, ?4, ?5,
     ?6, ?7, ?8, ?9, ?10,
-    ?11, ?12, ?13
+    ?11, ?12, ?13, ?14, ?15,
+    ?16, ?17, ?18, ?19, ?20,
+    ?21, ?22, ?23
 )
 ON CONFLICT (server_id, id) DO NOTHING
 `
 
 type StartPlayParams struct {
-	ServerID   link.ServerID
-	ID         link.PlayID
-	SessionKey string
-	FileID     files.ID
-	ServerPath string
-	UserName   string
-	Player     string
-	Product    string
-	Decision   link.Decision
-	Hardware   bool
-	Reasons    string
-	StartedAt  storage.Time
-	LastSeenAt storage.Time
+	ServerID      link.ServerID
+	ID            link.PlayID
+	SessionKey    string
+	FileID        files.ID
+	ServerPath    string
+	PathKey       string
+	ItemKey       string
+	PlayerKey     string
+	Player        string
+	Platform      string
+	Product       string
+	UserName      string
+	Decision      link.Decision
+	Video         link.StreamDecision
+	Audio         link.StreamDecision
+	Subtitles     link.SubtitleDecision
+	Hardware      bool
+	Reasons       string
+	Received      link.Received
+	AudioTrack    *link.Track
+	SubtitleTrack *link.Track
+	StartedAt     storage.Time
+	LastSeenAt    storage.Time
 }
 
 func (q *Queries) StartPlay(ctx context.Context, arg StartPlayParams) error {
@@ -262,12 +304,22 @@ func (q *Queries) StartPlay(ctx context.Context, arg StartPlayParams) error {
 		arg.SessionKey,
 		arg.FileID,
 		arg.ServerPath,
-		arg.UserName,
+		arg.PathKey,
+		arg.ItemKey,
+		arg.PlayerKey,
 		arg.Player,
+		arg.Platform,
 		arg.Product,
+		arg.UserName,
 		arg.Decision,
+		arg.Video,
+		arg.Audio,
+		arg.Subtitles,
 		arg.Hardware,
 		arg.Reasons,
+		arg.Received,
+		arg.AudioTrack,
+		arg.SubtitleTrack,
 		arg.StartedAt,
 		arg.LastSeenAt,
 	)

@@ -16262,6 +16262,22 @@
         ],
         "type": "object"
       },
+      "MediaserversPlaysChanged": {
+        "additionalProperties": false,
+        "properties": {
+          "serverIds": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "serverIds"
+        ],
+        "type": "object"
+      },
       "MediaserversPlexConnection": {
         "additionalProperties": false,
         "properties": {
@@ -16621,10 +16637,18 @@
       "MediaserversSessionView": {
         "additionalProperties": false,
         "properties": {
+          "audio": {
+            "enum": [
+              "direct",
+              "transcode",
+              "none"
+            ],
+            "type": "string"
+          },
           "decision": {
             "enum": [
               "direct_play",
-              "copy",
+              "direct_stream",
               "transcode"
             ],
             "type": "string"
@@ -16658,7 +16682,23 @@
             "format": "date-time",
             "type": "string"
           },
+          "subtitles": {
+            "enum": [
+              "none",
+              "direct",
+              "burned"
+            ],
+            "type": "string"
+          },
           "user": {
+            "type": "string"
+          },
+          "video": {
+            "enum": [
+              "direct",
+              "transcode",
+              "none"
+            ],
             "type": "string"
           },
           "workId": {
@@ -16674,6 +16714,9 @@
           "product",
           "path",
           "decision",
+          "video",
+          "audio",
+          "subtitles",
           "hardware",
           "reasons",
           "startedAt"
@@ -47003,6 +47046,32 @@
                           "event"
                         ],
                         "title": "Event media-servers.my-access-changed",
+                        "type": "object"
+                      },
+                      {
+                        "properties": {
+                          "data": {
+                            "$ref": "#/components/schemas/MediaserversPlaysChanged"
+                          },
+                          "event": {
+                            "const": "media-servers.plays-changed",
+                            "description": "The event name.",
+                            "type": "string"
+                          },
+                          "id": {
+                            "description": "The event ID.",
+                            "type": "integer"
+                          },
+                          "retry": {
+                            "description": "The retry time in milliseconds.",
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "data",
+                          "event"
+                        ],
+                        "title": "Event media-servers.plays-changed",
                         "type": "object"
                       },
                       {

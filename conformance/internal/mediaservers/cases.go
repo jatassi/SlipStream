@@ -415,7 +415,7 @@ func Sessions(t *testing.T, tg Target) {
 			t.Fatal(err)
 		}
 		i := slices.IndexFunc(sessions, func(s link.Session) bool { return s.Path.Key() == f.At(r).Key() })
-		if i < 0 || sessions[i].Decision != d {
+		if i < 0 || sessions[i].Streams.Decision() != d {
 			t.Fatalf("playing %s as %s, the sessions are %+v", f.At(r), d, sessions)
 		}
 		stop()

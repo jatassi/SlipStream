@@ -79,9 +79,9 @@ func expectPlays(t *testing.T, got []string, want ...string) {
 }
 
 const playing = `{"reachable":true,"sessions":[{"playId":"id1","user":"ada","player":"Living room","product":"Jellyfin Server Web",` +
-	`"path":"/media/Shelves/Clip.mkv","decision":"transcode","hardware":false,"reasons":["ContainerNotSupported"],"startedAt":"T"}]}`
+	`"path":"/media/Shelves/Clip.mkv","decision":"transcode","video":"transcode","audio":"direct","subtitles":"none","hardware":false,"reasons":["ContainerNotSupported"],"startedAt":"T"}]}`
 
-const transcoding = `/media/Shelves/Clip.mkv transcode ["ContainerNotSupported"] by ada on Living room, `
+const transcoding = `/media/Shelves/Clip.mkv transcode (transcode direct none) ["ContainerNotSupported"] by ada on Living room, `
 
 // TestSessionsShowAPlayUntilItVanishesFromTwoPolls plays Clip on Den: the
 // Admin sees it playing at once and hears of it, and once it stops it
@@ -164,11 +164,12 @@ func TestAHolderStartedAgainEndsThePlaysItLeftOpen(t *testing.T) {
 			t.Fatal(err)
 		}
 		at := time.Now().UnixMilli()
+		direct := &msv1.Streams{Video: "direct", Audio: "direct", Subtitles: "none"}
 		for _, r := range []*msv1.Report{
-			{Report: &msv1.Report_PlayChanged{PlayChanged: &msv1.PlayChanged{PlayId: old.Bytes(), Decision: "direct_play", SeenUnixMs: at}}},
+			{Report: &msv1.Report_PlayChanged{PlayChanged: &msv1.PlayChanged{PlayId: old.Bytes(), Streams: direct, SeenUnixMs: at}}},
 			{Report: &msv1.Report_PlayEnded{PlayEnded: &msv1.PlayEnded{PlayId: old.Bytes(), LastSeenUnixMs: at}}},
 			{Report: &msv1.Report_PlayStarted{PlayStarted: &msv1.PlayStarted{Session: &msv1.Session{
-				PlayId: old.Bytes(), SessionKey: "1", ServerPath: clip, User: "ada", Player: "Living room", Decision: "direct_play",
+				PlayId: old.Bytes(), SessionKey: "1", ServerPath: clip, User: "ada", Player: "Living room", Streams: direct,
 				StartedUnixMs: at, SeenUnixMs: at,
 			}}}},
 		} {

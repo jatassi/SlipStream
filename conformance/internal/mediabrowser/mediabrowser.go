@@ -544,7 +544,7 @@ func (s *Server) Watched(ctx context.Context, item, name string) error {
 	return s.collect(ctx, name, item)
 }
 
-var decisions = map[bool]link.Decision{true: link.DecisionCopy, false: link.DecisionTranscode}
+var videoDecisions = map[bool]link.StreamDecision{true: link.StreamDirect, false: link.StreamTranscode}
 
 func (s *Server) Sessions(ctx context.Context) ([]link.Session, error) {
 	sessions, err := s.C.Sessions(ctx)
@@ -556,12 +556,13 @@ func (s *Server) Sessions(ctx context.Context) ([]link.Session, error) {
 		if sess.NowPlayingItem == nil {
 			continue
 		}
-		ls := link.Session{Key: sess.ID, User: sess.UserName, Player: sess.DeviceName, Product: sess.Client, Decision: link.DecisionDirectPlay}
+		ls := link.Session{Key: sess.ID, User: sess.UserName, Player: sess.DeviceName, Product: sess.Client,
+			Streams: link.Streams{Video: link.StreamDirect, Audio: link.StreamDirect, Subtitles: link.SubtitlesNone}}
 		if ls.Path, err = link.ParsePath(sess.NowPlayingItem.Path); err != nil {
 			return nil, err
 		}
 		if ti := sess.TranscodingInfo; ti != nil && sess.PlayState != nil && sess.PlayState.PlayMethod == jellyfin.Transcode {
-			ls.Decision, ls.Reasons = decisions[ti.IsVideoDirect], ti.TranscodeReasons
+			ls.Streams.Video, ls.Streams.ContainerChanged, ls.Reasons = videoDecisions[ti.IsVideoDirect], true, ti.TranscodeReasons
 			ls.Hardware = ti.VideoEncoderIsHardware || (ti.HardwareAccelerationType != "" && ti.HardwareAccelerationType != "none")
 		}
 		out = append(out, ls)

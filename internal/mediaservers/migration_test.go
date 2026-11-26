@@ -12,12 +12,17 @@ import (
 	"strings"
 	"testing"
 	"testing/fstest"
+	"time"
 
 	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/mediaserverlink/link"
 	"github.com/jatassi/slipstream/internal/mediaservers"
+	"github.com/jatassi/slipstream/internal/mediaservers/internal/db"
 	"github.com/jatassi/slipstream/internal/nodes"
+	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/secret"
+	"github.com/jatassi/slipstream/internal/secret/secrettest"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/works"
 )
@@ -102,9 +107,10 @@ func (f fixture) change(t *testing.T, kind, path string, from any, state, step s
 
 func (f fixture) play(t *testing.T, server, id storage.UUID) {
 	t.Helper()
-	must(t, f.lib, `INSERT INTO mediaservers_play (server_id, id, session_key, server_path, user_name, player, product, decision,
-		started_at, last_seen_at) VALUES (?, ?, 's1', '/media/movies/Heat/Heat.mkv', 'Sam', 'Living room TV', 'Jellyfin Web', 'transcode', 1, 1)`,
-		server, id)
+	must(t, f.lib, `INSERT INTO mediaservers_play (server_id, id, session_key, server_path, path_key, item_key, player_key, player,
+		platform, product, user_name, decision, video, audio, subtitles, started_at, last_seen_at)
+		VALUES (?, ?, 's1', '/media/movies/Heat/Heat.mkv', '/media/movies/Heat/Heat.mkv', 'i1', 'tv1', 'Living room TV', 'AndroidTv',
+		'Jellyfin Web', 'Sam', 'transcode', 'transcode', 'direct', 'none', 1, 1)`, server, id)
 }
 
 var forgotten = []string{"mediaservers_mapping", "mediaservers_change", "mediaservers_item", "mediaservers_play", "mediaservers_credential_fetch"}
@@ -148,8 +154,9 @@ func TestAPlayIdNamesAPlayOnlyOnItsServer(t *testing.T) {
 	id := storage.NewUUID()
 	f.play(t, f.server, id)
 	f.play(t, other, id)
-	if err := exec(t, f.lib, `INSERT INTO mediaservers_play (server_id, id, session_key, server_path, user_name, player, product, decision,
-		started_at, last_seen_at) VALUES (?, ?, 's2', '/x', 'Sam', 'TV', 'Plex', 'copy', 1, 1)`, f.server, id); err == nil {
+	if err := exec(t, f.lib, `INSERT INTO mediaservers_play (server_id, id, session_key, server_path, path_key, item_key, player_key, player,
+		platform, product, user_name, decision, video, audio, subtitles, started_at, last_seen_at)
+		VALUES (?, ?, 's2', '/x', '/x', 'i2', 'tv2', 'TV', '', 'Plex', 'Sam', 'direct_play', 'direct', 'direct', 'none', 1, 1)`, f.server, id); err == nil {
 		t.Error("a play id was started twice on one server")
 	}
 }
@@ -366,4 +373,108 @@ func TestALibraryFromBeforeMemberAccessKeepsItsRows(t *testing.T) {
 	if n := count(t, lib, "identity_link"); n != 1 || grants != 0 {
 		t.Errorf("after the migration %d Signup links are kept, %d with grants; want 1 with none", n, grants)
 	}
+}
+
+// validPlay is one play row the table takes; each case changes columns of
+// it.
+var validPlay = map[string]string{
+	"server_id": "(SELECT id FROM mediaservers_server)", "id": "randomblob(16)", "session_key": "'s1'",
+	"server_path": "'/media/movies/Heat/Heat.mkv'", "path_key": "'/media/movies/Heat/Heat.mkv'", "item_key": "'i1'",
+	"player_key": "'tv1'", "player": "'Living room TV'", "platform": "'AndroidTv'", "product": "'Jellyfin Web'", "user_name": "'Sam'",
+	"decision": "'direct_play'", "video": "'direct'", "audio": "'direct'", "subtitles": "'none'", "started_at": "1", "last_seen_at": "2",
+}
+
+// TestALibraryFromBeforeThePlaybackReportStartsItsPlayHistory upgrades a
+// library from migration 5: its plays go, each server records plays from
+// the upgrade, a server added later from its creation, and the new play
+// table refuses every row whose decision disagrees with its streams.
+func TestALibraryFromBeforeThePlaybackReportStartsItsPlayHistory(t *testing.T) {
+	path := filepath.Join(t.TempDir(), storage.LibraryFile)
+	openAt := func(schemas ...storage.Schema[storage.Library]) library {
+		lib, err := storage.OpenLibrary(t.Context(), path, schemas, nil, storage.DefaultTimings(), slog.New(slog.DiscardHandler))
+		if err != nil {
+			t.Fatal(err)
+		}
+		return lib
+	}
+	before := openAt(secret.Schema(), identity.Schema(), nodes.Schema(), works.Schema(), roots.Schema(), schemaThrough(t, "mediaservers", "schema", 5))
+	f := fixture{lib: before, node: storage.NewUUID(), root: storage.NewUUID(), server: storage.NewUUID()}
+	seedServer(t, f)
+	must(t, before, `INSERT INTO mediaservers_play (server_id, id, session_key, server_path, user_name, player, product, decision,
+		started_at, last_seen_at) VALUES (?, randomblob(16), 's1', '/media/movies/Heat/Heat.mkv', 'Sam', 'TV', 'Jellyfin Web', 'copy', 1, 1)`, f.server)
+	if err := before.Close(); err != nil {
+		t.Fatal(err)
+	}
+	upgraded := time.Now()
+	lib := openAt(secret.Schema(), identity.Schema(), nodes.Schema(), works.Schema(), roots.Schema(), mediaservers.Schema())
+	t.Cleanup(func() { _ = lib.Close() })
+	f.lib = lib
+
+	if n := count(t, lib, "mediaservers_play"); n != 0 {
+		t.Errorf("after the upgrade %d plays are kept, want none", n)
+	}
+	if since := playsSince(t, lib, f.server); since.Before(upgraded.Truncate(time.Second)) || since.After(time.Now()) {
+		t.Errorf("the server records plays since %v, want the upgrade at %v", since, upgraded)
+	}
+	added := link.ServerID{UUID: storage.NewUUID()}
+	created := time.Date(2026, 11, 26, 9, 0, 0, 0, time.UTC)
+	sealer := secrettest.Sealer(t)
+	sealed, err := mediaservers.SealCredential(sealer, added, link.Credential{APIKey: "k"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+		return db.New(tx).InsertServer(ctx, db.InsertServerParams{
+			ID: added, Kind: "plex", Name: "Living room Plex", Address: "http://den:32400", Identity: "m1", Version: "1.43.5",
+			ReachingNodeID: role.NodeID{UUID: f.node}, SecretsSealed: sealed, Fallback: "untested", At: storage.FromTime(created),
+		})
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if since := playsSince(t, lib, added.UUID); !since.Equal(created) {
+		t.Errorf("a server added after the upgrade records plays since %v, want its creation at %v", since, created)
+	}
+
+	if err := tryRow(t, lib, "mediaservers_play", validPlay); err != nil {
+		t.Fatalf("the valid play row is refused: %v", err)
+	}
+	for _, c := range []struct {
+		name string
+		set  map[string]string
+	}{
+		{"a direct play whose video transcodes", map[string]string{"video": "'transcode'"}},
+		{"a direct stream whose audio transcodes", map[string]string{"decision": "'direct_stream'", "audio": "'transcode'"}},
+		{"a direct stream that burns subtitles", map[string]string{"decision": "'direct_stream'", "subtitles": "'burned'"}},
+		{"a transcode of streams played direct", map[string]string{"decision": "'transcode'"}},
+		{"the old copy decision", map[string]string{"decision": "'copy'"}},
+		{"an unknown video decision", map[string]string{"video": "'copy'"}},
+		{"an unknown audio decision", map[string]string{"audio": "''"}},
+		{"an unknown subtitle decision", map[string]string{"subtitles": "'embedded'"}},
+		{"an empty server path", map[string]string{"server_path": "''"}},
+		{"an empty path key", map[string]string{"path_key": "''"}},
+		{"reasons that aren't a list", map[string]string{"reasons": `'{"a":1}'`}},
+		{"received facts that aren't an object", map[string]string{"received": "'[]'"}},
+		{"an audio track that isn't JSON", map[string]string{"audio_track": "'0'"}},
+		{"a subtitle track that isn't an object", map[string]string{"subtitle_track": "'[0]'"}},
+		{"a snapshot with no file", map[string]string{"snapshot": "'{}'"}},
+		{"a snapshot that isn't an object", map[string]string{"file_id": "randomblob(16)", "snapshot": "'[]'"}},
+		{"a last look before the start", map[string]string{"last_seen_at": "0"}},
+		{"an end after the last look", map[string]string{"ended_at": "3"}},
+	} {
+		row := maps.Clone(validPlay)
+		maps.Copy(row, c.set)
+		if err := tryRow(t, lib, "mediaservers_play", row); err == nil || !strings.Contains(err.Error(), "CHECK constraint failed") {
+			t.Errorf("%s: err = %v, want a CHECK refusal", c.name, err)
+		}
+	}
+}
+
+func playsSince(t *testing.T, lib library, server storage.UUID) time.Time {
+	t.Helper()
+	var since storage.Time
+	if err := lib.QueryRowContext(t.Context(), "SELECT plays_since FROM mediaservers_server WHERE id = ?", server).Scan(&since); err != nil {
+		t.Fatal(err)
+	}
+	return since.Time()
 }

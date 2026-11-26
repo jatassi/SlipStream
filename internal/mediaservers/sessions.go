@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -53,9 +55,14 @@ func sessionView(x *msv1.Session) (SessionView, error) {
 	if err != nil {
 		return SessionView{}, err
 	}
+	streams, err := streamsOf(x.GetStreams())
+	if err != nil {
+		return SessionView{}, err
+	}
 	return SessionView{
 		PlayID: id.String(), User: x.GetUser(), Player: x.GetPlayer(), Product: x.GetProduct(), Path: x.GetServerPath(),
-		Decision: x.GetDecision(), Hardware: x.GetHardware(), Reasons: append([]string{}, x.GetReasons()...),
+		Decision: string(streams.Decision()), Video: string(streams.Video), Audio: string(streams.Audio),
+		Subtitles: string(streams.Subtitles), Hardware: x.GetHardware(), Reasons: append([]string{}, x.GetReasons()...),
 		StartedAt: time.UnixMilli(x.GetStartedUnixMs()).UTC(),
 	}, nil
 }
@@ -131,16 +138,22 @@ func (m *MediaServers) Noted(node role.NodeID, scope string) {
 	}
 }
 
-// digest is what an Admin sees of a server's sessions.
+// digest is what an Admin sees of a server's sessions: each play's
+// streams, hardware, reasons, tracks and received facts but the bitrate,
+// which Plex moves on every poll.
 func digest(sf *msv1.ServerFacts) string {
 	var b strings.Builder
 	for _, x := range sf.GetSessions() {
 		b.Write(x.GetPlayId())
-		b.WriteString(x.GetDecision())
+		st := x.GetStreams()
+		fmt.Fprintf(&b, "%s/%s/%s/%t", st.GetVideo(), st.GetAudio(), st.GetSubtitles(), st.GetContainerChanged())
 		if x.GetHardware() {
 			b.WriteString("hw")
 		}
 		b.WriteString(strings.Join(x.GetReasons(), ","))
+		r := x.GetReceived()
+		fmt.Fprintf(&b, "|%s/%s/%d/%s/%d|%s|%s", r.GetContainer(), r.GetVideoCodec(), r.GetHeight(), r.GetAudioCodec(), r.GetChannels(),
+			trackKey(x.GetAudioTrack()), trackKey(x.GetSubtitleTrack()))
 		b.WriteByte(0)
 	}
 	return b.String()
@@ -196,4 +209,14 @@ func see(ctx context.Context, q *db.Queries, server link.ServerID, l looked) err
 		}
 	}
 	return nil
+}
+
+func trackKey(t *msv1.Track) string {
+	switch x := t.GetTrack().(type) {
+	case *msv1.Track_Position:
+		return strconv.Itoa(int(x.Position))
+	case *msv1.Track_External:
+		return x.External.GetCodec() + "/" + x.External.GetLanguage()
+	}
+	return ""
 }

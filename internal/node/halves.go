@@ -329,6 +329,7 @@ func (n *Node) startController(ctx context.Context) error {
 		Events: mediaservers.Events{
 			Changed:         mediaservers.ChangedEvent.Bind(n.hub),
 			SessionsChanged: mediaservers.SessionsChangedEvent.Bind(n.hub),
+			PlaysChanged:    mediaservers.PlaysChangedEvent.Bind(n.hub),
 			Unhealthy:       mediaservers.UnhealthyEvent.Bind(n.hub),
 			Recovered:       mediaservers.RecoveredEvent.Bind(n.hub),
 			ItemsFound:      mediaservers.ItemsFoundEvent.Bind(n.hub),

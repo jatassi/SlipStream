@@ -49,11 +49,11 @@ func (c *conn) socket(ctx context.Context, opened func(), push func(link.Seen), 
 	})
 }
 
-// sessionOf is one session. videoDecision is transcode for a re-encode
-// and copy for a remux, and direct play has no transcode session. Plex
-// gives no transcode reasons.
+// sessionOf is one session. A transcode session puts the streams in a new
+// container, and its videoDecision is transcode for a re-encode. Direct
+// play has no transcode session. Plex gives no transcode reasons.
 func sessionOf(x plex.Session) link.Session {
-	s := link.Session{Key: string(x.SessionKey), Decision: link.DecisionDirectPlay}
+	s := link.Session{Key: string(x.SessionKey), Streams: link.Streams{Video: link.StreamDirect, Audio: link.StreamDirect, Subtitles: link.SubtitlesNone}}
 	if x.User != nil {
 		s.User = x.User.Title
 	}
@@ -64,9 +64,9 @@ func sessionOf(x plex.Session) link.Session {
 		s.Path = fs[0]
 	}
 	if t := x.Transcode; t != nil {
-		s.Decision, s.Hardware = link.DecisionCopy, t.TranscodeHwFullPipeline || t.TranscodeHwEncoding != ""
+		s.Streams.ContainerChanged, s.Hardware = true, t.TranscodeHwFullPipeline || t.TranscodeHwEncoding != ""
 		if t.VideoDecision == "transcode" {
-			s.Decision = link.DecisionTranscode
+			s.Streams.Video = link.StreamTranscode
 		}
 	}
 	return s

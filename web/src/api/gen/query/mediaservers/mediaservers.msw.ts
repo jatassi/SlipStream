@@ -2522,7 +2522,8 @@ export const getListMediaServerSessionsResponseMock = (
   reachable: faker.datatype.boolean(),
   sessions: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
     () => ({
-      decision: faker.helpers.arrayElement(["direct_play", "copy", "transcode"] as const),
+      audio: faker.helpers.arrayElement(["direct", "transcode", "none"] as const),
+      decision: faker.helpers.arrayElement(["direct_play", "direct_stream", "transcode"] as const),
       hardware: faker.datatype.boolean(),
       path: faker.string.alpha({ length: { min: 10, max: 20 } }),
       playId: faker.string.uuid(),
@@ -2532,7 +2533,9 @@ export const getListMediaServerSessionsResponseMock = (
         () => faker.string.alpha({ length: { min: 10, max: 20 } }),
       ),
       startedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+      subtitles: faker.helpers.arrayElement(["none", "direct", "burned"] as const),
       user: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      video: faker.helpers.arrayElement(["direct", "transcode", "none"] as const),
       ...(faker.datatype.boolean() ? { workId: faker.string.uuid() } : {}),
     }),
   ),

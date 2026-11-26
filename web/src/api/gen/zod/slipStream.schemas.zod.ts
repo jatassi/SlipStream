@@ -9037,6 +9037,13 @@ export const MediaserversPinBody = zod.object({
 export type MediaserversPinBody = zod.input<typeof MediaserversPinBody>;
 export type MediaserversPinBodyOutput = zod.output<typeof MediaserversPinBody>;
 
+export const MediaserversPlaysChanged = zod.object({
+  serverIds: zod.array(zod.uuid()),
+});
+
+export type MediaserversPlaysChanged = zod.input<typeof MediaserversPlaysChanged>;
+export type MediaserversPlaysChangedOutput = zod.output<typeof MediaserversPlaysChanged>;
+
 export const MediaserversReached = zod.object({
   nodeId: zod.uuid(),
   ok: zod.boolean(),
@@ -9215,7 +9222,8 @@ export type MediaserversServerView = zod.input<typeof MediaserversServerView>;
 export type MediaserversServerViewOutput = zod.output<typeof MediaserversServerView>;
 
 export const MediaserversSessionView = zod.object({
-  decision: zod.enum(["direct_play", "copy", "transcode"]),
+  audio: zod.enum(["direct", "transcode", "none"]),
+  decision: zod.enum(["direct_play", "direct_stream", "transcode"]),
   hardware: zod.boolean().describe("The server reports hardware transcoding"),
   path: zod.string().describe("The file as the server names it"),
   playId: zod.uuid(),
@@ -9225,7 +9233,9 @@ export const MediaserversSessionView = zod.object({
     .array(zod.string())
     .describe("Transcode reasons as the server gave them; Plex gives none"),
   startedAt: zod.iso.datetime({ offset: true }),
+  subtitles: zod.enum(["none", "direct", "burned"]),
   user: zod.string(),
+  video: zod.enum(["direct", "transcode", "none"]),
   workId: zod
     .uuid()
     .exactOptional()
@@ -16322,6 +16332,16 @@ export type LiveEventMediaServersMyAccessChangedOutput = zod.output<
   typeof LiveEventMediaServersMyAccessChanged
 >;
 
+export const LiveEventMediaServersPlaysChanged = zod.object({
+  event: zod.enum(["media-servers.plays-changed"]),
+  data: MediaserversPlaysChanged,
+});
+
+export type LiveEventMediaServersPlaysChanged = zod.input<typeof LiveEventMediaServersPlaysChanged>;
+export type LiveEventMediaServersPlaysChangedOutput = zod.output<
+  typeof LiveEventMediaServersPlaysChanged
+>;
+
 export const LiveEventMediaServersRecovered = zod.object({
   event: zod.enum(["media-servers.recovered"]),
   data: MediaserversRecovered,
@@ -16617,6 +16637,7 @@ export const LiveEvent = zod.discriminatedUnion("event", [
   LiveEventMediaServersChanged,
   LiveEventMediaServersItemsFound,
   LiveEventMediaServersMyAccessChanged,
+  LiveEventMediaServersPlaysChanged,
   LiveEventMediaServersRecovered,
   LiveEventMediaServersSessionsChanged,
   LiveEventMediaServersUnhealthy,
