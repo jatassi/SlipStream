@@ -1,0 +1,375 @@
+{
+ "kind": "jellyfin",
+ "version": "12.2.0",
+ "recorded": "2026-11-26",
+ "player": "Playwright WebKit on macOS, the server's own web client",
+ "cases": {
+  "A": {
+   "predicted": "The play names the 1080p file through PlayState.MediaSourceId, resolved through the item's MediaSources.",
+   "happened": "Displayed item 66e05312fd844d219b754806d4f63a6f; session NowPlayingItem.Id 2161007640e112b99e7d94026e47c250; MediaSourceId 2161007640e112b99e7d94026e47c250 -> Twoversion (2020) - 1080p.mkv; PlayMethod Transcode.",
+   "verdict": "pass",
+   "session": {
+    "item": "2161007640e112b99e7d94026e47c250",
+    "mediaSourceId": "2161007640e112b99e7d94026e47c250",
+    "playMethod": "Transcode",
+    "audioStreamIndex": 1,
+    "subtitleStreamIndex": -1,
+    "deviceId": "<device-id-2>",
+    "deviceName": "Safari",
+    "deviceType": null,
+    "client": "Jellyfin Web",
+    "transcodingInfo": {
+     "Container": "mp4",
+     "VideoCodec": "h264",
+     "Height": 1080,
+     "Width": 1920,
+     "Bitrate": 4196966,
+     "AudioCodec": "aac",
+     "AudioChannels": 2,
+     "IsVideoDirect": true,
+     "IsAudioDirect": true,
+     "TranscodeReasons": [
+      "ContainerNotSupported"
+     ],
+     "hardware": {
+      "HardwareAccelerationType": "none"
+     },
+     "SubtitleDeliveryMethod": null,
+     "subtitleOverlayStep": false
+    }
+   },
+   "polls": 12,
+   "displayedItem": "66e05312fd844d219b754806d4f63a6f",
+   "primaryListedItem": "66e05312fd844d219b754806d4f63a6f",
+   "mediaSourcesOfNowPlayingItem": [
+    {
+     "Id": "2161007640e112b99e7d94026e47c250",
+     "ItemId": null,
+     "Name": "1080p",
+     "file": "Twoversion (2020) - 1080p.mkv"
+    },
+    {
+     "Id": "66e05312fd844d219b754806d4f63a6f",
+     "ItemId": null,
+     "Name": "2160p",
+     "file": "Twoversion (2020) - 2160p.mkv"
+    }
+   ],
+   "mediaSourcesOfAlternateItem": [
+    {
+     "Id": "2161007640e112b99e7d94026e47c250",
+     "ItemId": null,
+     "Name": "1080p",
+     "file": "Twoversion (2020) - 1080p.mkv"
+    },
+    {
+     "Id": "66e05312fd844d219b754806d4f63a6f",
+     "ItemId": null,
+     "Name": "2160p",
+     "file": "Twoversion (2020) - 2160p.mkv"
+    }
+   ]
+  },
+  "B": {
+   "predicted": "Per-stream decisions from IsVideoDirect/IsAudioDirect; TranscodingInfo carries Container, VideoCodec, Height, Bitrate, AudioCodec, AudioChannels; TranscodeReasons present.",
+   "happened": "Direct at 1.5 Mbps: Transcode, video direct false, audio direct true, mp4/h264 720p 1628002 b/s, aac 2ch, reasons ContainerBitrateExceedsLimit. 2160p HEVC at full quality: Transcode, video direct true, hevc 2160p, reasons ContainerNotSupported,VideoCodecTagNotSupported.",
+   "verdict": "pass",
+   "lowQuality": {
+    "item": "2a59725482495cfed2be7a46d6bef314",
+    "mediaSourceId": "2a59725482495cfed2be7a46d6bef314",
+    "playMethod": "Transcode",
+    "audioStreamIndex": 1,
+    "subtitleStreamIndex": -1,
+    "deviceId": "<device-id-2>",
+    "deviceName": "Recorded run renamed",
+    "deviceType": null,
+    "client": "Jellyfin Web",
+    "transcodingInfo": {
+     "Container": "mp4",
+     "VideoCodec": "h264",
+     "Height": 720,
+     "Width": 1280,
+     "Bitrate": 1628002,
+     "AudioCodec": "aac",
+     "AudioChannels": 2,
+     "IsVideoDirect": false,
+     "IsAudioDirect": true,
+     "TranscodeReasons": [
+      "ContainerBitrateExceedsLimit"
+     ],
+     "hardware": {
+      "HardwareAccelerationType": "none"
+     },
+     "SubtitleDeliveryMethod": null,
+     "subtitleOverlayStep": false
+    }
+   },
+   "fullQuality2160p": {
+    "item": "66e05312fd844d219b754806d4f63a6f",
+    "mediaSourceId": "66e05312fd844d219b754806d4f63a6f",
+    "playMethod": "Transcode",
+    "audioStreamIndex": 1,
+    "subtitleStreamIndex": -1,
+    "deviceId": "<device-id-2>",
+    "deviceName": "Safari",
+    "deviceType": null,
+    "client": "Jellyfin Web",
+    "transcodingInfo": {
+     "Container": "mp4",
+     "VideoCodec": "hevc",
+     "Height": 2160,
+     "Width": 3840,
+     "Bitrate": 16217392,
+     "AudioCodec": "aac",
+     "AudioChannels": 2,
+     "IsVideoDirect": true,
+     "IsAudioDirect": true,
+     "TranscodeReasons": [
+      "ContainerNotSupported",
+      "VideoCodecTagNotSupported"
+     ],
+     "hardware": {
+      "HardwareAccelerationType": "none"
+     },
+     "SubtitleDeliveryMethod": null,
+     "subtitleOverlayStep": false
+    }
+   }
+  },
+  "C": {
+   "predicted": "A remux reads PlayMethod DirectStream with IsVideoDirect and IsAudioDirect true.",
+   "happened": "PlayMethod Transcode, IsVideoDirect true, IsAudioDirect true, container mp4, reasons ContainerNotSupported.",
+   "verdict": "contradiction",
+   "session": {
+    "item": "42259bbd01a46ec74ef2efca9ed77b42",
+    "mediaSourceId": "42259bbd01a46ec74ef2efca9ed77b42",
+    "playMethod": "Transcode",
+    "audioStreamIndex": 1,
+    "subtitleStreamIndex": -1,
+    "deviceId": "<device-id-2>",
+    "deviceName": "Safari",
+    "deviceType": null,
+    "client": "Jellyfin Web",
+    "transcodingInfo": {
+     "Container": "mp4",
+     "VideoCodec": "h264",
+     "Height": 1080,
+     "Width": 1920,
+     "Bitrate": 4196966,
+     "AudioCodec": "aac",
+     "AudioChannels": 2,
+     "IsVideoDirect": true,
+     "IsAudioDirect": true,
+     "TranscodeReasons": [
+      "ContainerNotSupported"
+     ],
+     "hardware": {
+      "HardwareAccelerationType": "none"
+     },
+     "SubtitleDeliveryMethod": null,
+     "subtitleOverlayStep": false
+    }
+   },
+   "playerRequests": []
+  },
+  "D": {
+   "predicted": "IsVideoDirect true and IsAudioDirect false; AudioStreamIndex names the French track.",
+   "happened": "PlayMethod Transcode, IsVideoDirect true, IsAudioDirect false, aac 6ch, reasons ContainerNotSupported,AudioCodecNotSupported; AudioStreamIndex 2 = fra dts.",
+   "verdict": "pass",
+   "session": {
+    "item": "3a24497cad4c6f6164d35bf8c44cc16f",
+    "mediaSourceId": "3a24497cad4c6f6164d35bf8c44cc16f",
+    "playMethod": "Transcode",
+    "audioStreamIndex": 2,
+    "subtitleStreamIndex": -1,
+    "deviceId": "<device-id-2>",
+    "deviceName": "Safari",
+    "deviceType": null,
+    "client": "Jellyfin Web",
+    "transcodingInfo": {
+     "Container": "mp4",
+     "VideoCodec": "h264",
+     "Height": 1080,
+     "Width": 1920,
+     "Bitrate": 4654719,
+     "AudioCodec": "aac",
+     "AudioChannels": 6,
+     "IsVideoDirect": true,
+     "IsAudioDirect": false,
+     "TranscodeReasons": [
+      "ContainerNotSupported",
+      "AudioCodecNotSupported"
+     ],
+     "hardware": {
+      "HardwareAccelerationType": "none"
+     },
+     "SubtitleDeliveryMethod": null,
+     "subtitleOverlayStep": false
+    }
+   },
+   "audioStreams": [
+    {
+     "Index": 1,
+     "Language": "eng",
+     "Codec": "dts"
+    },
+    {
+     "Index": 2,
+     "Language": "fra",
+     "Codec": "dts"
+    }
+   ]
+  },
+  "E": {
+   "predicted": "A transcoded play gives SubtitleCodecNotSupported with IsVideoDirect false; Emby names subtitle delivery in a field.",
+   "happened": "PlayMethod Transcode, IsVideoDirect false, reasons ContainerNotSupported,SubtitleCodecNotSupported, SubtitleStreamIndex 2, session SubtitleDeliveryMethod null, pipeline overlay step false; player request SubtitleMethod Encode; PlaybackInfo subtitle DeliveryMethod [].",
+   "verdict": "pass",
+   "session": {
+    "item": "17522e7d2e40eaa77efef1f88869cc34",
+    "mediaSourceId": "17522e7d2e40eaa77efef1f88869cc34",
+    "playMethod": "Transcode",
+    "audioStreamIndex": 1,
+    "subtitleStreamIndex": 2,
+    "deviceId": "<device-id-2>",
+    "deviceName": "Recorded run renamed",
+    "deviceType": null,
+    "client": "Jellyfin Web",
+    "transcodingInfo": {
+     "Container": "mp4",
+     "VideoCodec": "h264",
+     "Height": 1080,
+     "Width": 1920,
+     "Bitrate": 4212467,
+     "AudioCodec": "aac",
+     "AudioChannels": 2,
+     "IsVideoDirect": false,
+     "IsAudioDirect": true,
+     "TranscodeReasons": [
+      "ContainerNotSupported",
+      "SubtitleCodecNotSupported"
+     ],
+     "hardware": {
+      "HardwareAccelerationType": "none"
+     },
+     "SubtitleDeliveryMethod": null,
+     "subtitleOverlayStep": false
+    }
+   },
+   "playerSubtitleRequest": {
+    "path": "/videos/17522e7d-2e40-eaa7-7efe-f1f88869cc34/master.m3u8",
+    "query": {
+     "MediaSourceId": "17522e7d2e40eaa77efef1f88869cc34",
+     "VideoCodec": "av1,hevc,h264,vp9",
+     "AudioCodec": "aac",
+     "AudioStreamIndex": "1",
+     "SubtitleStreamIndex": "2",
+     "SegmentContainer": "mp4",
+     "SubtitleMethod": "Encode"
+    }
+   },
+   "playbackInfoSubtitles": []
+  },
+  "F": {
+   "predicted": "DeviceId stays the same across plays from one browser profile; DeviceType names the platform.",
+   "happened": "DeviceId same across both plays and the rename (names [\"Safari\",\"Recorded run renamed\"]); DeviceType [null]; Client Jellyfin Web; PlayMethod DirectPlay; player fetched /Videos/2a59725482495cfed2be7a46d6bef314/stream.mp4 {\"Static\":\"true\"}.",
+   "verdict": "pass",
+   "play1": {
+    "item": "2a59725482495cfed2be7a46d6bef314",
+    "mediaSourceId": "2a59725482495cfed2be7a46d6bef314",
+    "playMethod": "DirectPlay",
+    "audioStreamIndex": 1,
+    "subtitleStreamIndex": -1,
+    "deviceId": "<device-id-2>",
+    "deviceName": "Safari",
+    "deviceType": null,
+    "client": "Jellyfin Web",
+    "transcodingInfo": null
+   },
+   "play2": {
+    "item": "2a59725482495cfed2be7a46d6bef314",
+    "mediaSourceId": "2a59725482495cfed2be7a46d6bef314",
+    "playMethod": "DirectPlay",
+    "audioStreamIndex": 1,
+    "subtitleStreamIndex": -1,
+    "deviceId": "<device-id-2>",
+    "deviceName": "Recorded run renamed",
+    "deviceType": null,
+    "client": "Jellyfin Web",
+    "transcodingInfo": null
+   },
+   "deviceIdsAcrossAllCases": 1
+  }
+ },
+ "predictions": [
+  {
+   "id": "version-played-resolves-through-MediaSourceId",
+   "verdict": "holds",
+   "evidence": "PlayState.MediaSourceId 2161007640e112b99e7d94026e47c250 is the source named 1080p at Twoversion (2020) - 1080p.mkv"
+  },
+  {
+   "id": "alternate-MediaSourceId-differs-from-displayed-item",
+   "verdict": "holds",
+   "evidence": "displayed item 66e05312fd844d219b754806d4f63a6f, MediaSourceId 2161007640e112b99e7d94026e47c250, NowPlayingItem.Id 2161007640e112b99e7d94026e47c250"
+  },
+  {
+   "id": "only-primary-item-MediaSources-lists-alternate",
+   "verdict": "contradicted",
+   "evidence": "GET /Users/{u}/Items/2161007640e112b99e7d94026e47c250 (the alternate's own item) lists [\"Twoversion (2020) - 1080p.mkv\",\"Twoversion (2020) - 2160p.mkv\"]; the primary 66e05312fd844d219b754806d4f63a6f lists [\"Twoversion (2020) - 2160p.mkv\",\"Twoversion (2020) - 1080p.mkv\"]"
+  },
+  {
+   "id": "jellyfin-primary-source-id-equals-item-id",
+   "verdict": "holds",
+   "evidence": "primary item 66e05312fd844d219b754806d4f63a6f, its first MediaSource 66e05312fd844d219b754806d4f63a6f"
+  },
+  {
+   "id": "TranscodingInfo-carries-received-facts",
+   "verdict": "holds",
+   "evidence": "TranscodingInfo {\"Container\":\"mp4\",\"VideoCodec\":\"h264\",\"Height\":720,\"Bitrate\":1628002,\"AudioCodec\":\"aac\",\"AudioChannels\":2}"
+  },
+  {
+   "id": "TranscodeReasons-present",
+   "verdict": "holds",
+   "evidence": "TranscodeReasons [\"ContainerBitrateExceedsLimit\"]"
+  },
+  {
+   "id": "hardware-flag",
+   "verdict": "recorded",
+   "evidence": "software only, {\"HardwareAccelerationType\":\"none\"}; no GPU in this run"
+  },
+  {
+   "id": "DirectStream-is-a-remux",
+   "verdict": "contradicted",
+   "evidence": "MKV H.264/AAC remuxed to mp4 reads PlayMethod Transcode with IsVideoDirect true, IsAudioDirect true"
+  },
+  {
+   "id": "container-change-rule (PlayMethod DirectStream or Transcode, both streams direct => remux)",
+   "verdict": "holds",
+   "evidence": "PlayMethod Transcode, both direct true"
+  },
+  {
+   "id": "IsVideoDirect/IsAudioDirect-tell-audio-only-transcode",
+   "verdict": "holds",
+   "evidence": "IsVideoDirect true, IsAudioDirect false, reasons [\"ContainerNotSupported\",\"AudioCodecNotSupported\"]"
+  },
+  {
+   "id": "AudioStreamIndex-names-chosen-track",
+   "verdict": "holds",
+   "evidence": "AudioStreamIndex 2; audio streams [{\"Index\":1,\"Language\":\"eng\",\"Codec\":\"dts\"},{\"Index\":2,\"Language\":\"fra\",\"Codec\":\"dts\"}]"
+  },
+  {
+   "id": "burned-image-subs-give-SubtitleCodecNotSupported",
+   "verdict": "holds",
+   "evidence": "TranscodeReasons [\"ContainerNotSupported\",\"SubtitleCodecNotSupported\"], IsVideoDirect false, SubtitleStreamIndex 2"
+  },
+  {
+   "id": "player-key-DeviceId-stable",
+   "verdict": "holds",
+   "evidence": "one DeviceId over every case and across a rename to \"Recorded run renamed\""
+  },
+  {
+   "id": "platform-DeviceType",
+   "verdict": "contradicted",
+   "evidence": "session has no DeviceType; DeviceName \"Safari\", Client \"Jellyfin Web\""
+  }
+ ]
+}
