@@ -79,12 +79,7 @@ type Service interface {
 	CheckMine(ctx context.Context, me identity.Account, id AccessID) (MyAccessRow, error)
 }
 
-var (
-	ErrNoSuchPlay = errors.New("no play on this Media Server has this id")
-	// ErrNotYet is an operation the build of S36 (Playback report) hasn't
-	// reached.
-	ErrNotYet = errors.New("this operation isn't built yet")
-)
+var ErrNoSuchPlay = errors.New("no play on this Media Server has this id")
 
 // Mapping is one root's mapping to save, parsed from the request.
 type Mapping struct {
