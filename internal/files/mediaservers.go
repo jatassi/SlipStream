@@ -2,11 +2,14 @@ package files
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 
 	"github.com/jatassi/slipstream/internal/files/internal/db"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storing"
+	"github.com/jatassi/slipstream/internal/works"
 )
 
 // PathChangeKind is what happened to a library file's bytes, as a Media
@@ -253,4 +256,53 @@ func PlacesOf(ctx context.Context, r storage.Reader[file], root roots.ID, fs []I
 		}
 	}
 	return out, nil
+}
+
+// PlayedOf reads, in r, the file id names with its Items in tree order,
+// ErrNoFile when it is gone or no file has id.
+func PlayedOf(ctx context.Context, r storage.Reader[file], id ID) (File, error) {
+	rows, err := db.New(r).ListPlayedFile(ctx, id)
+	if err != nil {
+		return File{}, err
+	}
+	if len(rows) == 0 {
+		return File{}, ErrNoFile
+	}
+	f := fileOf(rows[0].FilesFile)
+	for _, row := range rows {
+		f.Items = append(f.Items, row.ItemID)
+	}
+	return f, nil
+}
+
+// OfItems reads, in r, every file that holds one of items and isn't gone,
+// Kept files and files still moving included, in id order with their
+// Items in tree order.
+func OfItems(ctx context.Context, r storage.Reader[file], items []works.ItemID) ([]File, error) {
+	listed, err := json.Marshal(items)
+	if err != nil {
+		return nil, fmt.Errorf("list Items: %w", err)
+	}
+	rows, err := db.New(r).ListFilesOfItems(ctx, string(listed))
+	if err != nil {
+		return nil, err
+	}
+	var out []File
+	for _, row := range rows {
+		if len(out) == 0 || out[len(out)-1].ID != row.FilesFile.ID {
+			out = append(out, fileOf(row.FilesFile))
+		}
+		last := &out[len(out)-1]
+		last.Items = append(last.Items, row.ItemID)
+	}
+	return out, nil
+}
+
+// LabelOf is the name a Media Server shows for f: its Label, with
+// " (extra N)" when it is Kept, as its file name renders it.
+func LabelOf(f File) string {
+	if f.Extra > 0 {
+		return f.Label + fmt.Sprintf(" (extra %d)", f.Extra)
+	}
+	return f.Label
 }

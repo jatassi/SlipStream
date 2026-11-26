@@ -192,6 +192,7 @@ func (n *Node) startController(ctx context.Context) error {
 		shelf        *files.Files
 		searchQueue  = &searches.Late{}
 		kept         *backups.Backups
+		goals        *targets.Targets
 	)
 	var keeping entry.Recorder
 	keeper := reconciling.New(reconciling.Config{
@@ -318,6 +319,10 @@ func (n *Node) startController(ctx context.Context) error {
 		},
 		FileIDs:    files.IDsAt,
 		FilePlaces: files.PlacesOf,
+		Played:     playbackReads{&goals}.played,
+		Siblings:   playbackReads{&goals}.siblings,
+		Targets:    targets.All,
+		Batch:      n.cfg.Timings.Housekeeping.PruneBatch,
 		WorkFiles: func(ctx context.Context, r storage.Reader[storage.Library], work works.WorkID) ([]files.File, error) {
 			return files.LeftIn(ctx, r, []works.WorkID{work})
 		},
@@ -590,7 +595,7 @@ func (n *Node) startController(ctx context.Context) error {
 		Zone: n.zone(),
 		Log:  n.rootLog.With("subsystem", "indexers"),
 	})
-	goals, err := targets.Open(ctx, targets.Config{
+	goals, err = targets.Open(ctx, targets.Config{
 		Library:   lib.db,
 		Works:     tree,
 		Types:     contenttype.Project(opened, func(t contenttype.Library) targets.Facet { return t }),

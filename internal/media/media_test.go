@@ -102,6 +102,38 @@ func TestProbedInTheReleaseVocabularies(t *testing.T) {
 	if got, known := r.Probed().Audio.Get(); !known || len(got) != 0 {
 		t.Errorf("audio of a file without audio = %v, %v; want known and empty", got, known)
 	}
+
+	for _, c := range []struct {
+		name, got, want string
+	}{
+		{"matroska", string(media.ContainerOf("matroska,webm")), "MKV"},
+		{"mp4", string(media.ContainerOf("mov,mp4,m4a,3gp,3g2,mj2")), "MP4"},
+		{"mpegts", string(media.ContainerOf("mpegts")), "TS"},
+		{"avi", string(media.ContainerOf("avi")), ""},
+		{"subrip", string(media.SubtitleCodecOf("subrip")), "SRT"},
+		{"ass", string(media.SubtitleCodecOf("ass")), "ASS"},
+		{"webvtt", string(media.SubtitleCodecOf("webvtt")), "WebVTT"},
+		{"mov_text", string(media.SubtitleCodecOf("mov_text")), "MovText"},
+		{"pgs", string(media.SubtitleCodecOf("hdmv_pgs_subtitle")), "PGS"},
+		{"dvd", string(media.SubtitleCodecOf("dvd_subtitle")), "VobSub"},
+		{"dvb", string(media.SubtitleCodecOf("dvb_subtitle")), ""},
+		{"srt sidecar", string(media.SubtitleCodecOfExt("srt")), "SRT"},
+		{"ass sidecar", string(media.SubtitleCodecOfExt("ass")), "ASS"},
+		{"ssa sidecar", string(media.SubtitleCodecOfExt("ssa")), "ASS"},
+		{"vtt sidecar", string(media.SubtitleCodecOfExt("vtt")), "WebVTT"},
+		{"truehd", string(media.AudioCodecOf(media.Audio{Codec: "truehd"})), "TrueHD"},
+		{"dts-hd ma", string(media.AudioCodecOf(media.Audio{Codec: "dts", Profile: "DTS-HD MA + DTS:X"})), "DTS-HD MA"},
+		{"vorbis", string(media.AudioCodecOf(media.Audio{Codec: "vorbis"})), ""},
+		{"8 channels", string(media.LayoutOf(8)), "7.1"},
+		{"6 channels", string(media.LayoutOf(6)), "5.1"},
+		{"2 channels", string(media.LayoutOf(2)), "2.0"},
+		{"1 channel", string(media.LayoutOf(1)), "1.0"},
+		{"3 channels", string(media.LayoutOf(3)), ""},
+	} {
+		if c.got != c.want {
+			t.Errorf("%s = %q, want %q", c.name, c.got, c.want)
+		}
+	}
 }
 
 func fact[T any](f release.Fact[T]) any {

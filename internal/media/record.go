@@ -120,10 +120,10 @@ func (r Record) Probed() release.Probed {
 	var languages []release.Language
 	untagged := false
 	for _, a := range r.Audio {
-		if c, ok := audioCodecOf(a); ok && !slices.Contains(codecs, c) {
+		if c := AudioCodecOf(a); c != "" && !slices.Contains(codecs, c) {
 			codecs = append(codecs, c)
 		}
-		if c, ok := layouts[a.Channels]; ok && !slices.Contains(channels, c) {
+		if c := LayoutOf(a.Channels); c != "" && !slices.Contains(channels, c) {
 			channels = append(channels, c)
 		}
 		untagged = untagged || a.Language == ""
@@ -140,19 +140,47 @@ func (r Record) Probed() release.Probed {
 
 var layouts = map[int]release.Channels{8: "7.1", 6: "5.1", 2: "2.0", 1: "1.0"}
 
+// LayoutOf is the channel layout of a track of channels, "" for a count
+// the vocabulary has no word for.
+func LayoutOf(channels int) release.Channels { return layouts[channels] }
+
 var audioCodecs = map[string]release.AudioCodec{
 	"truehd": "TrueHD", "eac3": "DD+", "ac3": "DD", "aac": "AAC", "flac": "FLAC", "opus": "Opus", "mp3": "MP3",
 }
 
-func audioCodecOf(a Audio) (release.AudioCodec, bool) {
+// AudioCodecOf is a's codec in the vocabulary, "" when it has no word for
+// it.
+func AudioCodecOf(a Audio) release.AudioCodec {
 	switch {
 	case a.Codec == "dts" && strings.HasPrefix(a.Profile, "DTS-HD MA"):
-		return "DTS-HD MA", true
+		return "DTS-HD MA"
 	case a.Codec == "dts":
-		return "DTS", true
+		return "DTS"
 	case strings.HasPrefix(a.Codec, "pcm_"):
-		return "PCM", true
+		return "PCM"
 	}
-	c, ok := audioCodecs[a.Codec]
-	return c, ok
+	return audioCodecs[a.Codec]
 }
+
+var containers = map[string]release.Container{
+	"matroska,webm": release.MKV, "mov,mp4,m4a,3gp,3g2,mj2": release.MP4, "mpegts": release.TS,
+}
+
+// ContainerOf is the container ffprobe names formatName, "" when the
+// vocabulary has no word for it.
+func ContainerOf(formatName string) release.Container { return containers[formatName] }
+
+var subtitleCodecs = map[string]release.SubtitleCodec{
+	"subrip": release.SRT, "ass": release.ASS, "webvtt": release.WebVTT, "mov_text": release.MovText,
+	"hdmv_pgs_subtitle": release.PGS, "dvd_subtitle": release.VobSub,
+}
+
+// SubtitleCodecOf is the format of a subtitle stream ffprobe names codec,
+// "" when the vocabulary has no word for it.
+func SubtitleCodecOf(codec string) release.SubtitleCodec { return subtitleCodecs[codec] }
+
+var sidecarCodecs = map[string]release.SubtitleCodec{"srt": release.SRT, "ass": release.ASS, "ssa": release.ASS, "vtt": release.WebVTT}
+
+// SubtitleCodecOfExt is the format of a Sidecar whose name ends in ext,
+// "srt" with no dot, "" when the vocabulary has no word for it.
+func SubtitleCodecOfExt(ext string) release.SubtitleCodec { return sidecarCodecs[ext] }
