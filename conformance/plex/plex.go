@@ -81,6 +81,8 @@ func Run(t *testing.T, tg Target) {
 		{"BackslashPaths", BackslashPaths},
 		{"EditionsOnlyUnderPlexPass", EditionsOnlyUnderPlexPass},
 		{"TimelineOnAdd", TimelineOnAdd},
+		{"SessionFacts", func(t *testing.T, _ Target, shared mediaservers.Target) { mediaservers.ReadsSessions(t, shared) }},
+		{"AlternateVersion", func(t *testing.T, _ Target, shared mediaservers.Target) { mediaservers.AlternateVersion(t, shared) }},
 	}
 	var cases []mediaservers.Case
 	for _, pc := range plexCases {

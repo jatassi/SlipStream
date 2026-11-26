@@ -1,8 +1,10 @@
 package plex
 
 import (
+	"cmp"
 	"context"
 	"net/http"
+	"slices"
 	"strings"
 
 	"github.com/coder/websocket"
@@ -18,21 +20,40 @@ type transcode struct {
 	Key                  string `json:"key"`
 	VideoDecision        string `json:"videoDecision"`
 	AudioDecision        string `json:"audioDecision"`
+	SubtitleDecision     string `json:"subtitleDecision,omitempty"`
+	Container            string `json:"container,omitempty"`
+	VideoCodec           string `json:"videoCodec,omitempty"`
+	AudioCodec           string `json:"audioCodec,omitempty"`
+	Height               int    `json:"height,omitempty"`
+	AudioChannels        int    `json:"audioChannels,omitempty"`
 	TranscodeHwRequested bool   `json:"transcodeHwRequested"`
 	TranscodeHwDecoding  string `json:"transcodeHwDecoding,omitempty"`
 	TranscodeHwEncoding  string `json:"transcodeHwEncoding,omitempty"`
 }
 
-// videoDecisions are Plex's words for what a transcode session does with
-// the video: copy for a direct stream.
-var videoDecisions = map[link.Decision]string{link.DecisionDirectStream: "copy", link.DecisionTranscode: "transcode"}
-
+// transcodeOf is the TranscodeSession of sess, nil for a direct play, as
+// the recorded run of 2026-11-26 read it: copy or transcode per stream, a
+// burn re-encoding the video, no subtitleDecision but burn, and no height
+// once the video is re-encoded.
 func transcodeOf(sess mediaserver.Session, key string) *transcode {
-	d := sess.Streams.Decision()
-	if d == link.DecisionDirectPlay {
+	st := sess.Streams
+	if st.Decision() == link.DecisionDirectPlay {
 		return nil
 	}
-	t := &transcode{Key: key, VideoDecision: videoDecisions[d], AudioDecision: "copy", TranscodeHwRequested: sess.Hardware}
+	word := map[bool]string{false: "copy", true: "transcode"}
+	video := st.Video == link.StreamTranscode || st.Subtitles == link.SubtitlesBurned
+	rc := sess.Received
+	t := &transcode{
+		Key: key, VideoDecision: word[video], AudioDecision: word[st.Audio == link.StreamTranscode],
+		Container: rc.Container, VideoCodec: rc.VideoCodec, AudioCodec: rc.AudioCodec, AudioChannels: rc.Channels,
+		TranscodeHwRequested: sess.Hardware,
+	}
+	if st.Subtitles == link.SubtitlesBurned {
+		t.SubtitleDecision = "burn"
+	}
+	if !video {
+		t.Height = rc.Height
+	}
 	if sess.Hardware {
 		t.TranscodeHwDecoding, t.TranscodeHwEncoding = "vaapi", "vaapi"
 	}
@@ -41,41 +62,112 @@ func transcodeOf(sess mediaserver.Session, key string) *transcode {
 
 func transcodeKey(sess mediaserver.Session) string { return "fake-plex-transcode-" + sess.Key }
 
-// sessions lists each session whose client reported its timeline. A
-// transcode's part decision is "transcode" even for a remux (#71).
+// sessions lists each session whose client reported its timeline, as the
+// recorded run of 2026-11-26 read it: the item that holds the version,
+// every Media of it with only the played one selected, and the player's
+// machineIdentifier its key. A direct play carries the TranscodeSession
+// of its player's last transcode, as a real Plex's did.
 func (s *server) sessions(w http.ResponseWriter, _ *http.Request) {
-	var out []metadata
+	out := []metadata{}
 	for _, sess := range s.core.Sessions() {
-		if sess.Unreported {
+		it, ok := s.core.ItemAt(sess.Version)
+		if sess.Unreported || !ok {
 			continue
 		}
-		m := s.render(sess.Item)
+		m := s.render(it)
 		m.SessionKey = sess.Key
 		m.User = map[string]any{"id": "1", "title": sess.User}
-		m.Player = map[string]any{"title": sess.Player.Name, "product": sess.Player.Product, "machineIdentifier": "fake-player-" + sess.Key, "state": "playing"}
-		m.Session = map[string]any{"id": "fake-plex-session-" + sess.Key}
-		m.TranscodeSession = transcodeOf(sess, "/transcode/sessions/"+transcodeKey(sess))
-		decision := "directplay"
-		if m.TranscodeSession != nil {
-			decision = "transcode"
+		m.Player = map[string]any{
+			"title": sess.Player.Name, "product": cmp.Or(sess.Player.Product, "Plex Web"), "platform": sess.Player.Platform,
+			"machineIdentifier": sess.Player.Key, "state": "playing",
 		}
-		m.Media = filterPart(m.Media, sess.Path, decision)
+		m.Session = map[string]any{"id": "fake-plex-session-" + sess.Key}
+		t := transcodeOf(sess, "/transcode/sessions/"+transcodeKey(sess))
+		s.mu.Lock()
+		m.TranscodeSession = cmp.Or(t, s.stale[sess.Player.Key])
+		selected := !s.unselected[sess.Key]
+		s.mu.Unlock()
+		m.Media = playing(m.Media, sess, t != nil, selected)
 		out = append(out, m)
 	}
 	writeJSON(w, container{map[string]any{"size": len(out), "Metadata": out}})
 }
 
-// filterPart keeps the one part the session plays.
-func filterPart(ms []media, file link.ServerPath, decision string) []media {
-	for _, m := range ms {
-		for _, p := range m.Part {
-			if strings.EqualFold(p.File, file.String()) {
-				p.Decision = decision
-				return []media{{ID: m.ID, Part: []part{p}}}
-			}
+// playing is ms as a session lists them: the played Media is what the
+// player receives, its Part only the streams that play, with no file
+// while Plex transcodes, and the others as their item holds them, with no
+// streams.
+func playing(ms []media, sess mediaserver.Session, transcoding, selected bool) []media {
+	out := make([]media, len(ms))
+	for i, m := range ms {
+		p := m.Part[0]
+		if !strings.EqualFold(p.File, sess.Version.String()) {
+			p.Stream = nil
+			p.ID = p.ID.quote()
+			out[i] = media{ID: m.ID.quote(), Part: []part{p}}
+			continue
 		}
+		pt := part{ID: p.ID.quote(), Selected: selected, Stream: played(p.Stream, sess, transcoding), Decision: "directplay"}
+		mm := media{ID: m.ID.quote(), Selected: selected}
+		if transcoding {
+			rc := sess.Received
+			pt.Decision, mm.Container, mm.Bitrate, mm.Height = "transcode", rc.Container, rc.Bitrate, rc.Height
+		} else {
+			pt.Key, pt.File, pt.Size = p.Key, p.File, p.Size
+		}
+		mm.Part = []part{pt}
+		out[i] = mm
 	}
-	return ms
+	return out
+}
+
+// played are the streams of all that play in sess, ids as strings: the
+// video and the chosen audio and subtitle.
+func played(all []stream, sess mediaserver.Session, transcoding bool) []stream {
+	var out []stream
+	st := sess.Streams
+	pick := func(i int, decision string) {
+		if i < 0 {
+			return
+		}
+		x := all[i]
+		x.ID = x.ID.quote()
+		if transcoding {
+			x.Decision = decision
+		}
+		out = append(out, x)
+	}
+	word := map[bool]string{false: "copy", true: "transcode"}
+	pick(nth(all, 1, 0), word[st.Video == link.StreamTranscode || st.Subtitles == link.SubtitlesBurned])
+	if n := sess.AudioTrack; n != nil {
+		pick(nth(all, 2, *n), word[st.Audio == link.StreamTranscode])
+	}
+	if n := sess.SubtitleTrack; n != nil {
+		sub := nth(all, 3, *n)
+		if *n == -1 {
+			sub = slices.IndexFunc(all, func(x stream) bool { return x.Key != "" })
+		}
+		if sub >= 0 && st.Subtitles == link.SubtitlesBurned {
+			all[sub].Burn = "1"
+		}
+		pick(sub, map[bool]string{false: "copy", true: "burn"}[st.Subtitles == link.SubtitlesBurned])
+	}
+	return out
+}
+
+// nth is the index in all of the n-th embedded stream of typ, -1 when it
+// has none.
+func nth(all []stream, typ, n int) int {
+	for i, x := range all {
+		if x.StreamType != typ || x.Key != "" {
+			continue
+		}
+		if n == 0 {
+			return i
+		}
+		n--
+	}
+	return -1
 }
 
 // transcodes lists every transcode, reported or not.
@@ -160,7 +252,7 @@ func (s *server) notify(e mediaserver.Event) (notification, bool) {
 		return notification{}, false
 	}
 	entry := map[string]any{
-		"sessionKey": e.Session.Key, "clientIdentifier": "fake-player-" + e.Session.Key, "ratingKey": e.Session.Item.Key,
+		"sessionKey": e.Session.Key, "clientIdentifier": e.Session.Player.Key, "ratingKey": e.Session.Item.Key,
 		"key": "/library/metadata/" + e.Session.Item.Key, "state": state, "viewOffset": 0,
 	}
 	if e.Session.Streams.Decision() != link.DecisionDirectPlay {
@@ -174,12 +266,25 @@ func pushed(typ, field string, entry map[string]any) notification {
 }
 
 // Play is a plex-play cue's arguments. An unreported client never sent
-// its timeline, which only /transcode/sessions lists.
-type Play = serverfake.Play
+// its timeline, which only /transcode/sessions lists. Unselected lists
+// the item's Media with none selected.
+type Play struct {
+	serverfake.Play
+	Unselected bool `json:"unselected,omitempty"`
+}
 
-// Played is a plex-play cue's result.
+// Played is a plex-play cue's result: the session's key and the ratingKey
+// of the item it plays.
 type Played struct {
 	Session string `json:"session"`
+	Item    string `json:"item"`
+}
+
+// Select is a plex-select cue's arguments: whether the session's played
+// Media is selected.
+type Select struct {
+	Session  string `json:"session"`
+	Selected bool   `json:"selected"`
 }
 
 type Stop struct {
@@ -200,7 +305,22 @@ func (s *server) cues() error {
 		if err != nil {
 			return nil, err
 		}
-		return Played{Session: sess.Key}, nil
+		it, _ := s.core.ItemAt(sess.Version)
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		s.unselected[sess.Key] = a.Unselected
+		if t := transcodeOf(sess, "/transcode/sessions/"+transcodeKey(sess)); t != nil {
+			s.stale[sess.Player.Key] = t
+		}
+		return Played{Session: sess.Key, Item: it.Key}, nil
+	}); err != nil {
+		return err
+	}
+	if err := fake.OnCue(s.env, "plex-select", func(_ context.Context, a Select) (any, error) {
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		s.unselected[a.Session] = !a.Selected
+		return map[string]bool{"selected": a.Selected}, nil
 	}); err != nil {
 		return err
 	}
@@ -222,4 +342,20 @@ func (s *server) cues() error {
 		}
 		return map[string]any{"started": started}, nil
 	})
+}
+
+// productNames are Plex's names for the release words a conformance play
+// receives.
+var productNames = map[string]string{
+	"MKV": "mkv", "MP4": "mp4", "TS": "mpegts", "x264": "h264", "x265": "hevc", "AAC": "aac", "DTS": "dca", "DD": "ac3", "DD+": "eac3",
+}
+
+// ReceivedOf is r, in release words and bits a second, in Plex's names
+// and kbps.
+func ReceivedOf(r link.Received) mediaserver.Received {
+	name := func(s string) string { return cmp.Or(productNames[s], s) }
+	return mediaserver.Received{
+		Container: name(r.Container), VideoCodec: name(r.VideoCodec), AudioCodec: name(r.AudioCodec),
+		Height: r.Height, Bitrate: r.Bitrate / 1000, Channels: r.Channels,
+	}
 }

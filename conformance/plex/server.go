@@ -48,7 +48,7 @@ func (s *server) Sessions(ctx context.Context) ([]link.Session, error) {
 
 func (s *server) kind() (link.Kind, link.Dialed) {
 	k, _ := mediaserverlink.Kinds.Of("plex")
-	return k, link.Dialed{Address: s.tg.Address, Credential: link.Credential{Token: s.tg.Token}, DeviceID: headers.ClientID, HTTP: s.tg.HTTP}
+	return k, link.Dialed{Address: s.tg.Address, Credential: link.Credential{Token: s.tg.Token}, DeviceID: headers.ClientID, HTTP: s.tg.HTTP, Log: s.tg.Log}
 }
 
 func (s *server) Reach(ctx context.Context) (link.Identity, error) {

@@ -3,6 +3,7 @@ package plexkind_test
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"os"
@@ -67,9 +68,13 @@ func (d *den) dial(tok string) link.Conn {
 	return plexkind.Kind.Dial(link.Dialed{
 		Server:  link.ServerRef{ID: link.ServerID{UUID: storage.NewUUID()}, Kind: "plex", Identity: machine},
 		Address: d.f.Address.URL(""), Credential: link.Credential{Token: tok}, DeviceID: "slipstream-test",
-		HTTP: d.f.Client, Timings: link.DefaultTimings(),
+		HTTP: d.f.Client, Timings: link.DefaultTimings(), Versions: noVersions{}, Log: slog.New(slog.NewTextHandler(d.t.Output(), nil)),
 	})
 }
+
+type noVersions struct{}
+
+func (noVersions) Version(string) (link.Version, bool) { return link.Version{}, false }
 
 // at is rel under the server's root, as Plex names it.
 func (d *den) at(rel string) link.ServerPath { return d.root.Join(mustRel(d.t, rel)) }

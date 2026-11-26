@@ -11,6 +11,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/url"
 	"strings"
 	"time"
@@ -37,7 +38,7 @@ func (kind) OpenIn(app, identity, item string) string {
 func (kind) Dial(d link.Dialed) link.Conn {
 	base, err := url.Parse(d.Address)
 	return &conn{
-		server: d.Server, base: err, t: d.Timings,
+		server: d.Server, base: err, t: d.Timings, versions: d.Versions, log: d.Log,
 		c: plex.New(base, d.Credential.Token, plex.Headers{ClientID: d.DeviceID, Product: "SlipStream"}, d.HTTP),
 	}
 }
@@ -45,10 +46,12 @@ func (kind) Dial(d link.Dialed) link.Conn {
 // conn is one Plex at one address. base is the address's parse error,
 // answered by every call, since Dial does no IO and returns no error.
 type conn struct {
-	server link.ServerRef
-	base   error
-	c      *plex.Client
-	t      link.Timings
+	server   link.ServerRef
+	base     error
+	c        *plex.Client
+	t        link.Timings
+	versions link.Versions
+	log      *slog.Logger
 }
 
 // fail is err in SlipStream's words: a *link.ServerError when Plex itself
