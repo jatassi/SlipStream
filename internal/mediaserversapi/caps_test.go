@@ -3,6 +3,7 @@ package mediaserversapi_test
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"strings"
 	"testing"
 	"testing/synctest"
@@ -134,6 +135,109 @@ func session(now time.Time) *msv1.Session {
 		StartedUnixMs: now.UnixMilli(), SeenUnixMs: now.UnixMilli(),
 		Streams: &msv1.Streams{Video: "direct", Audio: "direct", Subtitles: "none"},
 	}
+}
+
+func factsOf(server link.ServerID, sessions ...*msv1.Session) *msv1.Facts {
+	return &msv1.Facts{Servers: []*msv1.ServerFacts{{ServerId: server.Bytes(), Responding: true, Sessions: sessions}}}
+}
+
+type shown struct {
+	Sessions []struct{ PlayID, Player string }
+}
+
+func (w watched) shown(t *testing.T) shown {
+	t.Helper()
+	status, body := w.o.Call(t, http.MethodGet, servers+"/"+w.id+"/sessions", "")
+	var got shown
+	if err := json.Unmarshal([]byte(body), &got); status != http.StatusOK || err != nil {
+		t.Fatalf("GET sessions = %d %s (%v)", status, body, err)
+	}
+	return got
+}
+
+// TestNowPlayingCapsTheFacts gives Den's sessions straight from seedbox's
+// facts, as a Node that misreports would: Now playing keeps at most 100
+// sessions, cuts a long player name and drops a session it can't read.
+func TestNowPlayingCapsTheFacts(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		sessions func(now time.Time) []*msv1.Session
+		check    func(t *testing.T, sent []*msv1.Session, got shown)
+	}{
+		{
+			name: "150 sessions show 100",
+			sessions: func(now time.Time) []*msv1.Session {
+				out := make([]*msv1.Session, 150)
+				for i := range out {
+					out[i] = session(now)
+				}
+				return out
+			},
+			check: func(t *testing.T, _ []*msv1.Session, got shown) {
+				if len(got.Sessions) != 100 {
+					t.Errorf("Now playing shows %d sessions, want 100", len(got.Sessions))
+				}
+			},
+		},
+		{
+			name: "a 500-character player name is cut to 200",
+			sessions: func(now time.Time) []*msv1.Session {
+				s := session(now)
+				s.Player = strings.Repeat("é", 500)
+				return []*msv1.Session{s}
+			},
+			check: func(t *testing.T, _ []*msv1.Session, got shown) {
+				if len(got.Sessions) != 1 || got.Sessions[0].Player != strings.Repeat("é", 200) {
+					t.Errorf("Now playing shows %+v, want one session on 200 é", got.Sessions)
+				}
+			},
+		},
+		{
+			name: "a session with a bad stream word is dropped",
+			sessions: func(now time.Time) []*msv1.Session {
+				bad := session(now)
+				bad.Streams.Video = "copy"
+				return []*msv1.Session{bad, session(now)}
+			},
+			check: func(t *testing.T, sent []*msv1.Session, got shown) {
+				want := playID(t, sent[1])
+				if len(got.Sessions) != 1 || got.Sessions[0].PlayID != want.String() {
+					t.Errorf("Now playing shows %+v, want only %s", got.Sessions, want)
+				}
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			synctest.Test(t, func(t *testing.T) {
+				w := newWatched(t)
+				w.w.Stop(w.w.Seedbox)
+				sent := tc.sessions(time.Now())
+				w.w.SetFacts(w.w.Seedbox, factsOf(serverOf(t, w.id), sent...))
+				tc.check(t, sent, w.shown(t))
+			})
+		})
+	}
+}
+
+// TestASeenTimeIn2099ReadsAsNow has seedbox's facts see a play in 2099:
+// its last look moves only to now, where it ends.
+func TestASeenTimeIn2099ReadsAsNow(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		w := newWatched(t)
+		server := serverOf(t, w.id)
+		w.w.Stop(w.w.Seedbox)
+		s := session(time.Now())
+		if err := w.w.Apply(t.Context(), w.w.Seedbox, &msv1.Report{ServerId: server.Bytes(), Report: &msv1.Report_PlayStarted{PlayStarted: &msv1.PlayStarted{Session: s}}}); err != nil {
+			t.Fatal(err)
+		}
+		wait(10 * time.Second)
+		s.SeenUnixMs = time.Date(2099, 1, 1, 0, 0, 0, 0, time.UTC).UnixMilli()
+		w.w.SetFacts(w.w.Seedbox, factsOf(server, s))
+		if err := w.w.Apply(t.Context(), w.w.Seedbox, &msv1.Report{ServerId: server.Bytes(), Report: &msv1.Report_Watching{Watching: &msv1.Watching{AtUnixMs: time.Now().UnixMilli()}}}); err != nil {
+			t.Fatal(err)
+		}
+		expectPlays(t, w.plays(t), clip+` direct_play (direct direct none) [] by ada on Living room, ended 10s in`)
+	})
 }
 
 func playID(t *testing.T, s *msv1.Session) link.PlayID {
