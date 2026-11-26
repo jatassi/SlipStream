@@ -22,8 +22,10 @@ func (m *MediaServers) renewalUnits(ctx context.Context, r storage.Reader[storag
 }
 
 // renew renews the Plex JWT when less than the margin, or one cadence and
-// a call, is left (J1), then reads the servers again. A refusal marks the
-// account refused, and its every Plex server reads it (J4).
+// a call, is left (J1), reads the account's Plex Pass and plex.tv id,
+// reads the servers again and checks each Plex share a Member hasn't
+// accepted yet. A refusal marks the account refused, and its every Plex
+// server reads it (J4).
 func (m *MediaServers) renew(ctx context.Context, _ tasks.Unit, _ *tasks.Progress) error {
 	a, err := m.signedIn(ctx)
 	if errors.Is(err, ErrPlexNotSignedIn) {
@@ -54,8 +56,31 @@ func (m *MediaServers) renew(ctx context.Context, _ tasks.Unit, _ *tasks.Progres
 		}
 		m.cfg.Log.Info("renewed the Plex sign-in", "expires", token.Expires)
 		m.senders.wakeAll()
+		a.jwt = token.JWT
 	}
-	return renewal(m.reread(ctx))
+	if err := m.refreshAccount(ctx, a); err != nil {
+		return renewal(err)
+	}
+	if err := m.reread(ctx); err != nil {
+		return renewal(err)
+	}
+	m.checkShared(ctx)
+	return nil
+}
+
+// refreshAccount writes the account's Plex Pass and plex.tv id as plex.tv
+// now answers them.
+func (m *MediaServers) refreshAccount(ctx context.Context, a account) error {
+	user, err := m.plexTV(a).User(ctx, a.jwt)
+	if plextv.Refused(err) {
+		m.refuse(ctx)
+	}
+	if err != nil {
+		return fromPlexTV(err)
+	}
+	return m.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+		return db.New(tx).RefreshPlexAccount(ctx, db.RefreshPlexAccountParams{PlexPass: &user.PlexPass, PlexID: &user.ID})
+	})
 }
 
 // renewal is a refused sign-in as an owned skip, since the Media Servers'

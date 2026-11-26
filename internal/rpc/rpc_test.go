@@ -16,6 +16,8 @@ import (
 	"github.com/jatassi/slipstream/fakes/fault"
 	"github.com/jatassi/slipstream/internal/link"
 	"github.com/jatassi/slipstream/internal/link/linktest"
+	msv1 "github.com/jatassi/slipstream/internal/pb/slipstream/mediaserver/v1"
+	"github.com/jatassi/slipstream/internal/pb/slipstream/mediaserver/v1/mediaserverv1connect"
 	networkv1 "github.com/jatassi/slipstream/internal/pb/slipstream/network/v1"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/network/v1/networkv1connect"
 	notifyv1 "github.com/jatassi/slipstream/internal/pb/slipstream/notify/v1"
@@ -234,9 +236,11 @@ func TestOnlyTheControllerCallsNodeAndRoleServices(t *testing.T) {
 		}
 
 		c.roster.holders[role.Notifying] = []role.NodeID{c.controllerID}
-		n, nw := &notifier{}, &networker{}
+		c.roster.holders[role.MediaServerLink] = []role.NodeID{c.controllerID}
+		n, nw, ms := &notifier{}, &networker{}, &mediaServerLinker{}
 		notifyv1connect.NotifyingService.Mount(c.controller, n)
 		networkv1connect.NodeNetworkService.Mount(c.controller, nw)
+		mediaserverv1connect.MediaServerLinkService.Mount(c.controller, ms)
 		forged := rpc.NewCluster(c.worker, c.roster)
 		for name, call := range map[string]func() error{
 			"Ping": func() error {
@@ -259,6 +263,10 @@ func TestOnlyTheControllerCallsNodeAndRoleServices(t *testing.T) {
 				_, err := networkv1connect.NodeNetworkService.On(forged, c.controllerID).Dial(t.Context(), &networkv1.DialRequest{Target: &networkv1.DialRequest_Host{Host: "plex.example.org"}, Port: 32400})
 				return err
 			},
+			"Members": func() error {
+				_, err := mediaserverv1connect.MediaServerLinkService.On(forged, c.controllerID).Members(t.Context(), &msv1.MembersRequest{Op: &msv1.MembersRequest_ListUsers{ListUsers: &msv1.ListUsers{}}})
+				return err
+			},
 		} {
 			if err := call(); rpc.CodeOf(err) != rpc.CodePermissionDenied {
 				t.Errorf("a Worker's %s on the Controller = %v (code %v), want permission denied", name, err, rpc.CodeOf(err))
@@ -270,7 +278,23 @@ func TestOnlyTheControllerCallsNodeAndRoleServices(t *testing.T) {
 		if p, s, ns, nws := c.pingers[c.controllerID].calls.Load(), c.searchers[c.controllerID].calls.Load(), n.calls.Load(), nw.calls.Load(); p != 0 || s != 1 || ns != 0 || nws != 1 {
 			t.Errorf("the Controller's pinger, searcher, Notifying and network services ran %d, %d, %d and %d times, want 0, 1, 0 and 1", p, s, ns, nws)
 		}
+		if _, err := mediaserverv1connect.MediaServerLinkService.On(c.cluster, c.controllerID).Members(t.Context(), &msv1.MembersRequest{}); err != nil {
+			t.Errorf("the Controller's Members on itself: %v", err)
+		}
+		if got := ms.calls.Load(); got != 1 {
+			t.Errorf("the Controller's Media Server link service ran %d times, want once", got)
+		}
 	})
+}
+
+type mediaServerLinker struct {
+	mediaserverv1connect.UnimplementedMediaServerLinkServiceHandler
+	calls atomic.Int32
+}
+
+func (m *mediaServerLinker) Members(context.Context, *msv1.MembersRequest) (*msv1.MembersResponse, error) {
+	m.calls.Add(1)
+	return &msv1.MembersResponse{}, nil
 }
 
 type networker struct {

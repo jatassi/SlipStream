@@ -165,6 +165,11 @@ const noMoves = [
   getGetMoveSettingsMockHandler({ settings: [] }),
 ];
 
+// A Member offered no Media Server, so the portal shows no Watch card or Where to watch.
+const noMemberAccess = http.get("*/api/v1/account/media-servers", () =>
+  HttpResponse.json({ rows: [], plexPassLine: false, mailSetUp: true }),
+);
+
 // A Work page with no History entries.
 const quietHistory = getListHistoryMockHandler({ entries: [], next: null });
 
@@ -189,6 +194,7 @@ export const baseHandlers: RequestHandler[] = [
   ...noMoves,
   theQualities,
   ...noSubtitles,
+  noMemberAccess,
   ...tagMocks,
 ];
 

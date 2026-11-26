@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/mediaserverlink/link"
 	"github.com/jatassi/slipstream/internal/mediaservers/internal/db"
 	"github.com/jatassi/slipstream/internal/providers/plex"
@@ -39,6 +40,9 @@ type account struct {
 	signedIn time.Time
 	renewed  time.Time
 	refused  bool
+	// plexID is plex.tv's id of the account last signed in, kept across
+	// sign-outs. nil before the first.
+	plexID *plextv.AccountID
 }
 
 func (a account) signedInNow() bool { return a.jwt != "" }
@@ -57,7 +61,7 @@ func (m *MediaServers) readAccount(ctx context.Context, q *db.Queries) (account,
 		return account{}, false, fmt.Errorf("open the Plex device key: %w", err)
 	}
 	a := account{clientID: row.ClientIdentifier, key: ed25519.PrivateKey(key), expires: row.JwtExpiresAt.Time(),
-		signedIn: row.SignedInAt.Time(), renewed: row.RenewedAt.Time(), refused: !row.RefusedAt.IsZero()}
+		signedIn: row.SignedInAt.Time(), renewed: row.RenewedAt.Time(), refused: !row.RefusedAt.IsZero(), plexID: row.PlexID}
 	if row.JwtSealed.Set() {
 		jwt, err := m.cfg.Sealer.Open(row.JwtSealed, jwtColumn.Single())
 		if err != nil {
@@ -142,6 +146,14 @@ type pinWait struct {
 	next    time.Time
 	every   time.Duration
 	state   string
+	// held is the sign-in of a different Plex account, unsaved until
+	// ReplacePlexAccount confirms it.
+	held *heldSignIn
+}
+
+type heldSignIn struct {
+	token plextv.Token
+	user  plextv.User
 }
 
 func (s service) StartPlexPin(ctx context.Context, forward string) (PlexPin, error) {
@@ -220,22 +232,64 @@ func (m *MediaServers) poll(ctx context.Context, id int64, w *pinWait, now time.
 	if err != nil {
 		return "", fromPlexTV(err)
 	}
+	if a.plexID != nil && *a.plexID != user.ID {
+		w.held = &heldSignIn{token: token, user: user}
+		return "other_account", nil
+	}
+	if err := m.signInToPlex(ctx, token, user, false); err != nil {
+		return "", err
+	}
+	return "signed_in", nil
+}
+
+// signInToPlex stores the account's sign-in, after removing every Plex
+// server and Member token of the account it replaces in the same Write.
+func (m *MediaServers) signInToPlex(ctx context.Context, token plextv.Token, user plextv.User, replace bool) error {
 	name := cmpOr(user.Username, user.Title)
-	err = m.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
-		return db.New(tx).SignInToPlex(ctx, db.SignInToPlexParams{
+	var out signedOut
+	err := m.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+		q := db.New(tx)
+		if replace {
+			var err error
+			if out, err = m.signOutIn(ctx, q); err != nil {
+				return err
+			}
+		}
+		return q.SignInToPlex(ctx, db.SignInToPlexParams{
 			JwtSealed: m.cfg.Sealer.Seal([]byte(token.JWT), jwtColumn.Single()), JwtExpiresAt: storage.FromTime(token.Expires),
-			AccountName: &name, PlexPass: &user.PlexPass, SignedInAt: storage.Now(),
+			AccountName: &name, PlexPass: &user.PlexPass, PlexID: &user.ID, SignedInAt: storage.Now(),
 		})
 	})
 	if err != nil {
-		return "", err
+		return err
+	}
+	if replace {
+		m.afterSignOut(ctx, out)
 	}
 	m.cfg.Log.Info("signed in to Plex", "account", name)
 	m.senders.wakeAll()
 	if err := m.reread(ctx); err != nil {
 		m.cfg.Log.Warn("read the Plex servers again after a sign-in", "err", err.Error())
 	}
-	return "signed_in", nil
+	return nil
+}
+
+// ReplacePlexAccount confirms the sign-in of pin, held as other_account:
+// the Plex servers and Members' access to them go, in the Write that signs
+// SlipStream in to the new account.
+func (s service) ReplacePlexAccount(ctx context.Context, pin int64) (AccountView, error) {
+	ps := &s.m.pins
+	ps.mu.Lock()
+	defer ps.mu.Unlock()
+	w, ok := ps.m[pin]
+	if !ok || w.held == nil {
+		return AccountView{}, ErrPlexPinNotFound
+	}
+	if err := s.m.signInToPlex(ctx, w.held.token, w.held.user, true); err != nil {
+		return AccountView{}, err
+	}
+	w.held, w.state = nil, "signed_in"
+	return s.PlexAccount(ctx)
 }
 
 func (s service) PlexAccount(ctx context.Context) (AccountView, error) {
@@ -246,17 +300,15 @@ func (s service) PlexAccount(ctx context.Context) (AccountView, error) {
 	return AccountView{Name: a.name, PlexPass: a.plexPass, SignedInAt: a.signedIn, ExpiresAt: a.expires, RenewedAt: timeOrNil(storage.FromTime(a.renewed)), Refused: a.refused}, nil
 }
 
-// SignOutOfPlex forgets the account's sign-in and removes every Plex
-// server in the same Write. The device key stays for the next sign-in.
+// SignOutOfPlex forgets the account's sign-in, removes every Plex server
+// and clears every Member's Plex token in the same Write. The device key
+// and plex.tv id stay for the next sign-in.
 func (s service) SignOutOfPlex(ctx context.Context) error {
-	var removed []db.MediaserversServer
+	var out signedOut
 	err := s.m.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		q := db.New(tx)
 		var err error
-		if removed, err = q.ListPlexServers(ctx); err != nil {
-			return err
-		}
-		if err := q.DeletePlexServers(ctx); err != nil {
+		if out, err = s.m.signOutIn(ctx, q); err != nil {
 			return err
 		}
 		return q.SignOutOfPlex(ctx)
@@ -264,12 +316,41 @@ func (s service) SignOutOfPlex(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	ids := make([]link.ServerID, len(removed))
-	reaching := make([]role.NodeID, len(removed))
-	for i, r := range removed {
+	s.m.afterSignOut(ctx, out)
+	return nil
+}
+
+// signedOut is what a sign-out's Write removed.
+type signedOut struct {
+	servers []db.MediaserversServer
+	tokens  []clearedToken
+}
+
+// signOutIn deletes every Plex server, whose access rows go with them, and
+// clears every Member's Plex token.
+func (m *MediaServers) signOutIn(ctx context.Context, q *db.Queries) (signedOut, error) {
+	var out signedOut
+	var err error
+	if out.servers, err = q.ListPlexServers(ctx); err != nil {
+		return out, err
+	}
+	if err := q.DeletePlexServers(ctx); err != nil {
+		return out, err
+	}
+	out.tokens, err = m.memberTokens(ctx, q)
+	return out, err
+}
+
+func (m *MediaServers) afterSignOut(ctx context.Context, out signedOut) {
+	m.signOut(ctx, out.tokens)
+	ids := make([]link.ServerID, len(out.servers))
+	reaching := make([]role.NodeID, len(out.servers))
+	for i, r := range out.servers {
 		ids[i], reaching[i] = r.ID, r.ReachingNodeID
 	}
-	s.m.cfg.Touch(reaching...)
-	s.m.changed(ctx, ids...)
-	return nil
+	m.cfg.Touch(reaching...)
+	m.changed(ctx, ids...)
+	if len(out.servers) > 0 {
+		m.accessChanged(ctx, identity.AccountID{})
+	}
 }

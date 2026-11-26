@@ -1,4 +1,4 @@
-import type { IdentityAccountRow } from "../../../api/gen/model";
+import type { IdentityAccountRow, MediaserversAccessView } from "../../../api/gen/model";
 import {
   deleteAccount,
   endAccountSessions,
@@ -7,6 +7,7 @@ import {
 import type { ButtonLook } from "../../../ui/button";
 import { ConfirmDialog } from "../../../ui/confirm-dialog";
 import { EmailDialog } from "./-email-dialog";
+import { useMemberAccess } from "./-media-servers";
 import { ResetDialog } from "./-reset-dialog";
 
 export type Confirmable = "role" | "access" | "sign-out-everywhere" | "delete";
@@ -56,8 +57,18 @@ const accessOf = ({ id, displayName: name, disabled }: IdentityAccountRow): Conf
         run: () => updateAccount(id, { disabled: true }),
       };
 
+const list = new Intl.ListFormat("en", { type: "conjunction" });
+
+const deleteWords = (access: readonly MediaserversAccessView[]): string => {
+  const deleted = "Their Account, passkeys and sessions are deleted permanently.";
+  return access.length === 0
+    ? deleted
+    : `SlipStream first removes their access to ${list.format(access.map((row) => row.server.name))}. ${deleted}`;
+};
+
 function confirmationsOf(
   account: IdentityAccountRow,
+  access: readonly MediaserversAccessView[],
   onDeleted: () => Promise<void>,
 ): Confirmations {
   const { id, displayName: name } = account;
@@ -75,7 +86,7 @@ function confirmationsOf(
       title: `Delete ${name}?`,
       confirmLabel: "Delete",
       look: "fail",
-      body: "Their Account, passkeys and sessions are deleted permanently.",
+      body: deleteWords(access),
       run: async () => {
         await deleteAccount(id);
         await onDeleted();
@@ -121,10 +132,11 @@ export function AccountDialogs({
   onClose: () => void;
   onDeleted: () => Promise<void>;
 }) {
+  const { rows } = useMemberAccess(account.id);
   return (
     <>
       <ConfirmDialogs
-        confirms={confirmationsOf(account, onDeleted)}
+        confirms={confirmationsOf(account, rows, onDeleted)}
         asking={asking}
         onClose={onClose}
       />

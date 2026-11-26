@@ -23,6 +23,20 @@ import type {
   AddMediaServer422,
   AddMediaServer500,
   AddMediaServer502,
+  CheckMediaServerAccess401,
+  CheckMediaServerAccess403,
+  CheckMediaServerAccess404,
+  CheckMediaServerAccess409,
+  CheckMediaServerAccess422,
+  CheckMediaServerAccess500,
+  CheckMediaServerAccess502,
+  CheckMyMediaServerAccess401,
+  CheckMyMediaServerAccess403,
+  CheckMyMediaServerAccess404,
+  CheckMyMediaServerAccess409,
+  CheckMyMediaServerAccess422,
+  CheckMyMediaServerAccess500,
+  CheckMyMediaServerAccess502,
   ConfirmMediaServerIdentity401,
   ConfirmMediaServerIdentity403,
   ConfirmMediaServerIdentity404,
@@ -40,6 +54,12 @@ import type {
   GetMediaServerSettings403,
   GetMediaServerSettings409,
   GetMediaServerSettings500,
+  GetMemberPlexSignIn401,
+  GetMemberPlexSignIn403,
+  GetMemberPlexSignIn404,
+  GetMemberPlexSignIn409,
+  GetMemberPlexSignIn422,
+  GetMemberPlexSignIn500,
   GetPlexAccount401,
   GetPlexAccount403,
   GetPlexAccount409,
@@ -53,6 +73,21 @@ import type {
   GetPlexSignIn502,
   HoldersOutputBody,
   KindsOutputBody,
+  LinkMediaServerUser401,
+  LinkMediaServerUser403,
+  LinkMediaServerUser404,
+  LinkMediaServerUser409,
+  LinkMediaServerUser422,
+  LinkMediaServerUser500,
+  LinkMediaServerUser502,
+  LinkUserInputBody,
+  ListMediaServerAccess401,
+  ListMediaServerAccess403,
+  ListMediaServerAccess404,
+  ListMediaServerAccess409,
+  ListMediaServerAccess422,
+  ListMediaServerAccess500,
+  ListMediaServerAccessParams,
   ListMediaServerChanges401,
   ListMediaServerChanges403,
   ListMediaServerChanges404,
@@ -83,22 +118,53 @@ import type {
   ListMediaServerSessions409,
   ListMediaServerSessions422,
   ListMediaServerSessions500,
+  ListMediaServerUsers401,
+  ListMediaServerUsers403,
+  ListMediaServerUsers404,
+  ListMediaServerUsers409,
+  ListMediaServerUsers422,
+  ListMediaServerUsers500,
+  ListMediaServerUsers502,
   ListMediaServers401,
   ListMediaServers403,
   ListMediaServers409,
   ListMediaServers500,
+  ListMyMediaServerAccess401,
+  ListMyMediaServerAccess403,
+  ListMyMediaServerAccess409,
+  ListMyMediaServerAccess500,
   ListPlexServers401,
   ListPlexServers403,
   ListPlexServers409,
   ListPlexServers422,
   ListPlexServers500,
   ListPlexServers502,
+  MakeAccountInputBody,
+  MakeMediaServerAccount401,
+  MakeMediaServerAccount403,
+  MakeMediaServerAccount404,
+  MakeMediaServerAccount409,
+  MakeMediaServerAccount422,
+  MakeMediaServerAccount500,
+  MakeMediaServerAccount502,
   MappingsOutputBody,
+  MarkMediaServerAccessAdded401,
+  MarkMediaServerAccessAdded403,
+  MarkMediaServerAccessAdded404,
+  MarkMediaServerAccessAdded409,
+  MarkMediaServerAccessAdded422,
+  MarkMediaServerAccessAdded500,
+  MediaserversAccessList,
   MediaserversAccountView,
+  MediaserversActed,
   MediaserversChanges,
   MediaserversDraftBody,
   MediaserversLibraries,
   MediaserversMappingsBody,
+  MediaserversMemberPin,
+  MediaserversMemberPinState,
+  MediaserversMyAccess,
+  MediaserversMyAccessRow,
   MediaserversPatchBody,
   MediaserversPinBody,
   MediaserversPlexPin,
@@ -109,6 +175,14 @@ import type {
   MediaserversSignInBody,
   MediaserversSignedIn,
   MediaserversTested,
+  OfferInputBody,
+  OfferMediaServer401,
+  OfferMediaServer403,
+  OfferMediaServer404,
+  OfferMediaServer409,
+  OfferMediaServer422,
+  OfferMediaServer500,
+  OfferMediaServer502,
   PlexServersOutputBody,
   RefreshMediaServer401,
   RefreshMediaServer403,
@@ -122,6 +196,18 @@ import type {
   RemoveMediaServer409,
   RemoveMediaServer422,
   RemoveMediaServer500,
+  RemoveMediaServerAccess401,
+  RemoveMediaServerAccess403,
+  RemoveMediaServerAccess404,
+  RemoveMediaServerAccess409,
+  RemoveMediaServerAccess422,
+  RemoveMediaServerAccess500,
+  ReplacePlexAccount401,
+  ReplacePlexAccount403,
+  ReplacePlexAccount404,
+  ReplacePlexAccount409,
+  ReplacePlexAccount422,
+  ReplacePlexAccount500,
   SaveMediaServerMappings401,
   SaveMediaServerMappings403,
   SaveMediaServerMappings404,
@@ -129,8 +215,17 @@ import type {
   SaveMediaServerMappings422,
   SaveMediaServerMappings500,
   SaveMediaServerMappings502,
+  ServerUsersOutputBody,
   ServersOutputBody,
   SettingsInputBody,
+  ShareAccessInputBody,
+  ShareMediaServerAccess401,
+  ShareMediaServerAccess403,
+  ShareMediaServerAccess404,
+  ShareMediaServerAccess409,
+  ShareMediaServerAccess422,
+  ShareMediaServerAccess500,
+  ShareMediaServerAccess502,
   SignInToMediaServer401,
   SignInToMediaServer403,
   SignInToMediaServer404,
@@ -142,6 +237,11 @@ import type {
   SignOutOfPlex403,
   SignOutOfPlex409,
   SignOutOfPlex500,
+  StartMemberPlexSignIn401,
+  StartMemberPlexSignIn403,
+  StartMemberPlexSignIn409,
+  StartMemberPlexSignIn500,
+  StartMemberPlexSignIn502,
   StartPlexSignIn401,
   StartPlexSignIn403,
   StartPlexSignIn409,
@@ -166,6 +266,10 @@ import type {
   UpdateMediaServerSettings409,
   UpdateMediaServerSettings422,
   UpdateMediaServerSettings500,
+  UseAnotherPlexAccount401,
+  UseAnotherPlexAccount403,
+  UseAnotherPlexAccount409,
+  UseAnotherPlexAccount500,
 } from "../../model";
 
 import { apiFetch } from "../../../fetch.ts";
@@ -188,6 +292,891 @@ const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKe
   return result;
 };
 
+export const getListMyMediaServerAccessUrl = () => {
+  return `/api/v1/account/media-servers`;
+};
+
+/**
+ * @summary List the Media Servers the Member was offered, with what each needs next and how to watch on it
+ */
+export const listMyMediaServerAccess = async (
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<MediaserversMyAccess> => {
+  return apiFetch<MediaserversMyAccess>(getListMyMediaServerAccessUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListMyMediaServerAccessQueryKey = () => {
+  return [`/api/v1/account/media-servers`] as const;
+};
+
+export const getListMyMediaServerAccessSuspenseQueryOptions = <
+  TData = Awaited<ReturnType<typeof listMyMediaServerAccess>>,
+  TError = ErrorType<
+    | ListMyMediaServerAccess401
+    | ListMyMediaServerAccess403
+    | ListMyMediaServerAccess409
+    | ListMyMediaServerAccess500
+  >,
+>(options?: {
+  query?: Partial<
+    UseSuspenseQueryOptions<Awaited<ReturnType<typeof listMyMediaServerAccess>>, TError, TData>
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListMyMediaServerAccessQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listMyMediaServerAccess>>> = ({
+    signal,
+  }) => listMyMediaServerAccess({ signal, ...requestOptions });
+
+  return queryOptionsBuilder({
+    queryKey,
+    ...queryOptions,
+    queryFn: queryOptions?.queryFn ?? queryFn,
+  }) as UseSuspenseQueryOptions<
+    Awaited<ReturnType<typeof listMyMediaServerAccess>>,
+    TError,
+    TData
+  > & { queryKey: DataTag<QueryKey, TData, TError> } & {
+    throwOnError?: ((this: never, error: TError) => boolean) & { readonly __inferenceOnly: never };
+  };
+};
+
+export type ListMyMediaServerAccessSuspenseQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listMyMediaServerAccess>>
+>;
+export type ListMyMediaServerAccessSuspenseQueryError = ErrorType<
+  | ListMyMediaServerAccess401
+  | ListMyMediaServerAccess403
+  | ListMyMediaServerAccess409
+  | ListMyMediaServerAccess500
+>;
+
+export function useListMyMediaServerAccessSuspense<
+  TData = Awaited<ReturnType<typeof listMyMediaServerAccess>>,
+  TError = ErrorType<
+    | ListMyMediaServerAccess401
+    | ListMyMediaServerAccess403
+    | ListMyMediaServerAccess409
+    | ListMyMediaServerAccess500
+  >,
+>(
+  options: {
+    query: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof listMyMediaServerAccess>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useListMyMediaServerAccessSuspense<
+  TData = Awaited<ReturnType<typeof listMyMediaServerAccess>>,
+  TError = ErrorType<
+    | ListMyMediaServerAccess401
+    | ListMyMediaServerAccess403
+    | ListMyMediaServerAccess409
+    | ListMyMediaServerAccess500
+  >,
+>(
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof listMyMediaServerAccess>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useListMyMediaServerAccessSuspense<
+  TData = Awaited<ReturnType<typeof listMyMediaServerAccess>>,
+  TError = ErrorType<
+    | ListMyMediaServerAccess401
+    | ListMyMediaServerAccess403
+    | ListMyMediaServerAccess409
+    | ListMyMediaServerAccess500
+  >,
+>(
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof listMyMediaServerAccess>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+/**
+ * @summary List the Media Servers the Member was offered, with what each needs next and how to watch on it
+ */
+
+export function useListMyMediaServerAccessSuspense<
+  TData = Awaited<ReturnType<typeof listMyMediaServerAccess>>,
+  TError = ErrorType<
+    | ListMyMediaServerAccess401
+    | ListMyMediaServerAccess403
+    | ListMyMediaServerAccess409
+    | ListMyMediaServerAccess500
+  >,
+>(
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof listMyMediaServerAccess>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+  const queryOptions = getListMyMediaServerAccessSuspenseQueryOptions(options);
+
+  const query = useSuspenseQuery(queryOptions, queryClient) as UseSuspenseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+export const getUseAnotherPlexAccountUrl = () => {
+  return `/api/v1/account/media-servers/plex`;
+};
+
+/**
+ * @summary Forget the Plex account the Member signed in to Plex as, while no server is shared with it yet
+ */
+export const useAnotherPlexAccount = async (
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<void> => {
+  return apiFetch<void>(getUseAnotherPlexAccountUrl(), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getUseAnotherPlexAccountMutationKey = () => ["useAnotherPlexAccount"] as const;
+
+export const getUseAnotherPlexAccountMutationOptions = <
+  TError = ErrorType<
+    | UseAnotherPlexAccount401
+    | UseAnotherPlexAccount403
+    | UseAnotherPlexAccount409
+    | UseAnotherPlexAccount500
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof useAnotherPlexAccount>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof useAnotherPlexAccount>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = getUseAnotherPlexAccountMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof useAnotherPlexAccount>>,
+    void
+  > = () => {
+    return useAnotherPlexAccount(requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UseAnotherPlexAccountMutationResult = NonNullable<
+  Awaited<ReturnType<typeof useAnotherPlexAccount>>
+>;
+
+export type UseAnotherPlexAccountMutationError = ErrorType<
+  | UseAnotherPlexAccount401
+  | UseAnotherPlexAccount403
+  | UseAnotherPlexAccount409
+  | UseAnotherPlexAccount500
+>;
+
+/**
+ * @summary Forget the Plex account the Member signed in to Plex as, while no server is shared with it yet
+ */
+export const useUseAnotherPlexAccount = <
+  TError = ErrorType<
+    | UseAnotherPlexAccount401
+    | UseAnotherPlexAccount403
+    | UseAnotherPlexAccount409
+    | UseAnotherPlexAccount500
+  >,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof useAnotherPlexAccount>>,
+      TError,
+      void,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<Awaited<ReturnType<typeof useAnotherPlexAccount>>, TError, void, TContext> => {
+  return useMutation(getUseAnotherPlexAccountMutationOptions(options), queryClient);
+};
+export const getStartMemberPlexSignInUrl = () => {
+  return `/api/v1/account/media-servers/plex/pin`;
+};
+
+/**
+ * @summary Start the Member's Plex sign-in and get the plex.tv page they sign in on
+ */
+export const startMemberPlexSignIn = async (
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<MediaserversMemberPin> => {
+  return apiFetch<MediaserversMemberPin>(getStartMemberPlexSignInUrl(), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getStartMemberPlexSignInMutationKey = () => ["startMemberPlexSignIn"] as const;
+
+export const getStartMemberPlexSignInMutationOptions = <
+  TError = ErrorType<
+    | StartMemberPlexSignIn401
+    | StartMemberPlexSignIn403
+    | StartMemberPlexSignIn409
+    | StartMemberPlexSignIn500
+    | StartMemberPlexSignIn502
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof startMemberPlexSignIn>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof startMemberPlexSignIn>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = getStartMemberPlexSignInMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof startMemberPlexSignIn>>,
+    void
+  > = () => {
+    return startMemberPlexSignIn(requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type StartMemberPlexSignInMutationResult = NonNullable<
+  Awaited<ReturnType<typeof startMemberPlexSignIn>>
+>;
+
+export type StartMemberPlexSignInMutationError = ErrorType<
+  | StartMemberPlexSignIn401
+  | StartMemberPlexSignIn403
+  | StartMemberPlexSignIn409
+  | StartMemberPlexSignIn500
+  | StartMemberPlexSignIn502
+>;
+
+/**
+ * @summary Start the Member's Plex sign-in and get the plex.tv page they sign in on
+ */
+export const useStartMemberPlexSignIn = <
+  TError = ErrorType<
+    | StartMemberPlexSignIn401
+    | StartMemberPlexSignIn403
+    | StartMemberPlexSignIn409
+    | StartMemberPlexSignIn500
+    | StartMemberPlexSignIn502
+  >,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof startMemberPlexSignIn>>,
+      TError,
+      void,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<Awaited<ReturnType<typeof startMemberPlexSignIn>>, TError, void, TContext> => {
+  return useMutation(getStartMemberPlexSignInMutationOptions(options), queryClient);
+};
+export const getGetMemberPlexSignInUrl = (id: number) => {
+  return `/api/v1/account/media-servers/plex/pin/${id}`;
+};
+
+/**
+ * @summary Get whether the Member's Plex sign-in is still waiting, has expired, signed in or was refused
+ */
+export const getMemberPlexSignIn = async (
+  id: number,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<MediaserversMemberPinState> => {
+  return apiFetch<MediaserversMemberPinState>(getGetMemberPlexSignInUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetMemberPlexSignInQueryKey = (id: number) => {
+  return [`/api/v1/account/media-servers/plex/pin/${id}`] as const;
+};
+
+export const getGetMemberPlexSignInSuspenseQueryOptions = <
+  TData = Awaited<ReturnType<typeof getMemberPlexSignIn>>,
+  TError = ErrorType<
+    | GetMemberPlexSignIn401
+    | GetMemberPlexSignIn403
+    | GetMemberPlexSignIn404
+    | GetMemberPlexSignIn409
+    | GetMemberPlexSignIn422
+    | GetMemberPlexSignIn500
+  >,
+>(
+  id: number,
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof getMemberPlexSignIn>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetMemberPlexSignInQueryKey(id);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getMemberPlexSignIn>>> = ({ signal }) =>
+    getMemberPlexSignIn(id, { signal, ...requestOptions });
+
+  return queryOptionsBuilder({
+    queryKey,
+    ...queryOptions,
+    queryFn: queryOptions?.queryFn ?? queryFn,
+  }) as UseSuspenseQueryOptions<Awaited<ReturnType<typeof getMemberPlexSignIn>>, TError, TData> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+  } & {
+    throwOnError?: ((this: never, error: TError) => boolean) & { readonly __inferenceOnly: never };
+  };
+};
+
+export type GetMemberPlexSignInSuspenseQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getMemberPlexSignIn>>
+>;
+export type GetMemberPlexSignInSuspenseQueryError = ErrorType<
+  | GetMemberPlexSignIn401
+  | GetMemberPlexSignIn403
+  | GetMemberPlexSignIn404
+  | GetMemberPlexSignIn409
+  | GetMemberPlexSignIn422
+  | GetMemberPlexSignIn500
+>;
+
+export function useGetMemberPlexSignInSuspense<
+  TData = Awaited<ReturnType<typeof getMemberPlexSignIn>>,
+  TError = ErrorType<
+    | GetMemberPlexSignIn401
+    | GetMemberPlexSignIn403
+    | GetMemberPlexSignIn404
+    | GetMemberPlexSignIn409
+    | GetMemberPlexSignIn422
+    | GetMemberPlexSignIn500
+  >,
+>(
+  id: number,
+  options: {
+    query: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof getMemberPlexSignIn>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useGetMemberPlexSignInSuspense<
+  TData = Awaited<ReturnType<typeof getMemberPlexSignIn>>,
+  TError = ErrorType<
+    | GetMemberPlexSignIn401
+    | GetMemberPlexSignIn403
+    | GetMemberPlexSignIn404
+    | GetMemberPlexSignIn409
+    | GetMemberPlexSignIn422
+    | GetMemberPlexSignIn500
+  >,
+>(
+  id: number,
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof getMemberPlexSignIn>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useGetMemberPlexSignInSuspense<
+  TData = Awaited<ReturnType<typeof getMemberPlexSignIn>>,
+  TError = ErrorType<
+    | GetMemberPlexSignIn401
+    | GetMemberPlexSignIn403
+    | GetMemberPlexSignIn404
+    | GetMemberPlexSignIn409
+    | GetMemberPlexSignIn422
+    | GetMemberPlexSignIn500
+  >,
+>(
+  id: number,
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof getMemberPlexSignIn>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+/**
+ * @summary Get whether the Member's Plex sign-in is still waiting, has expired, signed in or was refused
+ */
+
+export function useGetMemberPlexSignInSuspense<
+  TData = Awaited<ReturnType<typeof getMemberPlexSignIn>>,
+  TError = ErrorType<
+    | GetMemberPlexSignIn401
+    | GetMemberPlexSignIn403
+    | GetMemberPlexSignIn404
+    | GetMemberPlexSignIn409
+    | GetMemberPlexSignIn422
+    | GetMemberPlexSignIn500
+  >,
+>(
+  id: number,
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof getMemberPlexSignIn>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+  const queryOptions = getGetMemberPlexSignInSuspenseQueryOptions(id, options);
+
+  const query = useSuspenseQuery(queryOptions, queryClient) as UseSuspenseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+export const getMakeMediaServerAccountUrl = (accessId: string) => {
+  return `/api/v1/account/media-servers/${accessId}/account`;
+};
+
+/**
+ * @summary Make the Member's own user on a Jellyfin or Emby server they were offered
+ */
+export const makeMediaServerAccount = async (
+  accessId: string,
+  makeAccountInputBody: MakeAccountInputBody,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<MediaserversMyAccessRow> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return apiFetch<MediaserversMyAccessRow>(getMakeMediaServerAccountUrl(accessId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(makeAccountInputBody),
+  });
+};
+
+export const getMakeMediaServerAccountMutationKey = () => ["makeMediaServerAccount"] as const;
+
+export const getMakeMediaServerAccountMutationOptions = <
+  TError = ErrorType<
+    | MakeMediaServerAccount401
+    | MakeMediaServerAccount403
+    | MakeMediaServerAccount404
+    | MakeMediaServerAccount409
+    | MakeMediaServerAccount422
+    | MakeMediaServerAccount500
+    | MakeMediaServerAccount502
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof makeMediaServerAccount>>,
+    TError,
+    MakeMediaServerAccountMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof makeMediaServerAccount>>,
+  TError,
+  MakeMediaServerAccountMutationVariables,
+  TContext
+> => {
+  const mutationKey = getMakeMediaServerAccountMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof makeMediaServerAccount>>,
+    MakeMediaServerAccountMutationVariables
+  > = (props) => {
+    const { accessId, data } = props ?? {};
+
+    return makeMediaServerAccount(accessId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type MakeMediaServerAccountMutationResult = NonNullable<
+  Awaited<ReturnType<typeof makeMediaServerAccount>>
+>;
+export type MakeMediaServerAccountMutationBody = MakeAccountInputBody;
+export type MakeMediaServerAccountMutationError = ErrorType<
+  | MakeMediaServerAccount401
+  | MakeMediaServerAccount403
+  | MakeMediaServerAccount404
+  | MakeMediaServerAccount409
+  | MakeMediaServerAccount422
+  | MakeMediaServerAccount500
+  | MakeMediaServerAccount502
+>;
+export type MakeMediaServerAccountMutationVariables = {
+  accessId: string;
+  data: MakeAccountInputBody;
+};
+
+/**
+ * @summary Make the Member's own user on a Jellyfin or Emby server they were offered
+ */
+export const useMakeMediaServerAccount = <
+  TError = ErrorType<
+    | MakeMediaServerAccount401
+    | MakeMediaServerAccount403
+    | MakeMediaServerAccount404
+    | MakeMediaServerAccount409
+    | MakeMediaServerAccount422
+    | MakeMediaServerAccount500
+    | MakeMediaServerAccount502
+  >,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof makeMediaServerAccount>>,
+      TError,
+      MakeMediaServerAccountMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof makeMediaServerAccount>>,
+  TError,
+  MakeMediaServerAccountMutationVariables,
+  TContext
+> => {
+  return useMutation(getMakeMediaServerAccountMutationOptions(options), queryClient);
+};
+export const getCheckMyMediaServerAccessUrl = (accessId: string) => {
+  return `/api/v1/account/media-servers/${accessId}/check`;
+};
+
+/**
+ * @summary Check whether the Member's Plex share is accepted, accepting it when SlipStream can
+ */
+export const checkMyMediaServerAccess = async (
+  accessId: string,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<MediaserversMyAccessRow> => {
+  return apiFetch<MediaserversMyAccessRow>(getCheckMyMediaServerAccessUrl(accessId), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getCheckMyMediaServerAccessMutationKey = () => ["checkMyMediaServerAccess"] as const;
+
+export const getCheckMyMediaServerAccessMutationOptions = <
+  TError = ErrorType<
+    | CheckMyMediaServerAccess401
+    | CheckMyMediaServerAccess403
+    | CheckMyMediaServerAccess404
+    | CheckMyMediaServerAccess409
+    | CheckMyMediaServerAccess422
+    | CheckMyMediaServerAccess500
+    | CheckMyMediaServerAccess502
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof checkMyMediaServerAccess>>,
+    TError,
+    CheckMyMediaServerAccessMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof checkMyMediaServerAccess>>,
+  TError,
+  CheckMyMediaServerAccessMutationVariables,
+  TContext
+> => {
+  const mutationKey = getCheckMyMediaServerAccessMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof checkMyMediaServerAccess>>,
+    CheckMyMediaServerAccessMutationVariables
+  > = (props) => {
+    const { accessId } = props ?? {};
+
+    return checkMyMediaServerAccess(accessId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CheckMyMediaServerAccessMutationResult = NonNullable<
+  Awaited<ReturnType<typeof checkMyMediaServerAccess>>
+>;
+
+export type CheckMyMediaServerAccessMutationError = ErrorType<
+  | CheckMyMediaServerAccess401
+  | CheckMyMediaServerAccess403
+  | CheckMyMediaServerAccess404
+  | CheckMyMediaServerAccess409
+  | CheckMyMediaServerAccess422
+  | CheckMyMediaServerAccess500
+  | CheckMyMediaServerAccess502
+>;
+export type CheckMyMediaServerAccessMutationVariables = { accessId: string };
+
+/**
+ * @summary Check whether the Member's Plex share is accepted, accepting it when SlipStream can
+ */
+export const useCheckMyMediaServerAccess = <
+  TError = ErrorType<
+    | CheckMyMediaServerAccess401
+    | CheckMyMediaServerAccess403
+    | CheckMyMediaServerAccess404
+    | CheckMyMediaServerAccess409
+    | CheckMyMediaServerAccess422
+    | CheckMyMediaServerAccess500
+    | CheckMyMediaServerAccess502
+  >,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof checkMyMediaServerAccess>>,
+      TError,
+      CheckMyMediaServerAccessMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof checkMyMediaServerAccess>>,
+  TError,
+  CheckMyMediaServerAccessMutationVariables,
+  TContext
+> => {
+  return useMutation(getCheckMyMediaServerAccessMutationOptions(options), queryClient);
+};
+export const getOfferMediaServerUrl = (id: string, serverId: string) => {
+  return `/api/v1/accounts/${id}/media-servers/${serverId}`;
+};
+
+/**
+ * @summary Offer a Member access to a Media Server, or offer it again after the access was removed
+ */
+export const offerMediaServer = async (
+  id: string,
+  serverId: string,
+  offerInputBody: OfferInputBody,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<MediaserversActed> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return apiFetch<MediaserversActed>(getOfferMediaServerUrl(id, serverId), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(offerInputBody),
+  });
+};
+
+export const getOfferMediaServerMutationKey = () => ["offerMediaServer"] as const;
+
+export const getOfferMediaServerMutationOptions = <
+  TError = ErrorType<
+    | OfferMediaServer401
+    | OfferMediaServer403
+    | OfferMediaServer404
+    | OfferMediaServer409
+    | OfferMediaServer422
+    | OfferMediaServer500
+    | OfferMediaServer502
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof offerMediaServer>>,
+    TError,
+    OfferMediaServerMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof offerMediaServer>>,
+  TError,
+  OfferMediaServerMutationVariables,
+  TContext
+> => {
+  const mutationKey = getOfferMediaServerMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof offerMediaServer>>,
+    OfferMediaServerMutationVariables
+  > = (props) => {
+    const { id, serverId, data } = props ?? {};
+
+    return offerMediaServer(id, serverId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type OfferMediaServerMutationResult = NonNullable<
+  Awaited<ReturnType<typeof offerMediaServer>>
+>;
+export type OfferMediaServerMutationBody = OfferInputBody;
+export type OfferMediaServerMutationError = ErrorType<
+  | OfferMediaServer401
+  | OfferMediaServer403
+  | OfferMediaServer404
+  | OfferMediaServer409
+  | OfferMediaServer422
+  | OfferMediaServer500
+  | OfferMediaServer502
+>;
+export type OfferMediaServerMutationVariables = {
+  id: string;
+  serverId: string;
+  data: OfferInputBody;
+};
+
+/**
+ * @summary Offer a Member access to a Media Server, or offer it again after the access was removed
+ */
+export const useOfferMediaServer = <
+  TError = ErrorType<
+    | OfferMediaServer401
+    | OfferMediaServer403
+    | OfferMediaServer404
+    | OfferMediaServer409
+    | OfferMediaServer422
+    | OfferMediaServer500
+    | OfferMediaServer502
+  >,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof offerMediaServer>>,
+      TError,
+      OfferMediaServerMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof offerMediaServer>>,
+  TError,
+  OfferMediaServerMutationVariables,
+  TContext
+> => {
+  return useMutation(getOfferMediaServerMutationOptions(options), queryClient);
+};
 export const getListMediaServersUrl = () => {
   return `/api/v1/media-servers`;
 };
@@ -443,6 +1432,778 @@ export const useAddMediaServer = <
   TContext
 > => {
   return useMutation(getAddMediaServerMutationOptions(options), queryClient);
+};
+export const getListMediaServerAccessUrl = (params?: ListMediaServerAccessParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/v1/media-servers/access?${stringifiedParams}`
+    : `/api/v1/media-servers/access`;
+};
+
+/**
+ * @summary List Members' access to Media Servers, the rows waiting on an Admin first
+ */
+export const listMediaServerAccess = async (
+  params?: ListMediaServerAccessParams,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<MediaserversAccessList> => {
+  return apiFetch<MediaserversAccessList>(getListMediaServerAccessUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListMediaServerAccessQueryKey = (params?: ListMediaServerAccessParams) => {
+  return [`/api/v1/media-servers/access`, ...(params ? [params] : [])] as const;
+};
+
+export const getListMediaServerAccessSuspenseQueryOptions = <
+  TData = Awaited<ReturnType<typeof listMediaServerAccess>>,
+  TError = ErrorType<
+    | ListMediaServerAccess401
+    | ListMediaServerAccess403
+    | ListMediaServerAccess404
+    | ListMediaServerAccess409
+    | ListMediaServerAccess422
+    | ListMediaServerAccess500
+  >,
+>(
+  params?: ListMediaServerAccessParams,
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof listMediaServerAccess>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListMediaServerAccessQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listMediaServerAccess>>> = ({ signal }) =>
+    listMediaServerAccess(params, { signal, ...requestOptions });
+
+  return queryOptionsBuilder({
+    queryKey,
+    ...queryOptions,
+    queryFn: queryOptions?.queryFn ?? queryFn,
+  }) as UseSuspenseQueryOptions<
+    Awaited<ReturnType<typeof listMediaServerAccess>>,
+    TError,
+    TData
+  > & { queryKey: DataTag<QueryKey, TData, TError> } & {
+    throwOnError?: ((this: never, error: TError) => boolean) & { readonly __inferenceOnly: never };
+  };
+};
+
+export type ListMediaServerAccessSuspenseQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listMediaServerAccess>>
+>;
+export type ListMediaServerAccessSuspenseQueryError = ErrorType<
+  | ListMediaServerAccess401
+  | ListMediaServerAccess403
+  | ListMediaServerAccess404
+  | ListMediaServerAccess409
+  | ListMediaServerAccess422
+  | ListMediaServerAccess500
+>;
+
+export function useListMediaServerAccessSuspense<
+  TData = Awaited<ReturnType<typeof listMediaServerAccess>>,
+  TError = ErrorType<
+    | ListMediaServerAccess401
+    | ListMediaServerAccess403
+    | ListMediaServerAccess404
+    | ListMediaServerAccess409
+    | ListMediaServerAccess422
+    | ListMediaServerAccess500
+  >,
+>(
+  params: undefined | ListMediaServerAccessParams,
+  options: {
+    query: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof listMediaServerAccess>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useListMediaServerAccessSuspense<
+  TData = Awaited<ReturnType<typeof listMediaServerAccess>>,
+  TError = ErrorType<
+    | ListMediaServerAccess401
+    | ListMediaServerAccess403
+    | ListMediaServerAccess404
+    | ListMediaServerAccess409
+    | ListMediaServerAccess422
+    | ListMediaServerAccess500
+  >,
+>(
+  params?: ListMediaServerAccessParams,
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof listMediaServerAccess>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useListMediaServerAccessSuspense<
+  TData = Awaited<ReturnType<typeof listMediaServerAccess>>,
+  TError = ErrorType<
+    | ListMediaServerAccess401
+    | ListMediaServerAccess403
+    | ListMediaServerAccess404
+    | ListMediaServerAccess409
+    | ListMediaServerAccess422
+    | ListMediaServerAccess500
+  >,
+>(
+  params?: ListMediaServerAccessParams,
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof listMediaServerAccess>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+/**
+ * @summary List Members' access to Media Servers, the rows waiting on an Admin first
+ */
+
+export function useListMediaServerAccessSuspense<
+  TData = Awaited<ReturnType<typeof listMediaServerAccess>>,
+  TError = ErrorType<
+    | ListMediaServerAccess401
+    | ListMediaServerAccess403
+    | ListMediaServerAccess404
+    | ListMediaServerAccess409
+    | ListMediaServerAccess422
+    | ListMediaServerAccess500
+  >,
+>(
+  params?: ListMediaServerAccessParams,
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof listMediaServerAccess>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+  const queryOptions = getListMediaServerAccessSuspenseQueryOptions(params, options);
+
+  const query = useSuspenseQuery(queryOptions, queryClient) as UseSuspenseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+export const getRemoveMediaServerAccessUrl = (id: string) => {
+  return `/api/v1/media-servers/access/${id}`;
+};
+
+/**
+ * @summary Remove a Member's access to a Media Server, on the server or plex.tv too
+ */
+export const removeMediaServerAccess = async (
+  id: string,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<MediaserversActed> => {
+  return apiFetch<MediaserversActed>(getRemoveMediaServerAccessUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getRemoveMediaServerAccessMutationKey = () => ["removeMediaServerAccess"] as const;
+
+export const getRemoveMediaServerAccessMutationOptions = <
+  TError = ErrorType<
+    | RemoveMediaServerAccess401
+    | RemoveMediaServerAccess403
+    | RemoveMediaServerAccess404
+    | RemoveMediaServerAccess409
+    | RemoveMediaServerAccess422
+    | RemoveMediaServerAccess500
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof removeMediaServerAccess>>,
+    TError,
+    RemoveMediaServerAccessMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof removeMediaServerAccess>>,
+  TError,
+  RemoveMediaServerAccessMutationVariables,
+  TContext
+> => {
+  const mutationKey = getRemoveMediaServerAccessMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof removeMediaServerAccess>>,
+    RemoveMediaServerAccessMutationVariables
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return removeMediaServerAccess(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RemoveMediaServerAccessMutationResult = NonNullable<
+  Awaited<ReturnType<typeof removeMediaServerAccess>>
+>;
+
+export type RemoveMediaServerAccessMutationError = ErrorType<
+  | RemoveMediaServerAccess401
+  | RemoveMediaServerAccess403
+  | RemoveMediaServerAccess404
+  | RemoveMediaServerAccess409
+  | RemoveMediaServerAccess422
+  | RemoveMediaServerAccess500
+>;
+export type RemoveMediaServerAccessMutationVariables = { id: string };
+
+/**
+ * @summary Remove a Member's access to a Media Server, on the server or plex.tv too
+ */
+export const useRemoveMediaServerAccess = <
+  TError = ErrorType<
+    | RemoveMediaServerAccess401
+    | RemoveMediaServerAccess403
+    | RemoveMediaServerAccess404
+    | RemoveMediaServerAccess409
+    | RemoveMediaServerAccess422
+    | RemoveMediaServerAccess500
+  >,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof removeMediaServerAccess>>,
+      TError,
+      RemoveMediaServerAccessMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof removeMediaServerAccess>>,
+  TError,
+  RemoveMediaServerAccessMutationVariables,
+  TContext
+> => {
+  return useMutation(getRemoveMediaServerAccessMutationOptions(options), queryClient);
+};
+export const getCheckMediaServerAccessUrl = (id: string) => {
+  return `/api/v1/media-servers/access/${id}/check`;
+};
+
+/**
+ * @summary Check whether a Member accepted a Plex share
+ */
+export const checkMediaServerAccess = async (
+  id: string,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<MediaserversActed> => {
+  return apiFetch<MediaserversActed>(getCheckMediaServerAccessUrl(id), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getCheckMediaServerAccessMutationKey = () => ["checkMediaServerAccess"] as const;
+
+export const getCheckMediaServerAccessMutationOptions = <
+  TError = ErrorType<
+    | CheckMediaServerAccess401
+    | CheckMediaServerAccess403
+    | CheckMediaServerAccess404
+    | CheckMediaServerAccess409
+    | CheckMediaServerAccess422
+    | CheckMediaServerAccess500
+    | CheckMediaServerAccess502
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof checkMediaServerAccess>>,
+    TError,
+    CheckMediaServerAccessMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof checkMediaServerAccess>>,
+  TError,
+  CheckMediaServerAccessMutationVariables,
+  TContext
+> => {
+  const mutationKey = getCheckMediaServerAccessMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof checkMediaServerAccess>>,
+    CheckMediaServerAccessMutationVariables
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return checkMediaServerAccess(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CheckMediaServerAccessMutationResult = NonNullable<
+  Awaited<ReturnType<typeof checkMediaServerAccess>>
+>;
+
+export type CheckMediaServerAccessMutationError = ErrorType<
+  | CheckMediaServerAccess401
+  | CheckMediaServerAccess403
+  | CheckMediaServerAccess404
+  | CheckMediaServerAccess409
+  | CheckMediaServerAccess422
+  | CheckMediaServerAccess500
+  | CheckMediaServerAccess502
+>;
+export type CheckMediaServerAccessMutationVariables = { id: string };
+
+/**
+ * @summary Check whether a Member accepted a Plex share
+ */
+export const useCheckMediaServerAccess = <
+  TError = ErrorType<
+    | CheckMediaServerAccess401
+    | CheckMediaServerAccess403
+    | CheckMediaServerAccess404
+    | CheckMediaServerAccess409
+    | CheckMediaServerAccess422
+    | CheckMediaServerAccess500
+    | CheckMediaServerAccess502
+  >,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof checkMediaServerAccess>>,
+      TError,
+      CheckMediaServerAccessMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof checkMediaServerAccess>>,
+  TError,
+  CheckMediaServerAccessMutationVariables,
+  TContext
+> => {
+  return useMutation(getCheckMediaServerAccessMutationOptions(options), queryClient);
+};
+export const getLinkMediaServerUserUrl = (id: string) => {
+  return `/api/v1/media-servers/access/${id}/link`;
+};
+
+/**
+ * @summary Link a Member to an existing user on a Jellyfin or Emby server
+ */
+export const linkMediaServerUser = async (
+  id: string,
+  linkUserInputBody: LinkUserInputBody,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<MediaserversActed> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return apiFetch<MediaserversActed>(getLinkMediaServerUserUrl(id), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(linkUserInputBody),
+  });
+};
+
+export const getLinkMediaServerUserMutationKey = () => ["linkMediaServerUser"] as const;
+
+export const getLinkMediaServerUserMutationOptions = <
+  TError = ErrorType<
+    | LinkMediaServerUser401
+    | LinkMediaServerUser403
+    | LinkMediaServerUser404
+    | LinkMediaServerUser409
+    | LinkMediaServerUser422
+    | LinkMediaServerUser500
+    | LinkMediaServerUser502
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof linkMediaServerUser>>,
+    TError,
+    LinkMediaServerUserMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof linkMediaServerUser>>,
+  TError,
+  LinkMediaServerUserMutationVariables,
+  TContext
+> => {
+  const mutationKey = getLinkMediaServerUserMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof linkMediaServerUser>>,
+    LinkMediaServerUserMutationVariables
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return linkMediaServerUser(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type LinkMediaServerUserMutationResult = NonNullable<
+  Awaited<ReturnType<typeof linkMediaServerUser>>
+>;
+export type LinkMediaServerUserMutationBody = LinkUserInputBody;
+export type LinkMediaServerUserMutationError = ErrorType<
+  | LinkMediaServerUser401
+  | LinkMediaServerUser403
+  | LinkMediaServerUser404
+  | LinkMediaServerUser409
+  | LinkMediaServerUser422
+  | LinkMediaServerUser500
+  | LinkMediaServerUser502
+>;
+export type LinkMediaServerUserMutationVariables = { id: string; data: LinkUserInputBody };
+
+/**
+ * @summary Link a Member to an existing user on a Jellyfin or Emby server
+ */
+export const useLinkMediaServerUser = <
+  TError = ErrorType<
+    | LinkMediaServerUser401
+    | LinkMediaServerUser403
+    | LinkMediaServerUser404
+    | LinkMediaServerUser409
+    | LinkMediaServerUser422
+    | LinkMediaServerUser500
+    | LinkMediaServerUser502
+  >,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof linkMediaServerUser>>,
+      TError,
+      LinkMediaServerUserMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof linkMediaServerUser>>,
+  TError,
+  LinkMediaServerUserMutationVariables,
+  TContext
+> => {
+  return useMutation(getLinkMediaServerUserMutationOptions(options), queryClient);
+};
+export const getMarkMediaServerAccessAddedUrl = (id: string) => {
+  return `/api/v1/media-servers/access/${id}/mark-added`;
+};
+
+/**
+ * @summary Record that an Admin shared a Plex server with a Member in Plex itself
+ */
+export const markMediaServerAccessAdded = async (
+  id: string,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<MediaserversActed> => {
+  return apiFetch<MediaserversActed>(getMarkMediaServerAccessAddedUrl(id), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getMarkMediaServerAccessAddedMutationKey = () =>
+  ["markMediaServerAccessAdded"] as const;
+
+export const getMarkMediaServerAccessAddedMutationOptions = <
+  TError = ErrorType<
+    | MarkMediaServerAccessAdded401
+    | MarkMediaServerAccessAdded403
+    | MarkMediaServerAccessAdded404
+    | MarkMediaServerAccessAdded409
+    | MarkMediaServerAccessAdded422
+    | MarkMediaServerAccessAdded500
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof markMediaServerAccessAdded>>,
+    TError,
+    MarkMediaServerAccessAddedMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof markMediaServerAccessAdded>>,
+  TError,
+  MarkMediaServerAccessAddedMutationVariables,
+  TContext
+> => {
+  const mutationKey = getMarkMediaServerAccessAddedMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof markMediaServerAccessAdded>>,
+    MarkMediaServerAccessAddedMutationVariables
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return markMediaServerAccessAdded(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type MarkMediaServerAccessAddedMutationResult = NonNullable<
+  Awaited<ReturnType<typeof markMediaServerAccessAdded>>
+>;
+
+export type MarkMediaServerAccessAddedMutationError = ErrorType<
+  | MarkMediaServerAccessAdded401
+  | MarkMediaServerAccessAdded403
+  | MarkMediaServerAccessAdded404
+  | MarkMediaServerAccessAdded409
+  | MarkMediaServerAccessAdded422
+  | MarkMediaServerAccessAdded500
+>;
+export type MarkMediaServerAccessAddedMutationVariables = { id: string };
+
+/**
+ * @summary Record that an Admin shared a Plex server with a Member in Plex itself
+ */
+export const useMarkMediaServerAccessAdded = <
+  TError = ErrorType<
+    | MarkMediaServerAccessAdded401
+    | MarkMediaServerAccessAdded403
+    | MarkMediaServerAccessAdded404
+    | MarkMediaServerAccessAdded409
+    | MarkMediaServerAccessAdded422
+    | MarkMediaServerAccessAdded500
+  >,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof markMediaServerAccessAdded>>,
+      TError,
+      MarkMediaServerAccessAddedMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof markMediaServerAccessAdded>>,
+  TError,
+  MarkMediaServerAccessAddedMutationVariables,
+  TContext
+> => {
+  return useMutation(getMarkMediaServerAccessAddedMutationOptions(options), queryClient);
+};
+export const getShareMediaServerAccessUrl = (id: string) => {
+  return `/api/v1/media-servers/access/${id}/share`;
+};
+
+/**
+ * @summary Share a Plex server with a Member who signed in to Plex, as a friend or in the Plex Home
+ */
+export const shareMediaServerAccess = async (
+  id: string,
+  shareAccessInputBody: ShareAccessInputBody,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<MediaserversActed> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return apiFetch<MediaserversActed>(getShareMediaServerAccessUrl(id), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(shareAccessInputBody),
+  });
+};
+
+export const getShareMediaServerAccessMutationKey = () => ["shareMediaServerAccess"] as const;
+
+export const getShareMediaServerAccessMutationOptions = <
+  TError = ErrorType<
+    | ShareMediaServerAccess401
+    | ShareMediaServerAccess403
+    | ShareMediaServerAccess404
+    | ShareMediaServerAccess409
+    | ShareMediaServerAccess422
+    | ShareMediaServerAccess500
+    | ShareMediaServerAccess502
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof shareMediaServerAccess>>,
+    TError,
+    ShareMediaServerAccessMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof shareMediaServerAccess>>,
+  TError,
+  ShareMediaServerAccessMutationVariables,
+  TContext
+> => {
+  const mutationKey = getShareMediaServerAccessMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof shareMediaServerAccess>>,
+    ShareMediaServerAccessMutationVariables
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return shareMediaServerAccess(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ShareMediaServerAccessMutationResult = NonNullable<
+  Awaited<ReturnType<typeof shareMediaServerAccess>>
+>;
+export type ShareMediaServerAccessMutationBody = ShareAccessInputBody;
+export type ShareMediaServerAccessMutationError = ErrorType<
+  | ShareMediaServerAccess401
+  | ShareMediaServerAccess403
+  | ShareMediaServerAccess404
+  | ShareMediaServerAccess409
+  | ShareMediaServerAccess422
+  | ShareMediaServerAccess500
+  | ShareMediaServerAccess502
+>;
+export type ShareMediaServerAccessMutationVariables = { id: string; data: ShareAccessInputBody };
+
+/**
+ * @summary Share a Plex server with a Member who signed in to Plex, as a friend or in the Plex Home
+ */
+export const useShareMediaServerAccess = <
+  TError = ErrorType<
+    | ShareMediaServerAccess401
+    | ShareMediaServerAccess403
+    | ShareMediaServerAccess404
+    | ShareMediaServerAccess409
+    | ShareMediaServerAccess422
+    | ShareMediaServerAccess500
+    | ShareMediaServerAccess502
+  >,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof shareMediaServerAccess>>,
+      TError,
+      ShareMediaServerAccessMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof shareMediaServerAccess>>,
+  TError,
+  ShareMediaServerAccessMutationVariables,
+  TContext
+> => {
+  return useMutation(getShareMediaServerAccessMutationOptions(options), queryClient);
 };
 export const getListMediaServerKindsUrl = () => {
   return `/api/v1/media-servers/kinds`;
@@ -1066,6 +2827,114 @@ export function useGetPlexSignInSuspense<
   return withQueryKey(query, queryOptions.queryKey);
 }
 
+export const getReplacePlexAccountUrl = (id: number) => {
+  return `/api/v1/media-servers/plex/pin/${id}/replace`;
+};
+
+/**
+ * @summary Sign SlipStream in to the different Plex account a Plex sign-in names, which removes every Plex server and Members' access to them
+ */
+export const replacePlexAccount = async (
+  id: number,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<MediaserversAccountView> => {
+  return apiFetch<MediaserversAccountView>(getReplacePlexAccountUrl(id), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getReplacePlexAccountMutationKey = () => ["replacePlexAccount"] as const;
+
+export const getReplacePlexAccountMutationOptions = <
+  TError = ErrorType<
+    | ReplacePlexAccount401
+    | ReplacePlexAccount403
+    | ReplacePlexAccount404
+    | ReplacePlexAccount409
+    | ReplacePlexAccount422
+    | ReplacePlexAccount500
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof replacePlexAccount>>,
+    TError,
+    ReplacePlexAccountMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof replacePlexAccount>>,
+  TError,
+  ReplacePlexAccountMutationVariables,
+  TContext
+> => {
+  const mutationKey = getReplacePlexAccountMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof replacePlexAccount>>,
+    ReplacePlexAccountMutationVariables
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return replacePlexAccount(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ReplacePlexAccountMutationResult = NonNullable<
+  Awaited<ReturnType<typeof replacePlexAccount>>
+>;
+
+export type ReplacePlexAccountMutationError = ErrorType<
+  | ReplacePlexAccount401
+  | ReplacePlexAccount403
+  | ReplacePlexAccount404
+  | ReplacePlexAccount409
+  | ReplacePlexAccount422
+  | ReplacePlexAccount500
+>;
+export type ReplacePlexAccountMutationVariables = { id: number };
+
+/**
+ * @summary Sign SlipStream in to the different Plex account a Plex sign-in names, which removes every Plex server and Members' access to them
+ */
+export const useReplacePlexAccount = <
+  TError = ErrorType<
+    | ReplacePlexAccount401
+    | ReplacePlexAccount403
+    | ReplacePlexAccount404
+    | ReplacePlexAccount409
+    | ReplacePlexAccount422
+    | ReplacePlexAccount500
+  >,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof replacePlexAccount>>,
+      TError,
+      ReplacePlexAccountMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof replacePlexAccount>>,
+  TError,
+  ReplacePlexAccountMutationVariables,
+  TContext
+> => {
+  return useMutation(getReplacePlexAccountMutationOptions(options), queryClient);
+};
 export const getListPlexServersUrl = () => {
   return `/api/v1/media-servers/plex/servers`;
 };
@@ -3209,3 +5078,172 @@ export const useTestMediaServer = <
 > => {
   return useMutation(getTestMediaServerMutationOptions(options), queryClient);
 };
+export const getListMediaServerUsersUrl = (id: string) => {
+  return `/api/v1/media-servers/${id}/users`;
+};
+
+/**
+ * @summary List the users of a Jellyfin or Emby server that an Admin may link to a Member
+ */
+export const listMediaServerUsers = async (
+  id: string,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<ServerUsersOutputBody> => {
+  return apiFetch<ServerUsersOutputBody>(getListMediaServerUsersUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListMediaServerUsersQueryKey = (id: string) => {
+  return [`/api/v1/media-servers/${id}/users`] as const;
+};
+
+export const getListMediaServerUsersSuspenseQueryOptions = <
+  TData = Awaited<ReturnType<typeof listMediaServerUsers>>,
+  TError = ErrorType<
+    | ListMediaServerUsers401
+    | ListMediaServerUsers403
+    | ListMediaServerUsers404
+    | ListMediaServerUsers409
+    | ListMediaServerUsers422
+    | ListMediaServerUsers500
+    | ListMediaServerUsers502
+  >,
+>(
+  id: string,
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof listMediaServerUsers>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListMediaServerUsersQueryKey(id);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listMediaServerUsers>>> = ({ signal }) =>
+    listMediaServerUsers(id, { signal, ...requestOptions });
+
+  return queryOptionsBuilder({
+    queryKey,
+    ...queryOptions,
+    queryFn: queryOptions?.queryFn ?? queryFn,
+  }) as UseSuspenseQueryOptions<Awaited<ReturnType<typeof listMediaServerUsers>>, TError, TData> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+  } & {
+    throwOnError?: ((this: never, error: TError) => boolean) & { readonly __inferenceOnly: never };
+  };
+};
+
+export type ListMediaServerUsersSuspenseQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listMediaServerUsers>>
+>;
+export type ListMediaServerUsersSuspenseQueryError = ErrorType<
+  | ListMediaServerUsers401
+  | ListMediaServerUsers403
+  | ListMediaServerUsers404
+  | ListMediaServerUsers409
+  | ListMediaServerUsers422
+  | ListMediaServerUsers500
+  | ListMediaServerUsers502
+>;
+
+export function useListMediaServerUsersSuspense<
+  TData = Awaited<ReturnType<typeof listMediaServerUsers>>,
+  TError = ErrorType<
+    | ListMediaServerUsers401
+    | ListMediaServerUsers403
+    | ListMediaServerUsers404
+    | ListMediaServerUsers409
+    | ListMediaServerUsers422
+    | ListMediaServerUsers500
+    | ListMediaServerUsers502
+  >,
+>(
+  id: string,
+  options: {
+    query: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof listMediaServerUsers>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useListMediaServerUsersSuspense<
+  TData = Awaited<ReturnType<typeof listMediaServerUsers>>,
+  TError = ErrorType<
+    | ListMediaServerUsers401
+    | ListMediaServerUsers403
+    | ListMediaServerUsers404
+    | ListMediaServerUsers409
+    | ListMediaServerUsers422
+    | ListMediaServerUsers500
+    | ListMediaServerUsers502
+  >,
+>(
+  id: string,
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof listMediaServerUsers>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useListMediaServerUsersSuspense<
+  TData = Awaited<ReturnType<typeof listMediaServerUsers>>,
+  TError = ErrorType<
+    | ListMediaServerUsers401
+    | ListMediaServerUsers403
+    | ListMediaServerUsers404
+    | ListMediaServerUsers409
+    | ListMediaServerUsers422
+    | ListMediaServerUsers500
+    | ListMediaServerUsers502
+  >,
+>(
+  id: string,
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof listMediaServerUsers>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+/**
+ * @summary List the users of a Jellyfin or Emby server that an Admin may link to a Member
+ */
+
+export function useListMediaServerUsersSuspense<
+  TData = Awaited<ReturnType<typeof listMediaServerUsers>>,
+  TError = ErrorType<
+    | ListMediaServerUsers401
+    | ListMediaServerUsers403
+    | ListMediaServerUsers404
+    | ListMediaServerUsers409
+    | ListMediaServerUsers422
+    | ListMediaServerUsers500
+    | ListMediaServerUsers502
+  >,
+>(
+  id: string,
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof listMediaServerUsers>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+  const queryOptions = getListMediaServerUsersSuspenseQueryOptions(id, options);
+
+  const query = useSuspenseQuery(queryOptions, queryClient) as UseSuspenseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}

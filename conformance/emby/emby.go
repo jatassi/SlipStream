@@ -46,6 +46,8 @@ func Run(t *testing.T, tg Target) {
 		{"UserDataDropsFavorite", UserDataDropsFavorite},
 		{"DeletedWaitsTheDelay", DeletedWaitsTheDelay},
 		{"TranscodeAfterReport", TranscodeAfterReport},
+		{"EnabledFoldersTakeGUID", EnabledFoldersTakeGUID},
+		{"PolicyPostMerges", PolicyPostMerges},
 		{"KeyCreated", func(t *testing.T, _ Target, _ mediaservers.Target, s *mediabrowser.Server) { s.KeyCreated(t) }},
 		{"SocketPushesSessions", func(t *testing.T, _ Target, _ mediaservers.Target, s *mediabrowser.Server) { s.SocketPushesSessions(t) }},
 	}
@@ -53,6 +55,7 @@ func Run(t *testing.T, tg Target) {
 	for _, c := range emby {
 		cases = append(cases, mediaservers.Case{Name: c.name, Run: func(t *testing.T) { c.run(t, tg, shared, s) }})
 	}
+	cases = append(cases, s.UserCases()...)
 	mediaservers.Each(t, cases)
 }
 
@@ -251,5 +254,45 @@ func TranscodeAfterReport(t *testing.T, tg Target, shared mediaservers.Target, s
 	s.Report(t, played)
 	if !transcoding() {
 		t.Fatal("the session has no transcode info after its player reported")
+	}
+}
+
+// EnabledFoldersTakeGUID restricts a user to the library by its Guid,
+// which the user then sees, and by its ItemId, which shows the user
+// nothing (online run 2026-11-26).
+func EnabledFoldersTakeGUID(t *testing.T, tg Target, shared mediaservers.Target, s *mediabrowser.Server) {
+	m := s.NewMember(t)
+	defer s.Drop(t, m)
+	s.Restrict(t, m, s.Folder(t, shared.Library, true))
+	if s.Sees(t, m) == 0 {
+		t.Fatalf("a user restricted to %s by its Guid sees no video", tg.Library)
+	}
+	s.Restrict(t, m, s.Folder(t, shared.Library, false))
+	if n := s.Sees(t, m); n != 0 {
+		t.Fatalf("a user restricted to %s by its ItemId sees %d videos, want none", tg.Library, n)
+	}
+}
+
+// PolicyPostMerges posts a user's policy without EnableMediaPlayback,
+// which a new user has on, and it stays on: Emby merges a policy post
+// where Jellyfin replaces the policy (online run 2026-11-26). Restrict
+// posts every field, so SlipStream is right on both.
+func PolicyPostMerges(t *testing.T, _ Target, _ mediaservers.Target, s *mediabrowser.Server) {
+	m := s.NewMember(t)
+	defer s.Drop(t, m)
+	p, err := s.C.UserPolicy(t.Context(), m.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	delete(p, "EnableMediaPlayback")
+	if err := s.C.SetPolicy(t.Context(), m.ID, p); err != nil {
+		t.Fatal(err)
+	}
+	after, err := s.C.UserPolicy(t.Context(), m.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(after["EnableMediaPlayback"]) != "true" {
+		t.Fatalf("after a policy post without EnableMediaPlayback it reads %s, want true", after["EnableMediaPlayback"])
 	}
 }

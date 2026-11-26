@@ -3,12 +3,20 @@ import * as zod from "zod";
 import {
   HoldersOutputBody,
   KindsOutputBody,
+  LinkUserInputBody,
+  MakeAccountInputBody,
   MappingsOutputBody,
+  MediaserversAccessList,
   MediaserversAccountView,
+  MediaserversActed,
   MediaserversChanges,
   MediaserversDraftBody,
   MediaserversLibraries,
   MediaserversMappingsBody,
+  MediaserversMemberPin,
+  MediaserversMemberPinState,
+  MediaserversMyAccess,
+  MediaserversMyAccessRow,
   MediaserversPatchBody,
   MediaserversPinBody,
   MediaserversPlexPin,
@@ -19,10 +27,69 @@ import {
   MediaserversSignInBody,
   MediaserversSignedIn,
   MediaserversTested,
+  OfferInputBody,
   PlexServersOutputBody,
+  ServerUsersOutputBody,
   ServersOutputBody,
   SettingsInputBody,
+  ShareAccessInputBody,
 } from "../slipStream.schemas.zod.ts";
+
+/**
+ * @summary List the Media Servers the Member was offered, with what each needs next and how to watch on it
+ */
+export const ListMyMediaServerAccessResponse = MediaserversMyAccess;
+
+/**
+ * @summary Forget the Plex account the Member signed in to Plex as, while no server is shared with it yet
+ */
+export const UseAnotherPlexAccountResponse = zod.void();
+
+/**
+ * @summary Start the Member's Plex sign-in and get the plex.tv page they sign in on
+ */
+export const StartMemberPlexSignInResponse = MediaserversMemberPin;
+
+/**
+ * @summary Get whether the Member's Plex sign-in is still waiting, has expired, signed in or was refused
+ */
+export const GetMemberPlexSignInParams = zod.object({
+  id: zod.int(),
+});
+
+export const GetMemberPlexSignInResponse = MediaserversMemberPinState;
+
+/**
+ * @summary Make the Member's own user on a Jellyfin or Emby server they were offered
+ */
+export const MakeMediaServerAccountParams = zod.object({
+  accessId: zod.uuid(),
+});
+
+export const MakeMediaServerAccountBody = MakeAccountInputBody;
+
+export const MakeMediaServerAccountResponse = MediaserversMyAccessRow;
+
+/**
+ * @summary Check whether the Member's Plex share is accepted, accepting it when SlipStream can
+ */
+export const CheckMyMediaServerAccessParams = zod.object({
+  accessId: zod.uuid(),
+});
+
+export const CheckMyMediaServerAccessResponse = MediaserversMyAccessRow;
+
+/**
+ * @summary Offer a Member access to a Media Server, or offer it again after the access was removed
+ */
+export const OfferMediaServerParams = zod.object({
+  id: zod.uuid().describe("The Member's Account"),
+  serverId: zod.uuid(),
+});
+
+export const OfferMediaServerBody = OfferInputBody;
+
+export const OfferMediaServerResponse = MediaserversActed;
 
 /**
  * @summary List the Media Servers SlipStream keeps up to date, each with its state
@@ -35,6 +102,67 @@ export const ListMediaServersResponse = ServersOutputBody;
 export const AddMediaServerBody = MediaserversDraftBody;
 
 export const AddMediaServerResponse = MediaserversServerView;
+
+/**
+ * @summary List Members' access to Media Servers, the rows waiting on an Admin first
+ */
+export const ListMediaServerAccessQueryParams = zod.object({
+  account: zod
+    .uuid()
+    .exactOptional()
+    .describe("An Account id: only that Member's rows, and the servers they may be offered"),
+});
+
+export const ListMediaServerAccessResponse = MediaserversAccessList;
+
+/**
+ * @summary Remove a Member's access to a Media Server, on the server or plex.tv too
+ */
+export const RemoveMediaServerAccessParams = zod.object({
+  id: zod.uuid(),
+});
+
+export const RemoveMediaServerAccessResponse = MediaserversActed;
+
+/**
+ * @summary Check whether a Member accepted a Plex share
+ */
+export const CheckMediaServerAccessParams = zod.object({
+  id: zod.uuid(),
+});
+
+export const CheckMediaServerAccessResponse = MediaserversActed;
+
+/**
+ * @summary Link a Member to an existing user on a Jellyfin or Emby server
+ */
+export const LinkMediaServerUserParams = zod.object({
+  id: zod.uuid(),
+});
+
+export const LinkMediaServerUserBody = LinkUserInputBody;
+
+export const LinkMediaServerUserResponse = MediaserversActed;
+
+/**
+ * @summary Record that an Admin shared a Plex server with a Member in Plex itself
+ */
+export const MarkMediaServerAccessAddedParams = zod.object({
+  id: zod.uuid(),
+});
+
+export const MarkMediaServerAccessAddedResponse = MediaserversActed;
+
+/**
+ * @summary Share a Plex server with a Member who signed in to Plex, as a friend or in the Plex Home
+ */
+export const ShareMediaServerAccessParams = zod.object({
+  id: zod.uuid(),
+});
+
+export const ShareMediaServerAccessBody = ShareAccessInputBody;
+
+export const ShareMediaServerAccessResponse = MediaserversActed;
 
 /**
  * @summary List the kinds of Media Server SlipStream supports, with the sign-in each takes and its oldest supported version
@@ -66,6 +194,15 @@ export const GetPlexSignInParams = zod.object({
 });
 
 export const GetPlexSignInResponse = MediaserversPlexPinState;
+
+/**
+ * @summary Sign SlipStream in to the different Plex account a Plex sign-in names, which removes every Plex server and Members' access to them
+ */
+export const ReplacePlexAccountParams = zod.object({
+  id: zod.int(),
+});
+
+export const ReplacePlexAccountResponse = MediaserversAccountView;
 
 /**
  * @summary List the Plex account's servers and which Nodes reach each of their connections
@@ -200,3 +337,12 @@ export const TestMediaServerParams = zod.object({
 });
 
 export const TestMediaServerResponse = MediaserversTested;
+
+/**
+ * @summary List the users of a Jellyfin or Emby server that an Admin may link to a Member
+ */
+export const ListMediaServerUsersParams = zod.object({
+  id: zod.uuid(),
+});
+
+export const ListMediaServerUsersResponse = ServerUsersOutputBody;

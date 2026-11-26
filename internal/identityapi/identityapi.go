@@ -439,7 +439,7 @@ func Routes(r *api.Router, lib Library) {
 		Path:    "/signup-links",
 		Summary: "Issue a Signup link for an email, email it, and return it to copy",
 		Status:  http.StatusCreated,
-		Errors:  []*api.Code{addressUnset, accountExists},
+		Errors:  []*api.Code{addressUnset, accountExists, notShownToMembers, plexHomeNotPlex},
 	}, issueSignupLink(lib))
 
 	api.Register(o, api.Reconfirmed, api.Op{
@@ -457,7 +457,7 @@ func Routes(r *api.Router, lib Library) {
 		Path:    "/signup-links/{id}/resend",
 		Summary: "Send a pending Signup link again as a new link. The old link stops working",
 		Status:  http.StatusCreated,
-		Errors:  []*api.Code{linkNotFound, addressUnset, accountExists},
+		Errors:  []*api.Code{linkNotFound, addressUnset, accountExists, notShownToMembers},
 	}, resendSignupLink(lib))
 
 	api.Register(o, api.Reconfirmed, api.Op{

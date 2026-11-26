@@ -63,6 +63,7 @@ import (
 	"github.com/jatassi/slipstream/internal/ports/port"
 	"github.com/jatassi/slipstream/internal/providers/gestdown"
 	"github.com/jatassi/slipstream/internal/providers/omdb"
+	"github.com/jatassi/slipstream/internal/providers/plextv"
 	"github.com/jatassi/slipstream/internal/providers/subdl"
 	"github.com/jatassi/slipstream/internal/providers/subsource"
 	"github.com/jatassi/slipstream/internal/providers/tmdb"
@@ -331,13 +332,22 @@ func (n *Node) startController(ctx context.Context) error {
 			Unhealthy:       mediaservers.UnhealthyEvent.Bind(n.hub),
 			Recovered:       mediaservers.RecoveredEvent.Bind(n.hub),
 			ItemsFound:      mediaservers.ItemsFoundEvent.Bind(n.hub),
+			AccessChanged:   mediaservers.AccessChangedEvent.Bind(n.hub),
+			MyAccessChanged: mediaservers.MyAccessChangedEvent.Bind(n.hub),
 		},
 		Touch: func(nodes ...role.NodeID) { linked.Touch(nodes...) },
 		Facts: func(node role.NodeID) (*msv1.Facts, bool) { return linked.Facts(node) },
 		Zone:  n.zone(),
 		Log:   n.rootLog.With("subsystem", "mediaservers"),
+		Admins: func(ctx context.Context) ([]mail.Address, error) {
+			return identity.EnabledAdminAddresses(ctx, lib.db)
+		},
+		Mail:      lib.mail,
+		Outbox:    lib.outbox,
+		PlexFacts: plextv.Recorded,
 	})
 	linked = mediaserverlink.Def.Serve(servers.Intent, servers.Apply)
+	lib.ids.SetGranter(servers.Granter())
 	reach := reachability.New(reachability.Config{
 		Library: lib.db,
 		Hub:     n.hub,

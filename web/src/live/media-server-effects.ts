@@ -5,6 +5,8 @@ import {
   getListMediaServerLibrariesQueryKey,
   getListMediaServerSessionsQueryKey,
   getListMediaServersQueryKey,
+  getListMediaServerAccessQueryKey,
+  getListMyMediaServerAccessQueryKey,
 } from "../api/gen/query/mediaservers/mediaservers";
 import { getGetWorkQueryKey } from "../api/gen/query/works/works";
 import type { LiveEffect, LiveEffects, PayloadOf } from "./types";
@@ -17,7 +19,7 @@ const health = (
   refresh({ queryKey: getGetMediaServerQueryKey(serverId) });
 };
 
-/** Media Servers' records, queues and sessions, and the Open in links a lookup fills in. */
+/** Media Servers' records, queues and sessions, Members' access, and the Open in links a lookup fills in. */
 export const mediaServerEffects = {
   "media-servers.changed": ({ serverIds }, { refresh }) => {
     refresh({ queryKey: getListMediaServersQueryKey() });
@@ -40,6 +42,13 @@ export const mediaServerEffects = {
       refresh({ queryKey: getGetWorkQueryKey(id) });
     }
   },
+  "media-servers.access-changed": (_data, { refresh }) => {
+    refresh({ queryKey: getListMediaServerAccessQueryKey() });
+    refresh({ queryKey: getListMediaServersQueryKey() });
+  },
+  "media-servers.my-access-changed": (_data, { refresh }) => {
+    refresh({ queryKey: getListMyMediaServerAccessQueryKey() });
+  },
 } satisfies Pick<
   LiveEffects,
   | "media-servers.changed"
@@ -47,4 +56,6 @@ export const mediaServerEffects = {
   | "media-servers.unhealthy"
   | "media-servers.recovered"
   | "media-servers.items-found"
+  | "media-servers.access-changed"
+  | "media-servers.my-access-changed"
 >;

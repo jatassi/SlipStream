@@ -2,9 +2,11 @@ import { expect, test } from "vitest";
 
 import {
   getGetMediaServerQueryKey,
+  getListMediaServerAccessQueryKey,
   getListMediaServerChangesQueryKey,
   getListMediaServerSessionsQueryKey,
   getListMediaServersQueryKey,
+  getListMyMediaServerAccessQueryKey,
 } from "../api/gen/query/mediaservers/mediaservers";
 import { getGetWorkQueryKey } from "../api/gen/query/works/works";
 import { orchardId } from "../test/library";
@@ -71,4 +73,23 @@ test("media-servers.items-found invalidates each named Work", async () => {
 
   server.clients[0]?.send({ event: "media-servers.items-found", data: { workIds: [orchardId] } });
   await expect.poll(invalidated).toEqual({ work: true });
+});
+
+test("media-servers.access-changed invalidates the Admin's access and the Media Servers", async () => {
+  const server = liveServer();
+  const app = renderApp({ path: "/library", handlers: server.handlers });
+  await synced(app);
+  const invalidated = seeded(app, {
+    access: getListMediaServerAccessQueryKey(),
+    oneMember: getListMediaServerAccessQueryKey({
+      account: "0199f3c0-3333-7000-8000-000000000002",
+    }),
+    list: getListMediaServersQueryKey(),
+    mine: getListMyMediaServerAccessQueryKey(),
+  });
+
+  server.clients[0]?.send({ event: "media-servers.access-changed", data: {} });
+  await expect
+    .poll(invalidated)
+    .toEqual({ access: true, oneMember: true, list: true, mine: false });
 });

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/jatassi/slipstream/internal/files"
+	"github.com/jatassi/slipstream/internal/mail"
 	"github.com/jatassi/slipstream/internal/mediaserverlink/link"
 	"github.com/jatassi/slipstream/internal/mediaservers/internal/db"
 	"github.com/jatassi/slipstream/internal/nodes"
@@ -38,6 +39,8 @@ type MediaServers struct {
 	// unconfirmed is the servers a re-home unconfirmed, published at the
 	// next roots.changed.
 	unconfirmed unconfirmed
+	turns       turns
+	memberPins  memberPins
 }
 
 type Config struct {
@@ -79,6 +82,15 @@ type Config struct {
 	// Zone is the Controller's, for the times copy names.
 	Zone *time.Location
 	Log  *slog.Logger
+	// Mail sends the Member emails whose outcome the caller waits for, and
+	// Outbox those to the Admins that go out after the response.
+	Mail   mail.Sender
+	Outbox *mail.Outbox
+	// Admins is every enabled Admin's address:
+	// identity.EnabledAdminAddresses.
+	Admins func(ctx context.Context) ([]mail.Address, error)
+	// PlexFacts is what the recorded Plex run settled: plextv.Recorded.
+	PlexFacts plextv.Facts
 }
 
 // Publisher is one of the Media Servers' live events, bound to the hub.
@@ -86,13 +98,21 @@ type Publisher[T any] interface {
 	Publish(ctx context.Context, v T)
 }
 
-// Events are the five live events, bound once at the composition root.
+// AccountPublisher is one of the Media Servers' live events for one
+// Account, bound to the hub.
+type AccountPublisher[T any] interface {
+	Publish(ctx context.Context, account storage.UUID, v T)
+}
+
+// Events are the seven live events, bound once at the composition root.
 type Events struct {
 	Changed         Publisher[Changed]
 	SessionsChanged Publisher[SessionsChanged]
 	Unhealthy       Publisher[WentUnhealthy]
 	Recovered       Publisher[Recovered]
 	ItemsFound      Publisher[Found]
+	AccessChanged   Publisher[AccessChanged]
+	MyAccessChanged AccountPublisher[MyAccessChanged]
 }
 
 // Roster is what MediaServers reads of the roster.
@@ -108,7 +128,7 @@ type Roster interface {
 }
 
 func New(cfg Config) *MediaServers {
-	return &MediaServers{cfg: cfg, seen: newSeenSessions(), senders: newSenders(), lookups: newLookups(), contacted: pendingServers{byNode: map[role.NodeID][]string{}}}
+	return &MediaServers{cfg: cfg, seen: newSeenSessions(), senders: newSenders(), lookups: newLookups(), contacted: pendingServers{byNode: map[role.NodeID][]string{}}, memberPins: newMemberPins()}
 }
 
 // Owner keeps Media Server link on every Node that a server names as its
@@ -162,15 +182,19 @@ func (m *MediaServers) Intent(ctx context.Context, r storage.Reader[storage.Libr
 // runs one sender per server. At its start and at each change of the
 // roster it names the Controller as the reaching Node of every server
 // whose reaching Node the Admin removed with a write-off, ends the plays
-// of a reaching Node away longer than Mark unhealthy after, and wakes
-// every sender to route again. At each roots.changed it publishes the
-// servers a re-home unconfirmed. After each Node's new facts
-// it writes when their open plays were last seen.
+// of a reaching Node away longer than Mark unhealthy after, wakes every
+// sender to route again, and deletes the users that a stop or an
+// unreached server left from Members' unfinished accounts. It polls the
+// Members' Plex sign-ins in the background. At each
+// roots.changed it publishes the servers a re-home unconfirmed. After each
+// Node's new facts it writes when their open plays were last seen.
 func (m *MediaServers) Run(ctx context.Context) error {
 	rehomed := m.cfg.RootsChanged(ctx)
 	m.revert(ctx)
 	var wg sync.WaitGroup
 	defer wg.Wait()
+	wg.Go(func() { m.sweepMaking(ctx) })
+	wg.Go(func() { m.pollMembers(ctx) })
 	for {
 		changed := m.cfg.Roster.Changed()
 		m.repoint(ctx)

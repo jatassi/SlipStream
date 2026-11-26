@@ -1,6 +1,7 @@
 package mediaserverlink
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/netip"
@@ -441,4 +442,54 @@ func triOf(b *bool) link.Tri {
 		return link.Unknown
 	}
 	return link.TriOf(*b)
+}
+
+// MembersOnWire runs req's one op on users. A server's failure and its
+// refusal of a name become the response's, and any other error stays the
+// call's.
+func MembersOnWire(ctx context.Context, users link.Users, req *msv1.MembersRequest) (*msv1.MembersResponse, error) {
+	m := &msv1.MembersResponse{}
+	var err error
+	switch op := req.GetOp().(type) {
+	case *msv1.MembersRequest_CreateUser:
+		m.UserId, err = users.CreateUser(ctx, op.CreateUser.GetName())
+	case *msv1.MembersRequest_RestrictUser:
+		err = users.Restrict(ctx, op.RestrictUser.GetUserId(), op.RestrictUser.GetLibraryKeys())
+	case *msv1.MembersRequest_MemberPassword:
+		var pw link.Password
+		if pw, err = link.NewPassword(op.MemberPassword.GetPassword()); err == nil {
+			err = users.SetPassword(ctx, op.MemberPassword.GetUserId(), pw)
+		}
+	case *msv1.MembersRequest_RenameUser:
+		err = users.Rename(ctx, op.RenameUser.GetUserId(), op.RenameUser.GetName())
+	case *msv1.MembersRequest_DisableUser:
+		err = users.Disable(ctx, op.DisableUser)
+	case *msv1.MembersRequest_DeleteUser:
+		err = users.DeleteUser(ctx, op.DeleteUser)
+	case *msv1.MembersRequest_ListUsers:
+		var us []link.User
+		us, err = users.ListUsers(ctx)
+		for _, u := range us {
+			m.Users = append(m.Users, &msv1.ServerUser{Id: u.ID, Name: u.Name, Administrator: u.Administrator, Disabled: u.Disabled})
+		}
+	default:
+		return nil, errors.New("a Members request names no op")
+	}
+	if refused, ok := errors.AsType[*link.NameRefusedError](err); ok {
+		m.NameRefused = &msv1.NameRefused{Taken: refused.Taken, Reply: refused.Reply}
+		return m, nil
+	}
+	if err != nil {
+		m.Problem, err = ProblemOnWire(err)
+	}
+	return m, err
+}
+
+// membersOf is m's error: a *link.NameRefusedError, a *link.ServerError,
+// or nil.
+func membersOf(m *msv1.MembersResponse) error {
+	if r := m.GetNameRefused(); r != nil {
+		return &link.NameRefusedError{Taken: r.GetTaken(), Reply: r.GetReply()}
+	}
+	return ServerErrorOf(m.GetProblem())
 }

@@ -2,7 +2,9 @@ package identity
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"time"
 
@@ -105,27 +107,41 @@ func linkOf(r db.GetLinkByHashRow) db.IdentityLink {
 	}
 }
 
-// LiveLink is what a link's page shows before it is used.
+// LiveLink is what a link's page shows before it is used. Offers is set
+// for Signup links only.
 type LiveLink struct {
 	AdminName  string
 	Email      string
 	ServerName string
 	ExpiresAt  time.Time
+	Offers     *Described
 }
 
 // Link answers the by-token GET for kind: the live link, or *DeadError.
 // A turned-off Account's link still answers live; using it refuses.
 func (s *Service) Link(ctx context.Context, k LinkKind, t LinkToken) (LiveLink, error) {
-	q := db.New(s.lib)
-	row, err := lookup(ctx, q, k.k, t, time.Now())
-	if err != nil {
-		return LiveLink{}, err
-	}
-	set, err := readSettings(ctx, q)
-	if err != nil {
-		return LiveLink{}, err
-	}
-	return LiveLink{AdminName: row.IssuerName, Email: row.Email, ServerName: set.Address.Host(), ExpiresAt: row.ExpiresAt.Time()}, nil
+	var live LiveLink
+	err := s.lib.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
+		q := db.New(r)
+		row, err := lookup(ctx, q, k.k, t, time.Now())
+		if err != nil {
+			return err
+		}
+		set, err := readSettings(ctx, q)
+		if err != nil {
+			return err
+		}
+		live = LiveLink{AdminName: row.IssuerName, Email: row.Email, ServerName: set.Address.Host(), ExpiresAt: row.ExpiresAt.Time()}
+		if k.k == signupKind {
+			offers, err := s.describe(ctx, r, row.Grants)
+			if err != nil {
+				return err
+			}
+			live.Offers = &offers
+		}
+		return nil
+	})
+	return live, err
 }
 
 func lookup(ctx context.Context, q *db.Queries, k *linkKind, t LinkToken, now time.Time) (db.GetLinkByHashRow, error) {
@@ -146,6 +162,7 @@ type linkTarget struct {
 	email          string
 	account        AccountID
 	removePasskeys bool
+	grants         Grants
 }
 
 // issued.replaces is when the live link it withdrew was sent.
@@ -196,6 +213,14 @@ func (s *Service) issue(ctx context.Context, q *db.Queries, fx *effects, k *link
 	if k.keep {
 		sealed = s.sealer.Seal([]byte(token), tokenColumn.Row(out.id.String()))
 	}
+	var grants *string
+	if !to.grants.Empty() {
+		b, err := json.Marshal(to.grants)
+		if err != nil {
+			return issued{}, fmt.Errorf("encode the link's grants: %w", err)
+		}
+		grants = new(string(b))
+	}
 	err = q.InsertLink(ctx, db.InsertLinkParams{
 		ID:             out.id,
 		Kind:           k.name,
@@ -207,6 +232,7 @@ func (s *Service) issue(ctx context.Context, q *db.Queries, fx *effects, k *link
 		IssuedBy:       by,
 		IssuedAt:       fx.now,
 		ExpiresAt:      storage.FromTime(out.expires),
+		Grants:         grants,
 	})
 	if err != nil {
 		return issued{}, err

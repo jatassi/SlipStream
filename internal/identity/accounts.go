@@ -201,8 +201,22 @@ func changeDisabled(ctx context.Context, q *db.Queries, fx *effects, row db.Iden
 }
 
 // DeleteAccount deletes id, and through the foreign keys its sessions,
-// passkeys and links. Its streams end, revoked.
+// passkeys and links. Its streams end, revoked. The Granter's Leaving
+// first removes what the Account was given, after the last enabled Admin
+// is refused and before the Write.
 func (s *Service) DeleteAccount(ctx context.Context, _ Admin, id AccountID) error {
+	if err := s.canDelete(ctx, id); err != nil {
+		return err
+	}
+	g, err := s.boundGranter()
+	if err != nil {
+		return err
+	}
+	done, err := g.Leaving(ctx, id)
+	if err != nil {
+		return err
+	}
+	defer done()
 	return s.write(ctx, func(ctx context.Context, q *db.Queries, fx *effects) error {
 		if _, err := getAccount(ctx, q, id); err != nil {
 			return err
@@ -214,6 +228,26 @@ func (s *Service) DeleteAccount(ctx context.Context, _ Admin, id AccountID) erro
 		fx.endSessions(id, ids, live.Revoked)
 		fx.accountsChanged()
 		return q.DeleteAccount(ctx, id)
+	})
+}
+
+// canDelete refuses ErrNoAccount, and ErrLastAdmin for the last enabled
+// Admin, before Leaving removes anything.
+func (s *Service) canDelete(ctx context.Context, id AccountID) error {
+	return s.lib.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
+		q := db.New(r)
+		row, err := getAccount(ctx, q, id)
+		if err != nil || !row.Admin || !row.DisabledAt.IsZero() {
+			return err
+		}
+		admins, err := q.CountEnabledAdmins(ctx)
+		if err != nil {
+			return err
+		}
+		if admins == 1 {
+			return ErrLastAdmin
+		}
+		return nil
 	})
 }
 

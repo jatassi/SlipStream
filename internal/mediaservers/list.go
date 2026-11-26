@@ -20,6 +20,7 @@ type world struct {
 	words    map[roots.ID]string
 	mappings map[link.ServerID]map[roots.ID]db.MediaserversMapping
 	plex     account
+	members  serverMembers
 }
 
 func (m *MediaServers) world(ctx context.Context, r storage.Reader[storage.Library]) (world, error) {
@@ -35,6 +36,9 @@ func (m *MediaServers) world(ctx context.Context, r storage.Reader[storage.Libra
 		return w, err
 	}
 	if w.plex, _, err = m.readAccount(ctx, db.New(r)); err != nil {
+		return w, err
+	}
+	if w.members, err = readServerMembers(ctx, db.New(r)); err != nil {
 		return w, err
 	}
 	all, err := db.New(r).ListAllMappings(ctx)
@@ -110,6 +114,7 @@ func (m *MediaServers) viewOf(row db.MediaserversServer, w world) ServerView {
 		Contact: string(row.Contact), ContactSince: timeOrNil(row.ContactSince), Sends: row.Sends,
 		LastContactAt: timeOrNil(row.LastContactAt), LastSendAt: timeOrNil(row.LastSendAt),
 	}
+	w.members.fill(&v, row)
 	if !row.RunsOnNodeID.IsZero() {
 		v.RunsOnNode = &NodeRef{ID: row.RunsOnNodeID.String(), Name: w.names[row.RunsOnNodeID].Name}
 	}

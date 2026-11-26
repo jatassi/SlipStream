@@ -102,8 +102,8 @@ _In UI_: Each state's word: Failed, Missing, Downloading, Upgrade, Unreleased, M
 _Avoid_: Available (for an Item or cell), complete
 
 **Needs you**:
-The list of what only a person can resolve, such as failed cells, upgrades available, pending and Delayed Requests, and jobs left waiting, each with its cause and recovery.
-_In UI_: The page name "Needs you" only. A sentence names the problem or says "needs attention".
+The list of what only a person can resolve, such as failed cells, upgrades available, pending and Delayed Requests, and jobs left waiting, each with its cause and recovery. Accounts has its own, which lists Members waiting for a Media Server share and Media Server access SlipStream couldn't remove.
+_In UI_: The page name "Needs you", and the Accounts section of that name. A sentence names the problem or says "needs attention".
 _Avoid_: Alerts, attention, inbox
 
 **Monitoring preset**:
@@ -347,6 +347,16 @@ _Avoid_: Home Node (that is an Indexer's), host Node, runs-on Node
 The address at which the Controller calls a Media Server itself while the server's Reaching Node is offline.
 _In UI_: "Fallback address".
 _Avoid_: Covering (that is a Role's), failover
+
+**Show to Members**:
+Whether a Media Server can be offered to Members. It is off by default, and turning it off changes nobody's Media Server access.
+_In UI_: "Show to Members".
+_Avoid_: Visible, public, shared (for the setting)
+
+**Media Server access**:
+A Member's access to one Media Server, from offered to active. SlipStream records what it shared or made and removes it when asked.
+_In UI_: "access", as in "Remove access", and "can watch", as in "3 Members can watch".
+_Avoid_: Invite, share (as the record)
 
 **Path mapping**:
 How one Media Server sees a library root, such as `/mnt/media` on the storage Node being `/data/media` to Plex.

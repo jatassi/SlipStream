@@ -8,6 +8,8 @@ import { List, ListRow } from "../../../ui/list";
 import { RelativeTime } from "../../../ui/relative-time";
 import { Section } from "../../../ui/section";
 import type { Asking } from "./-confirmations";
+// oxlint-disable-next-line import/max-dependencies -- the Account page lays out its Profile, PIN, Passkeys, Sessions, Media Servers and Delete sections
+import { MediaServers } from "./-media-servers";
 
 type Props = { detail: IdentityAccountDetail; onAsk: (asking: Asking) => void };
 
@@ -149,6 +151,7 @@ export function AccountSections(props: Props) {
       <Pin {...props} />
       <Passkeys {...props} />
       <Sessions {...props} />
+      <MediaServers account={props.detail.account} />
       <Section title="Delete">
         <AskButton asking="delete" label="Delete Account" look="fail" onAsk={props.onAsk} />
       </Section>

@@ -65,7 +65,7 @@ func (s *server) token(r *http.Request) string {
 }
 
 // caller is who a request is: an API key, which stands for the server and
-// passes every elevation check, or a user's token.
+// passes every elevation check, or a user's token. user is the user's id.
 type caller struct {
 	key   bool
 	user  string
@@ -86,8 +86,8 @@ func (s *server) caller(r *http.Request) (caller, bool) {
 	if !ok {
 		return caller{}, false
 	}
-	u := slices.IndexFunc(s.srv.Users, func(u User) bool { return u.Name == sess.user })
-	return caller{user: sess.user, admin: u >= 0 && s.srv.Users[u].Admin}, true
+	u, ok := s.userAt(sess.user)
+	return caller{user: sess.user, admin: ok && u.policy.IsAdministrator}, true
 }
 
 // level is what a route needs.
@@ -126,7 +126,11 @@ func (s *server) guard(need level, h func(http.ResponseWriter, *http.Request, ca
 }
 
 // authenticate is POST /Users/AuthenticateByName. A second sign-in with
-// one DeviceId revokes the token the first got (#71 delta 13).
+// one DeviceId revokes the token the first got (#71 delta 13). Each
+// refusal is the online run of 2026-11-26's: Jellyfin answers a disabled
+// user 403 whatever the password; Emby answers a wrong password 401 and
+// locks the user out after lockoutAfter of them, then answers the right
+// one 403, as it does for a disabled user.
 func (s *server) authenticate(w http.ResponseWriter, r *http.Request, _ caller) {
 	app := s.client(r)
 	if app["DeviceId"] == "" {
@@ -138,29 +142,58 @@ func (s *server) authenticate(w http.ResponseWriter, r *http.Request, _ caller) 
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	i := slices.IndexFunc(s.srv.Users, func(u User) bool { return strings.EqualFold(u.Name, in.Username) && u.Password == in.Pw })
-	if i < 0 {
-		w.WriteHeader(http.StatusUnauthorized)
+	s.mu.Lock()
+	found, ok := s.userNamed(in.Username, nil)
+	if refusal, status := s.refusal(found, ok, in.Pw); status != 0 {
+		s.mu.Unlock()
+		http.Error(w, refusal, status)
 		return
 	}
-	u := s.srv.Users[i]
-	s.mu.Lock()
+	found.failures = 0
+	u := *found
 	for t, sess := range s.tokens {
 		if sess.device == app["DeviceId"] {
 			delete(s.tokens, t)
 		}
 	}
-	token := s.mint()
-	s.tokens[token] = session{user: u.Name, device: app["DeviceId"]}
+	token := s.mint("token")
+	s.tokens[token] = session{user: u.id, device: app["DeviceId"]}
 	s.mu.Unlock()
 	s.core.Client(mediaserver.ClientStarted)
 	writeJSON(w, map[string]any{
 		"User": s.renderUser(u), "AccessToken": token, "ServerId": s.srv.ID,
 		"SessionInfo": map[string]any{
-			"Id": id("session " + token), "UserId": userID(u.Name), "UserName": u.Name, "Client": app["Client"],
+			"Id": id("session " + token), "UserId": u.id, "UserName": u.name, "Client": app["Client"],
 			"DeviceName": app["Device"], "DeviceId": app["DeviceId"], "ApplicationVersion": app["Version"], "IsActive": true,
 		},
 	})
+}
+
+// lockoutAfter is how many wrong passwords in a row lock an Emby user
+// out: the online run of 2026-11-26 saw 10 do it.
+const lockoutAfter = 10
+
+// refusal is the reply to a sign-in as u, found when ok, with pw, and its
+// status: 0 when it signs in. The caller holds s.mu.
+func (s *server) refusal(u *user, ok bool, pw string) (reply string, status int) {
+	switch {
+	case !ok:
+		return "", http.StatusUnauthorized
+	case s.p.Flavor == Jellyfin && u.policy.IsDisabled:
+		return "Error processing request.", http.StatusForbidden
+	case u.password != pw:
+		u.failures++
+		if s.p.Flavor == Emby && u.failures >= lockoutAfter && !u.policy.lockedOut() {
+			at := time.Now().UnixMilli()
+			u.policy.LockedOutDate = &at
+		}
+		return "", http.StatusUnauthorized
+	case u.policy.IsDisabled:
+		return "Your account has been disabled. Please contact your server administrator for more information.", http.StatusForbidden
+	case u.policy.lockedOut():
+		return "Your account has been temporarily locked out. Please try again later.", http.StatusForbidden
+	}
+	return "", 0
 }
 
 func (s *server) logout(w http.ResponseWriter, r *http.Request, _ caller) {
@@ -169,22 +202,6 @@ func (s *server) logout(w http.ResponseWriter, r *http.Request, _ caller) {
 	s.mu.Unlock()
 	s.core.Client(mediaserver.ClientEnded)
 	w.WriteHeader(http.StatusNoContent)
-}
-
-func (s *server) renderUser(u User) map[string]any {
-	return map[string]any{
-		"Name": u.Name, "ServerId": s.srv.ID, "Id": userID(u.Name), "HasPassword": u.Password != "",
-		"HasConfiguredPassword": u.Password != "", "EnableAutoLogin": false,
-		"Policy": map[string]any{"IsAdministrator": u.Admin, "IsHidden": u.Admin, "IsDisabled": false, "EnableAllFolders": true},
-	}
-}
-
-func (s *server) users(w http.ResponseWriter, _ *http.Request, _ caller) {
-	out := make([]map[string]any, len(s.srv.Users))
-	for i, u := range s.srv.Users {
-		out[i] = s.renderUser(u)
-	}
-	writeJSON(w, out)
 }
 
 // createKey is POST /Auth/Keys, answered 204 with no body: the key is
@@ -199,7 +216,7 @@ func (s *server) createKey(w http.ResponseWriter, r *http.Request, _ caller) {
 		return
 	}
 	s.mu.Lock()
-	key := s.mint()
+	key := s.mint("token")
 	s.keys = append(s.keys, key)
 	s.keyApps = append(s.keyApps, keyApp{key: key, app: app, created: time.Now()})
 	s.mu.Unlock()

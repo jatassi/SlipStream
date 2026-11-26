@@ -34,6 +34,9 @@ type MediaServer struct {
 	// every root on the reaching Node. The world saves each other root as
 	// not shown.
 	Roots []MediaServerRoot `yaml:"roots,omitempty"`
+	// ShowToMembers turns on Show to Members, so the Admin may offer the
+	// server to Members, its libraries behind the shown Path mappings.
+	ShowToMembers bool `yaml:"show_to_members,omitempty"`
 	// Users are Jellyfin or Emby users beside the administrator, each with
 	// watch data of their own.
 	Users []string `yaml:"users,omitempty"`

@@ -11350,6 +11350,43 @@
         ],
         "type": "object"
       },
+      "IdentityGrantedServer": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "description": "The kind's product name, such as Plex",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "plexHome": {
+            "description": "Plex only: true adds the Member to the Plex Home; false shares the server as a friend",
+            "type": "boolean"
+          },
+          "present": {
+            "description": "False once the server is removed",
+            "type": "boolean"
+          },
+          "server": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "shown": {
+            "description": "Whether Show to Members is on. A server that is off isn't offered when the link is used",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "server",
+          "name",
+          "kind",
+          "present",
+          "shown",
+          "plexHome"
+        ],
+        "type": "object"
+      },
       "IdentityIssuedResetLink": {
         "additionalProperties": false,
         "properties": {
@@ -11371,6 +11408,16 @@
       "IdentityIssuedSignupLink": {
         "additionalProperties": false,
         "properties": {
+          "dropped": {
+            "description": "Send again only: the Media Servers the old link offered that the new one doesn't, because they are removed or no longer shown to Members",
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
           "email": {
             "$ref": "#/components/schemas/MailOutcome"
           },
@@ -11427,6 +11474,13 @@
             "format": "date-time",
             "type": "string"
           },
+          "mediaServers": {
+            "description": "Signup links only: the Media Servers the link offers that are still shown to Members. Absent on Reset and email links",
+            "items": {
+              "$ref": "#/components/schemas/IdentityOfferedServer"
+            },
+            "type": "array"
+          },
           "serverName": {
             "type": "string"
           },
@@ -11442,6 +11496,23 @@
           "email",
           "serverName",
           "expiresAt"
+        ],
+        "type": "object"
+      },
+      "IdentityOfferedServer": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "description": "The kind's product name, such as Plex",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "kind"
         ],
         "type": "object"
       },
@@ -11526,13 +11597,21 @@
           "issuedBy": {
             "description": "The Admin who issued it; absent for the API key",
             "type": "string"
+          },
+          "mediaServers": {
+            "description": "The Media Servers the link offers",
+            "items": {
+              "$ref": "#/components/schemas/IdentityGrantedServer"
+            },
+            "type": "array"
           }
         },
         "required": [
           "id",
           "email",
           "issuedAt",
-          "expiresAt"
+          "expiresAt",
+          "mediaServers"
         ],
         "type": "object"
       },
@@ -11619,6 +11698,24 @@
         "required": [
           "apiKey",
           "createdAt"
+        ],
+        "type": "object"
+      },
+      "IdentityServerGrant": {
+        "additionalProperties": false,
+        "properties": {
+          "plexHome": {
+            "description": "Plex only: true adds the Member to the Plex Home; false shares the server as a friend",
+            "type": "boolean"
+          },
+          "server": {
+            "description": "A Media Server shown to Members",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "server"
         ],
         "type": "object"
       },
@@ -14936,6 +15033,21 @@
         ],
         "type": "object"
       },
+      "LinkUserInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "userId": {
+            "description": "A user id from listMediaServerUsers",
+            "maxLength": 256,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "userId"
+        ],
+        "type": "object"
+      },
       "LiveAccessChanged": {
         "additionalProperties": false,
         "type": "object"
@@ -15068,6 +15180,28 @@
         },
         "type": "object"
       },
+      "MakeAccountInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "password": {
+            "description": "Write-only. The Member's password for the server's app, set on the server and never stored",
+            "maxLength": 1024,
+            "minLength": 1,
+            "type": "string"
+          },
+          "username": {
+            "description": "The name the Member signs in to the server's app with",
+            "maxLength": 100,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "username",
+          "password"
+        ],
+        "type": "object"
+      },
       "MakeFolderInputBody": {
         "additionalProperties": false,
         "properties": {
@@ -15102,6 +15236,209 @@
         },
         "required": [
           "mappings"
+        ],
+        "type": "object"
+      },
+      "MediaserversAccessChanged": {
+        "additionalProperties": false,
+        "type": "object"
+      },
+      "MediaserversAccessList": {
+        "additionalProperties": false,
+        "properties": {
+          "offerable": {
+            "description": "With account: the servers shown to Members that the Member has no access to yet",
+            "items": {
+              "$ref": "#/components/schemas/MediaserversAccessServer"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "plexHomeUsed": {
+            "description": "Whether a Member is in the Plex Home through SlipStream: a shared or active row added to Plex Home",
+            "type": "boolean"
+          },
+          "plexPass": {
+            "description": "Whether SlipStream's Plex account has Plex Pass, which Add to Plex Home needs",
+            "type": "boolean"
+          },
+          "rows": {
+            "description": "The rows under Needs you first, then the rest",
+            "items": {
+              "$ref": "#/components/schemas/MediaserversAccessView"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "rows",
+          "plexPass",
+          "plexHomeUsed"
+        ],
+        "type": "object"
+      },
+      "MediaserversAccessMember": {
+        "additionalProperties": false,
+        "properties": {
+          "accountId": {
+            "description": "Absent once the Account is deleted and the row waits for its removal",
+            "format": "uuid",
+            "type": "string"
+          },
+          "disabled": {
+            "description": "Whether the Account is turned off",
+            "type": "boolean"
+          },
+          "email": {
+            "description": "Absent once the Account is deleted",
+            "format": "email",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "disabled"
+        ],
+        "type": "object"
+      },
+      "MediaserversAccessProblem": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "enum": [
+              "plex_refused",
+              "plex_libraries_short",
+              "username_taken",
+              "server_refused",
+              "media_server_unreached",
+              "failed"
+            ],
+            "type": "string"
+          },
+          "detail": {
+            "description": "What went wrong, as a sentence for an Admin",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code"
+        ],
+        "type": "object"
+      },
+      "MediaserversAccessServer": {
+        "additionalProperties": false,
+        "properties": {
+          "access": {
+            "description": "How Members get access: plex_tv through a Plex share, users with a user the Member makes or the Admin links",
+            "enum": [
+              "plex_tv",
+              "users"
+            ],
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/MediaserversKind"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "kind",
+          "access"
+        ],
+        "type": "object"
+      },
+      "MediaserversAccessView": {
+        "additionalProperties": false,
+        "properties": {
+          "actions": {
+            "description": "What this Admin may start on the row, in the order the screen shows them",
+            "items": {
+              "enum": [
+                "shareFriend",
+                "shareHome",
+                "markAdded",
+                "check",
+                "link",
+                "offer",
+                "retryRemove",
+                "remove"
+              ],
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "changedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "libraries": {
+            "description": "The server's libraries for Members by name, for sharing by hand",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "member": {
+            "$ref": "#/components/schemas/MediaserversAccessMember"
+          },
+          "needsYou": {
+            "description": "Whether the row waits on an Admin: a share to make or accept, or a removal to try again",
+            "type": "boolean"
+          },
+          "plex": {
+            "$ref": "#/components/schemas/MediaserversPlexPart",
+            "description": "Plex rows only"
+          },
+          "problem": {
+            "$ref": "#/components/schemas/MediaserversAccessProblem",
+            "description": "The last call that failed on the row; absent once a move succeeds"
+          },
+          "server": {
+            "$ref": "#/components/schemas/MediaserversAccessServer"
+          },
+          "state": {
+            "enum": [
+              "offered",
+              "waiting",
+              "shared",
+              "making",
+              "active",
+              "removing",
+              "removed"
+            ],
+            "type": "string"
+          },
+          "user": {
+            "$ref": "#/components/schemas/MediaserversUserPart",
+            "description": "Jellyfin and Emby rows with a user on the server"
+          }
+        },
+        "required": [
+          "id",
+          "server",
+          "member",
+          "state",
+          "needsYou",
+          "actions",
+          "libraries",
+          "changedAt"
         ],
         "type": "object"
       },
@@ -15140,6 +15477,20 @@
           "expiresAt",
           "refused"
         ],
+        "type": "object"
+      },
+      "MediaserversActed": {
+        "additionalProperties": false,
+        "properties": {
+          "mail": {
+            "$ref": "#/components/schemas/MailOutcome",
+            "description": "What became of the email telling the Member they can watch, when the operation sent one"
+          },
+          "row": {
+            "$ref": "#/components/schemas/MediaserversAccessView",
+            "description": "The row after the operation; absent when it deleted the row"
+          }
+        },
         "type": "object"
       },
       "MediaserversChangeView": {
@@ -15386,6 +15737,29 @@
         ],
         "type": "object"
       },
+      "MediaserversHowToWatch": {
+        "additionalProperties": false,
+        "properties": {
+          "address": {
+            "description": "The server's Address for Members; absent on Plex, and when the Admin set none",
+            "format": "uri",
+            "type": "string"
+          },
+          "app": {
+            "description": "The app to get: Plex, Jellyfin or Emby",
+            "type": "string"
+          },
+          "signInAs": {
+            "description": "The Plex username, or the username on the server",
+            "type": "string"
+          }
+        },
+        "required": [
+          "app",
+          "signInAs"
+        ],
+        "type": "object"
+      },
       "MediaserversKind": {
         "enum": [
           "plex",
@@ -15472,6 +15846,27 @@
           "key",
           "name",
           "folder"
+        ],
+        "type": "object"
+      },
+      "MediaserversLibraryChoice": {
+        "additionalProperties": false,
+        "properties": {
+          "key": {
+            "description": "Plex's section key, or the Jellyfin or Emby library ItemId",
+            "maxLength": 256,
+            "minLength": 1,
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 256,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "name"
         ],
         "type": "object"
       },
@@ -15592,6 +15987,183 @@
         ],
         "type": "object"
       },
+      "MediaserversMemberPin": {
+        "additionalProperties": false,
+        "properties": {
+          "authUrl": {
+            "description": "Open it in a new tab, or in this one on a phone, where the Member signs in to Plex",
+            "format": "uri",
+            "type": "string"
+          },
+          "expiresAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "pinId": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "pinId",
+          "authUrl",
+          "expiresAt"
+        ],
+        "type": "object"
+      },
+      "MediaserversMemberPinState": {
+        "additionalProperties": false,
+        "properties": {
+          "refusal": {
+            "description": "Set when state is refused",
+            "enum": [
+              "plex_account_taken",
+              "plex_account_owner",
+              "plex_account_other"
+            ],
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "waiting",
+              "expired",
+              "signed_in",
+              "refused"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "state"
+        ],
+        "type": "object"
+      },
+      "MediaserversMyAccess": {
+        "additionalProperties": false,
+        "properties": {
+          "mailSetUp": {
+            "description": "Whether SlipStream can send email, so the Member hears when a share is made",
+            "type": "boolean"
+          },
+          "plex": {
+            "$ref": "#/components/schemas/MediaserversMyPlex",
+            "description": "The Plex account the Member signed in to Plex as; absent before a sign-in"
+          },
+          "plexPassLine": {
+            "description": "Whether How to watch carries Plex's Plex Pass rule: the Member has a Plex row and SlipStream's Plex account has no Plex Pass",
+            "type": "boolean"
+          },
+          "rows": {
+            "description": "In the Admin's server order",
+            "items": {
+              "$ref": "#/components/schemas/MediaserversMyAccessRow"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "rows",
+          "plexPassLine",
+          "mailSetUp"
+        ],
+        "type": "object"
+      },
+      "MediaserversMyAccessChanged": {
+        "additionalProperties": false,
+        "type": "object"
+      },
+      "MediaserversMyAccessRow": {
+        "additionalProperties": false,
+        "properties": {
+          "actions": {
+            "description": "What the Member may start on the row",
+            "items": {
+              "enum": [
+                "check",
+                "anotherPlex",
+                "makeAccount"
+              ],
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "adminName": {
+            "description": "The Admin to ask about this server",
+            "type": "string"
+          },
+          "howToWatch": {
+            "$ref": "#/components/schemas/MediaserversHowToWatch",
+            "description": "Absent while pending"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "pending": {
+            "description": "Whether the Member still has something to do or wait for",
+            "type": "boolean"
+          },
+          "server": {
+            "$ref": "#/components/schemas/MediaserversMyServer"
+          },
+          "state": {
+            "enum": [
+              "offered",
+              "waiting",
+              "shared",
+              "making",
+              "active"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "server",
+          "adminName",
+          "state",
+          "pending",
+          "actions"
+        ],
+        "type": "object"
+      },
+      "MediaserversMyPlex": {
+        "additionalProperties": false,
+        "properties": {
+          "username": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "username"
+        ],
+        "type": "object"
+      },
+      "MediaserversMyServer": {
+        "additionalProperties": false,
+        "properties": {
+          "access": {
+            "enum": [
+              "plex_tv",
+              "users"
+            ],
+            "type": "string"
+          },
+          "label": {
+            "description": "The kind's product name, such as Jellyfin",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "label",
+          "access"
+        ],
+        "type": "object"
+      },
       "MediaserversNodeRef": {
         "additionalProperties": false,
         "properties": {
@@ -15636,6 +16208,25 @@
               "string",
               "null"
             ]
+          },
+          "memberAddress": {
+            "description": "Jellyfin and Emby: the address How to watch gives Members; null to give none",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "memberLibraries": {
+            "description": "The Libraries for Members, from listMediaServerLibraries; never empty while membersSee is on",
+            "items": {
+              "$ref": "#/components/schemas/MediaserversLibraryChoice"
+            },
+            "maxItems": 1000,
+            "type": "array"
+          },
+          "membersSee": {
+            "description": "Show to Members. Turning it on the first time picks the libraries behind the shown Path mappings, unless memberLibraries names others",
+            "type": "boolean"
           },
           "name": {
             "maxLength": 100,
@@ -15700,6 +16291,33 @@
         ],
         "type": "object"
       },
+      "MediaserversPlexPart": {
+        "additionalProperties": false,
+        "properties": {
+          "byHand": {
+            "description": "The Admin shared the server in Plex and marked it as added",
+            "type": "boolean"
+          },
+          "email": {
+            "description": "The Member's Plex email; absent until the Member signs in to Plex",
+            "format": "email",
+            "type": "string"
+          },
+          "plexHome": {
+            "description": "True when the Member is offered or added to the Plex Home; false for a share as a friend",
+            "type": "boolean"
+          },
+          "username": {
+            "description": "The Member's Plex username; absent until the Member signs in to Plex",
+            "type": "string"
+          }
+        },
+        "required": [
+          "plexHome",
+          "byHand"
+        ],
+        "type": "object"
+      },
       "MediaserversPlexPin": {
         "additionalProperties": false,
         "properties": {
@@ -15728,10 +16346,12 @@
         "additionalProperties": false,
         "properties": {
           "state": {
+            "description": "other_account is a sign-in as a Plex account other than the one SlipStream is signed in to, which replacePlexAccount confirms",
             "enum": [
               "waiting",
               "expired",
-              "signed_in"
+              "signed_in",
+              "other_account"
             ],
             "type": "string"
           }
@@ -15838,6 +16458,23 @@
         ],
         "type": "object"
       },
+      "MediaserversServerUser": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "description": "The server's user id",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "type": "object"
+      },
       "MediaserversServerView": {
         "additionalProperties": false,
         "properties": {
@@ -15907,6 +16544,27 @@
             "minimum": 0,
             "type": "integer"
           },
+          "memberAddress": {
+            "description": "Jellyfin and Emby: the address How to watch gives Members; absent when the Admin set none",
+            "type": "string"
+          },
+          "memberCount": {
+            "description": "How many Members can watch on the server",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "memberLibraries": {
+            "description": "The Libraries for Members: what a Member's access covers",
+            "items": {
+              "$ref": "#/components/schemas/MediaserversLibraryChoice"
+            },
+            "type": "array"
+          },
+          "membersSee": {
+            "description": "Show to Members: whether Members may be offered access to the server",
+            "type": "boolean"
+          },
           "name": {
             "type": "string"
           },
@@ -15953,7 +16611,10 @@
           "contact",
           "sends",
           "state",
-          "mappingsNeeded"
+          "mappingsNeeded",
+          "membersSee",
+          "memberLibraries",
+          "memberCount"
         ],
         "type": "object"
       },
@@ -16196,6 +16857,18 @@
         "required": [
           "reason",
           "since"
+        ],
+        "type": "object"
+      },
+      "MediaserversUserPart": {
+        "additionalProperties": false,
+        "properties": {
+          "username": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "username"
         ],
         "type": "object"
       },
@@ -17823,6 +18496,17 @@
             "format": "email",
             "maxLength": 254,
             "type": "string"
+          },
+          "mediaServers": {
+            "description": "The Media Servers to offer the new Member, each shown to Members",
+            "items": {
+              "$ref": "#/components/schemas/IdentityServerGrant"
+            },
+            "maxItems": 100,
+            "type": [
+              "array",
+              "null"
+            ]
           }
         },
         "required": [
@@ -20222,6 +20906,16 @@
         "required": [
           "node"
         ],
+        "type": "object"
+      },
+      "OfferInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "plexHome": {
+            "description": "Plex only: true adds the Member to the Plex Home; false shares the server as a friend",
+            "type": "boolean"
+          }
+        },
         "type": "object"
       },
       "OpenRestoreInputBody": {
@@ -23016,6 +23710,21 @@
         },
         "type": "object"
       },
+      "ServerUsersOutputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "users": {
+            "items": {
+              "$ref": "#/components/schemas/MediaserversServerUser"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "users"
+        ],
+        "type": "object"
+      },
       "ServersOutputBody": {
         "additionalProperties": false,
         "properties": {
@@ -24464,6 +25173,23 @@
         },
         "required": [
           "settings"
+        ],
+        "type": "object"
+      },
+      "ShareAccessInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "as": {
+            "description": "friend shares the Libraries for Members; home also adds the Member to the Plex Home",
+            "enum": [
+              "friend",
+              "home"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "as"
         ],
         "type": "object"
       },
@@ -32692,6 +33418,1054 @@
         "x-slipstream-access": "confirmed"
       }
     },
+    "/account/media-servers": {
+      "get": {
+        "operationId": "listMyMediaServerAccess",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaserversMyAccess"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_account",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "List the Media Servers the Member was offered, with what each needs next and how to watch on it",
+        "tags": [
+          "mediaservers"
+        ],
+        "x-slipstream-access": "account"
+      }
+    },
+    "/account/media-servers/plex": {
+      "delete": {
+        "operationId": "useAnotherPlexAccount",
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_account",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "access_state",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Forget the Plex account the Member signed in to Plex as, while no server is shared with it yet",
+        "tags": [
+          "mediaservers"
+        ],
+        "x-slipstream-access": "account"
+      }
+    },
+    "/account/media-servers/plex/pin": {
+      "post": {
+        "operationId": "startMemberPlexSignIn",
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaserversMemberPin"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_account",
+                            "needs_reconfirm",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "plex_not_signed_in",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "502": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "plex_tv_unreached"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Bad Gateway"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "reconfirmed"
+            ]
+          }
+        ],
+        "summary": "Start the Member's Plex sign-in and get the plex.tv page they sign in on",
+        "tags": [
+          "mediaservers"
+        ],
+        "x-slipstream-access": "confirmed"
+      }
+    },
+    "/account/media-servers/plex/pin/{id}": {
+      "get": {
+        "operationId": "getMemberPlexSignIn",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaserversMemberPinState"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_account",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "plex_pin_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Get whether the Member's Plex sign-in is still waiting, has expired, signed in or was refused",
+        "tags": [
+          "mediaservers"
+        ],
+        "x-slipstream-access": "account"
+      }
+    },
+    "/account/media-servers/{accessId}/account": {
+      "post": {
+        "operationId": "makeMediaServerAccount",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "accessId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MakeAccountInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaserversMyAccessRow"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_account",
+                            "needs_reconfirm",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "media_server_access_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "access_state",
+                            "username_taken",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid",
+                            "server_refused"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "502": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "media_server_unreached"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Bad Gateway"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "reconfirmed"
+            ]
+          }
+        ],
+        "summary": "Make the Member's own user on a Jellyfin or Emby server they were offered",
+        "tags": [
+          "mediaservers"
+        ],
+        "x-slipstream-access": "confirmed"
+      }
+    },
+    "/account/media-servers/{accessId}/check": {
+      "post": {
+        "operationId": "checkMyMediaServerAccess",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "accessId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaserversMyAccessRow"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_account",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "media_server_access_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "access_state",
+                            "plex_not_signed_in",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "502": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "plex_tv_unreached"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Bad Gateway"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Check whether the Member's Plex share is accepted, accepting it when SlipStream can",
+        "tags": [
+          "mediaservers"
+        ],
+        "x-slipstream-access": "account"
+      }
+    },
     "/account/pin": {
       "post": {
         "operationId": "changePIN",
@@ -33605,6 +35379,254 @@
         "summary": "Change an Account's name, email or role, or turn it off or on",
         "tags": [
           "identity"
+        ],
+        "x-slipstream-access": "reconfirmed"
+      }
+    },
+    "/accounts/{id}/media-servers/{serverId}": {
+      "put": {
+        "operationId": "offerMediaServer",
+        "parameters": [
+          {
+            "description": "The Member's Account",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "description": "The Member's Account",
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "serverId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OfferInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaserversActed"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "needs_reconfirm",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "account_not_found",
+                            "media_server_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "access_state",
+                            "not_shown_to_members",
+                            "superseded",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid",
+                            "plex_home_not_plex"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "502": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "media_server_unreached"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Bad Gateway"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin",
+              "reconfirmed"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Offer a Member access to a Media Server, or offer it again after the access was removed",
+        "tags": [
+          "mediaservers"
         ],
         "x-slipstream-access": "reconfirmed"
       }
@@ -44882,6 +46904,32 @@
                       {
                         "properties": {
                           "data": {
+                            "$ref": "#/components/schemas/MediaserversAccessChanged"
+                          },
+                          "event": {
+                            "const": "media-servers.access-changed",
+                            "description": "The event name.",
+                            "type": "string"
+                          },
+                          "id": {
+                            "description": "The event ID.",
+                            "type": "integer"
+                          },
+                          "retry": {
+                            "description": "The retry time in milliseconds.",
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "data",
+                          "event"
+                        ],
+                        "title": "Event media-servers.access-changed",
+                        "type": "object"
+                      },
+                      {
+                        "properties": {
+                          "data": {
                             "$ref": "#/components/schemas/MediaserversChanged"
                           },
                           "event": {
@@ -44929,6 +46977,32 @@
                           "event"
                         ],
                         "title": "Event media-servers.items-found",
+                        "type": "object"
+                      },
+                      {
+                        "properties": {
+                          "data": {
+                            "$ref": "#/components/schemas/MediaserversMyAccessChanged"
+                          },
+                          "event": {
+                            "const": "media-servers.my-access-changed",
+                            "description": "The event name.",
+                            "type": "string"
+                          },
+                          "id": {
+                            "description": "The event ID.",
+                            "type": "integer"
+                          },
+                          "retry": {
+                            "description": "The retry time in milliseconds.",
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "data",
+                          "event"
+                        ],
+                        "title": "Event media-servers.my-access-changed",
                         "type": "object"
                       },
                       {
@@ -61253,6 +63327,1292 @@
         "x-slipstream-access": "admin"
       }
     },
+    "/media-servers/access": {
+      "get": {
+        "operationId": "listMediaServerAccess",
+        "parameters": [
+          {
+            "description": "An Account id: only that Member's rows, and the servers they may be offered",
+            "explode": false,
+            "in": "query",
+            "name": "account",
+            "schema": {
+              "description": "An Account id: only that Member's rows, and the servers they may be offered",
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaserversAccessList"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "account_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "superseded",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "List Members' access to Media Servers, the rows waiting on an Admin first",
+        "tags": [
+          "mediaservers"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/media-servers/access/{id}": {
+      "delete": {
+        "operationId": "removeMediaServerAccess",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaserversActed"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "needs_reconfirm",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "media_server_access_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "access_state",
+                            "superseded",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin",
+              "reconfirmed"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Remove a Member's access to a Media Server, on the server or plex.tv too",
+        "tags": [
+          "mediaservers"
+        ],
+        "x-slipstream-access": "reconfirmed"
+      }
+    },
+    "/media-servers/access/{id}/check": {
+      "post": {
+        "operationId": "checkMediaServerAccess",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaserversActed"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "media_server_access_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "access_state",
+                            "plex_not_signed_in",
+                            "superseded",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid",
+                            "media_server_sign_in_refused"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "502": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "plex_tv_unreached"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Bad Gateway"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Check whether a Member accepted a Plex share",
+        "tags": [
+          "mediaservers"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/media-servers/access/{id}/link": {
+      "post": {
+        "operationId": "linkMediaServerUser",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LinkUserInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaserversActed"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_account",
+                            "needs_admin",
+                            "needs_reconfirm",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "media_server_access_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "access_state",
+                            "superseded",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "502": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "media_server_unreached"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Bad Gateway"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin",
+              "reconfirmed"
+            ]
+          }
+        ],
+        "summary": "Link a Member to an existing user on a Jellyfin or Emby server",
+        "tags": [
+          "mediaservers"
+        ],
+        "x-slipstream-access": "reconfirmedSession"
+      }
+    },
+    "/media-servers/access/{id}/mark-added": {
+      "post": {
+        "operationId": "markMediaServerAccessAdded",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaserversActed"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "needs_reconfirm",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "media_server_access_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "access_state",
+                            "superseded",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin",
+              "reconfirmed"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Record that an Admin shared a Plex server with a Member in Plex itself",
+        "tags": [
+          "mediaservers"
+        ],
+        "x-slipstream-access": "reconfirmed"
+      }
+    },
+    "/media-servers/access/{id}/share": {
+      "post": {
+        "operationId": "shareMediaServerAccess",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ShareAccessInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaserversActed"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_account",
+                            "needs_admin",
+                            "needs_reconfirm",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "media_server_access_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "access_state",
+                            "plex_libraries_short",
+                            "plex_not_signed_in",
+                            "superseded",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid",
+                            "media_server_sign_in_refused",
+                            "plex_refused"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "502": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "plex_tv_unreached"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Bad Gateway"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin",
+              "reconfirmed"
+            ]
+          }
+        ],
+        "summary": "Share a Plex server with a Member who signed in to Plex, as a friend or in the Plex Home",
+        "tags": [
+          "mediaservers"
+        ],
+        "x-slipstream-access": "reconfirmedSession"
+      }
+    },
     "/media-servers/kinds": {
       "get": {
         "operationId": "listMediaServerKinds",
@@ -62066,6 +65426,204 @@
           "mediaservers"
         ],
         "x-slipstream-access": "admin"
+      }
+    },
+    "/media-servers/plex/pin/{id}/replace": {
+      "post": {
+        "operationId": "replacePlexAccount",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaserversAccountView"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "needs_reconfirm",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "plex_pin_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "superseded",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin",
+              "reconfirmed"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Sign SlipStream in to the different Plex account a Plex sign-in names, which removes every Plex server and Members' access to them",
+        "tags": [
+          "mediaservers"
+        ],
+        "x-slipstream-access": "reconfirmed"
       }
     },
     "/media-servers/plex/servers": {
@@ -63322,7 +66880,8 @@
                             "invalid",
                             "media_server_localhost_on_worker",
                             "media_server_sign_in_refused",
-                            "media_server_too_old"
+                            "media_server_too_old",
+                            "no_member_libraries"
                           ],
                           "type": "string"
                         }
@@ -65063,6 +68622,227 @@
           }
         ],
         "summary": "Test a Media Server from its Connect from Node at its address and from the Controller at its fallback address",
+        "tags": [
+          "mediaservers"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/media-servers/{id}/users": {
+      "get": {
+        "operationId": "listMediaServerUsers",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServerUsersOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "media_server_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "superseded",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "502": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "media_server_unreached"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Bad Gateway"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "List the users of a Jellyfin or Emby server that an Admin may link to a Member",
         "tags": [
           "mediaservers"
         ],
@@ -89300,6 +93080,7 @@
                           "enum": [
                             "account_exists",
                             "address_unset",
+                            "not_shown_to_members",
                             "superseded",
                             "worker_node"
                           ],
@@ -89326,7 +93107,8 @@
                       "properties": {
                         "code": {
                           "enum": [
-                            "invalid"
+                            "invalid",
+                            "plex_home_not_plex"
                           ],
                           "type": "string"
                         }
@@ -90122,6 +93904,7 @@
                           "enum": [
                             "account_exists",
                             "address_unset",
+                            "not_shown_to_members",
                             "superseded",
                             "worker_node"
                           ],

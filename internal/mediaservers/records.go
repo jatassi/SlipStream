@@ -477,7 +477,10 @@ func (s service) Update(ctx context.Context, id link.ServerID, p Patch) (ServerV
 			RunsOnNodeID: next.RunsOnNodeID, SecretsSealed: sealed, SettingsVersion: next.SettingsVersion, Fallback: next.Fallback,
 			CheckedAt: next.CheckedAt, At: storage.Now(),
 		})
-		if err != nil || !routed {
+		if err != nil {
+			return err
+		}
+		if err := s.m.saveMembers(ctx, q, next, p); err != nil || !routed {
 			return err
 		}
 		return s.m.rerouted(ctx, q, id, row.ReachingNodeID, next)
@@ -487,6 +490,7 @@ func (s service) Update(ctx context.Context, id link.ServerID, p Patch) (ServerV
 	}
 	s.m.cfg.Touch(row.ReachingNodeID, next.ReachingNodeID)
 	s.m.changed(ctx, id)
+	s.m.membersChanged(ctx, p)
 	return s.Get(ctx, id)
 }
 

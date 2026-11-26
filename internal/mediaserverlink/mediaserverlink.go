@@ -68,3 +68,75 @@ func (r remote) Advance(ctx context.Context, j link.Job) (link.Advanced, error) 
 // Direct is Advance in this process on the server d dials: the
 // Controller's fallback.
 func Direct(k link.Kind, d link.Dialed) Port { return k.Dial(d) }
+
+// UsersOf is c's users, false for a kind without them.
+func UsersOf(c link.Conn) (link.Users, bool) {
+	u, ok := c.(link.Users)
+	return u, ok
+}
+
+// MembersLinked is the part of MediaServerLinkService RemoteUsers calls.
+type MembersLinked interface {
+	Members(ctx context.Context, req *msv1.MembersRequest) (*msv1.MembersResponse, error)
+}
+
+// RemoteUsers is the users of the server ref names, through its reaching
+// Node's Members: one call per method. An rpc error comes back as it is,
+// the link's.
+func RemoteUsers(c MembersLinked, ref link.ServerRef) link.Users { return remoteUsers{c, ref} }
+
+type remoteUsers struct {
+	c   MembersLinked
+	ref link.ServerRef
+}
+
+func (r remoteUsers) call(ctx context.Context, req *msv1.MembersRequest) (*msv1.MembersResponse, error) {
+	req.ServerId, req.SettingsVersion = idOnWire(r.ref.ID.UUID), r.ref.SettingsVersion
+	resp, err := r.c.Members(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	return resp, membersOf(resp)
+}
+
+func (r remoteUsers) CreateUser(ctx context.Context, name string) (string, error) {
+	resp, err := r.call(ctx, &msv1.MembersRequest{Op: &msv1.MembersRequest_CreateUser{CreateUser: &msv1.CreateUser{Name: name}}})
+	return resp.GetUserId(), err
+}
+
+func (r remoteUsers) Restrict(ctx context.Context, user string, libraries []string) error {
+	_, err := r.call(ctx, &msv1.MembersRequest{Op: &msv1.MembersRequest_RestrictUser{RestrictUser: &msv1.RestrictUser{UserId: user, LibraryKeys: libraries}}})
+	return err
+}
+
+func (r remoteUsers) SetPassword(ctx context.Context, user string, pw link.Password) error {
+	_, err := r.call(ctx, &msv1.MembersRequest{Op: &msv1.MembersRequest_MemberPassword{MemberPassword: &msv1.MemberPassword{UserId: user, Password: pw.Reveal()}}})
+	return err
+}
+
+func (r remoteUsers) Rename(ctx context.Context, user, name string) error {
+	_, err := r.call(ctx, &msv1.MembersRequest{Op: &msv1.MembersRequest_RenameUser{RenameUser: &msv1.RenameUser{UserId: user, Name: name}}})
+	return err
+}
+
+func (r remoteUsers) Disable(ctx context.Context, user string) error {
+	_, err := r.call(ctx, &msv1.MembersRequest{Op: &msv1.MembersRequest_DisableUser{DisableUser: user}})
+	return err
+}
+
+func (r remoteUsers) DeleteUser(ctx context.Context, user string) error {
+	_, err := r.call(ctx, &msv1.MembersRequest{Op: &msv1.MembersRequest_DeleteUser{DeleteUser: user}})
+	return err
+}
+
+func (r remoteUsers) ListUsers(ctx context.Context) ([]link.User, error) {
+	resp, err := r.call(ctx, &msv1.MembersRequest{Op: &msv1.MembersRequest_ListUsers{ListUsers: &msv1.ListUsers{}}})
+	if err != nil {
+		return nil, err
+	}
+	out := make([]link.User, len(resp.GetUsers()))
+	for i, u := range resp.GetUsers() {
+		out[i] = link.User{ID: u.GetId(), Name: u.GetName(), Administrator: u.GetAdministrator(), Disabled: u.GetDisabled()}
+	}
+	return out, nil
+}

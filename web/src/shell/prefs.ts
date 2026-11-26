@@ -1,6 +1,9 @@
 import { useSyncExternalStore } from "react";
 
-import { MediaserversPlexPin as PlexPin } from "../api/gen/zod/slipStream.schemas.zod";
+import {
+  MediaserversMemberPin as MemberPin,
+  MediaserversPlexPin as PlexPin,
+} from "../api/gen/zod/slipStream.schemas.zod";
 
 type Area = "browser" | "tab";
 
@@ -15,6 +18,8 @@ type Values = {
   setupCode: string;
   /** The Plex sign-in this tab waits on, so a reload picks it up again. */
   plexPin: PlexPin | null;
+  /** The Member's Plex sign-in this tab waits on, so a reload or plex.tv's redirect back picks it up again. */
+  memberPlexPin: MemberPin | null;
   /** The seasons open in each series' Files section, by Work id; a Work left out opens its first season with a missing subtitle. */
   seasonFolds: Readonly<Record<string, readonly string[]>>;
 };
@@ -59,6 +64,13 @@ const plexPin: Kind<PlexPin | null> = {
   serialize: (value) => JSON.stringify(value),
 };
 
+const memberPlexPin: Kind<MemberPin | null> = {
+  area: "tab",
+  fallback: null,
+  parse: (raw) => MemberPin.nullable().catch(null).parse(JSON.parse(raw)),
+  serialize: (value) => JSON.stringify(value),
+};
+
 const seasonFolds: Kind<Values["seasonFolds"]> = {
   area: "browser",
   fallback: {},
@@ -86,6 +98,7 @@ const kinds: { readonly [P in Pref]: Kind<Values[P]> } = {
   libraryViews: views,
   setupCode: text("tab"),
   plexPin,
+  memberPlexPin,
   seasonFolds,
 };
 

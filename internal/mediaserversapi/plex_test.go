@@ -137,7 +137,9 @@ func (r plexRig) settingsVersion(t *testing.T) int64 {
 
 // TestPlexSignInThroughPlexTV signs in with a PIN on fake-plex-tv: the
 // account, its Plex Pass and its 7-day sign-in read back, and the renewal
-// task lists the account.
+// task lists the account. A renewal refreshes Plex Pass, and after it
+// renews a sign-in that stored no plex.tv id a Member can't sign in as the
+// Admin's Plex account.
 func TestPlexSignInThroughPlexTV(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		r := newPlexRig(t)
@@ -151,6 +153,23 @@ func TestPlexSignInThroughPlexTV(t *testing.T) {
 		a := r.account(t)
 		if a.Name != "plex-admin" || !a.PlexPass || a.Refused || a.ExpiresAt.Sub(a.SignedInAt).Round(time.Hour) != 7*day {
 			t.Errorf("the account reads %+v", a)
+		}
+		err := r.w.Lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+			_, err := tx.ExecContext(ctx, "UPDATE mediaservers_plex_account SET plex_id = NULL")
+			return err
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		r.plex.TV.Cue(t, fakeplextv.PlexPass.Name, map[string]bool{"active": false})
+		if err := r.renew(t); err != nil {
+			t.Fatal(err)
+		}
+		if s := r.memberSignIn(t, r.w.Member(t, "sam"), "plex-admin"); s != (mediaservers.MemberPinState{State: mediaservers.PinRefused, Refusal: mediaservers.PlexAccountOwner}) {
+			t.Errorf("after the renewal a Member's sign-in as the Admin's Plex account is %+v", s)
+		}
+		if a := r.account(t); a.PlexPass {
+			t.Errorf("after Plex Pass ended the renewal left the account reading %+v", a)
 		}
 	})
 }

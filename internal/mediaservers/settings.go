@@ -70,7 +70,7 @@ func (m *MediaServers) RenewalTask() tasks.Task {
 	return tasks.Task{
 		ID:               RenewalTaskID,
 		Name:             "Plex sign-in",
-		About:            "Renews the Plex sign-in before it expires and reads each Plex server's token again.",
+		About:            "Renews the Plex sign-in before it expires, reads each Plex server's token again, checks whether the Plex account still has Plex Pass and finishes Plex shares that Members accepted.",
 		Group:            tasks.ControllerGroup,
 		Cadence:          tasks.Every{Interval: RenewEvery},
 		WhileReconciling: tasks.Runs,

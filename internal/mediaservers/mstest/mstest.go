@@ -9,6 +9,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"maps"
 	"net/http"
 	"net/netip"
 	"net/url"
@@ -32,16 +33,21 @@ import (
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/health"
 	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/identity/identitytest"
 	"github.com/jatassi/slipstream/internal/live"
+	"github.com/jatassi/slipstream/internal/mail"
+	"github.com/jatassi/slipstream/internal/mail/mailtest"
 	"github.com/jatassi/slipstream/internal/mediaserverlink"
 	"github.com/jatassi/slipstream/internal/mediaserverlink/link"
 	"github.com/jatassi/slipstream/internal/mediaservers"
+	"github.com/jatassi/slipstream/internal/mediaservers/access"
 	"github.com/jatassi/slipstream/internal/mediaservers/internal/db"
 	"github.com/jatassi/slipstream/internal/mediaservers/queue"
 	"github.com/jatassi/slipstream/internal/node/endpoint"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/nodes/nodestest"
 	msv1 "github.com/jatassi/slipstream/internal/pb/slipstream/mediaserver/v1"
+	"github.com/jatassi/slipstream/internal/providers/plex"
 	"github.com/jatassi/slipstream/internal/providers/plextv"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
@@ -69,12 +75,18 @@ var Timings = link.Timings{
 
 // World is the Media Servers of home, with seedbox paired.
 type World struct {
-	Lib           *storage.DB[storage.Library]
-	Sealer        *secret.Sealer
+	Lib    *storage.DB[storage.Library]
+	Sealer *secret.Sealer
+	// Identity is the Accounts, whose Signup links and deletes reach the
+	// Media Servers through their Granter.
+	Identity      *identity.Service
 	Home, Seedbox role.NodeID
 	Service       mediaservers.Service
 	// Renewal is the Plex sign-in task, run as the scheduler runs it.
-	Renewal  tasks.Task
+	Renewal tasks.Task
+	// Mail captures every email the Media Servers send, waited or through
+	// the Outbox.
+	Mail     *mailtest.Sender
 	ms       *mediaservers.MediaServers
 	net      *network
 	links    *links
@@ -90,12 +102,16 @@ type World struct {
 	found       []mediaservers.Found
 	// placed is the file whose bytes sit at each Rel of each root.
 	placed map[queue.At]files.ID
+	cfg    mediaservers.Config
+	// halt stops the running Media Servers.
+	halt   func()
+	logged *logged
 }
 
 // Schemas are the library schemas the Media Servers read.
 func Schemas() []storage.Schema[storage.Library] {
 	return []storage.Schema[storage.Library]{
-		secret.Schema(), identity.Schema(), nodes.Schema(), role.LibrarySchema(), works.Schema(), roots.Schema(), mediaservers.Schema(), health.Schema(),
+		secret.Schema(), identity.Schema(), mail.Schema(), nodes.Schema(), role.LibrarySchema(), works.Schema(), roots.Schema(), mediaservers.Schema(), health.Schema(),
 	}
 }
 
@@ -120,9 +136,13 @@ func New(t *testing.T) *World {
 	if w.roots, err = roots.Open(t.Context(), cfg); err != nil {
 		t.Fatal(err)
 	}
-	log := slog.New(slog.NewTextHandler(t.Output(), nil))
+	w.logged = &logged{}
+	log := slog.New(slog.NewMultiHandler(slog.NewTextHandler(t.Output(), nil), slog.NewTextHandler(w.logged, &slog.HandlerOptions{Level: slog.LevelDebug})))
 	w.links = newLinks(t, w, mediaserverlink.Config{Kinds: mediaserverlink.Kinds, HTTP: w.net.client(), Timings: Timings, Log: log})
-	ms := mediaservers.New(mediaservers.Config{
+	w.Mail = mailtest.New()
+	outbox := mail.NewOutbox(w.Mail, log)
+	t.Cleanup(func() { _ = outbox.Close(context.Background()) })
+	w.cfg = mediaservers.Config{
 		Library: w.Lib, Sealer: w.Sealer, Roster: roster{w.Home, w.Seedbox, w.links}, Kinds: mediaserverlink.Kinds,
 		HTTP: w.net.client(), Timings: Timings, PlexTV: plexTV,
 		Link:         w.links.service,
@@ -134,27 +154,103 @@ func New(t *testing.T) *World {
 		Tasks:        &cadences{},
 		Events: mediaservers.Events{
 			Changed: changedEvents{w}, SessionsChanged: sessionsEvents{w}, Unhealthy: unhealthyEvents{w}, Recovered: recoveredEvents{w},
-			ItemsFound: foundEvents{w},
+			ItemsFound: foundEvents{w}, AccessChanged: mediaservers.AccessChangedEvent.Bind(w.hub),
+			MyAccessChanged: mediaservers.MyAccessChangedEvent.Bind(w.hub),
 		},
 		Touch: w.links.touch,
 		Facts: w.links.factsOf,
 		Zone:  time.UTC,
 		Log:   log,
-	})
+		Admins: func(ctx context.Context) ([]mail.Address, error) {
+			return identity.EnabledAdminAddresses(ctx, w.Lib)
+		},
+		Mail:      w.Mail,
+		Outbox:    outbox,
+		PlexFacts: plextv.Recorded,
+	}
+	keys, err := secret.Open(t.Context(), w.Lib, filepath.Join(t.TempDir(), secret.KeyFile))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if w.Identity, err = identity.New(t.Context(), identity.Config{Library: w.Lib, Pepper: keys.PINPepper(), Sealer: w.Sealer, Hub: identitytest.Hub(t)}); err != nil {
+		t.Fatal(err)
+	}
+	address, err := identity.ParseAddress("https://media.example.com")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := w.Identity.SetAddress(t.Context(), identity.Admin{}, address); err != nil {
+		t.Fatal(err)
+	}
+	w.boot()
+	t.Cleanup(func() { w.halt() })
+	w.links.start(w.Home)
+	w.links.start(w.Seedbox)
+	return w
+}
+
+// boot makes the Controller's Media Servers over the World's library and
+// runs them until halt.
+func (w *World) boot() {
+	ms := mediaservers.New(w.cfg)
 	w.ms, w.Service, w.Renewal = ms, ms.Service(), ms.RenewalTask()
+	w.Identity.SetGranter(ms.Granter())
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
 		_ = ms.Run(ctx)
 	}()
-	t.Cleanup(func() {
+	w.halt = func() {
 		cancel()
 		<-done
-	})
-	w.links.start(w.Home)
-	w.links.start(w.Seedbox)
-	return w
+	}
+}
+
+// Restart stops the Controller's Media Servers as a Controller that stops
+// does, with whatever is in memory lost, and starts them again over the
+// same library. Run any call in flight to its end first.
+func (w *World) Restart(t *testing.T) {
+	t.Helper()
+	w.halt()
+	w.boot()
+}
+
+// logged is every log line of the World's Nodes, at debug.
+type logged struct {
+	mu  sync.Mutex
+	buf strings.Builder
+}
+
+func (l *logged) Write(p []byte) (int, error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.buf.Write(p)
+	return len(p), nil
+}
+
+// Logged is every line the World's Media Servers and Media Server links
+// logged so far, at debug.
+func (w *World) Logged() string {
+	w.logged.mu.Lock()
+	defer w.logged.mu.Unlock()
+	return w.logged.buf.String()
+}
+
+// Tap keeps the payload of every event the World publishes from now on.
+func (w *World) Tap(ctx context.Context) *live.Tap { return w.hub.Tap(ctx, hubEvents...) }
+
+// Member is a Member's Account and a fresh session of it.
+type Member struct {
+	ID      identity.AccountID
+	Session string
+}
+
+// Member adds a Member whose email is name@example.test.
+func (w *World) Member(t *testing.T, name string) Member {
+	t.Helper()
+	id := identitytest.Member(t, w.Lib, name+"@example.test")
+	return Member{ID: id, Session: identitytest.Session(t, w.Lib, id)}
 }
 
 // MediaServers is the Media Servers, as the API asks a Controller for them.
@@ -219,11 +315,13 @@ const (
 // plexTV is where the World's plex.tv is served.
 var plexTV = plextv.Endpoints{
 	API:     endpoint.MustParseURL("https://plextv.fake.localhost"),
+	Web:     endpoint.MustParseURL("https://plextv-web.fake.localhost"),
 	Auth:    endpoint.MustParseURL("http://plextv-auth.fake.localhost/auth"),
 	Desktop: endpoint.MustParseURL("https://app.plex.invalid/desktop"),
 }
 
-// Plex is plex.tv signing in to account, which owns srv, and srv served
+// Plex is plex.tv signing in to account, which owns srv, with members'
+// accounts beside it, and srv served
 // at home's and seedbox's addresses on port 32400, in that order in
 // resources. Each connection is that Node's front, as in the world, so a
 // fault rule's origin names the connection, whoever dials it.
@@ -231,7 +329,7 @@ type Plex struct {
 	TV, Server faketest.Served
 }
 
-func (w *World) Plex(t *testing.T, srv fakeplex.Server, a fakeplextv.Account) Plex {
+func (w *World) Plex(t *testing.T, srv fakeplex.Server, a fakeplextv.Account, members ...fakeplextv.Account) Plex {
 	t.Helper()
 	s := scenario.Scenario{Seed: "mstest"}
 	shared := fake.NewShared()
@@ -243,7 +341,8 @@ func (w *World) Plex(t *testing.T, srv fakeplex.Server, a fakeplextv.Account) Pl
 		fronts = append(fronts, fake.Front{Target: "plex", Node: f.node, Address: fake.Address{AddrPort: at}})
 		hosts[at.String()] = f.node
 	}
-	p.TV = faketest.InMemory(t, fakeplextv.Playing(a), s, faketest.WithShared(shared), faketest.WithFronts(fronts))
+	p.TV = faketest.InMemory(t, fakeplextv.Playing(a, members...), s, faketest.WithShared(shared), faketest.WithFronts(fronts))
+	web := faketest.InMemory(t, fakeplextv.Web, s, faketest.WithShared(shared))
 	w.net.mu.Lock()
 	defer w.net.mu.Unlock()
 	for host, node := range hosts {
@@ -251,6 +350,7 @@ func (w *World) Plex(t *testing.T, srv fakeplex.Server, a fakeplextv.Account) Pl
 		w.net.down[host] = stopper{faults: p.Server.Faults, target: fault.Target(fakeplex.Fake.Name), origin: node}
 	}
 	w.net.served[plexTV.API.Hostname()] = p.TV.Client.Transport
+	w.net.served[plexTV.Web.Hostname()] = web.Client.Transport
 	return p
 }
 
@@ -264,6 +364,135 @@ func (p Plex) Approve(t *testing.T, authURL string) {
 		t.Fatal(err)
 	}
 	p.TV.Cue(t, fakeplextv.Approve.Name, map[string]string{"code": q.Get("code")})
+}
+
+// ApproveAs signs username's Plex account in on the sign-in page at
+// authURL, as a Member does on plex.tv.
+func (p Plex) ApproveAs(t *testing.T, authURL, username string) {
+	t.Helper()
+	_, fragment, _ := strings.Cut(authURL, "#?")
+	q, err := url.ParseQuery(fragment)
+	if err != nil {
+		t.Fatal(err)
+	}
+	p.TV.Cue(t, fakeplextv.Approve.Name, map[string]string{"code": q.Get("code"), "account": username})
+}
+
+// PlexTVToken is a token of username's Plex account, the Admin's for "",
+// signed in on a device of their own.
+func (w *World) PlexTVToken(t *testing.T, p Plex, username string) plextv.MemberToken {
+	t.Helper()
+	m := plextv.NewMember(plexTV, plex.Headers{ClientID: "elsewhere-" + username, Product: "Plex Web"}, w.net.client())
+	pin, err := m.CreateLegacyPin(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	p.TV.Cue(t, fakeplextv.Approve.Name, map[string]string{"code": pin.Code, "account": username})
+	token, ok, err := m.PollLegacyPin(t.Context(), pin.ID)
+	if err != nil || !ok {
+		t.Fatalf("poll %q's PIN = %v, %v", username, ok, err)
+	}
+	return token
+}
+
+// PlexTVUser is the Plex account token signs in, false once plex.tv no
+// longer holds token.
+func (w *World) PlexTVUser(t *testing.T, token plextv.MemberToken) (plextv.User, bool) {
+	t.Helper()
+	m := plextv.NewMember(plexTV, plex.Headers{ClientID: "elsewhere", Product: "Plex Web"}, w.net.client())
+	u, err := m.User(t.Context(), token)
+	if plextv.Refused(err) {
+		return plextv.User{}, false
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	return u, true
+}
+
+// MemberPinToken is the token plex.tv gave account's device for its PIN
+// pin, read as that device polls it.
+func (w *World) MemberPinToken(t *testing.T, account identity.AccountID, pin int64) plextv.MemberToken {
+	t.Helper()
+	var p db.MediaserversMemberPlex
+	err := w.Lib.Read(t.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {
+		var err error
+		p, err = db.New(r).GetMemberPlex(ctx, account)
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := plextv.NewMember(plexTV, plex.Headers{ClientID: p.ClientIdentifier, Product: "SlipStream"}, w.net.client())
+	token, ok, err := m.PollLegacyPin(t.Context(), pin)
+	if err != nil || !ok {
+		t.Fatalf("poll PIN %d = %v, %v", pin, ok, err)
+	}
+	return token
+}
+
+// ShareOnPlexTV shares the Plex server machine with username's Plex
+// account with every library, as the Admin does in Plex, and answers the
+// share.
+func (w *World) ShareOnPlexTV(t *testing.T, p Plex, machine, username string) plextv.ShareID {
+	t.Helper()
+	admin := w.PlexTVToken(t, p, "").Reveal()
+	member, _ := w.PlexTVUser(t, w.PlexTVToken(t, p, username))
+	c := plextv.New(plexTV, plex.Headers{ClientID: "elsewhere", Product: "Plex Web"}, nil, w.net.client())
+	sections, err := c.Sections(t.Context(), admin, machine)
+	if err != nil {
+		t.Fatal(err)
+	}
+	share, err := c.Share(t.Context(), admin, machine, member.ID, slices.Collect(maps.Values(sections)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return share
+}
+
+// HomeOnPlexTV adds username's Plex account to the Admin's Plex Home, as
+// the Admin does in Plex.
+func (w *World) HomeOnPlexTV(t *testing.T, p Plex, username string) {
+	t.Helper()
+	admin := w.PlexTVToken(t, p, "").Reveal()
+	member, _ := w.PlexTVUser(t, w.PlexTVToken(t, p, username))
+	c := plextv.New(plexTV, plex.Headers{ClientID: "elsewhere", Product: "Plex Web"}, nil, w.net.client())
+	if err := c.InviteHome(t.Context(), admin, plextv.Invitee{Who: plextv.Who{ID: member.ID, UUID: member.UUID}, Username: member.Username, Email: member.Email}); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// UsePlexFacts restarts the Media Servers with f in place of what the
+// recorded Plex run settled.
+func (w *World) UsePlexFacts(t *testing.T, f plextv.Facts) {
+	t.Helper()
+	w.cfg.PlexFacts = f
+	w.Restart(t)
+}
+
+// Shared moves access row id to shared on share, as the Admin's Share on
+// Plex does when the Member's accept fails.
+func (w *World) Shared(t *testing.T, id string, share plextv.ShareID) {
+	t.Helper()
+	row, err := storage.ParseUUID(id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = w.Lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+		q := db.New(tx)
+		a, err := q.GetAccess(ctx, mediaservers.AccessID{UUID: row})
+		if err != nil {
+			return err
+		}
+		_, err = q.MoveAccess(ctx, db.MoveAccessParams{
+			ID: a.ID, FromState: access.Waiting, State: access.Shared, ChangedAt: storage.Now(), AccountID: a.AccountID,
+			PlexID: a.PlexID, PlexUuid: a.PlexUuid, SharedServerID: &share, ByHand: a.ByHand, PlexHome: a.PlexHome,
+		})
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
 }
 
 // Intent is node's intent as the Role sends it.

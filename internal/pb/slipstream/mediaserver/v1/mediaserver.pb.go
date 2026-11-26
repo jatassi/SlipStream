@@ -2972,6 +2972,620 @@ func (x *IndexEntry) GetGone() bool {
 	return false
 }
 
+// MembersRequest is one call of link.Users on a server in the Node's
+// intent.
+type MembersRequest struct {
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	ServerId []byte                 `protobuf:"bytes,1,opt,name=server_id,json=serverId,proto3" json:"server_id,omitempty"`
+	// settings_version is as on AdvanceRequest.
+	SettingsVersion int64 `protobuf:"varint,2,opt,name=settings_version,json=settingsVersion,proto3" json:"settings_version,omitempty"`
+	// Types that are valid to be assigned to Op:
+	//
+	//	*MembersRequest_CreateUser
+	//	*MembersRequest_RestrictUser
+	//	*MembersRequest_MemberPassword
+	//	*MembersRequest_RenameUser
+	//	*MembersRequest_DisableUser
+	//	*MembersRequest_DeleteUser
+	//	*MembersRequest_ListUsers
+	Op            isMembersRequest_Op `protobuf_oneof:"op"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MembersRequest) Reset() {
+	*x = MembersRequest{}
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[43]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MembersRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MembersRequest) ProtoMessage() {}
+
+func (x *MembersRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[43]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MembersRequest.ProtoReflect.Descriptor instead.
+func (*MembersRequest) Descriptor() ([]byte, []int) {
+	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{43}
+}
+
+func (x *MembersRequest) GetServerId() []byte {
+	if x != nil {
+		return x.ServerId
+	}
+	return nil
+}
+
+func (x *MembersRequest) GetSettingsVersion() int64 {
+	if x != nil {
+		return x.SettingsVersion
+	}
+	return 0
+}
+
+func (x *MembersRequest) GetOp() isMembersRequest_Op {
+	if x != nil {
+		return x.Op
+	}
+	return nil
+}
+
+func (x *MembersRequest) GetCreateUser() *CreateUser {
+	if x != nil {
+		if x, ok := x.Op.(*MembersRequest_CreateUser); ok {
+			return x.CreateUser
+		}
+	}
+	return nil
+}
+
+func (x *MembersRequest) GetRestrictUser() *RestrictUser {
+	if x != nil {
+		if x, ok := x.Op.(*MembersRequest_RestrictUser); ok {
+			return x.RestrictUser
+		}
+	}
+	return nil
+}
+
+func (x *MembersRequest) GetMemberPassword() *MemberPassword {
+	if x != nil {
+		if x, ok := x.Op.(*MembersRequest_MemberPassword); ok {
+			return x.MemberPassword
+		}
+	}
+	return nil
+}
+
+func (x *MembersRequest) GetRenameUser() *RenameUser {
+	if x != nil {
+		if x, ok := x.Op.(*MembersRequest_RenameUser); ok {
+			return x.RenameUser
+		}
+	}
+	return nil
+}
+
+func (x *MembersRequest) GetDisableUser() string {
+	if x != nil {
+		if x, ok := x.Op.(*MembersRequest_DisableUser); ok {
+			return x.DisableUser
+		}
+	}
+	return ""
+}
+
+func (x *MembersRequest) GetDeleteUser() string {
+	if x != nil {
+		if x, ok := x.Op.(*MembersRequest_DeleteUser); ok {
+			return x.DeleteUser
+		}
+	}
+	return ""
+}
+
+func (x *MembersRequest) GetListUsers() *ListUsers {
+	if x != nil {
+		if x, ok := x.Op.(*MembersRequest_ListUsers); ok {
+			return x.ListUsers
+		}
+	}
+	return nil
+}
+
+type isMembersRequest_Op interface {
+	isMembersRequest_Op()
+}
+
+type MembersRequest_CreateUser struct {
+	CreateUser *CreateUser `protobuf:"bytes,3,opt,name=create_user,json=createUser,proto3,oneof"`
+}
+
+type MembersRequest_RestrictUser struct {
+	RestrictUser *RestrictUser `protobuf:"bytes,4,opt,name=restrict_user,json=restrictUser,proto3,oneof"`
+}
+
+type MembersRequest_MemberPassword struct {
+	// member_password is the Member's chosen password, in this one call,
+	// never stored or logged.
+	MemberPassword *MemberPassword `protobuf:"bytes,5,opt,name=member_password,json=memberPassword,proto3,oneof"`
+}
+
+type MembersRequest_RenameUser struct {
+	RenameUser *RenameUser `protobuf:"bytes,6,opt,name=rename_user,json=renameUser,proto3,oneof"`
+}
+
+type MembersRequest_DisableUser struct {
+	// disable_user is the user's id.
+	DisableUser string `protobuf:"bytes,7,opt,name=disable_user,json=disableUser,proto3,oneof"`
+}
+
+type MembersRequest_DeleteUser struct {
+	// delete_user is the user's id.
+	DeleteUser string `protobuf:"bytes,8,opt,name=delete_user,json=deleteUser,proto3,oneof"`
+}
+
+type MembersRequest_ListUsers struct {
+	ListUsers *ListUsers `protobuf:"bytes,9,opt,name=list_users,json=listUsers,proto3,oneof"`
+}
+
+func (*MembersRequest_CreateUser) isMembersRequest_Op() {}
+
+func (*MembersRequest_RestrictUser) isMembersRequest_Op() {}
+
+func (*MembersRequest_MemberPassword) isMembersRequest_Op() {}
+
+func (*MembersRequest_RenameUser) isMembersRequest_Op() {}
+
+func (*MembersRequest_DisableUser) isMembersRequest_Op() {}
+
+func (*MembersRequest_DeleteUser) isMembersRequest_Op() {}
+
+func (*MembersRequest_ListUsers) isMembersRequest_Op() {}
+
+type CreateUser struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateUser) Reset() {
+	*x = CreateUser{}
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[44]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateUser) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateUser) ProtoMessage() {}
+
+func (x *CreateUser) ProtoReflect() protoreflect.Message {
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[44]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateUser.ProtoReflect.Descriptor instead.
+func (*CreateUser) Descriptor() ([]byte, []int) {
+	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{44}
+}
+
+func (x *CreateUser) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+type RestrictUser struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	LibraryKeys   []string               `protobuf:"bytes,2,rep,name=library_keys,json=libraryKeys,proto3" json:"library_keys,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RestrictUser) Reset() {
+	*x = RestrictUser{}
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[45]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RestrictUser) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RestrictUser) ProtoMessage() {}
+
+func (x *RestrictUser) ProtoReflect() protoreflect.Message {
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[45]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RestrictUser.ProtoReflect.Descriptor instead.
+func (*RestrictUser) Descriptor() ([]byte, []int) {
+	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{45}
+}
+
+func (x *RestrictUser) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+func (x *RestrictUser) GetLibraryKeys() []string {
+	if x != nil {
+		return x.LibraryKeys
+	}
+	return nil
+}
+
+type MemberPassword struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	Password      string                 `protobuf:"bytes,2,opt,name=password,proto3" json:"password,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MemberPassword) Reset() {
+	*x = MemberPassword{}
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[46]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MemberPassword) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MemberPassword) ProtoMessage() {}
+
+func (x *MemberPassword) ProtoReflect() protoreflect.Message {
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[46]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MemberPassword.ProtoReflect.Descriptor instead.
+func (*MemberPassword) Descriptor() ([]byte, []int) {
+	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{46}
+}
+
+func (x *MemberPassword) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+func (x *MemberPassword) GetPassword() string {
+	if x != nil {
+		return x.Password
+	}
+	return ""
+}
+
+type RenameUser struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RenameUser) Reset() {
+	*x = RenameUser{}
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[47]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RenameUser) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RenameUser) ProtoMessage() {}
+
+func (x *RenameUser) ProtoReflect() protoreflect.Message {
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[47]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RenameUser.ProtoReflect.Descriptor instead.
+func (*RenameUser) Descriptor() ([]byte, []int) {
+	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{47}
+}
+
+func (x *RenameUser) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+func (x *RenameUser) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+type ListUsers struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListUsers) Reset() {
+	*x = ListUsers{}
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[48]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListUsers) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListUsers) ProtoMessage() {}
+
+func (x *ListUsers) ProtoReflect() protoreflect.Message {
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[48]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListUsers.ProtoReflect.Descriptor instead.
+func (*ListUsers) Descriptor() ([]byte, []int) {
+	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{48}
+}
+
+type ServerUser struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Administrator bool                   `protobuf:"varint,3,opt,name=administrator,proto3" json:"administrator,omitempty"`
+	Disabled      bool                   `protobuf:"varint,4,opt,name=disabled,proto3" json:"disabled,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ServerUser) Reset() {
+	*x = ServerUser{}
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[49]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ServerUser) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ServerUser) ProtoMessage() {}
+
+func (x *ServerUser) ProtoReflect() protoreflect.Message {
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[49]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ServerUser.ProtoReflect.Descriptor instead.
+func (*ServerUser) Descriptor() ([]byte, []int) {
+	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{49}
+}
+
+func (x *ServerUser) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *ServerUser) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *ServerUser) GetAdministrator() bool {
+	if x != nil {
+		return x.Administrator
+	}
+	return false
+}
+
+func (x *ServerUser) GetDisabled() bool {
+	if x != nil {
+		return x.Disabled
+	}
+	return false
+}
+
+type MembersResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// user_id answers create_user.
+	UserId string `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	// users answers list_users.
+	Users []*ServerUser `protobuf:"bytes,2,rep,name=users,proto3" json:"users,omitempty"`
+	// name_refused is the server's 400 about a name, for create_user and
+	// rename_user.
+	NameRefused *NameRefused `protobuf:"bytes,3,opt,name=name_refused,json=nameRefused,proto3" json:"name_refused,omitempty"`
+	// problem is set when the server failed the call.
+	Problem       *Problem `protobuf:"bytes,4,opt,name=problem,proto3" json:"problem,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MembersResponse) Reset() {
+	*x = MembersResponse{}
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[50]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MembersResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MembersResponse) ProtoMessage() {}
+
+func (x *MembersResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[50]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MembersResponse.ProtoReflect.Descriptor instead.
+func (*MembersResponse) Descriptor() ([]byte, []int) {
+	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{50}
+}
+
+func (x *MembersResponse) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+func (x *MembersResponse) GetUsers() []*ServerUser {
+	if x != nil {
+		return x.Users
+	}
+	return nil
+}
+
+func (x *MembersResponse) GetNameRefused() *NameRefused {
+	if x != nil {
+		return x.NameRefused
+	}
+	return nil
+}
+
+func (x *MembersResponse) GetProblem() *Problem {
+	if x != nil {
+		return x.Problem
+	}
+	return nil
+}
+
+type NameRefused struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Taken         bool                   `protobuf:"varint,1,opt,name=taken,proto3" json:"taken,omitempty"`
+	Reply         string                 `protobuf:"bytes,2,opt,name=reply,proto3" json:"reply,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *NameRefused) Reset() {
+	*x = NameRefused{}
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[51]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *NameRefused) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*NameRefused) ProtoMessage() {}
+
+func (x *NameRefused) ProtoReflect() protoreflect.Message {
+	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[51]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use NameRefused.ProtoReflect.Descriptor instead.
+func (*NameRefused) Descriptor() ([]byte, []int) {
+	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{51}
+}
+
+func (x *NameRefused) GetTaken() bool {
+	if x != nil {
+		return x.Taken
+	}
+	return false
+}
+
+func (x *NameRefused) GetReply() string {
+	if x != nil {
+		return x.Reply
+	}
+	return ""
+}
+
 var File_slipstream_mediaserver_v1_mediaserver_proto protoreflect.FileDescriptor
 
 const file_slipstream_mediaserver_v1_mediaserver_proto_rawDesc = "" +
@@ -3198,13 +3812,57 @@ const file_slipstream_mediaserver_v1_mediaserver_proto_rawDesc = "" +
 	"\x04path\x18\x01 \x01(\tR\x04path\x12\x18\n" +
 	"\alibrary\x18\x02 \x01(\tR\alibrary\x126\n" +
 	"\x04item\x18\x03 \x01(\v2\".slipstream.mediaserver.v1.ItemKeyR\x04item\x12\x12\n" +
-	"\x04gone\x18\x04 \x01(\bR\x04gone2\x8c\x04\n" +
+	"\x04gone\x18\x04 \x01(\bR\x04gone\"\xa7\x04\n" +
+	"\x0eMembersRequest\x12\x1b\n" +
+	"\tserver_id\x18\x01 \x01(\fR\bserverId\x12)\n" +
+	"\x10settings_version\x18\x02 \x01(\x03R\x0fsettingsVersion\x12H\n" +
+	"\vcreate_user\x18\x03 \x01(\v2%.slipstream.mediaserver.v1.CreateUserH\x00R\n" +
+	"createUser\x12N\n" +
+	"\rrestrict_user\x18\x04 \x01(\v2'.slipstream.mediaserver.v1.RestrictUserH\x00R\frestrictUser\x12T\n" +
+	"\x0fmember_password\x18\x05 \x01(\v2).slipstream.mediaserver.v1.MemberPasswordH\x00R\x0ememberPassword\x12H\n" +
+	"\vrename_user\x18\x06 \x01(\v2%.slipstream.mediaserver.v1.RenameUserH\x00R\n" +
+	"renameUser\x12#\n" +
+	"\fdisable_user\x18\a \x01(\tH\x00R\vdisableUser\x12!\n" +
+	"\vdelete_user\x18\b \x01(\tH\x00R\n" +
+	"deleteUser\x12E\n" +
+	"\n" +
+	"list_users\x18\t \x01(\v2$.slipstream.mediaserver.v1.ListUsersH\x00R\tlistUsersB\x04\n" +
+	"\x02op\" \n" +
+	"\n" +
+	"CreateUser\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\"J\n" +
+	"\fRestrictUser\x12\x17\n" +
+	"\auser_id\x18\x01 \x01(\tR\x06userId\x12!\n" +
+	"\flibrary_keys\x18\x02 \x03(\tR\vlibraryKeys\"E\n" +
+	"\x0eMemberPassword\x12\x17\n" +
+	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x1a\n" +
+	"\bpassword\x18\x02 \x01(\tR\bpassword\"9\n" +
+	"\n" +
+	"RenameUser\x12\x17\n" +
+	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\"\v\n" +
+	"\tListUsers\"r\n" +
+	"\n" +
+	"ServerUser\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12$\n" +
+	"\radministrator\x18\x03 \x01(\bR\radministrator\x12\x1a\n" +
+	"\bdisabled\x18\x04 \x01(\bR\bdisabled\"\xf0\x01\n" +
+	"\x0fMembersResponse\x12\x17\n" +
+	"\auser_id\x18\x01 \x01(\tR\x06userId\x12;\n" +
+	"\x05users\x18\x02 \x03(\v2%.slipstream.mediaserver.v1.ServerUserR\x05users\x12I\n" +
+	"\fname_refused\x18\x03 \x01(\v2&.slipstream.mediaserver.v1.NameRefusedR\vnameRefused\x12<\n" +
+	"\aproblem\x18\x04 \x01(\v2\".slipstream.mediaserver.v1.ProblemR\aproblem\"9\n" +
+	"\vNameRefused\x12\x14\n" +
+	"\x05taken\x18\x01 \x01(\bR\x05taken\x12\x14\n" +
+	"\x05reply\x18\x02 \x01(\tR\x05reply2\xee\x04\n" +
 	"\x16MediaServerLinkService\x12Z\n" +
 	"\x05Reach\x12'.slipstream.mediaserver.v1.ReachRequest\x1a(.slipstream.mediaserver.v1.ReachResponse\x12Z\n" +
 	"\x05Check\x12'.slipstream.mediaserver.v1.CheckRequest\x1a(.slipstream.mediaserver.v1.CheckResponse\x12]\n" +
 	"\x06SignIn\x12(.slipstream.mediaserver.v1.SignInRequest\x1a).slipstream.mediaserver.v1.SignInResponse\x12`\n" +
 	"\aAdvance\x12).slipstream.mediaserver.v1.AdvanceRequest\x1a*.slipstream.mediaserver.v1.AdvanceResponse\x12`\n" +
-	"\aExposed\x12).slipstream.mediaserver.v1.ExposedRequest\x1a*.slipstream.mediaserver.v1.ExposedResponse\x1a\x17\xc2\xf3\x18\x13\x1a\x11media-server-link2\xa7\x01\n" +
+	"\aExposed\x12).slipstream.mediaserver.v1.ExposedRequest\x1a*.slipstream.mediaserver.v1.ExposedResponse\x12`\n" +
+	"\aMembers\x12).slipstream.mediaserver.v1.MembersRequest\x1a*.slipstream.mediaserver.v1.MembersResponse\x1a\x17\xc2\xf3\x18\x13\x1a\x11media-server-link2\xa7\x01\n" +
 	"\x19MediaServerControlService\x12\x81\x01\n" +
 	"\x12MediaServerSecrets\x124.slipstream.mediaserver.v1.MediaServerSecretsRequest\x1a5.slipstream.mediaserver.v1.MediaServerSecretsResponse\x1a\x06\xc2\xf3\x18\x02\b\x01B\x8a\x02\n" +
 	"\x1dcom.slipstream.mediaserver.v1B\x10MediaserverProtoP\x01ZQgithub.com/jatassi/slipstream/internal/pb/slipstream/mediaserver/v1;mediaserverv1\xa2\x02\x03SMX\xaa\x02\x19Slipstream.Mediaserver.V1\xca\x02\x19Slipstream\\Mediaserver\\V1\xe2\x02%Slipstream\\Mediaserver\\V1\\GPBMetadata\xea\x02\x1bSlipstream::Mediaserver::V1b\x06proto3"
@@ -3221,7 +3879,7 @@ func file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP() []byte {
 	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescData
 }
 
-var file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes = make([]protoimpl.MessageInfo, 43)
+var file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes = make([]protoimpl.MessageInfo, 52)
 var file_slipstream_mediaserver_v1_mediaserver_proto_goTypes = []any{
 	(*Intent)(nil),                     // 0: slipstream.mediaserver.v1.Intent
 	(*Server)(nil),                     // 1: slipstream.mediaserver.v1.Server
@@ -3266,6 +3924,15 @@ var file_slipstream_mediaserver_v1_mediaserver_proto_goTypes = []any{
 	(*UserData)(nil),                   // 40: slipstream.mediaserver.v1.UserData
 	(*Outcome)(nil),                    // 41: slipstream.mediaserver.v1.Outcome
 	(*IndexEntry)(nil),                 // 42: slipstream.mediaserver.v1.IndexEntry
+	(*MembersRequest)(nil),             // 43: slipstream.mediaserver.v1.MembersRequest
+	(*CreateUser)(nil),                 // 44: slipstream.mediaserver.v1.CreateUser
+	(*RestrictUser)(nil),               // 45: slipstream.mediaserver.v1.RestrictUser
+	(*MemberPassword)(nil),             // 46: slipstream.mediaserver.v1.MemberPassword
+	(*RenameUser)(nil),                 // 47: slipstream.mediaserver.v1.RenameUser
+	(*ListUsers)(nil),                  // 48: slipstream.mediaserver.v1.ListUsers
+	(*ServerUser)(nil),                 // 49: slipstream.mediaserver.v1.ServerUser
+	(*MembersResponse)(nil),            // 50: slipstream.mediaserver.v1.MembersResponse
+	(*NameRefused)(nil),                // 51: slipstream.mediaserver.v1.NameRefused
 }
 var file_slipstream_mediaserver_v1_mediaserver_proto_depIdxs = []int32{
 	1,  // 0: slipstream.mediaserver.v1.Intent.servers:type_name -> slipstream.mediaserver.v1.Server
@@ -3308,23 +3975,33 @@ var file_slipstream_mediaserver_v1_mediaserver_proto_depIdxs = []int32{
 	39, // 37: slipstream.mediaserver.v1.Snapshot.item:type_name -> slipstream.mediaserver.v1.ItemKey
 	40, // 38: slipstream.mediaserver.v1.Snapshot.users:type_name -> slipstream.mediaserver.v1.UserData
 	39, // 39: slipstream.mediaserver.v1.IndexEntry.item:type_name -> slipstream.mediaserver.v1.ItemKey
-	12, // 40: slipstream.mediaserver.v1.MediaServerLinkService.Reach:input_type -> slipstream.mediaserver.v1.ReachRequest
-	14, // 41: slipstream.mediaserver.v1.MediaServerLinkService.Check:input_type -> slipstream.mediaserver.v1.CheckRequest
-	16, // 42: slipstream.mediaserver.v1.MediaServerLinkService.SignIn:input_type -> slipstream.mediaserver.v1.SignInRequest
-	18, // 43: slipstream.mediaserver.v1.MediaServerLinkService.Advance:input_type -> slipstream.mediaserver.v1.AdvanceRequest
-	20, // 44: slipstream.mediaserver.v1.MediaServerLinkService.Exposed:input_type -> slipstream.mediaserver.v1.ExposedRequest
-	23, // 45: slipstream.mediaserver.v1.MediaServerControlService.MediaServerSecrets:input_type -> slipstream.mediaserver.v1.MediaServerSecretsRequest
-	13, // 46: slipstream.mediaserver.v1.MediaServerLinkService.Reach:output_type -> slipstream.mediaserver.v1.ReachResponse
-	15, // 47: slipstream.mediaserver.v1.MediaServerLinkService.Check:output_type -> slipstream.mediaserver.v1.CheckResponse
-	17, // 48: slipstream.mediaserver.v1.MediaServerLinkService.SignIn:output_type -> slipstream.mediaserver.v1.SignInResponse
-	19, // 49: slipstream.mediaserver.v1.MediaServerLinkService.Advance:output_type -> slipstream.mediaserver.v1.AdvanceResponse
-	21, // 50: slipstream.mediaserver.v1.MediaServerLinkService.Exposed:output_type -> slipstream.mediaserver.v1.ExposedResponse
-	24, // 51: slipstream.mediaserver.v1.MediaServerControlService.MediaServerSecrets:output_type -> slipstream.mediaserver.v1.MediaServerSecretsResponse
-	46, // [46:52] is the sub-list for method output_type
-	40, // [40:46] is the sub-list for method input_type
-	40, // [40:40] is the sub-list for extension type_name
-	40, // [40:40] is the sub-list for extension extendee
-	0,  // [0:40] is the sub-list for field type_name
+	44, // 40: slipstream.mediaserver.v1.MembersRequest.create_user:type_name -> slipstream.mediaserver.v1.CreateUser
+	45, // 41: slipstream.mediaserver.v1.MembersRequest.restrict_user:type_name -> slipstream.mediaserver.v1.RestrictUser
+	46, // 42: slipstream.mediaserver.v1.MembersRequest.member_password:type_name -> slipstream.mediaserver.v1.MemberPassword
+	47, // 43: slipstream.mediaserver.v1.MembersRequest.rename_user:type_name -> slipstream.mediaserver.v1.RenameUser
+	48, // 44: slipstream.mediaserver.v1.MembersRequest.list_users:type_name -> slipstream.mediaserver.v1.ListUsers
+	49, // 45: slipstream.mediaserver.v1.MembersResponse.users:type_name -> slipstream.mediaserver.v1.ServerUser
+	51, // 46: slipstream.mediaserver.v1.MembersResponse.name_refused:type_name -> slipstream.mediaserver.v1.NameRefused
+	27, // 47: slipstream.mediaserver.v1.MembersResponse.problem:type_name -> slipstream.mediaserver.v1.Problem
+	12, // 48: slipstream.mediaserver.v1.MediaServerLinkService.Reach:input_type -> slipstream.mediaserver.v1.ReachRequest
+	14, // 49: slipstream.mediaserver.v1.MediaServerLinkService.Check:input_type -> slipstream.mediaserver.v1.CheckRequest
+	16, // 50: slipstream.mediaserver.v1.MediaServerLinkService.SignIn:input_type -> slipstream.mediaserver.v1.SignInRequest
+	18, // 51: slipstream.mediaserver.v1.MediaServerLinkService.Advance:input_type -> slipstream.mediaserver.v1.AdvanceRequest
+	20, // 52: slipstream.mediaserver.v1.MediaServerLinkService.Exposed:input_type -> slipstream.mediaserver.v1.ExposedRequest
+	43, // 53: slipstream.mediaserver.v1.MediaServerLinkService.Members:input_type -> slipstream.mediaserver.v1.MembersRequest
+	23, // 54: slipstream.mediaserver.v1.MediaServerControlService.MediaServerSecrets:input_type -> slipstream.mediaserver.v1.MediaServerSecretsRequest
+	13, // 55: slipstream.mediaserver.v1.MediaServerLinkService.Reach:output_type -> slipstream.mediaserver.v1.ReachResponse
+	15, // 56: slipstream.mediaserver.v1.MediaServerLinkService.Check:output_type -> slipstream.mediaserver.v1.CheckResponse
+	17, // 57: slipstream.mediaserver.v1.MediaServerLinkService.SignIn:output_type -> slipstream.mediaserver.v1.SignInResponse
+	19, // 58: slipstream.mediaserver.v1.MediaServerLinkService.Advance:output_type -> slipstream.mediaserver.v1.AdvanceResponse
+	21, // 59: slipstream.mediaserver.v1.MediaServerLinkService.Exposed:output_type -> slipstream.mediaserver.v1.ExposedResponse
+	50, // 60: slipstream.mediaserver.v1.MediaServerLinkService.Members:output_type -> slipstream.mediaserver.v1.MembersResponse
+	24, // 61: slipstream.mediaserver.v1.MediaServerControlService.MediaServerSecrets:output_type -> slipstream.mediaserver.v1.MediaServerSecretsResponse
+	55, // [55:62] is the sub-list for method output_type
+	48, // [48:55] is the sub-list for method input_type
+	48, // [48:48] is the sub-list for extension type_name
+	48, // [48:48] is the sub-list for extension extendee
+	0,  // [0:48] is the sub-list for field type_name
 }
 
 func init() { file_slipstream_mediaserver_v1_mediaserver_proto_init() }
@@ -3350,13 +4027,22 @@ func file_slipstream_mediaserver_v1_mediaserver_proto_init() {
 		(*Job_Index)(nil),
 		(*Job_Libraries)(nil),
 	}
+	file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[43].OneofWrappers = []any{
+		(*MembersRequest_CreateUser)(nil),
+		(*MembersRequest_RestrictUser)(nil),
+		(*MembersRequest_MemberPassword)(nil),
+		(*MembersRequest_RenameUser)(nil),
+		(*MembersRequest_DisableUser)(nil),
+		(*MembersRequest_DeleteUser)(nil),
+		(*MembersRequest_ListUsers)(nil),
+	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_slipstream_mediaserver_v1_mediaserver_proto_rawDesc), len(file_slipstream_mediaserver_v1_mediaserver_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   43,
+			NumMessages:   52,
 			NumExtensions: 0,
 			NumServices:   2,
 		},

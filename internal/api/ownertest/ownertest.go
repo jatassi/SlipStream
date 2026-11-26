@@ -59,6 +59,7 @@ func ServeIn(t *testing.T, lib *storage.DB[storage.Library], zone *time.Location
 	if err != nil {
 		t.Fatal(err)
 	}
+	svc.SetGranter(identity.NoGrants{})
 	return claim(t, lib, svc, zone, routes)
 }
 

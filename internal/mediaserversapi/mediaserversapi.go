@@ -1,13 +1,15 @@
 // Package mediaserversapi is the Media Servers' operations: the servers an
 // Admin adds, their Path mappings, changes, sessions and credential
-// holders, the Jellyfin and Emby administrator sign-in, and the Plex
-// account. Every operation is the Admin's.
+// holders, the Jellyfin and Emby administrator sign-in, the Plex account,
+// and Members' access to the servers. Every operation is the Admin's but a
+// Member's own access, under /account/media-servers.
 package mediaserversapi
 
 import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"slices"
 
 	"github.com/jatassi/slipstream/internal/api"
 	"github.com/jatassi/slipstream/internal/identity"
@@ -41,13 +43,16 @@ type draftBody struct {
 type addInput struct{ Body draftBody }
 
 type patchBody struct {
-	Name            *string           `json:"name,omitempty" minLength:"1" maxLength:"100"`
-	Address         *string           `json:"address,omitempty" minLength:"1" maxLength:"2048"`
-	FallbackAddress api.Patch[string] `json:"fallbackAddress,omitempty" doc:"null to use address"`
-	BrowserAddress  api.Patch[string] `json:"browserAddress,omitempty" doc:"null to hide the Open in button"`
-	ReachingNodeID  *string           `json:"reachingNodeId,omitempty" format:"uuid"`
-	RunsOnNodeID    api.Patch[string] `json:"runsOnNodeId,omitempty" doc:"A Node id; null when the server runs on no Node"`
-	APIKey          *string           `json:"apiKey,omitempty" minLength:"1" maxLength:"1024" doc:"Jellyfin and Emby. Write-only. A key from signInToMediaServer keeps the server's saved deviceId, since the key isn't tied to a device"`
+	Name            *string                       `json:"name,omitempty" minLength:"1" maxLength:"100"`
+	Address         *string                       `json:"address,omitempty" minLength:"1" maxLength:"2048"`
+	FallbackAddress api.Patch[string]             `json:"fallbackAddress,omitempty" doc:"null to use address"`
+	BrowserAddress  api.Patch[string]             `json:"browserAddress,omitempty" doc:"null to hide the Open in button"`
+	ReachingNodeID  *string                       `json:"reachingNodeId,omitempty" format:"uuid"`
+	RunsOnNodeID    api.Patch[string]             `json:"runsOnNodeId,omitempty" doc:"A Node id; null when the server runs on no Node"`
+	APIKey          *string                       `json:"apiKey,omitempty" minLength:"1" maxLength:"1024" doc:"Jellyfin and Emby. Write-only. A key from signInToMediaServer keeps the server's saved deviceId, since the key isn't tied to a device"`
+	MembersSee      *bool                         `json:"membersSee,omitempty" doc:"Show to Members. Turning it on the first time picks the libraries behind the shown Path mappings, unless memberLibraries names others"`
+	MemberLibraries *[]mediaservers.LibraryChoice `json:"memberLibraries,omitempty" maxItems:"1000" doc:"The Libraries for Members, from listMediaServerLibraries; never empty while membersSee is on"`
+	MemberAddress   api.Patch[string]             `json:"memberAddress,omitempty" doc:"Jellyfin and Emby: the address How to watch gives Members; null to give none"`
 }
 
 type updateInput struct {
@@ -192,6 +197,7 @@ func (b patchBody) patch() (mediaservers.Patch, error) {
 	p := mediaservers.Patch{
 		Name: b.Name, Address: b.Address, APIKey: b.APIKey,
 		FallbackAddress: setOf(b.FallbackAddress), BrowserAddress: setOf(b.BrowserAddress),
+		MembersSee: b.MembersSee, MemberLibraries: b.MemberLibraries, MemberAddress: setOf(b.MemberAddress),
 	}
 	if b.ReachingNodeID != nil {
 		n, err := nodeID(*b.ReachingNodeID)
@@ -502,7 +508,7 @@ func (h handlers) plexServers(ctx context.Context, _ identity.Admin, _ *struct{}
 
 // Routes registers the Media Servers' operations.
 func Routes(r *api.Router, servers Servers) {
-	o := r.Owner("mediaservers", api.Admin)
+	o := r.Owner("mediaservers", api.Account)
 	h := handlers{servers}
 	const base = "/media-servers"
 	saved := []*api.Code{tooOld, otherServer, unreached, signInRefused, localhostOnWorker, nameTaken, nodeNotFound, nodeNotLinked}
@@ -540,7 +546,7 @@ func Routes(r *api.Router, servers Servers) {
 	api.Register(o, api.Admin, api.Op{
 		ID: "updateMediaServer", Method: http.MethodPatch, Path: base + "/{id}", Status: http.StatusOK,
 		Summary: "Change a Media Server, testing it again when the change is to its address, Connect from Node or API key",
-		Errors:  update,
+		Errors:  append(update, noMemberLibraries),
 	}, h.update)
 	api.Register(o, api.Admin, api.Op{
 		ID: "removeMediaServer", Method: http.MethodDelete, Path: base + "/{id}", Status: http.StatusNoContent,
@@ -616,4 +622,81 @@ func Routes(r *api.Router, servers Servers) {
 		Summary: "List the Plex account's servers and which Nodes reach each of their connections",
 		Errors:  append([]*api.Code{signInRefused}, plex...),
 	}, h.plexServers)
+	row := []*api.Code{accessNotFound, accessState}
+	api.Register(o, api.Admin, api.Op{
+		ID: "listMediaServerAccess", Method: http.MethodGet, Path: base + "/access", Status: http.StatusOK,
+		Summary: "List Members' access to Media Servers, the rows waiting on an Admin first",
+		Errors:  []*api.Code{accountNotFound},
+	}, h.listAccess)
+	api.Register(o, api.Admin, api.Op{
+		ID: "listMediaServerUsers", Method: http.MethodGet, Path: base + "/{id}/users", Status: http.StatusOK,
+		Summary: "List the users of a Jellyfin or Emby server that an Admin may link to a Member",
+		Errors:  []*api.Code{serverNotFound, unreached},
+	}, h.listUsers)
+	api.Register(o, api.Reconfirmed, api.Op{
+		ID: "offerMediaServer", Method: http.MethodPut, Path: "/accounts/{id}/media-servers/{serverId}", Status: http.StatusOK,
+		Summary: "Offer a Member access to a Media Server, or offer it again after the access was removed",
+		Errors:  []*api.Code{accountNotFound, serverNotFound, notShownToMembers, plexHomeNotPlex, accessState, unreached},
+	}, h.offer)
+	api.Register(o, api.ReconfirmedSession, api.Op{
+		ID: "shareMediaServerAccess", Method: http.MethodPost, Path: base + "/access/{id}/share", Status: http.StatusOK,
+		Summary: "Share a Plex server with a Member who signed in to Plex, as a friend or in the Plex Home",
+		Errors:  slices.Concat(row, plex, []*api.Code{signInRefused, plexRefused, plexLibsShort}),
+	}, h.share)
+	api.Register(o, api.Reconfirmed, api.Op{
+		ID: "markMediaServerAccessAdded", Method: http.MethodPost, Path: base + "/access/{id}/mark-added", Status: http.StatusOK,
+		Summary: "Record that an Admin shared a Plex server with a Member in Plex itself",
+		Errors:  row,
+	}, h.markAdded)
+	api.Register(o, api.ReconfirmedSession, api.Op{
+		ID: "linkMediaServerUser", Method: http.MethodPost, Path: base + "/access/{id}/link", Status: http.StatusOK,
+		Summary: "Link a Member to an existing user on a Jellyfin or Emby server",
+		Errors:  slices.Concat(row, []*api.Code{unreached}),
+	}, h.linkUser)
+	api.Register(o, api.Admin, api.Op{
+		ID: "checkMediaServerAccess", Method: http.MethodPost, Path: base + "/access/{id}/check", Status: http.StatusOK,
+		Summary: "Check whether a Member accepted a Plex share",
+		Errors:  slices.Concat(row, plex, []*api.Code{signInRefused}),
+	}, h.checkShare)
+	api.Register(o, api.Reconfirmed, api.Op{
+		ID: "removeMediaServerAccess", Method: http.MethodDelete, Path: base + "/access/{id}", Status: http.StatusOK,
+		Summary: "Remove a Member's access to a Media Server, on the server or plex.tv too",
+		Errors:  row,
+	}, h.removeAccess)
+	api.Register(o, api.Reconfirmed, api.Op{
+		ID: "replacePlexAccount", Method: http.MethodPost, Path: base + "/plex/pin/{id}/replace", Status: http.StatusOK,
+		Summary: "Sign SlipStream in to the different Plex account a Plex sign-in names, which removes every Plex server and Members' access to them",
+		Errors:  []*api.Code{plexPinNotFound},
+	}, h.replacePlexAccount)
+
+	const mine = "/account/media-servers"
+	api.Register(o, api.Account, api.Op{
+		ID: "listMyMediaServerAccess", Method: http.MethodGet, Path: mine, Status: http.StatusOK,
+		Summary: "List the Media Servers the Member was offered, with what each needs next and how to watch on it",
+	}, h.mine)
+	api.Register(o, api.Confirmed, api.Op{
+		ID: "startMemberPlexSignIn", Method: http.MethodPost, Path: mine + "/plex/pin", Status: http.StatusCreated,
+		Summary: "Start the Member's Plex sign-in and get the plex.tv page they sign in on",
+		Errors:  plex,
+	}, h.startMemberPin)
+	api.Register(o, api.Account, api.Op{
+		ID: "getMemberPlexSignIn", Method: http.MethodGet, Path: mine + "/plex/pin/{id}", Status: http.StatusOK,
+		Summary: "Get whether the Member's Plex sign-in is still waiting, has expired, signed in or was refused",
+		Errors:  []*api.Code{plexPinNotFound},
+	}, h.memberPin)
+	api.Register(o, api.Account, api.Op{
+		ID: "useAnotherPlexAccount", Method: http.MethodDelete, Path: mine + "/plex", Status: http.StatusNoContent,
+		Summary: "Forget the Plex account the Member signed in to Plex as, while no server is shared with it yet",
+		Errors:  []*api.Code{accessState},
+	}, h.anotherPlex)
+	api.Register(o, api.Confirmed, api.Op{
+		ID: "makeMediaServerAccount", Method: http.MethodPost, Path: mine + "/{accessId}/account", Status: http.StatusOK,
+		Summary: "Make the Member's own user on a Jellyfin or Emby server they were offered",
+		Errors:  []*api.Code{accessNotFound, accessState, usernameTaken, serverRefused, unreached},
+	}, h.makeAccount)
+	api.Register(o, api.Account, api.Op{
+		ID: "checkMyMediaServerAccess", Method: http.MethodPost, Path: mine + "/{accessId}/check", Status: http.StatusOK,
+		Summary: "Check whether the Member's Plex share is accepted, accepting it when SlipStream can",
+		Errors:  []*api.Code{accessNotFound, accessState, plexNotSignedIn, plexTVUnreached},
+	}, h.checkMine)
 }

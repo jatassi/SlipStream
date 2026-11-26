@@ -8,7 +8,9 @@ import {
   getListAccountsMockHandler,
   getListSignupLinksMockHandler,
 } from "../../../api/gen/query/identity/identity.msw";
+import { getListMediaServerAccessMockHandler } from "../../../api/gen/query/mediaservers/mediaservers.msw";
 import { ada, grace, problem } from "../../../test/handlers";
+import { linAccess } from "../../../test/media-server-access";
 import { renderApp } from "../../../test/render-app";
 import { type ValueForm, placeOf, timeForms } from "../../../ui/time-words";
 
@@ -49,6 +51,13 @@ const adaDetail: IdentityAccountDetail = {
   sessions: [],
 };
 
+const noAccess = getListMediaServerAccessMockHandler({
+  rows: [],
+  offerable: [],
+  plexPass: true,
+  plexHomeUsed: false,
+});
+
 const listItems = (name: string) =>
   page
     .getByRole("list", { name })
@@ -69,7 +78,7 @@ const factsOf = (name: string) => {
 test("an Account shows its profile, PIN state, passkeys and sessions", async () => {
   renderApp({
     path: `/accounts/${grace.id}`,
-    handlers: [getGetAccountMockHandler(graceDetail)],
+    handlers: [getGetAccountMockHandler(graceDetail), noAccess],
   });
   await expect.element(page.getByRole("heading", { name: "Grace Lindqvist" })).toBeVisible();
   expect(factsOf("Profile")).toEqual([
@@ -95,6 +104,7 @@ test("the last Admin's demotion is refused inside the dialog", async () => {
     path: `/accounts/${ada.id}`,
     handlers: [
       getGetAccountMockHandler(adaDetail),
+      noAccess,
       http.patch("*/api/v1/accounts/:id", () =>
         problem(
           409,
@@ -116,6 +126,7 @@ test("Turn off and Sign out everywhere ask first, then send the change", async (
     path: `/accounts/${grace.id}`,
     handlers: [
       getGetAccountMockHandler(graceDetail),
+      noAccess,
       http.patch("*/api/v1/accounts/:id", async ({ request }) => {
         calls.push(`PATCH ${JSON.stringify(await request.json())}`);
         return HttpResponse.json({ ...graceDetail.account, disabled: true });
@@ -151,6 +162,7 @@ test("Change email sends the new address and shows a taken one on the field", as
     path: `/accounts/${grace.id}`,
     handlers: [
       getGetAccountMockHandler(graceDetail),
+      noAccess,
       http.patch("*/api/v1/accounts/:id", async ({ request }) => {
         sent.push(await request.json());
         return sent.length === 1
@@ -175,11 +187,12 @@ test("Change email sends the new address and shows a taken one on the field", as
   expect(sent).toEqual([{ email: "ada@example.test" }, { email: "grace@new.example.test" }]);
 });
 
-test("Delete asks first, then returns to Accounts", async () => {
+test("Delete names the access it removes first, then returns to Accounts", async () => {
   const { router } = renderApp({
     path: `/accounts/${grace.id}`,
     handlers: [
       getGetAccountMockHandler(graceDetail),
+      getListMediaServerAccessMockHandler(linAccess),
       http.delete("*/api/v1/accounts/:id", () => new HttpResponse(null, { status: 204 })),
       getListAccountsMockHandler({ accounts: [adaDetail.account] }),
       getListSignupLinksMockHandler({ links: [] }),
@@ -187,6 +200,10 @@ test("Delete asks first, then returns to Accounts", async () => {
   });
   await userEvent.click(page.getByRole("button", { name: "Delete Account" }));
   const dialog = page.getByRole("dialog", { name: "Delete Grace Lindqvist?" });
+  for (const row of linAccess.rows) {
+    // oxlint-disable-next-line no-await-in-loop -- each server the delete removes access to
+    await expect.element(dialog).toMatchTextContent(new RegExp(row.server.name, "u"));
+  }
   await userEvent.click(dialog.getByRole("button", { name: "Delete" }));
   await expect.poll(() => router.state.location.pathname).toBe("/accounts");
   await expect.element(page.getByRole("heading", { name: "Accounts", level: 1 })).toBeVisible();

@@ -2,6 +2,7 @@ import { Link, createFileRoute } from "@tanstack/react-router";
 
 import { accountSearch } from "../../account/search";
 import { YourAccount, loadYourAccount } from "../../account/your-account";
+import { WhereToWatch, loadMyAccess } from "../../media-servers/access/portal";
 import { useAccount } from "../../session/session";
 import { fromPortal } from "../../shell/account";
 import { Button } from "../../ui/button";
@@ -10,7 +11,8 @@ import { Skeleton } from "../../ui/skeleton";
 export const Route = createFileRoute("/portal/account")({
   staticData: { title: "Your Account" },
   validateSearch: accountSearch,
-  loader: ({ context }) => loadYourAccount(context.queryClient),
+  loader: ({ context }) =>
+    Promise.all([loadYourAccount(context.queryClient), loadMyAccess(context.queryClient)]),
   pendingComponent: () => <Skeleton label="Loading Your Account" shape="facts" />,
   component: Account,
 });
@@ -32,6 +34,8 @@ function Account() {
           </Button>
         ) : undefined
       }
-    />
+    >
+      {!admin && <WhereToWatch />}
+    </YourAccount>
   );
 }
