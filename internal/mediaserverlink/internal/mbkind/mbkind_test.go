@@ -121,7 +121,7 @@ func (w *world) dialed(key string) link.Dialed {
 
 type noVersions struct{}
 
-func (noVersions) Version(string, string) (link.Version, bool) { return link.Version{}, false }
+func (noVersions) Version(string) (link.Version, bool) { return link.Version{}, false }
 
 func (w *world) conn(key string) link.Conn { return w.p.kind.Dial(w.dialed(key)) }
 

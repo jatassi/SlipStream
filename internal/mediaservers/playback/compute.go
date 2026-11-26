@@ -28,14 +28,14 @@ type Input struct {
 type Play struct {
 	ID link.PlayID
 	// File is zero while the play is unfiled.
-	File files.ID
-	// ItemKey is the item the server played, frozen at play time.
-	ItemKey                              string
+	File                                 files.ID
 	PlayerKey, Player, Platform, Product string
 	Decision                             link.Decision
 	Streams                              link.Streams
-	// Reasons and Received are read for a transcode only.
-	Reasons           []string
+	// Reasons, ItemKeys and Received are read for a transcode only.
+	// ItemKeys are the items that held the played file and the versions
+	// its player could choose instead, frozen at play time.
+	Reasons, ItemKeys []string
 	Received          link.Received
 	Snapshot          *Snapshot
 	Started, LastSeen time.Time

@@ -2,8 +2,10 @@ package mediaserversapi_test
 
 import (
 	"encoding/json"
+	"fmt"
 	"maps"
 	"net/http"
+	"slices"
 	"strings"
 	"testing"
 	"testing/synctest"
@@ -13,7 +15,10 @@ import (
 	"github.com/jatassi/slipstream/fakes/jellyfin"
 	"github.com/jatassi/slipstream/internal/api/ownertest"
 	"github.com/jatassi/slipstream/internal/mediaserverlink/link"
+	"github.com/jatassi/slipstream/internal/mediaservers/mstest"
+	"github.com/jatassi/slipstream/internal/mediaservers/playback"
 	"github.com/jatassi/slipstream/internal/storage"
+	"github.com/jatassi/slipstream/internal/works"
 )
 
 // product is Jellyfin or Emby, with the route a version is read from.
@@ -167,7 +172,7 @@ func TestJellyfinAndEmbyRecordWhatTheyReport(t *testing.T) {
 			eachProduct(t, func(t *testing.T, c captured) {
 				p := c.play(t, row.cue)
 				head, tail, _ := strings.Cut(row.want, "]")
-				want := clip + " " + head + "] by ada on Living room key living-room item " + p.Item + tail + ", open"
+				want := clip + " " + head + "] by ada on Living room key living-room items [\"" + p.Item + "\"]" + tail + ", open"
 				expectPlays(t, c.plays(t), want)
 			})
 		})
@@ -188,6 +193,65 @@ func TestAnAlternateVersionIsRecordedAgainstThePlayedFile(t *testing.T) {
 	}
 }
 
+// TestAGroupedVersionIsOneThePlayerCanChoose has Shelves mapped and
+// Heat's 2160p Dolby Vision file and 1080p SDR file in the library as one
+// Item, which both products group as one title: Jellyfin as one item, its
+// 2160p file an alternate that plays as its own item, and Emby as an item
+// per file. Living room plays the 1080p file directly, then the 2160p one
+// from either file's item, transcoded for Dolby Vision. The report names
+// the 1080p file as a version the player can choose, not a separate item.
+func TestAGroupedVersionIsOneThePlayerCanChoose(t *testing.T) {
+	for _, from := range []string{heatUHD, heatHD} {
+		eachProduct(t, func(t *testing.T, c captured) {
+			c.shelve(t, map[string]mstest.File{heatUHD: {Label: "2160p", Media: dolby}, heatHD: {Label: "1080p", Media: plain}})
+			c.play(t, map[string]any{"path": heatHD})
+			wait(every)
+			c.play(t, map[string]any{
+				"path": from, "version": heatUHD, "video": link.StreamTranscode, "containerChanged": true,
+				"reasons": []string{"VideoRangeTypeNotSupported"},
+			})
+			wait(every)
+			var got []string
+			for _, g := range c.report(t).Players[0].Groups {
+				for _, o := range g.Outcomes {
+					if v := o.Version; v != nil {
+						got = append(got, fmt.Sprintf("%s separate=%t", v.Label, v.SeparateItem))
+					}
+				}
+			}
+			if want := []string{"1080p separate=false"}; !slices.Equal(got, want) {
+				t.Errorf("playing the 2160p file from %s, the report's versions are %q, want %q", from, got, want)
+			}
+		})
+	}
+}
+
+// shelve maps Den's Shelves to the Shelves root and puts each file there
+// in the library as one Work and Item.
+func (c captured) shelve(t *testing.T, fs map[string]mstest.File) {
+	t.Helper()
+	root := c.w.Root(t, "Shelves").ID
+	body := `{"mappings":[{"rootId":"` + root.String() + `","shown":true,"serverFolder":"` + shelves + `"}]}`
+	if status, reply := c.o.Call(t, http.MethodPut, servers+"/"+c.id+"/mappings", body); status != http.StatusOK {
+		t.Fatalf("save the mapping = %d %s", status, reply)
+	}
+	work, item := works.WorkID{UUID: storage.NewUUID()}, works.ItemID{UUID: storage.NewUUID()}
+	for path, f := range fs {
+		f.ID, f.Work, f.Item = c.w.Place(root, mustRel(t, strings.TrimPrefix(path, shelves+"/"))), work, item
+		c.w.File(t, f)
+	}
+	synctest.Wait()
+}
+
+func (c captured) report(t *testing.T) playback.Report {
+	t.Helper()
+	status, body := c.o.Call(t, http.MethodGet, servers+"/"+c.id+"/playback", "")
+	if status != http.StatusOK {
+		t.Fatalf("GET playback = %d %s", status, body)
+	}
+	return decode[playback.Report](t, body)
+}
+
 // TestAFailedLookupRecordsNothingUntilItSucceeds plays Clip while Den
 // fails every item read: nothing is recorded over two polls, and the poll
 // after the reads succeed again records the play.
@@ -200,7 +264,7 @@ func TestAFailedLookupRecordsNothingUntilItSucceeds(t *testing.T) {
 		expectPlays(t, c.plays(t))
 		c.den.Faults.Clear("lookup")
 		wait(every)
-		expectPlays(t, c.plays(t), clip+" direct_play (direct direct none) [] by ada on Living room key living-room item "+p.Item+", open")
+		expectPlays(t, c.plays(t), clip+" direct_play (direct direct none) [] by ada on Living room key living-room items [\""+p.Item+"\"], open")
 	})
 }
 

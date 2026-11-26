@@ -212,24 +212,24 @@ func TestTheDiffAnswersTheVersionsOfItsLivePlays(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	v := link.Version{Path: p, Audio: []link.Stream{{ID: "11", Codec: "DTS", Language: "deu"}}, External: []link.Stream{{ID: "12", Codec: "SRT", Language: "eng"}}}
-	m := link.Session{Key: "1", Item: "42", VersionID: "7", Version: v, Streams: direct}
+	v := link.Version{Path: p, Items: []string{"42"}, Audio: []link.Stream{{ID: "11", Codec: "DTS", Language: "deu"}}, External: []link.Stream{{ID: "12", Codec: "SRT", Language: "eng"}}}
+	m := link.Session{Key: "1", VersionID: "7", Version: v, Streams: direct}
 	d := sessions.New(link.ServerID{UUID: storage.NewUUID()}, link.DefaultTimings())
 	d, _, _ = d.Next(link.Seen{At: t0, Polled: true, Sessions: []link.Session{m}}, storage.NewUUID)
 	for _, c := range []struct {
-		item, version string
-		want          bool
-	}{{"42", "7", true}, {"42", "8", false}, {"43", "7", false}} {
-		got, ok := d.Version(c.item, c.version)
+		version string
+		want    bool
+	}{{"7", true}, {"8", false}} {
+		got, ok := d.Version(c.version)
 		if ok != c.want || ok && !reflect.DeepEqual(got, v) {
-			t.Errorf("Version(%s, %s) = %+v, %v, want the live play's version: %v", c.item, c.version, got, ok, c.want)
+			t.Errorf("Version(%s) = %+v, %v, want the live play's version: %v", c.version, got, ok, c.want)
 		}
 	}
 	for range link.DefaultTimings().MissedPolls {
 		d, _, _ = d.Next(link.Seen{At: t0, Polled: true}, storage.NewUUID)
 	}
-	if got, ok := d.Version("42", "7"); ok {
-		t.Errorf("Version(42, 7) once the play ended = %+v, want none", got)
+	if got, ok := d.Version("7"); ok {
+		t.Errorf("Version(7) once the play ended = %+v, want none", got)
 	}
 }
 
@@ -242,7 +242,7 @@ func TestTheWireCarriesTheWholeSession(t *testing.T) {
 	}
 	transcode := link.Streams{Video: link.StreamTranscode, Audio: link.StreamDirect, Subtitles: link.SubtitlesNone, ContainerChanged: true}
 	m := link.Session{
-		Key: "1", Item: "42", VersionID: "7", Version: link.Version{Path: p}, PlayerKey: "office", Player: "Office PC", Platform: "Windows",
+		Key: "1", VersionID: "7", Version: link.Version{Path: p, Items: []string{"42", "43"}}, PlayerKey: "office", Player: "Office PC", Platform: "Windows",
 		Product: "Plex Web", User: "bob", Streams: transcode, Hardware: true, Reasons: []string{"VideoCodecNotSupported"}, Received: h264,
 		Audio: &link.Track{Position: 1}, Subtitle: &link.Track{External: &link.ExternalTrack{Codec: "SRT", Language: "eng"}},
 	}
@@ -258,7 +258,7 @@ func TestTheWireCarriesTheWholeSession(t *testing.T) {
 	rec := &msv1.Received{Container: "TS", VideoCodec: "x264", Height: 720, Bitrate: 4_000_000, AudioCodec: "DD+", Channels: 6}
 	for _, c := range []struct{ got, want proto.Message }{
 		{started[0].GetPlayStarted().GetSession(), &msv1.Session{
-			PlayId: id, SessionKey: "1", ServerPath: metropolis, ItemKey: "42", PlayerKey: "office", Player: "Office PC", Platform: "Windows",
+			PlayId: id, SessionKey: "1", ServerPath: metropolis, ItemKeys: []string{"42", "43"}, PlayerKey: "office", Player: "Office PC", Platform: "Windows",
 			Product: "Plex Web", User: "bob", Streams: streams, Hardware: true, Reasons: []string{"VideoCodecNotSupported"}, Received: rec,
 			AudioTrack:    &msv1.Track{Track: &msv1.Track_Position{Position: 1}},
 			SubtitleTrack: &msv1.Track{Track: &msv1.Track_External{External: &msv1.ExternalTrack{Codec: "SRT", Language: "eng"}}},

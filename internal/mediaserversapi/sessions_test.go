@@ -45,8 +45,8 @@ type played struct{ Session, Item string }
 
 // transcoding is the play history's line for p, but its end.
 func (p played) transcoding() string {
-	return `/media/Shelves/Clip.mkv transcode (transcode direct none) ["ContainerNotSupported"] by ada on Living room key living-room item ` +
-		p.Item + ", "
+	return `/media/Shelves/Clip.mkv transcode (transcode direct none) ["ContainerNotSupported"] by ada on Living room key living-room items ["` +
+		p.Item + `"], `
 }
 
 // play starts Clip on Living room for ada, transcoding for a reason.

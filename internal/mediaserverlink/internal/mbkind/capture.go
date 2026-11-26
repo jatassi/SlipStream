@@ -27,10 +27,12 @@ var mbNames = link.Names{
 const burned = "SubtitleCodecNotSupported"
 
 // observed is a session as its server lists it, before its version is
-// read: audio and subtitle are the chosen streams' Index in the version's
+// read: item is NowPlayingItem, whose sources name the version, and audio
+// and subtitle are the chosen streams' Index in the version's
 // MediaStreams.
 type observed struct {
 	link.Session
+	item            string
 	audio, subtitle *int
 }
 
@@ -46,8 +48,8 @@ func read(s jellyfin.Session) (observed, bool) {
 	if s.NowPlayingItem == nil {
 		return observed{}, false
 	}
-	o := observed{Session: link.Session{
-		Key: s.ID, Item: s.NowPlayingItem.ID, PlayerKey: s.DeviceID, Player: s.DeviceName, Product: s.Client, User: s.UserName,
+	o := observed{item: s.NowPlayingItem.ID, Session: link.Session{
+		Key: s.ID, PlayerKey: s.DeviceID, Player: s.DeviceName, Product: s.Client, User: s.UserName,
 		Streams: link.Streams{Video: link.StreamDirect, Audio: link.StreamDirect, Subtitles: link.SubtitlesNone},
 	}}
 	ps := s.PlayState
@@ -155,11 +157,11 @@ func (c *conn) sessions(ctx context.Context, all []jellyfin.Session) (out []link
 		case len(out) == c.d.Timings.SessionCap:
 			continue
 		}
-		v, known := c.d.Versions.Version(o.Item, o.VersionID)
+		v, known := c.d.Versions.Version(o.VersionID)
 		if !known {
 			var err error
-			if v, err = c.version(ctx, s.UserID, o.Item, o.VersionID); err != nil {
-				c.d.Log.Warn("read the version a session plays", "server", c.d.Server.ID.String(), "item", o.Item, "err", err.Error())
+			if v, err = c.version(ctx, s.UserID, o.item, o.VersionID); err != nil {
+				c.d.Log.Warn("read the version a session plays", "server", c.d.Server.ID.String(), "item", o.item, "err", err.Error())
 				continue
 			}
 		}
@@ -168,10 +170,11 @@ func (c *conn) sessions(ctx context.Context, all []jellyfin.Session) (out []link
 	return out, pending, transcoding
 }
 
-// version is the media source whose Id is source among item's. It never
-// compares source with an item id: Emby's source ids are mediasource_
-// and its item id, and a Jellyfin alternate's NowPlayingItem is its own
-// item (recorded runs 2026-11-26).
+// version is the media source whose Id is source among item's, with the
+// items that hold item's sources. It never takes NowPlayingItem for the
+// played file's item: a Jellyfin alternate plays as its own item, which
+// the library lists only within its primary, and Emby's is the item the
+// player opened (recorded runs 2026-11-26).
 func (c *conn) version(ctx context.Context, user, item, source string) (link.Version, error) {
 	it, found, err := c.c.Item(ctx, user, item)
 	switch {
@@ -184,5 +187,23 @@ func (c *conn) version(ctx context.Context, user, item, source string) (link.Ver
 	if i < 0 {
 		return link.Version{}, fmt.Errorf("item %s lists no media source %s", item, source)
 	}
-	return versionOf(it.MediaSources[i])
+	v, err := versionOf(it.MediaSources[i])
+	if err != nil {
+		return link.Version{}, err
+	}
+	for _, m := range it.MediaSources {
+		if h := c.f.holder(m); !slices.Contains(v.Items, h) {
+			v.Items = append(v.Items, h)
+		}
+	}
+	return v, nil
+}
+
+// holder is the item that holds m's file: Emby names it, and a Jellyfin
+// source's Id is its item's (recorded runs 2026-11-26).
+func (f family) holder(m jellyfin.MediaSource) string {
+	if f.flavor == jellyfin.Emby {
+		return m.ItemID
+	}
+	return m.ID
 }

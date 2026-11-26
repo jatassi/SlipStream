@@ -418,9 +418,11 @@ func (it Item) Top() string {
 	return it.ID
 }
 
-// MediaSource is one version of an item.
+// MediaSource is one version of an item. ItemID is the item that holds
+// its file, which only Emby sends: a Jellyfin source's Id is its item's.
 type MediaSource struct {
 	ID           string   `json:"Id"`
+	ItemID       string   `json:"ItemId"`
 	Path         string   `json:"Path"`
 	Name         string   `json:"Name"`
 	MediaStreams []Stream `json:"MediaStreams"`

@@ -32,7 +32,7 @@ func (w *World) Apply(ctx context.Context, node role.NodeID, r *msv1.Report) err
 // Plays is every play of server, by start, each as "<path> <decision>
 // (<video> <audio> <subtitles>) <reasons> by <user> on <player>, open" or
 // "..., ended <n>s in" for one that ended that long after it started. A
-// play that names its player key, platform, item, received facts or
+// play that names its player key, platform, items, received facts or
 // tracks shows each after the player.
 func (w *World) Plays(t *testing.T, server link.ServerID) []string {
 	t.Helper()
@@ -42,8 +42,12 @@ func (w *World) Plays(t *testing.T, server link.ServerID) []string {
 		for _, p := range rows {
 			var b strings.Builder
 			fmt.Fprintf(&b, "%s %s (%s %s %s) %s by %s on %s", p.ServerPath, p.Decision, p.Video, p.Audio, p.Subtitles, p.Reasons, p.UserName, p.Player)
+			items := p.ItemKeys
+			if items == "[]" {
+				items = ""
+			}
 			for _, f := range []struct{ name, value string }{
-				{"key", p.PlayerKey}, {"platform", p.Platform}, {"item", p.ItemKey},
+				{"key", p.PlayerKey}, {"platform", p.Platform}, {"items", items},
 				{"audio", trackWords(p.AudioTrack)}, {"subtitle", trackWords(p.SubtitleTrack)},
 			} {
 				if f.value != "" {
@@ -95,15 +99,15 @@ func trackWords(t *link.Track) string {
 
 // Play is one play as its server's reaching Node reports it.
 type Play struct {
-	Server                                                    link.ServerID
-	Session, Path, Item, PlayerKey, Player, Platform, Product string
-	User                                                      string
-	Streams                                                   link.Streams
-	Hardware                                                  bool
-	Reasons                                                   []string
-	Received                                                  link.Received
-	Audio, Subtitle                                           *link.Track
-	Started, Seen                                             time.Time
+	Server                                              link.ServerID
+	Session, Path, PlayerKey, Player, Platform, Product string
+	User                                                string
+	Streams                                             link.Streams
+	Hardware                                            bool
+	Reasons, Items                                      []string
+	Received                                            link.Received
+	Audio, Subtitle                                     *link.Track
+	Started, Seen                                       time.Time
 }
 
 // Play reports p started from node, and answers its id.
@@ -113,7 +117,7 @@ func (w *World) Play(t *testing.T, node role.NodeID, p Play) link.PlayID {
 	w.report(t, node, &msv1.Report{ServerId: p.Server.Bytes(), Report: &msv1.Report_PlayStarted{PlayStarted: &msv1.PlayStarted{Session: &msv1.Session{
 		PlayId: id.Bytes(), SessionKey: p.Session, ServerPath: p.Path, User: p.User, Player: p.Player, Product: p.Product,
 		Hardware: p.Hardware, Reasons: p.Reasons, StartedUnixMs: p.Started.UnixMilli(), SeenUnixMs: p.Seen.UnixMilli(),
-		PlayerKey: p.PlayerKey, Platform: p.Platform, ItemKey: p.Item, Streams: streamsOf(p.Streams),
+		PlayerKey: p.PlayerKey, Platform: p.Platform, ItemKeys: p.Items, Streams: streamsOf(p.Streams),
 		Received: receivedOf(p.Received), AudioTrack: trackOf(p.Audio), SubtitleTrack: trackOf(p.Subtitle),
 	}}}})
 	return id

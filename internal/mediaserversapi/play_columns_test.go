@@ -25,12 +25,12 @@ func TestAPlayRecordsWhatItsNodeReports(t *testing.T) {
 		}
 		server, now := link.ServerID{UUID: u}, time.Now()
 		p := mstest.Play{
-			Server: server, Session: "9", Path: clip, Item: "i9", PlayerKey: "lrtv", Player: "Living room", Platform: "AndroidTv",
+			Server: server, Session: "9", Path: clip, Items: []string{"i9"}, PlayerKey: "lrtv", Player: "Living room", Platform: "AndroidTv",
 			Product: "Jellyfin for Android TV", User: "ada", Audio: &link.Track{Position: 0}, Started: now, Seen: now,
 			Streams: link.Streams{Video: link.StreamDirect, Audio: link.StreamDirect, Subtitles: link.SubtitlesNone, ContainerChanged: true},
 		}
 		id := w.w.Play(t, w.w.Seedbox, p)
-		const who = `[] by ada on Living room key lrtv platform AndroidTv item i9 audio 0`
+		const who = `[] by ada on Living room key lrtv platform AndroidTv items ["i9"] audio 0`
 		expectPlays(t, w.plays(t), clip+` direct_stream (direct direct none) `+who+`, open`)
 
 		p.Streams.Subtitles, p.Subtitle, p.Seen = link.SubtitlesBurned, &link.Track{External: &link.ExternalTrack{Codec: "SRT", Language: "en"}}, now.Add(time.Minute)

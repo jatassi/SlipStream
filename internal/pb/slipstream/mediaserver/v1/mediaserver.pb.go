@@ -320,15 +320,16 @@ type Session struct {
 	SeenUnixMs    int64    `protobuf:"varint,11,opt,name=seen_unix_ms,json=seenUnixMs,proto3" json:"seen_unix_ms,omitempty"`
 	// player_key is the id the server gives the player: Plex
 	// machineIdentifier, Jellyfin and Emby DeviceId.
-	PlayerKey string `protobuf:"bytes,12,opt,name=player_key,json=playerKey,proto3" json:"player_key,omitempty"`
-	Platform  string `protobuf:"bytes,13,opt,name=platform,proto3" json:"platform,omitempty"`
-	// item_key is the server's item for what plays: Plex ratingKey,
-	// Jellyfin and Emby item id.
-	ItemKey       string    `protobuf:"bytes,14,opt,name=item_key,json=itemKey,proto3" json:"item_key,omitempty"`
+	PlayerKey     string    `protobuf:"bytes,12,opt,name=player_key,json=playerKey,proto3" json:"player_key,omitempty"`
+	Platform      string    `protobuf:"bytes,13,opt,name=platform,proto3" json:"platform,omitempty"`
 	Streams       *Streams  `protobuf:"bytes,15,opt,name=streams,proto3" json:"streams,omitempty"`
 	Received      *Received `protobuf:"bytes,16,opt,name=received,proto3" json:"received,omitempty"`
 	AudioTrack    *Track    `protobuf:"bytes,17,opt,name=audio_track,json=audioTrack,proto3" json:"audio_track,omitempty"`
 	SubtitleTrack *Track    `protobuf:"bytes,18,opt,name=subtitle_track,json=subtitleTrack,proto3" json:"subtitle_track,omitempty"`
+	// item_keys are the server's items that hold the played file and the
+	// versions its player can choose instead: Plex the ratingKey, Jellyfin
+	// and Emby each MediaSource's item.
+	ItemKeys      []string `protobuf:"bytes,19,rep,name=item_keys,json=itemKeys,proto3" json:"item_keys,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -447,13 +448,6 @@ func (x *Session) GetPlatform() string {
 	return ""
 }
 
-func (x *Session) GetItemKey() string {
-	if x != nil {
-		return x.ItemKey
-	}
-	return ""
-}
-
 func (x *Session) GetStreams() *Streams {
 	if x != nil {
 		return x.Streams
@@ -478,6 +472,13 @@ func (x *Session) GetAudioTrack() *Track {
 func (x *Session) GetSubtitleTrack() *Track {
 	if x != nil {
 		return x.SubtitleTrack
+	}
+	return nil
+}
+
+func (x *Session) GetItemKeys() []string {
+	if x != nil {
+		return x.ItemKeys
 	}
 	return nil
 }
@@ -3981,7 +3982,7 @@ const file_slipstream_mediaserver_v1_mediaserver_proto_rawDesc = "" +
 	"responding\x18\x02 \x01(\bR\n" +
 	"responding\x12>\n" +
 	"\bsessions\x18\x03 \x03(\v2\".slipstream.mediaserver.v1.SessionR\bsessions\x12 \n" +
-	"\vtranscoding\x18\x04 \x01(\bR\vtranscoding\"\x9b\x05\n" +
+	"\vtranscoding\x18\x04 \x01(\bR\vtranscoding\"\xad\x05\n" +
 	"\aSession\x12\x17\n" +
 	"\aplay_id\x18\x01 \x01(\fR\x06playId\x12\x1f\n" +
 	"\vsession_key\x18\x02 \x01(\tR\n" +
@@ -3999,13 +4000,13 @@ const file_slipstream_mediaserver_v1_mediaserver_proto_rawDesc = "" +
 	"seenUnixMs\x12\x1d\n" +
 	"\n" +
 	"player_key\x18\f \x01(\tR\tplayerKey\x12\x1a\n" +
-	"\bplatform\x18\r \x01(\tR\bplatform\x12\x19\n" +
-	"\bitem_key\x18\x0e \x01(\tR\aitemKey\x12<\n" +
+	"\bplatform\x18\r \x01(\tR\bplatform\x12<\n" +
 	"\astreams\x18\x0f \x01(\v2\".slipstream.mediaserver.v1.StreamsR\astreams\x12?\n" +
 	"\breceived\x18\x10 \x01(\v2#.slipstream.mediaserver.v1.ReceivedR\breceived\x12A\n" +
 	"\vaudio_track\x18\x11 \x01(\v2 .slipstream.mediaserver.v1.TrackR\n" +
 	"audioTrack\x12G\n" +
-	"\x0esubtitle_track\x18\x12 \x01(\v2 .slipstream.mediaserver.v1.TrackR\rsubtitleTrackJ\x04\b\a\x10\bR\bdecision\"\x80\x01\n" +
+	"\x0esubtitle_track\x18\x12 \x01(\v2 .slipstream.mediaserver.v1.TrackR\rsubtitleTrack\x12\x1b\n" +
+	"\titem_keys\x18\x13 \x03(\tR\bitemKeysJ\x04\b\a\x10\bJ\x04\b\x0e\x10\x0fR\bdecisionR\bitem_key\"\x80\x01\n" +
 	"\aStreams\x12\x14\n" +
 	"\x05video\x18\x01 \x01(\tR\x05video\x12\x14\n" +
 	"\x05audio\x18\x02 \x01(\tR\x05audio\x12\x1c\n" +

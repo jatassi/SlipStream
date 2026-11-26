@@ -299,7 +299,7 @@ func (q *Queries) ListOpenPlays(ctx context.Context, serverID link.ServerID) ([]
 }
 
 const listPlayerPlaysPage = `-- name: ListPlayerPlaysPage :many
-SELECT server_id, id, session_key, server_path, path_key, item_key, player_key, player, platform, product, user_name, decision, video, audio, subtitles, hardware, reasons, received, audio_track, subtitle_track, file_id, snapshot, started_at, last_seen_at, ended_at FROM mediaservers_play
+SELECT server_id, id, session_key, server_path, path_key, player_key, player, platform, product, user_name, decision, video, audio, subtitles, hardware, reasons, received, audio_track, subtitle_track, file_id, snapshot, started_at, last_seen_at, ended_at, item_keys FROM mediaservers_play
 WHERE server_id = ?1 AND player_key = ?2
     AND (started_at < ?3 OR (started_at = ?3 AND id < ?4))
 ORDER BY started_at DESC, id DESC
@@ -335,7 +335,6 @@ func (q *Queries) ListPlayerPlaysPage(ctx context.Context, arg ListPlayerPlaysPa
 			&i.SessionKey,
 			&i.ServerPath,
 			&i.PathKey,
-			&i.ItemKey,
 			&i.PlayerKey,
 			&i.Player,
 			&i.Platform,
@@ -355,6 +354,7 @@ func (q *Queries) ListPlayerPlaysPage(ctx context.Context, arg ListPlayerPlaysPa
 			&i.StartedAt,
 			&i.LastSeenAt,
 			&i.EndedAt,
+			&i.ItemKeys,
 		); err != nil {
 			return nil, err
 		}
@@ -370,7 +370,7 @@ func (q *Queries) ListPlayerPlaysPage(ctx context.Context, arg ListPlayerPlaysPa
 }
 
 const listPlays = `-- name: ListPlays :many
-SELECT server_id, id, session_key, server_path, path_key, item_key, player_key, player, platform, product, user_name, decision, video, audio, subtitles, hardware, reasons, received, audio_track, subtitle_track, file_id, snapshot, started_at, last_seen_at, ended_at FROM mediaservers_play
+SELECT server_id, id, session_key, server_path, path_key, player_key, player, platform, product, user_name, decision, video, audio, subtitles, hardware, reasons, received, audio_track, subtitle_track, file_id, snapshot, started_at, last_seen_at, ended_at, item_keys FROM mediaservers_play
 WHERE server_id = ?1
 ORDER BY started_at, id
 `
@@ -390,7 +390,6 @@ func (q *Queries) ListPlays(ctx context.Context, serverID link.ServerID) ([]Medi
 			&i.SessionKey,
 			&i.ServerPath,
 			&i.PathKey,
-			&i.ItemKey,
 			&i.PlayerKey,
 			&i.Player,
 			&i.Platform,
@@ -410,6 +409,7 @@ func (q *Queries) ListPlays(ctx context.Context, serverID link.ServerID) ([]Medi
 			&i.StartedAt,
 			&i.LastSeenAt,
 			&i.EndedAt,
+			&i.ItemKeys,
 		); err != nil {
 			return nil, err
 		}
@@ -425,7 +425,7 @@ func (q *Queries) ListPlays(ctx context.Context, serverID link.ServerID) ([]Medi
 }
 
 const listPlaysPage = `-- name: ListPlaysPage :many
-SELECT server_id, id, session_key, server_path, path_key, item_key, player_key, player, platform, product, user_name, decision, video, audio, subtitles, hardware, reasons, received, audio_track, subtitle_track, file_id, snapshot, started_at, last_seen_at, ended_at FROM mediaservers_play
+SELECT server_id, id, session_key, server_path, path_key, player_key, player, platform, product, user_name, decision, video, audio, subtitles, hardware, reasons, received, audio_track, subtitle_track, file_id, snapshot, started_at, last_seen_at, ended_at, item_keys FROM mediaservers_play
 WHERE server_id = ?1
     AND (started_at < ?2 OR (started_at = ?2 AND id < ?3))
 ORDER BY started_at DESC, id DESC
@@ -459,7 +459,6 @@ func (q *Queries) ListPlaysPage(ctx context.Context, arg ListPlaysPageParams) ([
 			&i.SessionKey,
 			&i.ServerPath,
 			&i.PathKey,
-			&i.ItemKey,
 			&i.PlayerKey,
 			&i.Player,
 			&i.Platform,
@@ -479,6 +478,7 @@ func (q *Queries) ListPlaysPage(ctx context.Context, arg ListPlaysPageParams) ([
 			&i.StartedAt,
 			&i.LastSeenAt,
 			&i.EndedAt,
+			&i.ItemKeys,
 		); err != nil {
 			return nil, err
 		}
@@ -494,7 +494,7 @@ func (q *Queries) ListPlaysPage(ctx context.Context, arg ListPlaysPageParams) ([
 }
 
 const listPlaysSince = `-- name: ListPlaysSince :many
-SELECT id, file_id, item_key, player_key, player, platform, product, decision, video, audio, subtitles,
+SELECT id, file_id, item_keys, player_key, player, platform, product, decision, video, audio, subtitles,
     reasons, CAST(received AS TEXT) AS received_json, CAST(coalesce(snapshot, '') AS TEXT) AS snapshot_json,
     started_at, last_seen_at
 FROM mediaservers_play
@@ -510,7 +510,7 @@ type ListPlaysSinceParams struct {
 type ListPlaysSinceRow struct {
 	ID           link.PlayID
 	FileID       files.ID
-	ItemKey      string
+	ItemKeys     string
 	PlayerKey    string
 	Player       string
 	Platform     string
@@ -538,7 +538,7 @@ func (q *Queries) ListPlaysSince(ctx context.Context, arg ListPlaysSinceParams) 
 		if err := rows.Scan(
 			&i.ID,
 			&i.FileID,
-			&i.ItemKey,
+			&i.ItemKeys,
 			&i.PlayerKey,
 			&i.Player,
 			&i.Platform,
@@ -716,7 +716,7 @@ func (q *Queries) SetSnapshot(ctx context.Context, arg SetSnapshotParams) error 
 
 const startPlay = `-- name: StartPlay :exec
 INSERT INTO mediaservers_play (
-    server_id, id, session_key, file_id, server_path, path_key, item_key, player_key, player, platform, product,
+    server_id, id, session_key, file_id, server_path, path_key, item_keys, player_key, player, platform, product,
     user_name, decision, video, audio, subtitles, hardware, reasons, received, audio_track, subtitle_track,
     started_at, last_seen_at
 ) VALUES (
@@ -736,7 +736,7 @@ type StartPlayParams struct {
 	FileID        files.ID
 	ServerPath    string
 	PathKey       string
-	ItemKey       string
+	ItemKeys      string
 	PlayerKey     string
 	Player        string
 	Platform      string
@@ -763,7 +763,7 @@ func (q *Queries) StartPlay(ctx context.Context, arg StartPlayParams) error {
 		arg.FileID,
 		arg.ServerPath,
 		arg.PathKey,
-		arg.ItemKey,
+		arg.ItemKeys,
 		arg.PlayerKey,
 		arg.Player,
 		arg.Platform,

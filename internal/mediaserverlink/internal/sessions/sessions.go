@@ -37,11 +37,11 @@ func New(server link.ServerID, t link.Timings) Diff {
 	return Diff{server: server, missedPolls: t.MissedPolls}
 }
 
-// Version is the version a live play resolved for item and version, false
+// Version is the version a live play resolved for the version id, false
 // for none. It is the kinds' version cache.
-func (d Diff) Version(item, version string) (link.Version, bool) {
+func (d Diff) Version(id string) (link.Version, bool) {
 	for _, p := range d.plays {
-		if p.session.Item == item && p.session.VersionID == version {
+		if p.session.VersionID == id {
 			return p.session.Version, true
 		}
 	}
@@ -157,7 +157,7 @@ func (d Diff) facts() *msv1.ServerFacts {
 func sessionOf(p play, seen time.Time) *msv1.Session {
 	x := p.session
 	return &msv1.Session{
-		PlayId: p.id.Bytes(), SessionKey: x.Key, ServerPath: x.Version.Path.String(), ItemKey: x.Item,
+		PlayId: p.id.Bytes(), SessionKey: x.Key, ServerPath: x.Version.Path.String(), ItemKeys: x.Version.Items,
 		PlayerKey: x.PlayerKey, Player: x.Player, Platform: x.Platform, Product: x.Product, User: x.User,
 		Streams: streamsOf(x.Streams), Hardware: x.Hardware, Reasons: x.Reasons, Received: receivedOf(x.Received),
 		AudioTrack: trackOf(x.Audio), SubtitleTrack: trackOf(x.Subtitle),

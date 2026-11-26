@@ -67,13 +67,16 @@ message Session {
   // machineIdentifier, Jellyfin and Emby DeviceId.
   string player_key = 12;
   string platform = 13;
-  // item_key is the server's item for what plays: Plex ratingKey,
-  // Jellyfin and Emby item id.
-  string item_key = 14;
+  reserved 14;
+  reserved "item_key";
   Streams streams = 15;
   Received received = 16;
   Track audio_track = 17;
   Track subtitle_track = 18;
+  // item_keys are the server's items that hold the played file and the
+  // versions its player can choose instead: Plex the ratingKey, Jellyfin
+  // and Emby each MediaSource's item.
+  repeated string item_keys = 19;
 }
 
 // Streams is a play's decision per stream, in the words of the lists in

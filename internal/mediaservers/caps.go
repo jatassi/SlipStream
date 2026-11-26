@@ -32,12 +32,12 @@ func (m *MediaServers) caps() caps {
 // reported is a play report's values, parsed, cut and checked.
 type reported struct {
 	id                                         link.PlayID
-	sessionKey, itemKey                        string
+	sessionKey                                 string
 	path                                       link.ServerPath
 	playerKey, player, platform, product, user string
 	streams                                    link.Streams
 	hardware                                   bool
-	reasons                                    []string
+	reasons, itemKeys                          []string
 	received                                   link.Received
 	audio, subtitle                            *link.Track
 	started, seen                              time.Time
@@ -59,7 +59,7 @@ func (c caps) changed(m *msv1.PlayChanged, now time.Time) (reported, error) {
 	if err != nil {
 		return reported{}, err
 	}
-	p := reported{id: id, hardware: m.GetHardware(), reasons: c.reasonsOf(m.GetReasons()), seen: c.at(timeOf(m.GetSeenUnixMs()), now)}
+	p := reported{id: id, hardware: m.GetHardware(), reasons: c.listOf(m.GetReasons()), seen: c.at(timeOf(m.GetSeenUnixMs()), now)}
 	if p.streams, err = streamsOf(m.GetStreams()); err != nil {
 		return reported{}, err
 	}
@@ -104,10 +104,10 @@ func (c caps) session(s *msv1.Session, now time.Time) (reported, error) {
 		return reported{}, errors.New("a play's times are out of order")
 	}
 	p := reported{
-		id: id, sessionKey: c.text(s.GetSessionKey()), itemKey: c.text(s.GetItemKey()),
+		id: id, sessionKey: c.text(s.GetSessionKey()), itemKeys: c.listOf(s.GetItemKeys()),
 		playerKey: c.text(s.GetPlayerKey()), player: c.text(s.GetPlayer()), platform: c.text(s.GetPlatform()),
 		product: c.text(s.GetProduct()), user: c.text(s.GetUser()), hardware: s.GetHardware(),
-		reasons: c.reasonsOf(s.GetReasons()), started: c.at(started, now),
+		reasons: c.listOf(s.GetReasons()), started: c.at(started, now),
 	}
 	p.seen = later(c.at(seen, now), p.started)
 	if p.path, err = link.ParsePath(s.GetServerPath()); err != nil {
@@ -148,7 +148,8 @@ func (c caps) at(t, now time.Time) time.Time {
 	return t
 }
 
-func (c caps) reasonsOf(rs []string) []string {
+// listOf is the first ReasonCap of rs, each cut to StringCap.
+func (c caps) listOf(rs []string) []string {
 	out := make([]string, 0, min(len(rs), c.reasons))
 	for _, r := range rs[:min(len(rs), c.reasons)] {
 		out = append(out, c.text(r))
@@ -190,10 +191,10 @@ func (c caps) trackOf(t *msv1.Track) (*link.Track, error) {
 func (p reported) startParams(server link.ServerID) db.StartPlayParams {
 	return db.StartPlayParams{
 		ServerID: server, ID: p.id, SessionKey: p.sessionKey, ServerPath: p.path.String(),
-		PathKey: p.path.Key(), ItemKey: p.itemKey, PlayerKey: p.playerKey, Player: p.player,
+		PathKey: p.path.Key(), ItemKeys: listJSON(p.itemKeys), PlayerKey: p.playerKey, Player: p.player,
 		Platform: p.platform, Product: p.product, UserName: p.user,
 		Decision: p.streams.Decision(), Video: p.streams.Video, Audio: p.streams.Audio, Subtitles: p.streams.Subtitles,
-		Hardware: p.hardware, Reasons: reasonsJSON(p.reasons), Received: p.received,
+		Hardware: p.hardware, Reasons: listJSON(p.reasons), Received: p.received,
 		AudioTrack: p.audio, SubtitleTrack: p.subtitle,
 		StartedAt: storage.FromTime(p.started), LastSeenAt: storage.FromTime(p.seen),
 	}
