@@ -171,7 +171,7 @@ func (w *reportWorld) hear(t *testing.T, hs ...heard) {
 			name = h.player
 		}
 		w.played = append(w.played, w.w.Play(t, w.w.Seedbox, mstest.Play{
-			Server: w.server, Session: strconv.Itoa(len(w.played)), Path: shelves + "/" + h.file + ".mkv", Item: h.file,
+			Server: w.server, Session: strconv.Itoa(len(w.played)), Path: shelves + "/" + h.file + ".mkv", Items: []string{h.file},
 			PlayerKey: h.player, Player: name, User: "ada",
 			Streams: link.Streams{Video: h.video, Audio: h.audio, Subtitles: h.subtitles},
 			Reasons: h.reasons, Received: h.received, Subtitle: sub, Started: started, Seen: seen,

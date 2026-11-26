@@ -78,7 +78,7 @@ func (s snapped) put(t *testing.T, r media.Record, label string) files.ID {
 func (s snapped) play(audio, subtitle *link.Track) mstest.Play {
 	now := time.Now()
 	return mstest.Play{
-		Server: s.server, Session: "9", Path: clip, Item: "heat", PlayerKey: "lrtv", Player: "Living room", User: "ada",
+		Server: s.server, Session: "9", Path: clip, Items: []string{"heat"}, PlayerKey: "lrtv", Player: "Living room", User: "ada",
 		Streams: link.Streams{Video: link.StreamTranscode, Audio: link.StreamDirect, Subtitles: link.SubtitlesNone},
 		Audio:   audio, Subtitle: subtitle, Started: now, Seen: now,
 	}

@@ -42,7 +42,7 @@ var watching = link.Timings{ReconnectMin: time.Second, ReconnectMax: time.Minute
 
 type noVersions struct{}
 
-func (noVersions) Version(string, string) (link.Version, bool) { return link.Version{}, false }
+func (noVersions) Version(string) (link.Version, bool) { return link.Version{}, false }
 
 // player is the player key every case plays on.
 const player = "slipstream-conformance-player"

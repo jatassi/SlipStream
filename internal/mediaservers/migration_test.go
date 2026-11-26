@@ -107,9 +107,9 @@ func (f fixture) change(t *testing.T, kind, path string, from any, state, step s
 
 func (f fixture) play(t *testing.T, server, id storage.UUID) {
 	t.Helper()
-	must(t, f.lib, `INSERT INTO mediaservers_play (server_id, id, session_key, server_path, path_key, item_key, player_key, player,
+	must(t, f.lib, `INSERT INTO mediaservers_play (server_id, id, session_key, server_path, path_key, item_keys, player_key, player,
 		platform, product, user_name, decision, video, audio, subtitles, started_at, last_seen_at)
-		VALUES (?, ?, 's1', '/media/movies/Heat/Heat.mkv', '/media/movies/Heat/Heat.mkv', 'i1', 'tv1', 'Living room TV', 'AndroidTv',
+		VALUES (?, ?, 's1', '/media/movies/Heat/Heat.mkv', '/media/movies/Heat/Heat.mkv', '["i1"]', 'tv1', 'Living room TV', 'AndroidTv',
 		'Jellyfin Web', 'Sam', 'transcode', 'transcode', 'direct', 'none', 1, 1)`, server, id)
 }
 
@@ -154,9 +154,9 @@ func TestAPlayIdNamesAPlayOnlyOnItsServer(t *testing.T) {
 	id := storage.NewUUID()
 	f.play(t, f.server, id)
 	f.play(t, other, id)
-	if err := exec(t, f.lib, `INSERT INTO mediaservers_play (server_id, id, session_key, server_path, path_key, item_key, player_key, player,
+	if err := exec(t, f.lib, `INSERT INTO mediaservers_play (server_id, id, session_key, server_path, path_key, item_keys, player_key, player,
 		platform, product, user_name, decision, video, audio, subtitles, started_at, last_seen_at)
-		VALUES (?, ?, 's2', '/x', '/x', 'i2', 'tv2', 'TV', '', 'Plex', 'Sam', 'direct_play', 'direct', 'direct', 'none', 1, 1)`, f.server, id); err == nil {
+		VALUES (?, ?, 's2', '/x', '/x', '["i2"]', 'tv2', 'TV', '', 'Plex', 'Sam', 'direct_play', 'direct', 'direct', 'none', 1, 1)`, f.server, id); err == nil {
 		t.Error("a play id was started twice on one server")
 	}
 }
@@ -379,7 +379,7 @@ func TestALibraryFromBeforeMemberAccessKeepsItsRows(t *testing.T) {
 // it.
 var validPlay = map[string]string{
 	"server_id": "(SELECT id FROM mediaservers_server)", "id": "randomblob(16)", "session_key": "'s1'",
-	"server_path": "'/media/movies/Heat/Heat.mkv'", "path_key": "'/media/movies/Heat/Heat.mkv'", "item_key": "'i1'",
+	"server_path": "'/media/movies/Heat/Heat.mkv'", "path_key": "'/media/movies/Heat/Heat.mkv'", "item_keys": `'["i1"]'`,
 	"player_key": "'tv1'", "player": "'Living room TV'", "platform": "'AndroidTv'", "product": "'Jellyfin Web'", "user_name": "'Sam'",
 	"decision": "'direct_play'", "video": "'direct'", "audio": "'direct'", "subtitles": "'none'", "started_at": "1", "last_seen_at": "2",
 }
@@ -454,6 +454,7 @@ func TestALibraryFromBeforeThePlaybackReportStartsItsPlayHistory(t *testing.T) {
 		{"an empty server path", map[string]string{"server_path": "''"}},
 		{"an empty path key", map[string]string{"path_key": "''"}},
 		{"reasons that aren't a list", map[string]string{"reasons": `'{"a":1}'`}},
+		{"item keys that aren't a list", map[string]string{"item_keys": `'"i1"'`}},
 		{"received facts that aren't an object", map[string]string{"received": "'[]'"}},
 		{"an audio track that isn't JSON", map[string]string{"audio_track": "'0'"}},
 		{"a subtitle track that isn't an object", map[string]string{"subtitle_track": "'[0]'"}},
@@ -467,6 +468,40 @@ func TestALibraryFromBeforeThePlaybackReportStartsItsPlayHistory(t *testing.T) {
 		if err := tryRow(t, lib, "mediaservers_play", row); err == nil || !strings.Contains(err.Error(), "CHECK constraint failed") {
 			t.Errorf("%s: err = %v, want a CHECK refusal", c.name, err)
 		}
+	}
+}
+
+// TestAPlayFromBeforeItemKeysKeepsItsItem upgrades a library from
+// migration 7: a play keeps the item it named as its one item key, and a
+// play that named none has no item keys.
+func TestAPlayFromBeforeItemKeysKeepsItsItem(t *testing.T) {
+	path := filepath.Join(t.TempDir(), storage.LibraryFile)
+	openAt := func(schemas ...storage.Schema[storage.Library]) library {
+		lib, err := storage.OpenLibrary(t.Context(), path, schemas, nil, storage.DefaultTimings(), slog.New(slog.DiscardHandler))
+		if err != nil {
+			t.Fatal(err)
+		}
+		return lib
+	}
+	before := openAt(secret.Schema(), identity.Schema(), nodes.Schema(), works.Schema(), roots.Schema(), schemaThrough(t, "mediaservers", "schema", 7))
+	f := fixture{lib: before, node: storage.NewUUID(), root: storage.NewUUID(), server: storage.NewUUID()}
+	seedServer(t, f)
+	for _, c := range []struct{ session, item string }{{"s1", "i1"}, {"s2", ""}} {
+		must(t, before, `INSERT INTO mediaservers_play (server_id, id, session_key, server_path, path_key, item_key, player_key, player,
+			platform, product, user_name, decision, video, audio, subtitles, started_at, last_seen_at)
+			VALUES (?, randomblob(16), ?, '/x', '/x', ?, 'tv1', 'TV', '', 'Plex', 'Sam', 'direct_play', 'direct', 'direct', 'none', 1, 1)`,
+			f.server, c.session, c.item)
+	}
+	if err := before.Close(); err != nil {
+		t.Fatal(err)
+	}
+	lib := openAt(secret.Schema(), identity.Schema(), nodes.Schema(), works.Schema(), roots.Schema(), mediaservers.Schema())
+	t.Cleanup(func() { _ = lib.Close() })
+	var got string
+	err := lib.QueryRowContext(t.Context(), `SELECT group_concat(k, '; ') FROM
+		(SELECT session_key || ' ' || item_keys AS k FROM mediaservers_play ORDER BY session_key)`).Scan(&got)
+	if want := `s1 ["i1"]; s2 []`; err != nil || got != want {
+		t.Errorf("after the upgrade the plays' item keys are %q, %v; want %q", got, err, want)
 	}
 }
 

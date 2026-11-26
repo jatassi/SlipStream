@@ -1,11 +1,11 @@
 -- name: StartPlay :exec
 INSERT INTO mediaservers_play (
-    server_id, id, session_key, file_id, server_path, path_key, item_key, player_key, player, platform, product,
+    server_id, id, session_key, file_id, server_path, path_key, item_keys, player_key, player, platform, product,
     user_name, decision, video, audio, subtitles, hardware, reasons, received, audio_track, subtitle_track,
     started_at, last_seen_at
 ) VALUES (
     sqlc.arg(server_id), sqlc.arg(id), sqlc.arg(session_key), sqlc.narg(file_id), sqlc.arg(server_path),
-    sqlc.arg(path_key), sqlc.arg(item_key), sqlc.arg(player_key), sqlc.arg(player), sqlc.arg(platform),
+    sqlc.arg(path_key), sqlc.arg(item_keys), sqlc.arg(player_key), sqlc.arg(player), sqlc.arg(platform),
     sqlc.arg(product), sqlc.arg(user_name), sqlc.arg(decision), sqlc.arg(video), sqlc.arg(audio),
     sqlc.arg(subtitles), sqlc.arg(hardware), sqlc.arg(reasons), sqlc.arg(received), sqlc.narg(audio_track),
     sqlc.narg(subtitle_track), sqlc.arg(started_at), sqlc.arg(last_seen_at)
@@ -96,7 +96,7 @@ WHERE rowid IN (
 UPDATE mediaservers_server SET plays_since = sqlc.arg(cutoff) WHERE plays_since < sqlc.arg(cutoff);
 
 -- name: ListPlaysSince :many
-SELECT id, file_id, item_key, player_key, player, platform, product, decision, video, audio, subtitles,
+SELECT id, file_id, item_keys, player_key, player, platform, product, decision, video, audio, subtitles,
     reasons, CAST(received AS TEXT) AS received_json, CAST(coalesce(snapshot, '') AS TEXT) AS snapshot_json,
     started_at, last_seen_at
 FROM mediaservers_play

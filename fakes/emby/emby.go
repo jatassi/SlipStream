@@ -7,7 +7,8 @@
 // /embywebsocket), path reports under one 90 s timer that a repeat
 // doesn't restart, a Deleted report waiting it out like any other, a
 // report under an empty root taken (#101 run 2), one item per file joined
-// by PresentationUniqueKey, ids derived from the path so a moved file is a
+// by PresentationUniqueKey, each listing every version of its group by
+// mediasource_ and its item id (recorded run 2026-11-26), ids derived from the path so a moved file is a
 // new item that takes watch data by provider id in either order, the
 // recursive refresh of a library, the RefreshLibrary task, UserData
 // writes that keep the favorite, a mark played that sets no play count or

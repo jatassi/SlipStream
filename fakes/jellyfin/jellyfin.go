@@ -9,8 +9,9 @@
 // content there, a full scan or a folder added dropping pending reports,
 // the RefreshLibrary task with State and LastExecutionResult, ids
 // derived from the path so a moved file is a new item that takes watch
-// data only by provider id and only when removed first, versions in the
-// primary item's MediaSources, users, UserData, collections, /Sessions,
+// data only by provider id and only when removed first, versions in one
+// item whose alternates each play as their own item listing every version
+// (recorded run 2026-11-26), users, UserData, collections, /Sessions,
 // /socket with SessionsStart, Sessions pushed only when a session starts
 // or ends, and ForceKeepAlive, API keys whose create
 // answers no body, DeviceId revocation, and 401 to Emby's sign-in forms

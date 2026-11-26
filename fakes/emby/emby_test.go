@@ -11,6 +11,8 @@ import (
 	conformance "github.com/jatassi/slipstream/conformance/emby"
 	"github.com/jatassi/slipstream/fakes/emby"
 	"github.com/jatassi/slipstream/fakes/fake/faketest"
+	"github.com/jatassi/slipstream/fakes/internal/mediabrowser"
+	"github.com/jatassi/slipstream/fakes/internal/mediaserver"
 	"github.com/jatassi/slipstream/fakes/internal/serverfake"
 	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/internal/mediaserverlink/link"
@@ -94,6 +96,9 @@ func target(t *testing.T, f faketest.Served, root string, settle, bound time.Dur
 		Second: &conformance.Library{Library: "Movies 4K", Folder: path(t, join(root, "Movies 4K")), Disk: conformance.DirDisk{Dir: filepath.Join(f.Media, "Movies 4K")}},
 		Admin:  &conformance.Admin{User: "jackson", Password: "conformance-password"},
 		Play: func(t *testing.T, p conformance.Play) (conformance.Played, func()) {
+			if p.Audio != nil {
+				f.Cue(t, "emby-streams", serverfake.SetStreams{Path: p.Path.String(), Streams: audioTracks(p.Audio.Position)})
+			}
 			played, _ := f.Cue(t, "emby-play", cued(p)).(emby.Played)
 			return conformance.Played{Session: played.Session, Item: played.Item}, func() { f.Cue(t, "emby-stop", emby.Stop{Session: played.Session}) }
 		},
@@ -107,6 +112,15 @@ func cued(p conformance.Play) emby.Play {
 	return emby.Play{
 		Path: p.Path.String(), Version: p.Version.String(), User: "jackson", Player: "Living Room", PlayerKey: p.PlayerKey, Platform: p.Platform,
 		Video: p.Streams.Video, Audio: p.Streams.Audio, Subtitles: p.Streams.Subtitles, ContainerChanged: p.Streams.ContainerChanged,
-		AudioTrack: serverfake.Track(p.Audio), SubtitleTrack: serverfake.Track(p.Subtitle), Reasons: p.Reasons,
+		Received: mediabrowser.ReceivedOf(p.Received), AudioTrack: serverfake.Track(p.Audio), SubtitleTrack: serverfake.Track(p.Subtitle), Reasons: p.Reasons,
 	}
+}
+
+// audioTracks are a file's streams with an audio track at position.
+func audioTracks(position int) []mediaserver.Stream {
+	out := []mediaserver.Stream{{Type: "video", Codec: "h264", Height: 1080}}
+	for range position + 1 {
+		out = append(out, mediaserver.Stream{Type: "audio", Codec: "aac", Channels: 2, Language: "eng"})
+	}
+	return out
 }

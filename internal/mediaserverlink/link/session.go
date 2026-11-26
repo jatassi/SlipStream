@@ -12,10 +12,10 @@ import (
 type Session struct {
 	// Key is the server's own session key.
 	Key string
-	// Item and VersionID are the server's names for what plays: Plex
-	// ratingKey and Media id, Jellyfin and Emby item id and MediaSourceId.
-	Item, VersionID string
-	Version         Version
+	// VersionID is the server's id for the version that plays: Plex Media
+	// id, Jellyfin and Emby MediaSourceId.
+	VersionID string
+	Version   Version
 	// PlayerKey is the id the server gives the player: Plex
 	// machineIdentifier, Jellyfin and Emby DeviceId.
 	PlayerKey, Player, Platform, Product, User string
@@ -34,6 +34,10 @@ type Session struct {
 // Version is one file of an item as its server lists it.
 type Version struct {
 	Path ServerPath
+	// Items are the server's items that hold this file and the versions a
+	// player of it can choose instead: Plex the ratingKey, Jellyfin and
+	// Emby each MediaSource's item.
+	Items []string
 	// Audio and Subtitles are its embedded streams of each type, in stream
 	// order; External are streams in separate files.
 	Audio, Subtitles, External []Stream
@@ -44,7 +48,7 @@ type Stream struct{ ID, Codec, Language string }
 // Versions answers the versions a server's live plays resolved. A kind
 // asks it before it looks a version up.
 type Versions interface {
-	Version(item, version string) (Version, bool)
+	Version(id string) (Version, bool)
 }
 
 // Streams is a play's decision per stream, and whether the server put the

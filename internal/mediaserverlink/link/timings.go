@@ -61,7 +61,8 @@ type Timings struct {
 	StringCap int `yaml:"string_cap"`
 	// PathCap is the longest server path a report may carry, in bytes.
 	PathCap int `yaml:"path_cap"`
-	// ReasonCap is the most reasons the Controller keeps of one play.
+	// ReasonCap is the most reasons, and the most item keys, the
+	// Controller keeps of one play.
 	ReasonCap int `yaml:"reason_cap"`
 	// FutureSkew is how far ahead of the Controller's clock a reported time
 	// may be before it reads as now.

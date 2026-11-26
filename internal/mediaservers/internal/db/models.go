@@ -131,7 +131,6 @@ type MediaserversPlay struct {
 	SessionKey    string
 	ServerPath    string
 	PathKey       string
-	ItemKey       string
 	PlayerKey     string
 	Player        string
 	Platform      string
@@ -151,6 +150,7 @@ type MediaserversPlay struct {
 	StartedAt     storage.Time
 	LastSeenAt    storage.Time
 	EndedAt       storage.Time
+	ItemKeys      string
 }
 
 type MediaserversPlexAccount struct {

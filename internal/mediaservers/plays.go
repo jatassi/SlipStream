@@ -51,7 +51,7 @@ func (m *MediaServers) changePlay(ctx context.Context, tx *storage.Tx[storage.Li
 	}
 	err = q.ChangePlay(ctx, db.ChangePlayParams{
 		ServerID: server, ID: p.id, Decision: p.streams.Decision(), Video: p.streams.Video, Audio: p.streams.Audio,
-		Subtitles: p.streams.Subtitles, Hardware: p.hardware, Reasons: reasonsJSON(p.reasons), Received: p.received,
+		Subtitles: p.streams.Subtitles, Hardware: p.hardware, Reasons: listJSON(p.reasons), Received: p.received,
 		AudioTrack: p.audio, SubtitleTrack: p.subtitle, LastSeenAt: seen,
 	})
 	if err != nil {
@@ -170,7 +170,7 @@ func timeOf(ms int64) time.Time {
 	return time.UnixMilli(ms).UTC()
 }
 
-func reasonsJSON(rs []string) string {
+func listJSON(rs []string) string {
 	b, _ := json.Marshal(rs) //nolint:errchkjson // a string slice always marshals
 	return string(b)
 }

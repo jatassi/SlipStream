@@ -34,7 +34,7 @@ func versionFor(in Input, p Play, dims []Blocked, pr Proofs) (Version, []Evidenc
 	goal := in.Siblings.Goals[p.Snapshot.Work]
 	slices.SortStableFunc(ok, func(a, b candidate) int { return goal.compareSiblings(a.sib, b.sib) })
 	best := ok[0]
-	v := Version{FileID: best.sib.File.String(), Label: best.sib.Label, SeparateItem: best.sib.ItemKey != p.ItemKey}
+	v := Version{FileID: best.sib.File.String(), Label: best.sib.Label, SeparateItem: !slices.Contains(p.ItemKeys, best.sib.ItemKey)}
 	return v, pr.evidenceOf(in, best.facts), true
 }
 

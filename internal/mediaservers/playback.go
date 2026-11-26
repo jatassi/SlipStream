@@ -72,7 +72,7 @@ func (s service) Playback(ctx context.Context, id link.ServerID) (playback.Repor
 }
 
 // playsOf is rows as plays. Only a transcode is judged, so only a
-// transcode's reasons and received facts are read.
+// transcode's reasons, item keys and received facts are read.
 func playsOf(rows []db.ListPlaysSinceRow) ([]playback.Play, error) {
 	snaps, err := snapshotsByText(rows)
 	if err != nil {
@@ -81,7 +81,7 @@ func playsOf(rows []db.ListPlaysSinceRow) ([]playback.Play, error) {
 	out := make([]playback.Play, len(rows))
 	for i, p := range rows {
 		out[i] = playback.Play{
-			ID: p.ID, File: p.FileID, ItemKey: p.ItemKey, PlayerKey: p.PlayerKey, Player: p.Player, Platform: p.Platform,
+			ID: p.ID, File: p.FileID, PlayerKey: p.PlayerKey, Player: p.Player, Platform: p.Platform,
 			Product: p.Product, Decision: p.Decision,
 			Streams:  link.Streams{Video: p.Video, Audio: p.Audio, Subtitles: p.Subtitles},
 			Snapshot: snaps[p.SnapshotJson], Started: p.StartedAt.Time(), LastSeen: p.LastSeenAt.Time(),
@@ -91,6 +91,9 @@ func playsOf(rows []db.ListPlaysSinceRow) ([]playback.Play, error) {
 		}
 		if err := json.Unmarshal([]byte(p.Reasons), &out[i].Reasons); err != nil {
 			return nil, fmt.Errorf("read a play's reasons: %w", err)
+		}
+		if err := json.Unmarshal([]byte(p.ItemKeys), &out[i].ItemKeys); err != nil {
+			return nil, fmt.Errorf("read a play's item keys: %w", err)
 		}
 		if err := out[i].Received.Scan(p.ReceivedJson); err != nil {
 			return nil, err

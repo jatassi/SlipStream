@@ -257,10 +257,10 @@ type versions struct {
 	id link.ServerID
 }
 
-func (v versions) Version(item, version string) (link.Version, bool) {
+func (v versions) Version(id string) (link.Version, bool) {
 	v.l.mu.Lock()
 	defer v.l.mu.Unlock()
-	return v.l.plays[v.id].Version(item, version)
+	return v.l.plays[v.id].Version(id)
 }
 
 // running is one server's watch.

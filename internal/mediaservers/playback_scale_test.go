@@ -333,10 +333,10 @@ func seedPlays(t *testing.T, lib *storage.DB[storage.Library], l *scaleLibrary, 
 					FROM p
 				)
 				INSERT INTO mediaservers_play (
-					server_id, id, session_key, server_path, path_key, item_key, player_key, player, platform, product, user_name,
+					server_id, id, session_key, server_path, path_key, item_keys, player_key, player, platform, product, user_name,
 					decision, video, audio, subtitles, reasons, received, file_id, snapshot, started_at, last_seen_at, ended_at
 				)
-				SELECT ss.id, randomblob(16), 's' || q.j, '/shelves/w' || q.k || '.mkv', '/shelves/w' || q.k || '.mkv', 'w' || q.k,
+				SELECT ss.id, randomblob(16), 's' || q.j, '/shelves/w' || q.k || '.mkv', '/shelves/w' || q.k || '.mkv', json_array('w' || q.k),
 					CASE WHEN q.j % 1000 = 999 THEN 'car' ELSE 'p' || (q.j % 8) END,
 					CASE WHEN q.j % 1000 = 999 THEN 'Car' ELSE 'Player ' || (q.j % 8) END,
 					'Android TV', 'Jellyfin Android TV', 'ada',

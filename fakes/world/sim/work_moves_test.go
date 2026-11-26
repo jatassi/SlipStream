@@ -330,8 +330,8 @@ func playOrchard(t *testing.T, w movestest.World) {
 			SELECT ?, 'plex', 'Living room Plex', 'http://192.0.2.10:32400', 'plex-1', '1.41', id, x'00', ?, ? FROM nodes_node WHERE name = 'home'`, server, now, now); err != nil {
 			return err
 		}
-		_, err := tx.ExecContext(ctx, `INSERT INTO mediaservers_play (server_id, id, session_key, file_id, server_path, path_key, item_key, player_key, player, platform, product, user_name, decision, video, audio, subtitles, started_at, last_seen_at)
-			SELECT ?, ?, 'session-1', id, '/media/Movies 4K/' || path, '/media/Movies 4K/' || path, '', '', 'Living room', '', 'Plex Web', 'ada', 'direct_play', 'direct', 'direct', 'none', ?, ? FROM files_file WHERE path = ?`,
+		_, err := tx.ExecContext(ctx, `INSERT INTO mediaservers_play (server_id, id, session_key, file_id, server_path, path_key, player_key, player, platform, product, user_name, decision, video, audio, subtitles, started_at, last_seen_at)
+			SELECT ?, ?, 'session-1', id, '/media/Movies 4K/' || path, '/media/Movies 4K/' || path, '', 'Living room', '', 'Plex Web', 'ada', 'direct_play', 'direct', 'direct', 'none', ?, ? FROM files_file WHERE path = ?`,
 			server, storage.NewUUID(), now, now, movestest.Film)
 		return err
 	})
