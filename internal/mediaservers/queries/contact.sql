@@ -1,5 +1,5 @@
 -- name: GetContact :one
-SELECT reaching_node_id, settings_version, contact, contact_since, last_contact_at
+SELECT reaching_node_id, settings_version, contact, contact_since, last_contact_at, plays_since
 FROM mediaservers_server
 WHERE id = sqlc.arg(id);
 

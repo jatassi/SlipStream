@@ -14,7 +14,7 @@ import (
 )
 
 const getContact = `-- name: GetContact :one
-SELECT reaching_node_id, settings_version, contact, contact_since, last_contact_at
+SELECT reaching_node_id, settings_version, contact, contact_since, last_contact_at, plays_since
 FROM mediaservers_server
 WHERE id = ?1
 `
@@ -25,6 +25,7 @@ type GetContactRow struct {
 	Contact         link.Contact
 	ContactSince    storage.Time
 	LastContactAt   storage.Time
+	PlaysSince      storage.Time
 }
 
 func (q *Queries) GetContact(ctx context.Context, id link.ServerID) (GetContactRow, error) {
@@ -36,6 +37,7 @@ func (q *Queries) GetContact(ctx context.Context, id link.ServerID) (GetContactR
 		&i.Contact,
 		&i.ContactSince,
 		&i.LastContactAt,
+		&i.PlaysSince,
 	)
 	return i, err
 }

@@ -61,7 +61,7 @@ func (q *Queries) InsertPlexDevice(ctx context.Context, arg InsertPlexDevicePara
 }
 
 const listPlexServers = `-- name: ListPlexServers :many
-SELECT id, kind, name, address, fallback_address, browser_address, identity, version, monitor_delay_ms, reaching_node_id, runs_on_node_id, device_id, secrets_sealed, settings_version, fallback, checked_at, contact, contact_since, contact_found, last_contact_at, sends, sends_since, last_send_at, unhealthy_since, unhealthy_reason, created_at, updated_at, members_see, member_address FROM mediaservers_server WHERE kind = 'plex' ORDER BY id
+SELECT id, kind, name, address, fallback_address, browser_address, identity, version, monitor_delay_ms, reaching_node_id, runs_on_node_id, device_id, secrets_sealed, settings_version, fallback, checked_at, contact, contact_since, contact_found, last_contact_at, sends, sends_since, last_send_at, unhealthy_since, unhealthy_reason, created_at, updated_at, members_see, member_address, plays_since FROM mediaservers_server WHERE kind = 'plex' ORDER BY id
 `
 
 func (q *Queries) ListPlexServers(ctx context.Context) ([]MediaserversServer, error) {
@@ -103,6 +103,7 @@ func (q *Queries) ListPlexServers(ctx context.Context) ([]MediaserversServer, er
 			&i.UpdatedAt,
 			&i.MembersSee,
 			&i.MemberAddress,
+			&i.PlaysSince,
 		); err != nil {
 			return nil, err
 		}

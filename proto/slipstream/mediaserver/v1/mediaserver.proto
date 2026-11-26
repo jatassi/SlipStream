@@ -57,11 +57,58 @@ message Session {
   string user = 4;
   string player = 5;
   string product = 6;
-  string decision = 7;
+  reserved 7;
+  reserved "decision";
   bool hardware = 8;
   repeated string reasons = 9;
   int64 started_unix_ms = 10;
   int64 seen_unix_ms = 11;
+  // player_key is the id the server gives the player: Plex
+  // machineIdentifier, Jellyfin and Emby DeviceId.
+  string player_key = 12;
+  string platform = 13;
+  // item_key is the server's item for what plays: Plex ratingKey,
+  // Jellyfin and Emby item id.
+  string item_key = 14;
+  Streams streams = 15;
+  Received received = 16;
+  Track audio_track = 17;
+  Track subtitle_track = 18;
+}
+
+// Streams is a play's decision per stream, in the words of the lists in
+// internal/mediaserverlink/link. The Controller derives the play's decision
+// from them.
+message Streams {
+  string video = 1;
+  string audio = 2;
+  string subtitles = 3;
+  bool container_changed = 4;
+}
+
+// Received is what the player received while the server transcoded, zero
+// where unreported. bitrate is in bits a second.
+message Received {
+  string container = 1;
+  string video_codec = 2;
+  int32 height = 3;
+  int64 bitrate = 4;
+  string audio_codec = 5;
+  int32 channels = 6;
+}
+
+// Track is a stream the player chose: its position among the version's
+// embedded streams of its type, or a stream in a separate file.
+message Track {
+  oneof track {
+    int32 position = 1;
+    ExternalTrack external = 2;
+  }
+}
+
+message ExternalTrack {
+  string codec = 1;
+  string language = 2;
 }
 
 // Report goes through the Node's outbox. The Controller applies it once,
@@ -93,14 +140,20 @@ message PlayStarted {
   Session session = 1;
 }
 
-// PlayChanged is a session's new decision, hardware or reasons. A play the
-// Controller already ended stays ended.
+// PlayChanged is a session's new streams, hardware, reasons, tracks or
+// received facts, with its latest bitrate. A play the Controller already
+// ended stays ended.
 message PlayChanged {
   bytes play_id = 1;
-  string decision = 2;
+  reserved 2;
+  reserved "decision";
   bool hardware = 3;
   repeated string reasons = 4;
   int64 seen_unix_ms = 5;
+  Streams streams = 6;
+  Received received = 7;
+  Track audio_track = 8;
+  Track subtitle_track = 9;
 }
 
 message PlayEnded {

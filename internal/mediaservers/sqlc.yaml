@@ -97,6 +97,37 @@ sql:
             go_type:
               import: github.com/jatassi/slipstream/internal/mediaserverlink/link
               type: Decision
+          - column: mediaservers_play.video
+            go_type:
+              import: github.com/jatassi/slipstream/internal/mediaserverlink/link
+              type: StreamDecision
+          - column: mediaservers_play.audio
+            go_type:
+              import: github.com/jatassi/slipstream/internal/mediaserverlink/link
+              type: StreamDecision
+          - column: mediaservers_play.subtitles
+            go_type:
+              import: github.com/jatassi/slipstream/internal/mediaserverlink/link
+              type: SubtitleDecision
+          - column: mediaservers_play.received
+            go_type:
+              import: github.com/jatassi/slipstream/internal/mediaserverlink/link
+              type: Received
+          - column: mediaservers_play.audio_track
+            go_type:
+              import: github.com/jatassi/slipstream/internal/mediaserverlink/link
+              type: Track
+              pointer: true
+          - column: mediaservers_play.subtitle_track
+            go_type:
+              import: github.com/jatassi/slipstream/internal/mediaserverlink/link
+              type: Track
+              pointer: true
+          - column: mediaservers_play.snapshot
+            go_type:
+              import: github.com/jatassi/slipstream/internal/mediaservers/playback
+              type: Snapshot
+              pointer: true
           - column: mediaservers_mapping.shown
             go_type: bool
           - column: mediaservers_mapping.guess

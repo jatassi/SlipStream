@@ -16,6 +16,12 @@ type SessionsChanged struct {
 	ServerIDs []string `json:"serverIds" nullable:"false" format:"uuid"`
 }
 
+// PlaysChanged names the servers whose plays started, changed, ended or
+// found their file.
+type PlaysChanged struct {
+	ServerIDs []string `json:"serverIds" nullable:"false" format:"uuid"`
+}
+
 // WentUnhealthy is a server becoming unhealthy, for its reason.
 type WentUnhealthy struct {
 	ServerID string         `json:"serverId" format:"uuid"`
@@ -45,6 +51,7 @@ type MyAccessChanged struct{}
 var (
 	ChangedEvent         = live.AdminEvent[Changed]("media-servers.changed")
 	SessionsChangedEvent = live.AdminEvent[SessionsChanged]("media-servers.sessions-changed")
+	PlaysChangedEvent    = live.AdminEvent[PlaysChanged]("media-servers.plays-changed")
 	UnhealthyEvent       = live.AdminEvent[WentUnhealthy]("media-servers.unhealthy")
 	RecoveredEvent       = live.AdminEvent[Recovered]("media-servers.recovered")
 	ItemsFoundEvent      = live.AdminEvent[Found]("media-servers.items-found")

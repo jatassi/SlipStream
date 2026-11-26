@@ -25,7 +25,7 @@ const (
 	keepAliveTimeout = 60 * time.Second
 )
 
-var playMethods = map[link.Decision]string{link.DecisionDirectPlay: "DirectPlay", link.DecisionCopy: "Transcode", link.DecisionTranscode: "Transcode"}
+var playMethods = map[link.Decision]string{link.DecisionDirectPlay: "DirectPlay", link.DecisionDirectStream: "Transcode", link.DecisionTranscode: "Transcode"}
 
 // renderSession renders sess, whose User is the id the play cue looked
 // up by name.
@@ -47,7 +47,7 @@ func (s *server) renderSession(sess mediaserver.Session) map[string]any {
 		return m
 	}
 	t := map[string]any{
-		"IsVideoDirect": sess.Decision == link.DecisionCopy, "IsAudioDirect": false, "VideoCodec": "h264", "AudioCodec": "aac",
+		"IsVideoDirect": sess.Decision == link.DecisionDirectStream, "IsAudioDirect": false, "VideoCodec": "h264", "AudioCodec": "aac",
 		"TranscodeReasons": nonNilStrings(sess.Reasons),
 	}
 	if sess.Hardware {

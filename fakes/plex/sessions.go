@@ -22,11 +22,15 @@ type transcode struct {
 	TranscodeHwEncoding  string `json:"transcodeHwEncoding,omitempty"`
 }
 
+// videoDecisions are Plex's words for what a transcode session does with
+// the video: copy for a direct stream.
+var videoDecisions = map[link.Decision]string{link.DecisionDirectStream: "copy", link.DecisionTranscode: "transcode"}
+
 func transcodeOf(sess mediaserver.Session, key string) *transcode {
 	if sess.Decision == link.DecisionDirectPlay {
 		return nil
 	}
-	t := &transcode{Key: key, VideoDecision: string(sess.Decision), AudioDecision: "copy", TranscodeHwRequested: sess.Hardware}
+	t := &transcode{Key: key, VideoDecision: videoDecisions[sess.Decision], AudioDecision: "copy", TranscodeHwRequested: sess.Hardware}
 	if sess.Hardware {
 		t.TranscodeHwDecoding, t.TranscodeHwEncoding = "vaapi", "vaapi"
 	}

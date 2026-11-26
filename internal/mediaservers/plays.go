@@ -27,7 +27,7 @@ func startPlay(ctx context.Context, q *db.Queries, server link.ServerID, m *msv1
 	if err != nil {
 		return fmt.Errorf("a started play's path: %w", err)
 	}
-	decision, err := link.ParseDecision(s.GetDecision())
+	streams, err := streamsOf(s.GetStreams())
 	if err != nil {
 		return err
 	}
@@ -45,8 +45,11 @@ func startPlay(ctx context.Context, q *db.Queries, server link.ServerID, m *msv1
 	}
 	return q.StartPlay(ctx, db.StartPlayParams{
 		ServerID: server, ID: id, SessionKey: s.GetSessionKey(), FileID: file, ServerPath: path.String(),
-		UserName: s.GetUser(), Player: s.GetPlayer(), Product: s.GetProduct(), Decision: decision,
-		Hardware: s.GetHardware(), Reasons: reasons,
+		PathKey: path.Key(), ItemKey: s.GetItemKey(), PlayerKey: s.GetPlayerKey(), Player: s.GetPlayer(),
+		Platform: s.GetPlatform(), Product: s.GetProduct(), UserName: s.GetUser(),
+		Decision: streams.Decision(), Video: streams.Video, Audio: streams.Audio, Subtitles: streams.Subtitles,
+		Hardware: s.GetHardware(), Reasons: reasons, Received: receivedOf(s.GetReceived()),
+		AudioTrack: trackOf(s.GetAudioTrack()), SubtitleTrack: trackOf(s.GetSubtitleTrack()),
 		StartedAt: storage.FromTime(started), LastSeenAt: storage.FromTime(seen),
 	})
 }
@@ -56,7 +59,7 @@ func changePlay(ctx context.Context, q *db.Queries, server link.ServerID, m *msv
 	if err != nil {
 		return err
 	}
-	decision, err := link.ParseDecision(m.GetDecision())
+	streams, err := streamsOf(m.GetStreams())
 	if err != nil {
 		return err
 	}
@@ -69,7 +72,9 @@ func changePlay(ctx context.Context, q *db.Queries, server link.ServerID, m *msv
 		return err
 	}
 	return q.ChangePlay(ctx, db.ChangePlayParams{
-		ServerID: server, ID: id, Decision: decision, Hardware: m.GetHardware(), Reasons: reasons, LastSeenAt: seen,
+		ServerID: server, ID: id, Decision: streams.Decision(), Video: streams.Video, Audio: streams.Audio,
+		Subtitles: streams.Subtitles, Hardware: m.GetHardware(), Reasons: reasons, Received: receivedOf(m.GetReceived()),
+		AudioTrack: trackOf(m.GetAudioTrack()), SubtitleTrack: trackOf(m.GetSubtitleTrack()), LastSeenAt: seen,
 	})
 }
 
@@ -169,4 +174,37 @@ func reasonsOf(rs []string) (string, error) {
 	}
 	b, err := json.Marshal(rs)
 	return string(b), err
+}
+
+func streamsOf(s *msv1.Streams) (link.Streams, error) {
+	video, err := link.ParseStreamDecision(s.GetVideo())
+	if err != nil {
+		return link.Streams{}, fmt.Errorf("a play's video: %w", err)
+	}
+	audio, err := link.ParseStreamDecision(s.GetAudio())
+	if err != nil {
+		return link.Streams{}, fmt.Errorf("a play's audio: %w", err)
+	}
+	subtitles, err := link.ParseSubtitleDecision(s.GetSubtitles())
+	if err != nil {
+		return link.Streams{}, fmt.Errorf("a play's subtitles: %w", err)
+	}
+	return link.Streams{Video: video, Audio: audio, Subtitles: subtitles, ContainerChanged: s.GetContainerChanged()}, nil
+}
+
+func receivedOf(r *msv1.Received) link.Received {
+	return link.Received{
+		Container: r.GetContainer(), VideoCodec: r.GetVideoCodec(), Height: int(r.GetHeight()), Bitrate: r.GetBitrate(),
+		AudioCodec: r.GetAudioCodec(), Channels: int(r.GetChannels()),
+	}
+}
+
+func trackOf(t *msv1.Track) *link.Track {
+	switch x := t.GetTrack().(type) {
+	case *msv1.Track_Position:
+		return &link.Track{Position: int(x.Position)}
+	case *msv1.Track_External:
+		return &link.Track{External: &link.ExternalTrack{Codec: x.External.GetCodec(), Language: x.External.GetLanguage()}}
+	}
+	return nil
 }

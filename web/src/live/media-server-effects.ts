@@ -35,6 +35,7 @@ export const mediaServerEffects = {
       refresh({ queryKey: getListMediaServerSessionsQueryKey(id) });
     }
   },
+  "media-servers.plays-changed": () => {},
   "media-servers.unhealthy": health,
   "media-servers.recovered": health,
   "media-servers.items-found": ({ workIds }, { refresh }) => {
@@ -53,6 +54,7 @@ export const mediaServerEffects = {
   LiveEffects,
   | "media-servers.changed"
   | "media-servers.sessions-changed"
+  | "media-servers.plays-changed"
   | "media-servers.unhealthy"
   | "media-servers.recovered"
   | "media-servers.items-found"

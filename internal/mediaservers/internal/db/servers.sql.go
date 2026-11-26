@@ -27,7 +27,7 @@ func (q *Queries) DeleteServer(ctx context.Context, id link.ServerID) (int64, er
 }
 
 const getServer = `-- name: GetServer :one
-SELECT id, kind, name, address, fallback_address, browser_address, identity, version, monitor_delay_ms, reaching_node_id, runs_on_node_id, device_id, secrets_sealed, settings_version, fallback, checked_at, contact, contact_since, contact_found, last_contact_at, sends, sends_since, last_send_at, unhealthy_since, unhealthy_reason, created_at, updated_at, members_see, member_address FROM mediaservers_server WHERE id = ?1
+SELECT id, kind, name, address, fallback_address, browser_address, identity, version, monitor_delay_ms, reaching_node_id, runs_on_node_id, device_id, secrets_sealed, settings_version, fallback, checked_at, contact, contact_since, contact_found, last_contact_at, sends, sends_since, last_send_at, unhealthy_since, unhealthy_reason, created_at, updated_at, members_see, member_address, plays_since FROM mediaservers_server WHERE id = ?1
 `
 
 func (q *Queries) GetServer(ctx context.Context, id link.ServerID) (MediaserversServer, error) {
@@ -63,6 +63,7 @@ func (q *Queries) GetServer(ctx context.Context, id link.ServerID) (Mediaservers
 		&i.UpdatedAt,
 		&i.MembersSee,
 		&i.MemberAddress,
+		&i.PlaysSince,
 	)
 	return i, err
 }
@@ -70,12 +71,13 @@ func (q *Queries) GetServer(ctx context.Context, id link.ServerID) (Mediaservers
 const insertServer = `-- name: InsertServer :exec
 INSERT INTO mediaservers_server (
     id, kind, name, address, fallback_address, browser_address, identity, version, monitor_delay_ms,
-    reaching_node_id, runs_on_node_id, device_id, secrets_sealed, fallback, checked_at, created_at, updated_at
+    reaching_node_id, runs_on_node_id, device_id, secrets_sealed, fallback, checked_at, created_at, updated_at,
+    plays_since
 ) VALUES (
     ?1, ?2, ?3, ?4, ?5,
     ?6, ?7, ?8, ?9,
     ?10, ?11, ?12, ?13,
-    ?14, ?15, ?16, ?16
+    ?14, ?15, ?16, ?16, ?16
 )
 `
 
@@ -155,7 +157,7 @@ func (q *Queries) ListHolders(ctx context.Context, serverID link.ServerID) ([]Li
 }
 
 const listServers = `-- name: ListServers :many
-SELECT id, kind, name, address, fallback_address, browser_address, identity, version, monitor_delay_ms, reaching_node_id, runs_on_node_id, device_id, secrets_sealed, settings_version, fallback, checked_at, contact, contact_since, contact_found, last_contact_at, sends, sends_since, last_send_at, unhealthy_since, unhealthy_reason, created_at, updated_at, members_see, member_address FROM mediaservers_server ORDER BY name, id
+SELECT id, kind, name, address, fallback_address, browser_address, identity, version, monitor_delay_ms, reaching_node_id, runs_on_node_id, device_id, secrets_sealed, settings_version, fallback, checked_at, contact, contact_since, contact_found, last_contact_at, sends, sends_since, last_send_at, unhealthy_since, unhealthy_reason, created_at, updated_at, members_see, member_address, plays_since FROM mediaservers_server ORDER BY name, id
 `
 
 func (q *Queries) ListServers(ctx context.Context) ([]MediaserversServer, error) {
@@ -197,6 +199,7 @@ func (q *Queries) ListServers(ctx context.Context) ([]MediaserversServer, error)
 			&i.UpdatedAt,
 			&i.MembersSee,
 			&i.MemberAddress,
+			&i.PlaysSince,
 		); err != nil {
 			return nil, err
 		}

@@ -28,6 +28,7 @@ import type { LiveEventMediaServersAccessChanged } from "./liveEventMediaServers
 import type { LiveEventMediaServersChanged } from "./liveEventMediaServersChanged.ts";
 import type { LiveEventMediaServersItemsFound } from "./liveEventMediaServersItemsFound.ts";
 import type { LiveEventMediaServersMyAccessChanged } from "./liveEventMediaServersMyAccessChanged.ts";
+import type { LiveEventMediaServersPlaysChanged } from "./liveEventMediaServersPlaysChanged.ts";
 import type { LiveEventMediaServersRecovered } from "./liveEventMediaServersRecovered.ts";
 import type { LiveEventMediaServersSessionsChanged } from "./liveEventMediaServersSessionsChanged.ts";
 import type { LiveEventMediaServersUnhealthy } from "./liveEventMediaServersUnhealthy.ts";
@@ -91,6 +92,7 @@ export type LiveEvent =
   | LiveEventMediaServersChanged
   | LiveEventMediaServersItemsFound
   | LiveEventMediaServersMyAccessChanged
+  | LiveEventMediaServersPlaysChanged
   | LiveEventMediaServersRecovered
   | LiveEventMediaServersSessionsChanged
   | LiveEventMediaServersUnhealthy

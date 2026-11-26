@@ -287,15 +287,16 @@ func (c *conn) sessions(all []jellyfin.Session) ([]link.Session, bool) {
 		if s.NowPlayingItem == nil {
 			continue
 		}
-		ls := link.Session{Key: s.ID, User: s.UserName, Player: s.DeviceName, Product: s.Client, Decision: link.DecisionDirectPlay}
+		ls := link.Session{Key: s.ID, User: s.UserName, Player: s.DeviceName, Product: s.Client,
+			Streams: link.Streams{Video: link.StreamDirect, Audio: link.StreamDirect, Subtitles: link.SubtitlesNone}}
 		if ti := s.TranscodingInfo; ti != nil && s.PlayState != nil && s.PlayState.PlayMethod == jellyfin.Transcode {
-			ls.Decision, ls.Reasons = link.DecisionTranscode, slices.Clone(ti.TranscodeReasons)
-			if ti.IsVideoDirect {
-				ls.Decision = link.DecisionCopy
+			ls.Streams.ContainerChanged, ls.Reasons = true, slices.Clone(ti.TranscodeReasons)
+			if !ti.IsVideoDirect {
+				ls.Streams.Video = link.StreamTranscode
 			}
 			ls.Hardware = ti.VideoEncoderIsHardware || (ti.HardwareAccelerationType != "" && ti.HardwareAccelerationType != "none")
 		}
-		transcoding = transcoding || ls.Decision == link.DecisionTranscode
+		transcoding = transcoding || ls.Streams.Video == link.StreamTranscode
 		p, err := link.ParsePath(s.NowPlayingItem.Path)
 		if err != nil || len(out) == c.d.Timings.SessionCap {
 			continue

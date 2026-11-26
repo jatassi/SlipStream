@@ -104,10 +104,11 @@ type AccountPublisher[T any] interface {
 	Publish(ctx context.Context, account storage.UUID, v T)
 }
 
-// Events are the seven live events, bound once at the composition root.
+// Events are the eight live events, bound once at the composition root.
 type Events struct {
 	Changed         Publisher[Changed]
 	SessionsChanged Publisher[SessionsChanged]
+	PlaysChanged    Publisher[PlaysChanged]
 	Unhealthy       Publisher[WentUnhealthy]
 	Recovered       Publisher[Recovered]
 	ItemsFound      Publisher[Found]

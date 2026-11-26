@@ -97,18 +97,55 @@ func Losses() []Loss {
 
 func ParseLoss(s string) (Loss, error) { return parse(s, Losses(), "loss") }
 
-// Decision is how a server plays a session.
+// Decision is how a server plays a session. A kind never reads it:
+// Streams.Decision derives it.
 type Decision string
 
 const (
-	DecisionDirectPlay Decision = "direct_play"
-	DecisionCopy       Decision = "copy"
-	DecisionTranscode  Decision = "transcode"
+	DecisionDirectPlay   Decision = "direct_play"
+	DecisionDirectStream Decision = "direct_stream"
+	DecisionTranscode    Decision = "transcode"
 )
 
-func Decisions() []Decision { return []Decision{DecisionDirectPlay, DecisionCopy, DecisionTranscode} }
+func Decisions() []Decision {
+	return []Decision{DecisionDirectPlay, DecisionDirectStream, DecisionTranscode}
+}
 
 func ParseDecision(s string) (Decision, error) { return parse(s, Decisions(), "decision") }
+
+// StreamDecision is what the server did with a video or audio stream.
+type StreamDecision string
+
+const (
+	StreamDirect    StreamDecision = "direct"
+	StreamTranscode StreamDecision = "transcode"
+	StreamNone      StreamDecision = "none"
+)
+
+func StreamDecisions() []StreamDecision {
+	return []StreamDecision{StreamDirect, StreamTranscode, StreamNone}
+}
+
+func ParseStreamDecision(s string) (StreamDecision, error) {
+	return parse(s, StreamDecisions(), "stream decision")
+}
+
+// SubtitleDecision is what the server did with the shown subtitles.
+type SubtitleDecision string
+
+const (
+	SubtitlesNone   SubtitleDecision = "none"
+	SubtitlesDirect SubtitleDecision = "direct"
+	SubtitlesBurned SubtitleDecision = "burned"
+)
+
+func SubtitleDecisions() []SubtitleDecision {
+	return []SubtitleDecision{SubtitlesNone, SubtitlesDirect, SubtitlesBurned}
+}
+
+func ParseSubtitleDecision(s string) (SubtitleDecision, error) {
+	return parse(s, SubtitleDecisions(), "subtitle decision")
+}
 
 // Contact is a server as its reaching Node last reported it. Unknown is
 // stored until the first report and never reported.

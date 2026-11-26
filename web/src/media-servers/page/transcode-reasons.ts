@@ -52,7 +52,7 @@ const decisionTerms = {
     tone: "neutral",
     definition: "The player plays the original file.",
   },
-  copy: {
+  direct_stream: {
     word: "Direct stream",
     icon: PackageMovingIcon,
     tone: "neutral",

@@ -20,7 +20,7 @@ import (
 // hubEvents are the events the World publishes on its hub, which Health
 // follows.
 var hubEvents = []live.Event{
-	mediaservers.ChangedEvent, mediaservers.SessionsChangedEvent, mediaservers.UnhealthyEvent,
+	mediaservers.ChangedEvent, mediaservers.SessionsChangedEvent, mediaservers.PlaysChangedEvent, mediaservers.UnhealthyEvent,
 	mediaservers.RecoveredEvent, mediaservers.ItemsFoundEvent, mediaservers.AccessChangedEvent,
 	mediaservers.MyAccessChangedEvent, roots.ChangedEvent, nodes.ChangedEvent,
 }
