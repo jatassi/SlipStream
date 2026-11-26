@@ -10,12 +10,54 @@ description: >-
   SlipStream creates its key. Each den server's fallback address is the
   Controller's front. The world saves every server's Path mappings, each
   root the server doesn't hold as not shown. Every library starts empty, so
-  the first import into each root starts a full scan first.
+  the first import into each root starts a full scan first. Every server is
+  shown to Members, and fakes/smtp is the email setting. Lin is offered
+  Living room Plex and Den Jellyfin and has done nothing yet. Mae signed in
+  to Plex and waits for Ada's share. Ravi's Plex share waits for his
+  accept, since he signed SlipStream out on plex.tv first, and he made his
+  Den Emby user. Tomas accepted his Plex share by signing in and made his
+  Den Jellyfin user. Una's Den Jellyfin user was removed. plex.tv also
+  holds noor, an account no Member has signed in with.
 seed: media-servers
 admin:
   email: ada@example.test
   display_name: Ada Okafor
   pin: "2468"
+mail: true
+members:
+  - email: lin@example.test
+    display_name: Lin Park
+    pin: "1122"
+    access:
+      - {server: Living room Plex, state: offered}
+      - {server: Den Jellyfin, state: offered}
+  - email: mae@example.test
+    display_name: Mae Carter
+    pin: "3344"
+    plex: {username: mae-plex, email: mae@example.test}
+    access:
+      - {server: Living room Plex, state: waiting}
+  - email: ravi@example.test
+    display_name: Ravi Menon
+    pin: "5566"
+    plex: {username: ravi-plex, email: ravi@example.test}
+    access:
+      - {server: Living room Plex, state: shared}
+      - {server: Den Emby, state: active}
+  - email: tomas@example.test
+    display_name: Tomas Reyes
+    pin: "7788"
+    plex: {username: tomas-plex, email: tomas@example.test}
+    access:
+      - {server: Living room Plex, state: active}
+      - {server: Den Jellyfin, state: active}
+  - email: una@example.test
+    display_name: Una Byrne
+    pin: "9900"
+    access:
+      - {server: Den Jellyfin, state: removed}
+plex_accounts:
+  - {username: noor, email: noor@example.test}
 nodes:
   - name: home
     setup: controller
@@ -23,16 +65,19 @@ nodes:
     media_servers:
       - kind: plex
         name: Living room Plex
+        show_to_members: true
   - name: den
     setup: join
     roles: [storage, media-server-link]
     media_servers:
       - kind: jellyfin
         name: Den Jellyfin
+        show_to_members: true
         users: [grace]
       - kind: emby
         name: Den Emby
         sign_in: admin
+        show_to_members: true
 timings:
   node:
     stop_deadline: 15s

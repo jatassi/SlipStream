@@ -14,17 +14,19 @@ import (
 	"github.com/jatassi/slipstream/fakes/internal/serverfake"
 	"github.com/jatassi/slipstream/fakes/jellyfin"
 	"github.com/jatassi/slipstream/fakes/plex"
+	"github.com/jatassi/slipstream/fakes/plextv"
 	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/fakes/world/internal/nodeapi"
 	"github.com/jatassi/slipstream/internal/node"
 )
 
-// MediaWorld is what the world gives the Media Server step: the URL of
-// the front for a Node's reach of the fake of kind, and the approval of a
-// plex.tv PIN by its code, as the Admin gives it on plex.tv's page.
+// MediaWorld is what the world gives the Media Server steps: the URL of
+// the front for a Node's reach of the fake of kind, and a cue to a fake,
+// such as the approval of a plex.tv PIN as a person gives it on plex.tv's
+// page.
 type MediaWorld struct {
-	Front   func(node, kind string) string
-	Approve func(ctx context.Context, code string) error
+	Front func(node, kind string) string
+	Cue   func(ctx context.Context, name string, args any) error
 }
 
 var versions = map[string][]string{"plex": plex.Versions, "jellyfin": jellyfin.Versions, "emby": emby.Versions}
@@ -57,6 +59,11 @@ func MediaServers(ctx context.Context, c *http.Client, s scenario.Scenario, read
 		}
 		if err := saveMappings(ctx, c, s, claims, controller, id, p, roots, mediaDir); err != nil {
 			return fmt.Errorf("media server %s: %w", p.Name, err)
+		}
+		if p.ShowToMembers {
+			if err := nodeapi.ShowToMembers(ctx, c, controller, claims.APIKey, id); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -101,12 +108,7 @@ func signInToPlex(ctx context.Context, c *http.Client, controller, apiKey, name 
 	if err != nil {
 		return "", err
 	}
-	_, fragment, _ := strings.Cut(pin.AuthURL, "#?")
-	q, err := neturl.ParseQuery(fragment)
-	if err != nil {
-		return "", fmt.Errorf("the Plex sign-in page %s: %w", pin.AuthURL, err)
-	}
-	if err := w.Approve(ctx, q.Get("code")); err != nil {
+	if err := approve(ctx, w, pin.AuthURL, ""); err != nil {
 		return "", err
 	}
 	state, err := nodeapi.PlexSignInState(ctx, c, controller, apiKey, pin.ID)
@@ -125,6 +127,17 @@ func signInToPlex(ctx context.Context, c *http.Client, controller, apiKey, name 
 		return "", fmt.Errorf("the Plex account lists no server named %s", name)
 	}
 	return servers[i].MachineIdentifier, nil
+}
+
+// approve approves the plex.tv PIN of the sign-in page at authURL as the
+// plex.tv account named account would, the Admin's when it is empty.
+func approve(ctx context.Context, w MediaWorld, authURL, account string) error {
+	_, fragment, _ := strings.Cut(authURL, "#?")
+	q, err := neturl.ParseQuery(fragment)
+	if err != nil {
+		return fmt.Errorf("the Plex sign-in page %s: %w", authURL, err)
+	}
+	return w.Cue(ctx, plextv.Approve.Name, map[string]string{"code": q.Get("code"), "account": account})
 }
 
 func saveMappings(ctx context.Context, c *http.Client, s scenario.Scenario, claims Claims, controller, id string, p serverfake.Played, roots []nodeapi.Root, mediaDir string) error {

@@ -43,6 +43,48 @@
           },
           "admin": {
             "type": "boolean"
+          },
+          "plex": {
+            "properties": {
+              "username": {
+                "type": "string"
+              },
+              "email": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "username",
+              "email"
+            ]
+          },
+          "access": {
+            "items": {
+              "properties": {
+                "server": {
+                  "type": "string"
+                },
+                "state": {
+                  "type": "string",
+                  "enum": [
+                    "offered",
+                    "waiting",
+                    "shared",
+                    "active",
+                    "removed"
+                  ]
+                }
+              },
+              "additionalProperties": false,
+              "type": "object",
+              "required": [
+                "server",
+                "state"
+              ]
+            },
+            "type": "array"
           }
         },
         "additionalProperties": false,
@@ -51,6 +93,25 @@
           "email",
           "display_name",
           "pin"
+        ]
+      },
+      "type": "array"
+    },
+    "plex_accounts": {
+      "items": {
+        "properties": {
+          "username": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "username",
+          "email"
         ]
       },
       "type": "array"
@@ -215,6 +276,9 @@
                     ]
                   },
                   "type": "array"
+                },
+                "show_to_members": {
+                  "type": "boolean"
                 },
                 "users": {
                   "items": {
