@@ -68,7 +68,7 @@ func (w *World) Health(t *testing.T) *health.Health {
 	for _, id := range health.IDs()[1:] {
 		c := health.Category{About: health.About{ID: id, Label: string(id), Phrase: string(id)}, Source: none}
 		if id == health.MediaServersID {
-			c = health.Category{About: mediaservers.HealthAbout, Source: w.ms.HealthSource()}
+			c = health.Category{About: mediaservers.HealthAbout, Source: w.ms.Load().HealthSource()}
 		}
 		cats = append(cats, c)
 	}

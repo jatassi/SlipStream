@@ -197,7 +197,7 @@ func (w *World) SetFacts(node role.NodeID, f *msv1.Facts) {
 	w.links.mu.Lock()
 	w.links.facts[node] = f
 	w.links.mu.Unlock()
-	w.ms.Noted(node, string(role.MediaServerLink))
+	w.ms.Load().Noted(node, string(role.MediaServerLink))
 	synctest.Wait()
 }
 
@@ -223,7 +223,7 @@ func (h *holder) Intent(ctx context.Context) iter.Seq[role.Snapshot[*msv1.Intent
 			var in *msv1.Intent
 			err := h.l.w.Lib.Read(ctx, func(ctx context.Context, r storage.Reader[storage.Library]) error {
 				var err error
-				in, err = h.l.w.ms.Intent(ctx, r, h.node)
+				in, err = h.l.w.ms.Load().Intent(ctx, r, h.node)
 				return err
 			})
 			if err != nil || !yield(role.Snapshot[*msv1.Intent]{Intent: in, Standing: role.Live}) {
@@ -242,7 +242,7 @@ func (h *holder) SetFacts(f *msv1.Facts) {
 	h.l.mu.Lock()
 	h.l.facts[h.node] = f
 	h.l.mu.Unlock()
-	h.l.w.ms.Noted(h.node, string(role.MediaServerLink))
+	h.l.w.ms.Load().Noted(h.node, string(role.MediaServerLink))
 }
 
 // Report applies r at once, where the Role would apply it once the Node's
@@ -284,7 +284,7 @@ func (unlinked) Advance(context.Context, *msv1.AdvanceRequest) (*msv1.AdvanceRes
 }
 
 // Television is whether the Diagram lights node's television.
-func (w *World) Television(node role.NodeID) bool { return w.ms.Television(node) }
+func (w *World) Television(node role.NodeID) bool { return w.ms.Load().Television(node) }
 
 func (unlinked) Exposed(context.Context, *msv1.ExposedRequest) (*msv1.ExposedResponse, error) {
 	return nil, errUnlinked()
