@@ -11,6 +11,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/jatassi/slipstream/conformance/internal/mediaservers"
 	"github.com/jatassi/slipstream/internal/providers/jellyfin"
@@ -54,9 +55,18 @@ func (s *Server) NewMember(t *testing.T) Member {
 	return m
 }
 
-// Drop deletes m. A user already deleted is no error.
+// dataSettle is how long Drop waits after a change to a user's watch data
+// before it deletes the user. Jellyfin 12.2 and 12.4 exit when a user is
+// deleted within about 10 s of one (online run 2026-11-26).
+const dataSettle = 30 * time.Second
+
+// Drop deletes m, dataSettle past the last change to its watch data on a
+// real server. A user already deleted is no error.
 func (s *Server) Drop(t *testing.T, m Member) {
 	t.Helper()
+	if at, ok := s.watched[m.ID]; ok && !s.tg.Fake {
+		time.Sleep(time.Until(at.Add(dataSettle)))
+	}
 	if err := s.C.DeleteUser(t.Context(), m.ID); err != nil && !jellyfin.NotFound(err) {
 		t.Errorf("deleting the throwaway user %s: %v", m.Name, err)
 	}
@@ -288,6 +298,7 @@ func (s *Server) UserDisabled(t *testing.T) {
 		t.Fatalf("a user restricted to %s sees no video", s.tg.Library)
 	}
 	item := page.Items[0].ID
+	s.watched[m.ID] = time.Now()
 	if err := s.C.MarkPlayed(t.Context(), m.ID, item); err != nil {
 		t.Fatal(err)
 	}

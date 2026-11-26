@@ -93,6 +93,9 @@ type Server struct {
 	tg   Target
 	user string
 	mark time.Time
+	// watched is when a case last changed each throwaway user's watch
+	// data, by user id.
+	watched map[string]time.Time
 }
 
 var _ mediaservers.Server = (*Server)(nil)
@@ -107,7 +110,7 @@ func (s *Server) Exposed(ctx context.Context) (link.Exposed, error) {
 // library keys read from the server.
 func Shared(t *testing.T, kind link.KindName, f jellyfin.Flavor, tg Target) (mediaservers.Target, *Server) {
 	t.Helper()
-	s := &Server{C: tg.Client(t, f, ""), f: f, tg: tg}
+	s := &Server{C: tg.Client(t, f, ""), f: f, tg: tg, watched: map[string]time.Time{}}
 	users, err := s.C.Users(t.Context())
 	if err != nil {
 		t.Fatal(err)

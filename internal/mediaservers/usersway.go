@@ -164,7 +164,11 @@ func (m *MediaServers) unmake(ctx context.Context, r accessRow) (step, error) {
 
 // deleteMade deletes the user r's make made: by its id, or uid when the
 // create answered one the row doesn't hold yet, else by r's temporary
-// name.
+// name. It is the only user SlipStream deletes, a removal disables, and
+// it never had watch data: no one signs in under its temporary name and a
+// carry writes no data a new item holds. Jellyfin 12.2 and 12.4 exit when
+// a user is deleted within seconds of a change to its watch data (online
+// run 2026-11-26).
 func (u usersAt) deleteMade(ctx context.Context, r accessRow, uid string) error {
 	if r.ServerUserID != nil {
 		uid = *r.ServerUserID
