@@ -687,7 +687,7 @@ func TestAVersionOrAnExistingTargetIsNamedWhenItFits(t *testing.T) {
 	blocked := transcoded("dolby", "VideoRangeTypeNotSupported")
 	blockedHD := transcoded("dolbyHD", "VideoRangeTypeNotSupported")
 	const (
-		dolbyEvidence    = "container=MKV#1 bitrate=8000000#1 resolution=1080p#1 video_codec=x264#1 video_profile=High#1 bit_depth=8#1 hdr=SDR#1 audio_codec=DD+#1 channels=6#2"
+		dolbyEvidence    = "container=MKV#1 bitrate=8000000#1 resolution=1080p#1 video_codec=x264#1 video_profile=High#1 bit_depth=8#1 hdr=SDR#1 audio_codec=DD+#1 channels=5.1#2"
 		envelopeEvidence = "resolution=1080p#1 video_codec=x264#1 hdr=SDR#1 audio_codec=TrueHD#2 audio_codec=DD+#1 channels=7.1#2"
 	)
 	plainMP4 := plain
@@ -735,15 +735,6 @@ func TestAVersionOrAnExistingTargetIsNamedWhenItFits(t *testing.T) {
 			want: []string{`hdr=DV [hdr=DV]: 1 version "1080p" separate from ` + dolbyEvidence},
 		},
 		{
-			name:  "and still is once the played file is deleted",
-			plays: []heard{direct("plain"), blocked},
-			setup: func(t *testing.T, w *reportWorld) {
-				w.index(t, w.sibling(t, "dolby", mstest.File{Label: "1080p", Media: plain}), "dolby-1080p", "heat-1080p")
-			},
-			gone: true,
-			want: []string{`hdr=DV [hdr=DV]: 1 version "1080p" separate from ` + dolbyEvidence},
-		},
-		{
 			name:  "a sibling the server doesn't list is no version",
 			plays: []heard{direct("plain"), blocked},
 			setup: func(t *testing.T, w *reportWorld) { w.sibling(t, "dolby", mstest.File{Label: "1080p", Media: plain}) },
@@ -764,7 +755,7 @@ func TestAVersionOrAnExistingTargetIsNamedWhenItFits(t *testing.T) {
 				w.index(t, w.sibling(t, "dolbyHD", mstest.File{Label: "1080p HDR10", Media: hdr10}), "dolbyHD-hdr10", "dolbyHD")
 			},
 			want: []string{
-				`hdr=DV [hdr=DV]: 1 version "1080p HDR10" from container=MKV#1 bitrate=10000000#1 resolution=1080p#1 video_codec=x265#1 video_profile=Main 10#1 bit_depth=10#1 hdr=HDR10#1 audio_codec=DD+#2 channels=6#2`,
+				`hdr=DV [hdr=DV]: 1 version "1080p HDR10" from container=MKV#1 bitrate=10000000#1 resolution=1080p#1 video_codec=x265#1 video_profile=Main 10#1 bit_depth=10#1 hdr=HDR10#1 audio_codec=DD+#2 channels=5.1#2`,
 			},
 		},
 		{

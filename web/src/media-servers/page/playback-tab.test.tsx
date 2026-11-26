@@ -81,7 +81,7 @@ const reportLines: {
   {
     name: "the lead names the largest group's cause and version, and counts the rest",
     lines: [
-      /^9 of 15 plays on Living Room TV were transcoded because the player can't show Dolby Vision or HDR10\. The Bluray-1080p version .+ Choose it .+ Living Room TV\. 2 more plays on Living Room TV/u,
+      /^9 of 15 plays on Living Room TV were transcoded because the player can't show Dolby Vision or HDR10\. The Bluray-1080p version .+ Choose it .+ Living Room TV\. 2 more plays on Living Room TV .+ 1 more play on Living Room TV was transcoded, and the report can't explain it/u,
       /^None of Bedroom iPad's 2 plays were transcoded\.$/u,
     ],
   },
@@ -92,7 +92,7 @@ const reportLines: {
   },
   {
     name: "a Jellyfin play with no reason names the server",
-    report: onePlayer({ transcoded: 2, groups: [unknownGroup] }),
+    report: onePlayer({ transcoded: 2, unmatched: 0, groups: [unknownGroup] }),
     lines: [
       /^2 of 15 plays on Living Room TV were transcoded\. Den Jellyfin gave no reason.+quality setting\.$/u,
     ],
@@ -100,7 +100,7 @@ const reportLines: {
   {
     name: "a Plex play with no reason",
     server: livingRoomPlex,
-    report: { ...onePlayer({ transcoded: 2, groups: [unknownGroup] }), plex: true },
+    report: { ...onePlayer({ transcoded: 2, unmatched: 0, groups: [unknownGroup] }), plex: true },
     lines: [
       /^2 of 15 plays on Living Room TV were transcoded, and what the player received.+quality setting\.$/u,
     ],
@@ -109,7 +109,7 @@ const reportLines: {
     name: "a Plex suggestion",
     server: livingRoomPlex,
     lines: [
-      /^3 of 4 plays on Kitchen Roku were transcoded because the player can't play x265 video\. A 1080p x264 for Kitchen Roku version/u,
+      /^3 of 4 plays on Kitchen Roku were transcoded because the player can't play x265 video\. A 1080p x264 for Kitchen Roku Target/u,
     ],
   },
 ];
@@ -128,7 +128,7 @@ const detailLines: { outcome: string; lines: RegExp[] }[] = [
   {
     outcome: "suggest",
     lines: [
-      /^3 of 15 plays .+A 1080p SDR for Living Room TV version would avoid that/u,
+      /^3 of 15 plays .+A 1080p SDR for Living Room TV Target would avoid that/u,
       /^Left out because they blocked direct play: Dolby Vision and HDR10\.$/u,
       /^Left out because Living Room TV hasn't direct played them in the last 30 days: DTS-HD MA\.$/u,
       /^1080p video$/u,
@@ -175,10 +175,11 @@ test.each(detailLines)("Details read every $outcome line", async ({ lines }) => 
   );
 });
 
-test("a suggestion's Details keep the Plex note and Add this Target", async () => {
+test("a lone suggestion's Details keep the Plex note and leave its line and Add this Target to the row", async () => {
   const row = await openDetails("Kitchen Roku", livingRoomPlex);
   await expect.element(row.getByText(/^Plex gives no reasons/u)).toBeVisible();
-  await expect.element(row.getByRole("link", { name: "Add this Target" }).first()).toBeVisible();
+  expect(row.getByText(/^3 of 4 plays on Kitchen Roku/u).elements()).toHaveLength(1);
+  expect(row.getByRole("link", { name: "Add this Target" }).elements()).toHaveLength(1);
 });
 
 test("Search for one opens Manual search on the Work's Item", async () => {

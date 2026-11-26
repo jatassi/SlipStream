@@ -27,11 +27,11 @@ function SessionDetail({ server, session }: { server: Server; session: Session }
   );
 }
 
-/** One play: the file, who plays it on which player, and what the server does with it. */
+/** One play: the Work or file, who plays it on which player, and what the server does with it. */
 export function SessionRow({ server, session }: { server: Server; session: Session }) {
   return (
     <ListRow
-      title={fileName(session.path)}
+      title={session.work?.title ?? fileName(session.path)}
       meta={
         <>
           {`${[`${session.user} on ${session.player}`, session.product, "Started"].filter(Boolean).join(" · ")} `}

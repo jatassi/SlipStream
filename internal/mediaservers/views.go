@@ -175,19 +175,19 @@ type Changes struct {
 }
 
 type SessionView struct {
-	PlayID    string    `json:"playId" format:"uuid"`
-	User      string    `json:"user"`
-	Player    string    `json:"player"`
-	Product   string    `json:"product"`
-	Path      string    `json:"path" doc:"The file as the server names it"`
-	WorkID    string    `json:"workId,omitempty" format:"uuid" doc:"The Work whose file plays; absent when no mapping leads to a library file"`
-	Decision  string    `json:"decision" enum:"direct_play,direct_stream,transcode"`
-	Video     string    `json:"video" enum:"direct,transcode,none"`
-	Audio     string    `json:"audio" enum:"direct,transcode,none"`
-	Subtitles string    `json:"subtitles" enum:"none,direct,burned"`
-	Hardware  bool      `json:"hardware" doc:"The server reports hardware transcoding"`
-	Reasons   []string  `json:"reasons" nullable:"false" doc:"Transcode reasons as the server gave them; Plex gives none"`
-	StartedAt time.Time `json:"startedAt"`
+	PlayID    string        `json:"playId" format:"uuid"`
+	User      string        `json:"user"`
+	Player    string        `json:"player"`
+	Product   string        `json:"product"`
+	Path      string        `json:"path" doc:"The file as the server names it"`
+	Work      *PlayWorkView `json:"work,omitempty" doc:"The library file that plays; absent when no mapping leads to one"`
+	Decision  string        `json:"decision" enum:"direct_play,direct_stream,transcode"`
+	Video     string        `json:"video" enum:"direct,transcode,none"`
+	Audio     string        `json:"audio" enum:"direct,transcode,none"`
+	Subtitles string        `json:"subtitles" enum:"none,direct,burned"`
+	Hardware  bool          `json:"hardware" doc:"The server reports hardware transcoding"`
+	Reasons   []string      `json:"reasons" nullable:"false" doc:"Transcode reasons as the server gave them; Plex gives none"`
+	StartedAt time.Time     `json:"startedAt"`
 }
 
 type Sessions struct {

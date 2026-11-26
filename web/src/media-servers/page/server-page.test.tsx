@@ -24,9 +24,7 @@ test("a server's page leads with its state and what's playing, and keeps the mac
     ),
   );
   const playing = page.getByRole("list", { name: "Now playing on Den Jellyfin" });
-  await expect
-    .element(playing.getByText("The Quiet Orchard (2021) Bluray-1080p.mkv"))
-    .toBeVisible();
+  await expect.element(playing.getByText("The Quiet Orchard", { exact: true })).toBeVisible();
   await expect
     .element(
       playing.getByText("grace on Living room TV · Jellyfin for Android TV", { exact: false }),
@@ -108,6 +106,7 @@ test("Now playing names what the server does with each stream and why", async ()
         reachable: true,
         sessions: plays.map((play, index) => ({
           ...session,
+          work: undefined,
           ...play.streams,
           playId: `0199f3c2-4444-7000-8000-00000000001${index}`,
           path: `/data/films/${play.file}`,

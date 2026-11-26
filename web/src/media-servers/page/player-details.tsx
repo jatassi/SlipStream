@@ -11,7 +11,7 @@ import { Data } from "../../ui/data";
 import { Details } from "../../ui/details";
 import { Fact, Facts } from "../../ui/facts";
 import { RelativeTime } from "../../ui/relative-time";
-import { type LeadContext, LeadLine, leadOf, workLine } from "./lead-line";
+import { type LeadContext, LeadLine, leadOf, need, workLine } from "./lead-line";
 import { causeWords, factWords, hdrWord } from "./playback-words";
 import { PlaysDialog } from "./plays-dialog";
 
@@ -52,15 +52,20 @@ function OutcomeDetail({
   const { suggestion, works = [], evidence = [] } = outcome;
   return (
     <div className="flex flex-col gap-2">
-      <LeadLine ctx={ctx} parts={leadOf(ctx, player, group, outcome, outcome.plays)} />
+      {(group !== player.groups[0] || group.outcomes.length > 1) && (
+        <LeadLine ctx={ctx} parts={leadOf(ctx, player, group, outcome, outcome.plays)} />
+      )}
       {works.length > 1 && (
-        <ul className="flex list-disc flex-col gap-1 pl-5">
-          {works.map((work) => (
-            <li key={work.workId}>
-              <LeadLine ctx={ctx} parts={workLine(ctx, work).parts} />
-            </li>
-          ))}
-        </ul>
+        <>
+          <p>{`These need a file for the ${need(outcome.target, "Target").name} Target:`}</p>
+          <ul className="flex list-disc flex-col gap-1 pl-5">
+            {works.map((work) => (
+              <li key={work.workId}>
+                <LeadLine ctx={ctx} parts={workLine(ctx, work).parts} />
+              </li>
+            ))}
+          </ul>
+        </>
       )}
       {suggestion !== undefined && suggestion.blocked.length > 0 && (
         <p>{`Left out because they blocked direct play: ${list.format(suggestion.blocked.map(valueWords))}.`}</p>
@@ -103,7 +108,7 @@ function GroupDetail({ ctx, player, group }: { ctx: LeadContext; player: Player;
 
 const choosing = new Set(["suggest", "existing"]);
 
-/** The machinery behind a player's lead: counts, every group and outcome, evidence, the window and the player's plays. */
+/** The machinery behind a player's lead: counts, every other outcome, each one's evidence, the window and the player's plays. */
 export function PlayerDetails({
   ctx,
   serverId,

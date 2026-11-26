@@ -218,7 +218,7 @@ func Shared(t *testing.T, tg Target) {
 		{"Identity", Identity}, {"LibrariesAndFolders", LibrariesAndFolders}, {"AddedShowsUp", AddedShowsUp},
 		{"ReplacedKeepsItem", ReplacedKeepsItem}, {"RemovedLeaves", RemovedLeaves}, {"FreshFolderNeedsScan", FreshFolderNeedsScan},
 		{"ScanEndSignal", ScanEndSignal}, {"CarryKeepsWatchData", CarryKeepsWatchData}, {"SidecarRemoved", SidecarRemoved},
-		{"Sessions", ReadsDecisions}, {"CopyMovedLands", CopyMovedLands}, {"Exposed", Exposed},
+		{"Sessions", ReadsSessions}, {"CopyMovedLands", CopyMovedLands}, {"Exposed", Exposed},
 	} {
 		cases = append(cases, Case{Name: c.name, Run: func(t *testing.T) { c.run(t, tg) }})
 	}

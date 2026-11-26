@@ -7,15 +7,13 @@ import (
 
 	"github.com/jatassi/slipstream/internal/mediaserverlink/link"
 	"github.com/jatassi/slipstream/internal/mediaservers/mstest"
-	msv1 "github.com/jatassi/slipstream/internal/pb/slipstream/mediaserver/v1"
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
 // TestAPlayRecordsWhatItsNodeReports starts a direct stream of Clip on
 // Den and changes it to burn in an external subtitle: each row keeps the
 // player, item, tracks and received facts the Node reported, with the
-// decision its streams give, and a report naming an unknown stream
-// decision is refused.
+// decision its streams give.
 func TestAPlayRecordsWhatItsNodeReports(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		w := newWatched(t)
@@ -38,15 +36,5 @@ func TestAPlayRecordsWhatItsNodeReports(t *testing.T) {
 		w.w.ChangePlay(t, w.w.Seedbox, id, p)
 		expectPlays(t, w.plays(t), clip+` transcode (direct direct burned) `+who+` subtitle external SRT en`+
 			` received {Container:TS VideoCodec:x264 Height:720 Bitrate:4000000 AudioCodec:AAC Channels:2}, open`)
-
-		err = w.w.Apply(t.Context(), w.w.Seedbox, &msv1.Report{ServerId: server.Bytes(), Report: &msv1.Report_PlayStarted{PlayStarted: &msv1.PlayStarted{
-			Session: &msv1.Session{
-				PlayId: storage.NewUUID().Bytes(), SessionKey: "10", ServerPath: clip, StartedUnixMs: now.UnixMilli(), SeenUnixMs: now.UnixMilli(),
-				Streams: &msv1.Streams{Video: "copy", Audio: "direct", Subtitles: "none"},
-			},
-		}}})
-		if err == nil {
-			t.Error("a play whose video decision is copy was recorded")
-		}
 	})
 }

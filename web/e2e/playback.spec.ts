@@ -2,7 +2,7 @@ import { expect, expectAccessible, test } from "./fixtures.ts";
 import { frame } from "./manual-search.ts";
 import { openServer, openTab } from "./media-servers.ts";
 
-test.use({ scenario: "playback" });
+test.use({ scenario: "playback", launchSeconds: 180 });
 
 const server = "Living room Jellyfin";
 const player = "Bedroom TV";

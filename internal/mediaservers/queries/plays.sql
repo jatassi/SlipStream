@@ -127,8 +127,8 @@ WHERE server_id = sqlc.arg(server_id)
     AND file_id IN (SELECT unhex(replace(value, '-', '')) FROM json_each(CAST(sqlc.arg(files) AS TEXT)))
 ORDER BY file_id;
 
--- name: ListSnapshotWorks :many
-SELECT id, CAST(snapshot ->> '$.work' AS TEXT) AS work FROM mediaservers_play
+-- name: ListSnapshots :many
+SELECT id, snapshot FROM mediaservers_play
 WHERE server_id = sqlc.arg(server_id) AND snapshot IS NOT NULL
     AND id IN (SELECT unhex(replace(value, '-', '')) FROM json_each(CAST(sqlc.arg(plays) AS TEXT)))
 ORDER BY id;

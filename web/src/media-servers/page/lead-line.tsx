@@ -45,7 +45,7 @@ const mixed: Noun = { one: "Work", many: "Works" };
 
 const were = (count: number) => (count === 1 ? "was" : "were");
 
-function need<T>(value: T | undefined, what: string): T {
+export function need<T>(value: T | undefined, what: string): T {
   if (value === undefined) {
     throw new Error(`a Playback report outcome has no ${what}`);
   }
@@ -144,7 +144,7 @@ const outcomeWords: { readonly [K in Outcome["kind"]]: OutcomeWords } = {
     const suggestion = need(outcome.suggestion, "suggestion");
     return [
       text(
-        `A ${suggestion.name} version would avoid that, and Details lists the plays on ${ctx.player} that prove each of its values. `,
+        `A ${suggestion.name} Target would avoid that, and Details lists the plays on ${ctx.player} that prove each of its values. `,
       ),
       { kind: "add", suggestion },
     ];
@@ -154,7 +154,7 @@ const outcomeWords: { readonly [K in Outcome["kind"]]: OutcomeWords } = {
     const missing = unprovenWords(group, need(outcome.missing, "missing dimension"));
     return [
       text(
-        `SlipStream can't suggest a version yet, because ${ctx.player} hasn't direct played ${missing} ${ctx.window}. Play ${missing} on ${ctx.player} to get a suggestion.`,
+        `SlipStream can't suggest a Target yet, because ${ctx.player} hasn't direct played ${missing} ${ctx.window}. Play ${missing} on ${ctx.player} to get a suggestion.`,
       ),
     ];
   },
@@ -210,14 +210,16 @@ export function playerLead(ctx: LeadContext, player: Player): Part[] {
   }
   const lead = leadOf(ctx, player, largest, need(largest.outcomes[0], "outcome"), largest.plays);
   const more = others.reduce((sum, group) => sum + group.plays, 0);
-  return more === 0
-    ? lead
-    : [
-        ...lead,
-        text(
-          ` ${more} more ${nounOf(more, plays)} on ${ctx.player} ${were(more)} transcoded for other reasons.`,
-        ),
-      ];
+  const { unmatched } = player;
+  const rest = [
+    more === 0
+      ? ""
+      : ` ${more} more ${nounOf(more, plays)} on ${ctx.player} ${were(more)} transcoded for other reasons.`,
+    unmatched === 0
+      ? ""
+      : ` ${unmatched} more ${nounOf(unmatched, plays)} on ${ctx.player} ${were(unmatched)} transcoded, and the report can't explain ${unmatched === 1 ? "it" : "them"}. Details lists the causes to check.`,
+  ];
+  return [...lead, ...rest.filter(Boolean).map((words) => text(words))];
 }
 
 const linkLook =

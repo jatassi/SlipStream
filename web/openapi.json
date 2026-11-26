@@ -16913,10 +16913,9 @@
             ],
             "type": "string"
           },
-          "workId": {
-            "description": "The Work whose file plays; absent when no mapping leads to a library file",
-            "format": "uuid",
-            "type": "string"
+          "work": {
+            "$ref": "#/components/schemas/MediaserversPlayWorkView",
+            "description": "The library file that plays; absent when no mapping leads to one"
           }
         },
         "required": [

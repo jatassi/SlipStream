@@ -53,35 +53,6 @@ var (
 	transcoded = link.Streams{Video: link.StreamTranscode, Audio: link.StreamDirect, Subtitles: link.SubtitlesNone, ContainerChanged: true}
 )
 
-// ReadsDecisions plays a file once per decision: the kind reads each
-// play's decision, and the session is gone once the play stops.
-func ReadsDecisions(t *testing.T, tg Target) {
-	if tg.Play == nil {
-		Skip(t, "a real server's sessions need a player")
-	}
-	f := tg.Case(t)
-	defer f.Clear()
-	r := Rel(t, "Playing", ".mkv")
-	f.Place(r)
-	f.Tell(r)
-	f.Found(r)
-	for _, p := range []struct {
-		streams link.Streams
-		want    link.Decision
-	}{
-		{direct, link.DecisionDirectPlay},
-		{remuxed, link.DecisionDirectStream},
-		{transcoded, link.DecisionTranscode},
-	} {
-		stop := tg.Play(t, Played{Path: f.At(r), PlayerKey: player, Streams: p.streams})
-		if s := f.session(r); s.Streams.Decision() != p.want {
-			t.Fatalf("playing %s as %s, its session is %+v", f.At(r), p.want, s)
-		}
-		stop()
-		f.Stopped(r)
-	}
-}
-
 // Stopped waits until no session plays the file at r.
 func (f *Files) Stopped(r storing.Rel) {
 	f.t.Helper()
@@ -96,7 +67,7 @@ func (f *Files) Stopped(r storing.Rel) {
 // received, burned subtitles, and a chosen embedded audio track with an
 // external subtitle. The kind reads every play on one player key, with
 // each stream's decision, what the player received in release words, and
-// the tracks.
+// the tracks, and each session is gone once its play stops.
 func ReadsSessions(t *testing.T, tg Target) {
 	if tg.Play == nil {
 		Skip(t, "a real server's sessions need a player")

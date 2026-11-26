@@ -51,9 +51,6 @@ func Run(t *testing.T, tg Target) {
 		{"PolicyPostMerges", PolicyPostMerges},
 		{"KeyCreated", func(t *testing.T, _ Target, _ mediaservers.Target, s *mediabrowser.Server) { s.KeyCreated(t) }},
 		{"SocketPushesSessions", func(t *testing.T, _ Target, _ mediaservers.Target, s *mediabrowser.Server) { s.SocketPushesSessions(t) }},
-		{"SessionFacts", func(t *testing.T, _ Target, shared mediaservers.Target, _ *mediabrowser.Server) {
-			mediaservers.ReadsSessions(t, shared)
-		}},
 		{"AlternateVersion", func(t *testing.T, _ Target, shared mediaservers.Target, _ *mediabrowser.Server) {
 			mediaservers.AlternateVersion(t, shared)
 		}},

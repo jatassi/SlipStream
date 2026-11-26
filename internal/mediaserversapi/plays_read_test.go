@@ -17,11 +17,13 @@ import (
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
+type playWork struct{ WorkID, Title, Label string }
+
 type listed struct {
 	Plays []struct {
 		ID        string
 		PlayerKey string
-		Work      *struct{ WorkID, Title, Label string }
+		Work      *playWork
 	}
 	Next *string
 }
@@ -135,15 +137,19 @@ func TestACursorThatNamesNoPlayIsPlayNotFound(t *testing.T) {
 	})
 }
 
-// shownWorks is each play's work as GET plays names it, "<workId>
-// <title> <label>", and each session's workId as Now playing names it.
+// shownWorks is each play's and each session's work as GET plays and Now
+// playing name it, "<workId> <title> <label>".
 func (s snapped) shownWorks(t *testing.T) (plays, sessions map[string]string) {
 	t.Helper()
+	named := func(w *playWork) string {
+		if w == nil {
+			return ""
+		}
+		return w.WorkID + " " + w.Title + " " + w.Label
+	}
 	plays, sessions = map[string]string{}, map[string]string{}
 	for _, p := range s.listed(t, url.Values{}).Plays {
-		if p.Work != nil {
-			plays[p.ID] = p.Work.WorkID + " " + p.Work.Title + " " + p.Work.Label
-		}
+		plays[p.ID] = named(p.Work)
 	}
 	_, body := s.o.Call(t, http.MethodGet, servers+"/"+s.id+"/sessions", "")
 	var np nowPlaying
@@ -151,7 +157,7 @@ func (s snapped) shownWorks(t *testing.T) (plays, sessions map[string]string) {
 		t.Fatal(err)
 	}
 	for _, ses := range np.Sessions {
-		sessions[ses.PlayID] = ses.WorkID
+		sessions[ses.PlayID] = named(ses.Work)
 	}
 	return plays, sessions
 }
@@ -187,30 +193,33 @@ func TestAPlayNamesItsWorkOnceItHasASnapshot(t *testing.T) {
 			id                link.PlayID
 			play, sessionWork string
 		}{
-			{heat, s.work.String() + " Heat 1080p", s.work.String()},
+			{heat, s.work.String() + " Heat 1080p", s.work.String() + " Heat 1080p"},
 			{unsnapped, "", ""},
 		} {
 			if got := plays[tc.id.String()]; got != tc.play {
 				t.Errorf("GET plays names play %s's work %q, want %q", tc.id, got, tc.play)
 			}
 			if got, ok := sessions[tc.id.String()]; !ok || got != tc.sessionWork {
-				t.Errorf("Now playing names play %s's workId %q (listed %t), want %q", tc.id, got, ok, tc.sessionWork)
+				t.Errorf("Now playing names play %s's work %q (listed %t), want %q", tc.id, got, ok, tc.sessionWork)
 			}
 		}
 	})
 }
 
 type nowPlaying struct {
-	Sessions []struct{ PlayID, WorkID string }
+	Sessions []struct {
+		PlayID string
+		Work   *playWork
+	}
 }
 
-// TestPlaysAndSessionsRefuseAMember has a Member read Den's plays and Now
-// playing.
-func TestPlaysAndSessionsRefuseAMember(t *testing.T) {
+// TestPlaybackPlaysAndSessionsRefuseAMember has a Member read Den's
+// Playback report, plays and Now playing.
+func TestPlaybackPlaysAndSessionsRefuseAMember(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		w := newWatched(t)
 		sam := w.w.Member(t, "sam")
-		for _, route := range []string{"/plays", "/sessions"} {
+		for _, route := range []string{"/playback", "/plays", "/sessions"} {
 			if status, body := w.o.CallAs(t, http.MethodGet, servers+"/"+w.id+route, "", sam.Session); status != http.StatusForbidden {
 				t.Errorf("a Member's GET %s = %d %s, want 403", route, status, body)
 			}
