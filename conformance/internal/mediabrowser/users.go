@@ -24,7 +24,7 @@ func (s *Server) UserCases() []mediaservers.Case {
 		{Name: "UserNameTaken", Run: s.UserNameTaken},
 		{Name: "UserRenamed", Run: s.UserRenamed},
 		{Name: "UserPolicyRoundTrip", Run: s.UserPolicyRoundTrip},
-		{Name: "BlockedBeatsEnabled", Run: s.BlockedBeatsEnabled},
+		{Name: "EnabledFoldersRestrict", Run: s.EnabledFoldersRestrict},
 		{Name: "UserDisabled", Run: s.UserDisabled},
 		{Name: "UserDeletedTwice", Run: s.UserDeletedTwice},
 		{Name: "FailedSignInsLock", Run: s.FailedSignInsLock},
@@ -255,30 +255,21 @@ func (s *Server) UserPolicyRoundTrip(t *testing.T) {
 	}
 }
 
-// BlockedBeatsEnabled restricts a user to the target's library, which it
-// then sees, and blocks the same library, which hides it.
-func (s *Server) BlockedBeatsEnabled(t *testing.T) {
+// EnabledFoldersRestrict restricts a user to no library, which then sees
+// no video, and to the target's library, which it sees. EnabledFolders is
+// how SlipStream hides a library: BlockedMediaFolders hides nothing on
+// Jellyfin 12.2 and 12.4, and Emby 4.10 has no such field (online run
+// 2026-11-26).
+func (s *Server) EnabledFoldersRestrict(t *testing.T) {
 	m := s.NewMember(t)
 	defer s.Drop(t, m)
-	f := s.folder(t)
-	s.Restrict(t, m, f)
+	s.Restrict(t, m)
+	if n := s.Sees(t, m); n != 0 {
+		t.Fatalf("a user restricted to no library sees %d videos", n)
+	}
+	s.Restrict(t, m, s.folder(t))
 	if s.Sees(t, m) == 0 {
 		t.Fatalf("a user restricted to %s sees no video", s.tg.Library)
-	}
-	p, err := s.C.UserPolicy(t.Context(), m.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	blocked, err := json.Marshal([]string{f})
-	if err != nil {
-		t.Fatal(err)
-	}
-	p["BlockedMediaFolders"] = blocked
-	if err := s.C.SetPolicy(t.Context(), m.ID, p); err != nil {
-		t.Fatal(err)
-	}
-	if n := s.Sees(t, m); n != 0 {
-		t.Fatalf("a user with %s enabled and blocked sees %d videos", s.tg.Library, n)
 	}
 }
 

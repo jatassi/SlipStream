@@ -112,7 +112,7 @@ func (p Policy) Restricted(folders []string) (Policy, error) {
 	}
 	return p.with(map[string]json.RawMessage{
 		"IsAdministrator": jsonFalse, "IsDisabled": jsonFalse, "EnableAllFolders": jsonFalse,
-		"EnabledFolders": enabled, "BlockedMediaFolders": json.RawMessage("[]"),
+		"EnabledFolders": enabled,
 	}), nil
 }
 

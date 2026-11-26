@@ -15,9 +15,10 @@ type Users interface {
 	// the call runs, and returns its id.
 	CreateUser(ctx context.Context, name string) (string, error)
 	// Restrict posts the user's whole policy back with IsAdministrator
-	// false, IsDisabled false, EnableAllFolders false, EnabledFolders the
-	// libraries and BlockedMediaFolders empty, and every other field as the
-	// server had it.
+	// false, IsDisabled false, EnableAllFolders false and EnabledFolders the
+	// libraries, and every other field as the server had it. Only
+	// EnabledFolders hides a library: BlockedMediaFolders hides nothing on
+	// either product (online run 2026-11-26).
 	Restrict(ctx context.Context, user string, libraries []string) error
 	SetPassword(ctx context.Context, user string, pw Password) error
 	// Rename gives the user name: *NameRefusedError when another user has

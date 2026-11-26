@@ -17,15 +17,14 @@ type user struct {
 }
 
 // policy is every policy field the fake renders, so posting back what a
-// GET read changes nothing. EnabledFolders and BlockedMediaFolders hold a
-// library's ItemId on Jellyfin and its Guid on Emby.
+// GET read changes nothing. EnabledFolders holds a library's ItemId on
+// Jellyfin and its Guid on Emby.
 type policy struct {
 	IsAdministrator            bool     `json:"IsAdministrator"`
 	IsHidden                   bool     `json:"IsHidden"`
 	IsDisabled                 bool     `json:"IsDisabled"`
 	EnableAllFolders           bool     `json:"EnableAllFolders"`
 	EnabledFolders             []string `json:"EnabledFolders"`
-	BlockedMediaFolders        []string `json:"BlockedMediaFolders"`
 	EnableMediaPlayback        bool     `json:"EnableMediaPlayback"`
 	EnableRemoteAccess         bool     `json:"EnableRemoteAccess"`
 	LoginAttemptsBeforeLockout int      `json:"LoginAttemptsBeforeLockout"`
@@ -38,7 +37,7 @@ type policy struct {
 func (s *server) newPolicy(admin bool) policy {
 	p := policy{
 		IsAdministrator: admin, IsHidden: admin, EnableAllFolders: true, EnableMediaPlayback: true, EnableRemoteAccess: true,
-		EnabledFolders: []string{}, BlockedMediaFolders: []string{}, LoginAttemptsBeforeLockout: -1,
+		EnabledFolders: []string{}, LoginAttemptsBeforeLockout: -1,
 	}
 	if s.p.Flavor == Jellyfin {
 		p.AuthenticationProviderID = "Jellyfin.Server.Implementations.Users.DefaultAuthenticationProvider"
@@ -92,14 +91,9 @@ func (s *server) folderID(library string) string {
 	return library
 }
 
-// sees is whether u may see the library key. BlockedMediaFolders wins
-// over EnabledFolders and EnableAllFolders.
+// sees is whether u may see the library key.
 func (s *server) sees(u user, library string) bool {
-	f := s.folderID(library)
-	if slices.Contains(u.policy.BlockedMediaFolders, f) {
-		return false
-	}
-	return u.policy.EnableAllFolders || slices.Contains(u.policy.EnabledFolders, f)
+	return u.policy.EnableAllFolders || slices.Contains(u.policy.EnabledFolders, s.folderID(library))
 }
 
 // taken answers a name another user has: Emby's 400 says so, and
@@ -115,7 +109,7 @@ func (s *server) taken(w http.ResponseWriter, name string) {
 
 func (s *server) renderUser(u user) map[string]any {
 	p := u.policy
-	p.EnabledFolders, p.BlockedMediaFolders = nonNilStrings(p.EnabledFolders), nonNilStrings(p.BlockedMediaFolders)
+	p.EnabledFolders = nonNilStrings(p.EnabledFolders)
 	return map[string]any{
 		"Name": u.name, "ServerId": s.srv.ID, "Id": u.id, "HasPassword": u.password != "",
 		"HasConfiguredPassword": u.password != "", "EnableAutoLogin": false, "Policy": p,
@@ -140,7 +134,6 @@ func (s *server) usersChanged(ctx context.Context) {
 		rec.Users[i] = UserRecord{
 			ID: u.id, Name: u.name, Administrator: u.policy.IsAdministrator, Disabled: u.policy.IsDisabled,
 			AllFolders: u.policy.EnableAllFolders, Folders: nonNilStrings(u.policy.EnabledFolders),
-			Blocked: nonNilStrings(u.policy.BlockedMediaFolders),
 		}
 	}
 	s.userLog.Record(ctx, rec)
@@ -158,7 +151,6 @@ type UserRecord struct {
 	Disabled      bool     `json:"disabled"`
 	AllFolders    bool     `json:"allFolders"`
 	Folders       []string `json:"folders"`
-	Blocked       []string `json:"blocked"`
 }
 
 // createUser is POST /Users/New. Jellyfin sets the Password it is given,
