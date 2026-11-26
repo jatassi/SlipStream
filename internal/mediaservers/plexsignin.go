@@ -141,7 +141,6 @@ func (m *MediaServers) memberSignedIn(ctx context.Context, account identity.Acco
 	m.cfg.Log.Info("a Member signed in with Plex", "account", account.String())
 	m.signOut(ctx, res.signOut)
 	m.toAddMail(ctx, u, res.toAdd)
-	m.accessChanged(ctx, account)
 	return MemberPinState{State: PinSignedIn}, nil
 }
 

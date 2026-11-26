@@ -17,12 +17,12 @@ import (
 // and follows its commit as the Role does.
 func (w *World) Apply(ctx context.Context, node role.NodeID, r *msv1.Report) error {
 	err := w.Lib.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
-		return w.ms.Apply(ctx, tx, node, r)
+		return w.ms.Load().Apply(ctx, tx, node, r)
 	})
 	if err != nil {
 		return err
 	}
-	w.ms.Applied(node, string(role.MediaServerLink))
+	w.ms.Load().Applied(node, string(role.MediaServerLink))
 	return nil
 }
 
