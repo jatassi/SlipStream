@@ -43,7 +43,6 @@ CREATE TABLE mediaservers_play (
 ) STRICT;
 
 CREATE INDEX mediaservers_play_started ON mediaservers_play (server_id, started_at);
-CREATE INDEX mediaservers_play_player ON mediaservers_play (server_id, player_key, started_at, id);
 CREATE INDEX mediaservers_play_ended ON mediaservers_play (ended_at) WHERE ended_at IS NOT NULL;
 CREATE INDEX mediaservers_play_open ON mediaservers_play (server_id) WHERE ended_at IS NULL;
 CREATE INDEX mediaservers_play_file ON mediaservers_play (file_id) WHERE file_id IS NOT NULL;
