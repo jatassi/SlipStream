@@ -5,6 +5,8 @@ import (
 	"crypto/rand"
 	"errors"
 	"net/http"
+	"slices"
+	"strings"
 
 	"github.com/jatassi/slipstream/internal/mediaserverlink/link"
 	"github.com/jatassi/slipstream/internal/providers/jellyfin"
@@ -69,8 +71,19 @@ func (c *conn) SetPassword(ctx context.Context, user string, pw link.Password) e
 	return c.onSaved(ctx, func() error { return c.c.SetPassword(ctx, user, pw.Reveal()) })
 }
 
+// Rename reads the users first: Jellyfin answers a taken name with a 400
+// that doesn't say why, "Error processing request.".
 func (c *conn) Rename(ctx context.Context, user, name string) error {
-	return c.onSaved(ctx, func() error { return nameRefused(c.c.UpdateUser(ctx, user, name)) })
+	return c.onSaved(ctx, func() error {
+		users, err := c.c.Users(ctx)
+		if err != nil {
+			return err
+		}
+		if slices.ContainsFunc(users, func(u jellyfin.User) bool { return u.ID != user && strings.EqualFold(u.Name, name) }) {
+			return &link.NameRefusedError{Taken: true}
+		}
+		return nameRefused(c.c.UpdateUser(ctx, user, name))
+	})
 }
 
 func (c *conn) Disable(ctx context.Context, user string) error {
@@ -124,10 +137,11 @@ func (c *conn) onSaved(ctx context.Context, call func() error) error {
 }
 
 // nameRefused is err with the server's 400 to a create or a rename as the
-// one reply about a user's name.
+// one reply about a user's name. A name taken since Rename read the users
+// reads as refused.
 func nameRefused(err error) error {
 	if e, ok := errors.AsType[*jellyfin.Error](err); ok && e.Status == http.StatusBadRequest {
-		return &link.NameRefusedError{Taken: jellyfin.Taken(err), Reply: e.Detail}
+		return &link.NameRefusedError{Reply: e.Detail}
 	}
 	return err
 }

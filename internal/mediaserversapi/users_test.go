@@ -160,7 +160,7 @@ func TestARestartMidMakeLeavesNoUser(t *testing.T) {
 		}},
 		{"after the id is written", []fault.Rule{{Route: "user", Fault: fault.Hang{}}}},
 		{"after the libraries", []fault.Rule{{Route: "user-password", Fault: fault.Hang{}}}},
-		{"after the password", []fault.Rule{{Route: "update-user", Fault: fault.Hang{}}}},
+		{"after the password", []fault.Rule{{Route: "users", Fault: fault.Hang{}}}},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			synctest.Test(t, func(t *testing.T) {
@@ -268,16 +268,16 @@ func TestAMakeTakesTheRouteTheControllerTested(t *testing.T) {
 }
 
 // TestAMakeRefusedByNameKeepsTheOffer makes Sam's account with a name
-// Den's user Kit has: Sam reads that the name is taken, the Admin reads
-// Den's reply, and Den has no new user.
+// Den's user Kit has in other case: Sam and the Admin read that the name
+// is taken, and Den has no new user.
 func TestAMakeRefusedByNameKeepsTheOffer(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		d := newDenRig(t, "kit")
 		status, body := d.makeAs(t, d.sam, d.row, "KIT", "sam-password")
 		expectProblem(t, status, body, http.StatusConflict, `"code":"username_taken"`)
 		if row, _ := d.adminRow(t, d.row); row.State != access.Offered || row.Problem == nil || row.Problem.Code != "username_taken" ||
-			!strings.Contains(row.Problem.Detail, "already exists") {
-			t.Errorf("the row is %+v, want offered with Den's reply", row)
+			row.Problem.Detail != "Den has a user with this username." {
+			t.Errorf("the row is %+v, want offered with the name taken", row)
 		}
 		if users := d.denNow(t); len(users) != 2 {
 			t.Errorf("Den lists %+v, want only its administrator and kit", users)

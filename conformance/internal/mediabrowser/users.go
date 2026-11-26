@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/url"
 	"reflect"
@@ -170,32 +171,47 @@ func (s *Server) UserMadeSignsIn(t *testing.T) {
 	}
 }
 
+// takenReply is each product's 400 to a name another user has in any
+// case, from the online run 2026-11-26. Jellyfin's says nothing of why,
+// so SlipStream reads the users before a rename.
+func (s *Server) takenReply(name string) string {
+	if s.f == jellyfin.Emby {
+		return fmt.Sprintf("A user with the name '%s' already exists.", name)
+	}
+	return "Error processing request."
+}
+
+// refusedAs fails t unless err is the server's 400 to name taken.
+func (s *Server) refusedAs(t *testing.T, err error, name string) {
+	t.Helper()
+	e, ok := errors.AsType[*jellyfin.Error](err)
+	if !ok || e.Status != http.StatusBadRequest || e.Detail != s.takenReply(name) {
+		t.Fatalf("the taken name %s answered %v, want 400 %q", name, err, s.takenReply(name))
+	}
+}
+
 // UserNameTaken makes a user under a name another user has in other
-// case. The server answers 400, and Taken reads it.
+// case, which the server refuses with its 400.
 func (s *Server) UserNameTaken(t *testing.T) {
 	m := s.NewMember(t)
 	defer s.Drop(t, m)
-	u, err := s.C.CreateUser(t.Context(), strings.ToUpper(m.Name), secret())
+	upper := strings.ToUpper(m.Name)
+	u, err := s.C.CreateUser(t.Context(), upper, secret())
 	if err == nil {
 		_ = s.C.DeleteUser(t.Context(), u.ID)
 		t.Fatalf("a second user named %s in other case was made", m.Name)
 	}
-	if !jellyfin.Taken(err) {
-		t.Fatalf("the duplicate name answered %v, want Taken's 400", err)
-	}
-	t.Logf("the duplicate name answered %v", err)
+	s.refusedAs(t, err, upper)
 }
 
 // UserRenamed renames a user to another user's name in other case, which
-// the server refuses with Taken's 400, then to a free name, which signs
-// in.
+// the server refuses with its 400, then to a free name, which signs in.
 func (s *Server) UserRenamed(t *testing.T) {
 	a, b := s.NewMember(t), s.NewMember(t)
 	defer s.Drop(t, a)
 	defer s.Drop(t, b)
-	if err := s.C.UpdateUser(t.Context(), a.ID, strings.ToUpper(b.Name)); !jellyfin.Taken(err) {
-		t.Fatalf("renaming to a taken name answered %v, want Taken's 400", err)
-	}
+	upper := strings.ToUpper(b.Name)
+	s.refusedAs(t, s.C.UpdateUser(t.Context(), a.ID, upper), upper)
 	renamed := a.Name + "-renamed"
 	if err := s.C.UpdateUser(t.Context(), a.ID, renamed); err != nil {
 		t.Fatal(err)

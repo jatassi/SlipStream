@@ -102,9 +102,15 @@ func (s *server) sees(u user, library string) bool {
 	return u.policy.EnableAllFolders || slices.Contains(u.policy.EnabledFolders, f)
 }
 
-// taken is each product's 400 for a name another user has.
-func taken(name string) string {
-	return fmt.Sprintf("A user with the name '%s' already exists.", name)
+// taken answers a name another user has: Emby's 400 says so, and
+// Jellyfin's says only "Error processing request." (online run
+// 2026-11-26), its reason left in the server's log.
+func (s *server) taken(w http.ResponseWriter, name string) {
+	if s.p.Flavor == Jellyfin {
+		http.Error(w, "Error processing request.", http.StatusBadRequest)
+		return
+	}
+	http.Error(w, fmt.Sprintf("A user with the name '%s' already exists.", name), http.StatusBadRequest)
 }
 
 func (s *server) renderUser(u user) map[string]any {
@@ -169,7 +175,7 @@ func (s *server) createUser(w http.ResponseWriter, r *http.Request, _ caller) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if _, ok := s.userNamed(in.Name, nil); ok {
-		http.Error(w, taken(in.Name), http.StatusBadRequest)
+		s.taken(w, in.Name)
 		return
 	}
 	u := s.addUser(in.Name, in.Password, false)
@@ -205,7 +211,7 @@ func (s *server) updateUser(w http.ResponseWriter, r *http.Request, u *user) {
 		return
 	}
 	if _, ok := s.userNamed(in.Name, u); ok {
-		http.Error(w, taken(in.Name), http.StatusBadRequest)
+		s.taken(w, in.Name)
 		return
 	}
 	u.name = in.Name

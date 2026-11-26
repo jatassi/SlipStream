@@ -20,8 +20,8 @@ type Users interface {
 	// server had it.
 	Restrict(ctx context.Context, user string, libraries []string) error
 	SetPassword(ctx context.Context, user string, pw Password) error
-	// Rename gives the user name: *NameRefusedError on the server's 400
-	// about it.
+	// Rename gives the user name: *NameRefusedError when another user has
+	// it in any case, or on the server's 400 about it.
 	Rename(ctx context.Context, user, name string) error
 	Disable(ctx context.Context, user string) error
 	DeleteUser(ctx context.Context, user string) error
@@ -56,16 +56,22 @@ func (Password) GoString() string { return "[password]" }
 
 func (Password) LogValue() slog.Value { return slog.StringValue("[password]") }
 
-// NameRefusedError is the server's 400 about a user's name: the one server
-// reply a Member reads.
+// NameRefusedError is another user holding a user's name, or the server's
+// 400 about it: the one server reply a Member reads.
 type NameRefusedError struct {
-	// Taken is whether another user has the name.
+	// Taken is whether another user has the name, which the server's users
+	// listing showed.
 	Taken bool
-	// Reply is the server's, cut to 200 bytes.
+	// Reply is the server's 400, cut to 200 bytes, when not Taken.
 	Reply string
 }
 
-func (e *NameRefusedError) Error() string { return "the Media Server refused the username: " + e.Reply }
+func (e *NameRefusedError) Error() string {
+	if e.Taken {
+		return "the Media Server has a user with this username"
+	}
+	return "the Media Server refused the username: " + e.Reply
+}
 
 // Gone is whether err is the server's 404, which a kind reports as
 // ReasonUnsupported with its status.

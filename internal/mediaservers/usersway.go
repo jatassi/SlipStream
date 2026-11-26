@@ -347,11 +347,10 @@ func left(r accessRow, st step) step {
 // problemOf is a failed call on u's server as an Admin reads it.
 func (u usersAt) problemOf(err error) *AccessProblem {
 	if refused, ok := errors.AsType[*link.NameRefusedError](err); ok {
-		code := ProblemServerRefused
 		if refused.Taken {
-			code = ProblemUsernameTaken
+			return &AccessProblem{Code: ProblemUsernameTaken, Detail: u.server + " has a user with this username."}
 		}
-		return &AccessProblem{Code: code, Detail: fmt.Sprintf("%s refused the username. Its response was %q.", u.server, refused.Reply)}
+		return &AccessProblem{Code: ProblemServerRefused, Detail: fmt.Sprintf("%s refused the username. Its response was %q.", u.server, refused.Reply)}
 	}
 	if p, ok := link.ServerProblem(err); ok && p.Reason != link.ReasonUnreachable {
 		detail := fmt.Sprintf("%s responded with status %d.", u.server, p.Status)
