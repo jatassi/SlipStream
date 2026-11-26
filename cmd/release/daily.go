@@ -136,8 +136,16 @@ func runDailyIssues(ctx context.Context, args []string) error {
 		commits = strings.Split(strings.TrimSpace(string(out)), "\n")
 		commits = slices.DeleteFunc(commits, func(c string) bool { return c == "" })
 	}
+	root, err := repoRoot(ctx)
+	if err != nil {
+		return err
+	}
+	list, err := loadQuarantine(root)
+	if err != nil {
+		return err
+	}
 	url := fmt.Sprintf("%s/%s/actions/runs/%d", os.Getenv("GITHUB_SERVER_URL"), repo, runID)
-	for _, is := range dailyIssues(jobs, failures, commits, *since, url) {
+	for _, is := range dailyIssues(jobs, blocking(failures, list), commits, *since, url) {
 		if err := openOrUpdateIssue(ctx, repo, is); err != nil {
 			return err
 		}
@@ -372,17 +380,29 @@ func expiredError(expired []quarantined) error {
 
 type issue struct{ title, body string }
 
+// blocking leaves out the failures of quarantined tests, which only the
+// quarantine lane runs.
+func blocking(failures []failure, list []quarantined) []failure {
+	return slices.DeleteFunc(slices.Clone(failures), func(f failure) bool {
+		id := testID(f.Package, f.Test)
+		return slices.ContainsFunc(list, func(q quarantined) bool { return q.tier == f.Tier && q.test == id && q.on(f.Target) })
+	})
+}
+
 // dailyIssues are the issues a failed daily check opens or updates: one
 // for each service whose online conformance tests failed, and one naming
-// every other failed job, with the commits since the last full-matrix run
-// that passed. The link throughput test files its own, and the quarantine
-// lane none.
+// every other failed job and the tests that failed in it, with the commits
+// since the last full-matrix run that passed. The link throughput test files
+// its own, and the quarantine lane none.
 func dailyIssues(jobs []ghJob, failures []failure, commits []string, since, run string) []issue {
 	services := map[string][]failure{}
+	var tests []failure
 	for _, f := range failures {
 		if f.Tier == "online" {
 			s := path.Base(f.Package)
 			services[s] = append(services[s], f)
+		} else {
+			tests = append(tests, f)
 		}
 	}
 	var failed []string
@@ -395,23 +415,7 @@ func dailyIssues(jobs []ghJob, failures []failure, commits []string, since, run 
 	}
 	var issues []issue
 	if len(failed) > 0 {
-		var b strings.Builder
-		fmt.Fprintf(&b, "The daily check failed: %s\n\nThese jobs failed:\n\n", run)
-		for _, name := range failed {
-			fmt.Fprintf(&b, "- %s\n", name)
-		}
-		switch {
-		case since == "":
-			b.WriteString("\nNo daily check on main has passed the full matrix yet.\n")
-		case len(commits) == 0:
-			fmt.Fprintf(&b, "\nNo commits merged since %s, the last commit whose full-matrix run passed.\n", short(since))
-		default:
-			fmt.Fprintf(&b, "\nThese commits merged since %s, the last commit whose full-matrix run passed:\n\n", short(since))
-			for _, c := range commits {
-				fmt.Fprintf(&b, "- %s\n", c)
-			}
-		}
-		issues = append(issues, issue{"Daily check failed", b.String()})
+		issues = append(issues, failedIssue(failed, tests, commits, since, run))
 	}
 	for _, s := range slices.Sorted(maps.Keys(services)) {
 		var b strings.Builder
@@ -422,6 +426,48 @@ func dailyIssues(jobs []ghJob, failures []failure, commits []string, since, run 
 		issues = append(issues, issue{"Online conformance tests failed for " + s, b.String()})
 	}
 	return issues
+}
+
+// failedIssue names the failed jobs and the tests that failed in them, with
+// the commits since the last full-matrix run that passed.
+func failedIssue(failed []string, tests []failure, commits []string, since, run string) issue {
+	var b strings.Builder
+	fmt.Fprintf(&b, "The daily check failed: %s\n\nThese jobs failed:\n\n", run)
+	for _, name := range failed {
+		fmt.Fprintf(&b, "- %s\n", name)
+	}
+	if len(tests) > 0 {
+		b.WriteString("\nThese tests failed:\n\n")
+		for _, f := range tests {
+			fmt.Fprintf(&b, "- %s\n", failedTest(f))
+		}
+	}
+	switch {
+	case since == "":
+		b.WriteString("\nNo daily check on main has passed the full matrix yet.\n")
+	case len(commits) == 0:
+		fmt.Fprintf(&b, "\nNo commits merged since %s, the last commit whose full-matrix run passed.\n", short(since))
+	default:
+		fmt.Fprintf(&b, "\nThese commits merged since %s, the last commit whose full-matrix run passed:\n\n", short(since))
+		for _, c := range commits {
+			fmt.Fprintf(&b, "- %s\n", c)
+		}
+	}
+	return issue{"Daily check failed", b.String()}
+}
+
+// failedTest names a failed test, its tier and target, the first line of
+// its message, and whether it passed when run again.
+func failedTest(f failure) string {
+	s := strings.TrimSpace(strings.TrimPrefix(f.Package, modulePath+"/") + " " + f.Test)
+	s += fmt.Sprintf(" (%s, %s)", f.Tier, f.Target)
+	if msg, _, _ := strings.Cut(strings.TrimSpace(f.Message), "\n"); msg != "" {
+		s += ": " + msg
+	}
+	if f.Rerun == flaky {
+		s += ". It passed when run again."
+	}
+	return markdownCell(s)
 }
 
 func short(sha string) string { return sha[:min(len(sha), 12)] }
