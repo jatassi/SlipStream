@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"slices"
 
+	"github.com/jatassi/slipstream/internal/media"
 	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/works"
@@ -88,6 +89,10 @@ type Audio struct {
 	Channels int                `json:"channels"`
 	Language string             `json:"language"`
 }
+
+// Layout is the track's channel layout, "" for a count the vocabulary has
+// no word for.
+func (a Audio) Layout() release.Channels { return media.LayoutOf(a.Channels) }
 
 type Subtitle struct {
 	Codec    release.SubtitleCodec `json:"codec"`
