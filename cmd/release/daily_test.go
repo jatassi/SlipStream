@@ -59,7 +59,7 @@ func TestDailyIssues(t *testing.T) {
 	online := []failure{
 		{Tier: "online", Package: "github.com/jatassi/slipstream/conformance/tmdb", Test: "TestTMDB/search", Message: "shape changed"},
 		{Tier: "online", Package: "github.com/jatassi/slipstream/conformance/tvdb", Test: "TestTVDB", Message: "401"},
-		{Tier: "e2e", Package: "github.com/jatassi/slipstream/e2e", Test: "TestX"},
+		{Tier: "e2e", Target: "windows-amd64", Package: "github.com/jatassi/slipstream/e2e", Test: "TestX", Message: "timed out\nlast 37 lines", Rerun: flaky},
 	}
 	commits := []string{"abc1234 feat(a): one (#701)", "def5678 fix(b): two (#702)"}
 	daily := "Daily check failed"
@@ -73,10 +73,13 @@ func TestDailyIssues(t *testing.T) {
 		without []string
 	}{
 		{"every kind", jobs, online, "0123456789abcdef", map[string][]string{
-			daily: {"End-to-end tests (windows-amd64, shard 2 of 4)", "0123456789ab", commits[0], commits[1]},
+			daily: {
+				"End-to-end tests (windows-amd64, shard 2 of 4)", "e2e TestX (e2e, windows-amd64): timed out. It passed when run again.",
+				"0123456789ab", commits[0], commits[1],
+			},
 			"Online conformance tests failed for tmdb": {"TestTMDB/search shape changed"},
 			"Online conformance tests failed for tvdb": {"TestTVDB 401"},
-		}, []string{"- Online conformance tests", "- Link throughput test", "- Quarantined tests"}},
+		}, []string{"- Online conformance tests", "- Link throughput test", "- Quarantined tests", "last 37 lines"}},
 		{"an online job that named no test", jobs[2:], nil, "", map[string][]string{daily: {"Online conformance tests", "No daily check on main has passed the full matrix yet."}}, []string{"- Link throughput test", "- Quarantined tests"}},
 		{"the link and the quarantine alone", jobs[3:], nil, "", map[string][]string{}, nil},
 	} {
@@ -98,5 +101,17 @@ func TestDailyIssues(t *testing.T) {
 		if want := slices.Sorted(maps.Keys(tt.want)); !slices.Equal(slices.Sorted(slices.Values(titles)), want) {
 			t.Errorf("%s: dailyIssues titles %v, want %v", tt.name, titles, want)
 		}
+	}
+}
+
+func TestBlockingLeavesOutQuarantinedTestsOnTheirTargets(t *testing.T) {
+	list := []quarantined{{tier: "go", test: "internal/a TestFlaky", targets: []string{"windows-amd64"}}}
+	f := func(test, target string) failure {
+		return failure{Tier: "go", Target: target, Package: "github.com/jatassi/slipstream/internal/a", Test: test}
+	}
+	got := blocking([]failure{f("TestFlaky/sub", "windows-amd64"), f("TestFlaky", "linux-amd64"), f("TestOther", "windows-amd64")}, list)
+	want := []failure{f("TestFlaky", "linux-amd64"), f("TestOther", "windows-amd64")}
+	if !slices.Equal(got, want) {
+		t.Errorf("blocking = %v, want %v", got, want)
 	}
 }

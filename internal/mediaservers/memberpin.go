@@ -141,6 +141,10 @@ func (m *MediaServers) pollMember(ctx context.Context, p *memberPin) {
 		var state MemberPinState
 		if state, err = m.memberApproved(ctx, p, token); err == nil {
 			ps.update(func() { p.end(state, time.Now()) })
+			// After end, so a client reading the PIN on the event sees it signed in.
+			if state.State == PinSignedIn {
+				m.accessChanged(ctx, p.account)
+			}
 			return
 		}
 		m.cfg.Log.Warn("record a Member's Plex sign-in", "err", err.Error())
