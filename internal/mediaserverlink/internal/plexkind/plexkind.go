@@ -25,7 +25,7 @@ var Kind link.Kind = kind{}
 type kind struct{}
 
 func (kind) About() link.About {
-	return link.About{Name: "plex", Label: "Plex", Form: link.SignInPlexPIN, Floor: link.MustVersion("1.43"), MovedHold: link.StepRestored, Access: link.AccessPlexTV}
+	return link.About{Name: "plex", Label: "Plex", Form: link.SignInPlexPIN, Floor: link.MustServerVersion("1.43"), MovedHold: link.StepRestored, Access: link.AccessPlexTV}
 }
 
 // OpenIn is the item in Plex's web app, which reaches the server through
@@ -77,7 +77,7 @@ func (c *conn) identity(machine, name, version string) (link.Identity, error) {
 	if c.server.Identity != "" && machine != c.server.Identity {
 		return link.Identity{}, &link.ServerError{Problem: link.Problem{Reason: link.ReasonOtherServer, Found: machine}}
 	}
-	v, err := link.ParseVersion(version)
+	v, err := link.ParseServerVersion(version)
 	if err != nil {
 		return link.Identity{}, &link.ServerError{Problem: link.Problem{Reason: link.ReasonFailed, Detail: err.Error()}}
 	}

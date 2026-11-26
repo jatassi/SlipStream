@@ -1,8 +1,10 @@
 import {
+  getGetMediaServerPlaybackQueryKey,
   getGetMediaServerQueryKey,
   getListMediaServerChangesQueryKey,
   getListMediaServerCredentialHoldersQueryKey,
   getListMediaServerLibrariesQueryKey,
+  getListMediaServerPlaysQueryKey,
   getListMediaServerSessionsQueryKey,
   getListMediaServersQueryKey,
   getListMediaServerAccessQueryKey,
@@ -19,7 +21,7 @@ const health = (
   refresh({ queryKey: getGetMediaServerQueryKey(serverId) });
 };
 
-/** Media Servers' records, queues and sessions, Members' access, and the Open in links a lookup fills in. */
+/** Media Servers' records, queues, sessions and plays, Members' access, and the Open in links a lookup fills in. */
 export const mediaServerEffects = {
   "media-servers.changed": ({ serverIds }, { refresh }) => {
     refresh({ queryKey: getListMediaServersQueryKey() });
@@ -35,7 +37,12 @@ export const mediaServerEffects = {
       refresh({ queryKey: getListMediaServerSessionsQueryKey(id) });
     }
   },
-  "media-servers.plays-changed": () => {},
+  "media-servers.plays-changed": ({ serverIds }, { refresh }) => {
+    for (const id of serverIds) {
+      refresh({ queryKey: getGetMediaServerPlaybackQueryKey(id) });
+      refresh({ queryKey: getListMediaServerPlaysQueryKey(id) });
+    }
+  },
   "media-servers.unhealthy": health,
   "media-servers.recovered": health,
   "media-servers.items-found": ({ workIds }, { refresh }) => {

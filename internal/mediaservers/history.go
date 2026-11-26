@@ -132,7 +132,7 @@ func (m *MediaServers) pruneHistory(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		_, err = q.PrunePlays(ctx, storage.FromTime(time.Now().Add(-KeepPlays.Value(row.KeepPlaysSeconds))))
+		_, err = q.PrunePlays(ctx, db.PrunePlaysParams{Before: storage.FromTime(time.Now().Add(-KeepPlays.Value(row.KeepPlaysSeconds))), N: -1})
 		return err
 	})
 }

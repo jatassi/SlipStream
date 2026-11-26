@@ -53,15 +53,18 @@ func (c *conn) socket(ctx context.Context, opened func(), push func(link.Seen), 
 // container, and its videoDecision is transcode for a re-encode. Direct
 // play has no transcode session. Plex gives no transcode reasons.
 func sessionOf(x plex.Session) link.Session {
-	s := link.Session{Key: string(x.SessionKey), Streams: link.Streams{Video: link.StreamDirect, Audio: link.StreamDirect, Subtitles: link.SubtitlesNone}}
+	s := link.Session{Key: string(x.SessionKey), Item: string(x.RatingKey), Streams: link.Streams{Video: link.StreamDirect, Audio: link.StreamDirect, Subtitles: link.SubtitlesNone}}
 	if x.User != nil {
 		s.User = x.User.Title
 	}
 	if x.Player != nil {
-		s.Player, s.Product = x.Player.Title, x.Player.Product
+		s.PlayerKey, s.Player, s.Product = x.Player.MachineIdentifier, x.Player.Title, x.Player.Product
+	}
+	if len(x.Media) == 1 {
+		s.VersionID = string(x.Media[0].ID)
 	}
 	if fs := files(x.Metadata); len(fs) > 0 {
-		s.Path = fs[0]
+		s.Version = link.Version{Path: fs[0]}
 	}
 	if t := x.Transcode; t != nil {
 		s.Streams.ContainerChanged, s.Hardware = true, t.TranscodeHwFullPipeline || t.TranscodeHwEncoding != ""

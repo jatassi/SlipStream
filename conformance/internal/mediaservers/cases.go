@@ -414,14 +414,14 @@ func Sessions(t *testing.T, tg Target) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		i := slices.IndexFunc(sessions, func(s link.Session) bool { return s.Path.Key() == f.At(r).Key() })
+		i := slices.IndexFunc(sessions, func(s link.Session) bool { return s.Version.Path.Key() == f.At(r).Key() })
 		if i < 0 || sessions[i].Streams.Decision() != d {
 			t.Fatalf("playing %s as %s, the sessions are %+v", f.At(r), d, sessions)
 		}
 		stop()
 		Eventually(t, tg, "the session's end", func() (bool, error) {
 			sessions, err := tg.Server.Sessions(t.Context())
-			return !slices.ContainsFunc(sessions, func(s link.Session) bool { return s.Path.Key() == f.At(r).Key() }), err
+			return !slices.ContainsFunc(sessions, func(s link.Session) bool { return s.Version.Path.Key() == f.At(r).Key() }), err
 		})
 	}
 }

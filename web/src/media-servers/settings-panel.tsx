@@ -14,6 +14,7 @@ import { SettingField, SettingGroup } from "../ui/setting-field";
 const keys = {
   wait: "mediaServers.waitBeforeSending",
   sessions: "mediaServers.sessionsEvery",
+  keep: "mediaServers.keepPlays",
   renew: "tasks.plex-sign-in.cadence",
 } as const;
 
@@ -33,7 +34,7 @@ export function MediaServerSettings() {
     <Section title="Sending and sessions">
       <Details
         fields
-        summary={`SlipStream sends a folder's changes ${words(settings, keys.wait)} after its last change, checks what's playing every ${words(settings, keys.sessions)} and renews the Plex sign-in every ${words(settings, keys.renew)}. The defaults suit most servers.`}
+        summary={`SlipStream sends a folder's changes ${words(settings, keys.wait)} after its last change, checks what's playing every ${words(settings, keys.sessions)}, keeps play history for ${words(settings, keys.keep)} and renews the Plex sign-in every ${words(settings, keys.renew)}. The defaults suit most servers.`}
       >
         <div className="mt-2 w-full">
           <SettingGroup>

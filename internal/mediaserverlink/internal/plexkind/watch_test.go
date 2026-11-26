@@ -52,7 +52,7 @@ func (w *watched) polls() [][]string {
 		}
 		var ss []string
 		for _, x := range s.Sessions {
-			ss = append(ss, fmt.Sprintf("%s for %s on %s, %s %q hardware %v", x.Path, x.User, x.Player, x.Streams.Decision(), x.Reasons, x.Hardware))
+			ss = append(ss, fmt.Sprintf("%s for %s on %s, %s %q hardware %v", x.Version.Path, x.User, x.Player, x.Streams.Decision(), x.Reasons, x.Hardware))
 		}
 		out = append(out, ss)
 	}

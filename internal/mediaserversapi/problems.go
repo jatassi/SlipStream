@@ -41,6 +41,8 @@ var (
 	notShownToMembers  = api.NewCode(http.StatusConflict, "not_shown_to_members", "The Media Server isn't shown to Members")
 	plexHomeNotPlex    = api.NewCode(http.StatusUnprocessableEntity, "plex_home_not_plex", "Plex Home is a choice for Plex servers only")
 	noMemberLibraries  = api.NewCode(http.StatusUnprocessableEntity, "no_member_libraries", "Show to Members needs at least one library for Members")
+	playNotFound       = api.NewCode(http.StatusNotFound, "play_not_found", "No play on this Media Server has this id")
+	notYet             = api.NewCode(http.StatusNotImplemented, "not_built_yet", "This operation isn't built yet")
 )
 
 // answer is err as the problem an Admin reads.
@@ -87,6 +89,10 @@ func answer(err error) error {
 		return plexPinNotFound
 	case errors.Is(err, mediaservers.ErrPlexTVUnreached):
 		return plexTVUnreached.Because("plex.tv didn't respond to the Controller. Check the Controller's internet connection and try again.")
+	case errors.Is(err, mediaservers.ErrNoSuchPlay):
+		return playNotFound
+	case errors.Is(err, mediaservers.ErrNotYet):
+		return notYet
 	}
 	return settingapi.Refused(err)
 }

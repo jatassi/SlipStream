@@ -384,14 +384,19 @@ _In UI_: What the server keeps, named one by one: watched, play count, resume po
 _Avoid_: Watch history, user data
 
 **Play history**:
-The plays SlipStream records from each Media Server's sessions: who played which library file on which player, and whether the server direct played, direct streamed or transcoded it, with the reasons the server gave. It keeps them for "Keep play history for", 30 days by default.
+The plays SlipStream records from each Media Server's sessions: who played which library file on which player, and whether the server direct played, direct streamed or transcoded it, stream by stream, with the reasons the server gave. It keeps them for "Keep play history for", 30 days by default.
 _In UI_: "Direct play", "Direct stream", "Transcode" and "Hardware transcode", each with a definition on hover and tap.
 _Avoid_: Session history, watch history, stats
 
 **Playback report**:
-What SlipStream shows about recent plays on each Media Server: which players transcoded, why, and which Target would have played without transcoding.
+What SlipStream shows about recent plays on each Media Server: which players' plays the server transcoded, why, and which Target would have played directly.
 _In UI_: "Playback report".
 _Avoid_: Stats, analytics, player profile
+
+**Player**:
+A device and app that plays from a Media Server, known by the id the server gives it.
+_In UI_: "player".
+_Avoid_: Client, device
 
 **Scheduled task**:
 A library-wide job the Controller starts on a cadence, which the Tasks page lists with its last run, result and next run. A due time on one object, a job an event queues, and watching a Node keeps up continuously are not Scheduled tasks.

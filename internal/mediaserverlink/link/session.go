@@ -7,20 +7,44 @@ import (
 	"time"
 )
 
-// Session is one playback a server lists, as the kind read it.
+// Session is one playback a server lists, as its kind read it, with the
+// version it plays resolved.
 type Session struct {
 	// Key is the server's own session key.
-	Key     string
-	Path    ServerPath
-	User    string
-	Player  string
-	Product string
-	Streams Streams
+	Key string
+	// Item and VersionID are the server's names for what plays: Plex
+	// ratingKey and Media id, Jellyfin and Emby item id and MediaSourceId.
+	Item, VersionID string
+	Version         Version
+	// PlayerKey is the id the server gives the player: Plex
+	// machineIdentifier, Jellyfin and Emby DeviceId.
+	PlayerKey, Player, Platform, Product, User string
+	Streams                                    Streams
 	// Hardware is whether the server reports hardware transcoding.
 	Hardware bool
 	// Reasons are the transcode reasons as the server gave them. Plex gives
 	// none.
-	Reasons []string
+	Reasons  []string
+	Received Received
+	// Audio and Subtitle are the tracks the player chose, nil when the
+	// server reports none.
+	Audio, Subtitle *Track
+}
+
+// Version is one file of an item as its server lists it.
+type Version struct {
+	Path ServerPath
+	// Audio and Subtitles are its embedded streams of each type, in stream
+	// order; External are streams in separate files.
+	Audio, Subtitles, External []Stream
+}
+
+type Stream struct{ ID, Codec, Language string }
+
+// Versions answers the versions a server's live plays resolved. A kind
+// asks it before it looks a version up.
+type Versions interface {
+	Version(item, version string) (Version, bool)
 }
 
 // Streams is a play's decision per stream, and whether the server put the
@@ -134,6 +158,11 @@ type Seen struct {
 	// missing from two polls. A push lists only what it carried.
 	Polled   bool
 	Sessions []Session
+	// Pending are the keys of sessions that name no version this look,
+	// such as a Plex session with several Media and none selected. One
+	// with a live play keeps it as it was; one with none waits. A session
+	// whose lookup failed is in neither Sessions nor Pending.
+	Pending []string
 	// Transcoding is whether the server re-encodes any video now, counted
 	// before the session cap and including a transcode no session lists.
 	// A poll sets it.

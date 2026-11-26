@@ -41,7 +41,7 @@ func checkQueryOrder(repo *lint.Repo) ([]lint.Finding, error) {
 			if containsPhrase(words, "ORDER", "BY") {
 				continue
 			}
-			if q.many {
+			if q.many && !isDML(words) {
 				findings = append(findings, lint.Finding{Path: f, Line: q.line, Message: q.name + " returns many rows without a top-level ORDER BY"})
 			}
 			if containsPhrase(words, "LIMIT") {
@@ -50,6 +50,11 @@ func checkQueryOrder(repo *lint.Repo) ([]lint.Finding, error) {
 		}
 	}
 	return findings, nil
+}
+
+// SQLite takes no ORDER BY on an UPDATE, DELETE or INSERT, so their RETURNING rows have no order to pin.
+func isDML(words []string) bool {
+	return len(words) > 0 && slices.Contains([]string{"UPDATE", "DELETE", "INSERT"}, strings.ToUpper(words[0]))
 }
 
 func splitQueries(src string) []*query {

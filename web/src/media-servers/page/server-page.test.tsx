@@ -3,7 +3,7 @@ import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import { mediaServersWorld } from "../../test/media-server-writes";
-import { denJellyfin, livingRoomPlex } from "../../test/media-servers";
+import { denJellyfin, denSessions, livingRoomPlex } from "../../test/media-servers";
 import { renderApp } from "../../test/render-app";
 import { asPhone } from "../../test/viewport";
 
@@ -36,7 +36,6 @@ test("a server's page leads with its state and what's playing, and keeps the mac
   await expect
     .element(page.getByRole("dialog", { name: "Hardware transcode" }))
     .toMatchTextContent(/graphics hardware/u);
-  await expect.element(playing.getByText(/^Transcoding because .+container/u)).toBeVisible();
   await userEvent.click(playing.getByRole("button", { name: "Details" }));
   await expect.element(playing.getByText(/Den Jellyfin.+ContainerNotSupported/u)).toBeVisible();
 
@@ -48,6 +47,90 @@ test("a server's page leads with its state and what's playing, and keeps the mac
   await expect.element(page.getByText(/^home connected to Den Jellyfin 12\.2\.0/u)).toBeVisible();
   await expect.element(page.getByText(/^The Controller sends changes/u)).toBeVisible();
   expect(world.writes).toEqual([{ path: "test", body: null }]);
+});
+
+const [session] = denSessions;
+const plays = [
+  {
+    file: "Direct.mkv",
+    streams: { decision: "direct_play", video: "direct", audio: "direct", subtitles: "none" },
+    hardware: false,
+    reasons: [],
+    mark: "Direct play",
+    line: undefined,
+  },
+  {
+    file: "Stream.mkv",
+    streams: { decision: "direct_stream", video: "direct", audio: "direct", subtitles: "direct" },
+    hardware: false,
+    reasons: [],
+    mark: "Direct stream",
+    line: [/new container without transcoding/u],
+  },
+  {
+    file: "Audio.mkv",
+    streams: { decision: "transcode", video: "direct", audio: "transcode", subtitles: "none" },
+    hardware: false,
+    reasons: ["AudioCodecNotSupported"],
+    mark: "Transcode",
+    line: [/transcodes the audio because/u, /the player can't play its audio codec/u],
+  },
+  {
+    file: "Burn.mkv",
+    streams: { decision: "transcode", video: "transcode", audio: "direct", subtitles: "burned" },
+    hardware: false,
+    reasons: ["SubtitleCodecNotSupported"],
+    mark: "Transcode",
+    line: [
+      /transcodes the video to burn in its subtitles/u,
+      /the player can't show its subtitles/u,
+    ],
+  },
+  {
+    file: "Hardware.mkv",
+    streams: { decision: "transcode", video: "transcode", audio: "transcode", subtitles: "none" },
+    hardware: true,
+    reasons: ["VideoRangeTypeNotSupported", "NotInTheTable"],
+    mark: "Hardware transcode",
+    line: [
+      /transcodes the video and audio on its graphics hardware/u,
+      /the player can't show its HDR format/u,
+      /NotInTheTable/u,
+    ],
+  },
+] as const;
+
+test("Now playing names what the server does with each stream and why", async () => {
+  renderApp({
+    path,
+    handlers: [
+      sessionsAre({
+        reachable: true,
+        sessions: plays.map((play, index) => ({
+          ...session,
+          ...play.streams,
+          playId: `0199f3c2-4444-7000-8000-00000000001${index}`,
+          path: `/data/films/${play.file}`,
+          hardware: play.hardware,
+          reasons: play.reasons,
+        })),
+      }),
+      ...mediaServersWorld().handlers,
+    ],
+  });
+  const playing = page.getByRole("list", { name: "Now playing on Den Jellyfin" });
+  await Promise.all(
+    plays.map(async (play) => {
+      const row = playing.getByRole("listitem").filter({ hasText: play.file });
+      await expect.element(row.getByRole("button", { name: play.mark })).toBeVisible();
+      const line = row.getByText(/^Den Jellyfin /u);
+      if (play.line === undefined) {
+        await expect.element(line).not.toBeInTheDocument();
+        return;
+      }
+      await Promise.all(play.line.map((part) => expect.element(line).toMatchTextContent(part)));
+    }),
+  );
 });
 
 test("Now playing says when nobody is playing", async () => {

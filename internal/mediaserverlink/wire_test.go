@@ -106,7 +106,7 @@ func TestAnAnswerCrossesTheWireUnchanged(t *testing.T) {
 
 func TestACheckCrossesTheWireUnchanged(t *testing.T) {
 	c := link.Checked{
-		Identity:     link.Identity{ID: "f4c1", Name: "Den Jellyfin", Version: link.MustVersion("12.2.0")},
+		Identity:     link.Identity{ID: "f4c1", Name: "Den Jellyfin", Version: link.MustServerVersion("12.2.0")},
 		MonitorDelay: 60 * time.Second,
 		Libraries:    []link.Library{{Key: "a", Name: "Shows", Folders: []link.ServerPath{path(t, "/media/shows")}}},
 	}

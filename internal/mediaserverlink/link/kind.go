@@ -34,7 +34,7 @@ type About struct {
 	// Browser is whether the kind takes a browser address for Open in.
 	Browser bool
 	// Floor is the oldest version Save accepts.
-	Floor Version
+	Floor ServerVersion
 	// MovedHold is the step a Move's carry waits at until the Move removed
 	// its source files: the last step the kind can take while the old item
 	// is still on disk.
@@ -106,6 +106,8 @@ type Dialed struct {
 	MonitorDelay time.Duration
 	HTTP         *http.Client
 	Timings      Timings
+	Versions     Versions
+	Log          *slog.Logger
 }
 
 // Checked is what Check read with the credential.
@@ -144,7 +146,7 @@ type Identity struct {
 	// ID is Plex's machineIdentifier or the Jellyfin or Emby server Id.
 	ID      string
 	Name    string
-	Version Version
+	Version ServerVersion
 }
 
 // Credential is a server's secret: Plex's per-server resources token, or a

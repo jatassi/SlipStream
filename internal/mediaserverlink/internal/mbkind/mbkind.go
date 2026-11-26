@@ -38,14 +38,14 @@ type family struct {
 
 var (
 	Jellyfin link.Kind = family{
-		about:            link.About{Name: "jellyfin", Label: "Jellyfin", Form: link.SignInKeyOrAdmin, Browser: true, Floor: link.MustVersion("12.2"), MovedHold: link.StepSnapshotted, Access: link.AccessUsers},
+		about:            link.About{Name: "jellyfin", Label: "Jellyfin", Form: link.SignInKeyOrAdmin, Browser: true, Floor: link.MustServerVersion("12.2"), MovedHold: link.StepSnapshotted, Access: link.AccessUsers},
 		flavor:           jellyfin.Jellyfin,
 		scanDropsReports: true,
 		details:          "/web/#/details",
 		exposed:          jellyfinExposed,
 	}
 	Emby link.Kind = family{
-		about:         link.About{Name: "emby", Label: "Emby", Form: link.SignInKeyOrAdmin, Browser: true, Floor: link.MustVersion("4.10"), MovedHold: link.StepSnapshotted, Access: link.AccessUsers},
+		about:         link.About{Name: "emby", Label: "Emby", Form: link.SignInKeyOrAdmin, Browser: true, Floor: link.MustServerVersion("4.10"), MovedHold: link.StepSnapshotted, Access: link.AccessUsers},
 		flavor:        jellyfin.Emby,
 		favoriteApart: true,
 		foldersByGUID: true,
@@ -127,7 +127,7 @@ func (c *conn) identity(ctx context.Context) (link.Identity, error) {
 }
 
 func identityOf(info jellyfin.PublicInfo) (link.Identity, error) {
-	v, err := link.ParseVersion(info.Version)
+	v, err := link.ParseServerVersion(info.Version)
 	if err != nil {
 		return link.Identity{}, failed(err.Error())
 	}
@@ -251,12 +251,8 @@ func (c *conn) poll(ctx context.Context) link.Seen {
 	return s
 }
 
-// sessionsPush is the SessionsStart period, the one Jellyfin's own web
-// client asks for.
-const sessionsPush = 1500 * time.Millisecond
-
 func (c *conn) socket(ctx context.Context, opened func(), push func(link.Seen), _ func()) error {
-	return c.c.Socket(ctx, sessionsPush, opened, func(m jellyfin.Message) {
+	return c.c.Socket(ctx, c.d.Timings.SessionsPush, opened, func(m jellyfin.Message) {
 		s := link.Seen{At: time.Now()}
 		switch m.MessageType {
 		case jellyfin.MessageSessions:
@@ -287,7 +283,7 @@ func (c *conn) sessions(all []jellyfin.Session) ([]link.Session, bool) {
 		if s.NowPlayingItem == nil {
 			continue
 		}
-		ls := link.Session{Key: s.ID, User: s.UserName, Player: s.DeviceName, Product: s.Client,
+		ls := link.Session{Key: s.ID, Item: s.NowPlayingItem.ID, PlayerKey: s.DeviceID, User: s.UserName, Player: s.DeviceName, Product: s.Client,
 			Streams: link.Streams{Video: link.StreamDirect, Audio: link.StreamDirect, Subtitles: link.SubtitlesNone}}
 		if ti := s.TranscodingInfo; ti != nil && s.PlayState != nil && s.PlayState.PlayMethod == jellyfin.Transcode {
 			ls.Streams.ContainerChanged, ls.Reasons = true, slices.Clone(ti.TranscodeReasons)
@@ -301,7 +297,10 @@ func (c *conn) sessions(all []jellyfin.Session) ([]link.Session, bool) {
 		if err != nil || len(out) == c.d.Timings.SessionCap {
 			continue
 		}
-		ls.Path = p
+		ls.Version = link.Version{Path: p}
+		if s.PlayState != nil {
+			ls.VersionID = s.PlayState.MediaSourceID
+		}
 		out = append(out, ls)
 	}
 	return out, transcoding
