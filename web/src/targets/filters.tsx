@@ -44,9 +44,10 @@ function ValuePicker({
           <Button
             size="small"
             icon={ArrowDown01Icon}
+            className="max-w-full"
             aria-label={`${label}: ${picked(values, rule.values)}`}
           >
-            <span className="max-w-[40ch] truncate">{picked(values, rule.values)}</span>
+            <span className="min-w-0 max-w-[40ch] truncate">{picked(values, rule.values)}</span>
           </Button>
         }
         items={values.map((value) => ({
