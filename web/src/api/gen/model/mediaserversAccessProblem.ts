@@ -2,6 +2,6 @@ import type { MediaserversAccessProblemCode } from "./mediaserversAccessProblemC
 
 export interface MediaserversAccessProblem {
   code: MediaserversAccessProblemCode;
-  /** The reply of plex.tv or the server, when there was one */
+  /** What went wrong, as a sentence for an Admin */
   detail?: string;
 }

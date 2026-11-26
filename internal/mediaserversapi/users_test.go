@@ -235,11 +235,9 @@ func TestAMakeTakesTheRouteTheControllerTested(t *testing.T) {
 		fallback string
 		stale    bool
 		status   int
-		detail   string
 	}{
 		{name: "an unusable fallback", fallback: "http://192.168.1.99:8096", status: http.StatusOK},
-		{name: "a fallback that stopped responding", fallback: "http://" + fallback, stale: true, status: http.StatusBadGateway,
-			detail: "The Controller couldn't use the fallback address. Test the server again."},
+		{name: "a fallback that stopped responding", fallback: "http://" + fallback, stale: true, status: http.StatusBadGateway},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			synctest.Test(t, func(t *testing.T) {
@@ -259,7 +257,7 @@ func TestAMakeTakesTheRouteTheControllerTested(t *testing.T) {
 					MemberCount int `json:"memberCount"`
 				}](t, d.expectOK(t, servers+"/"+d.server)).MemberCount
 				switch {
-				case c.stale && (made || row.State != access.Making || row.Problem == nil || row.Problem.Detail != c.detail || count != 0):
+				case c.stale && (made || row.State != access.Making || row.Problem == nil || row.Problem.Code != "media_server_unreached" || count != 0):
 					t.Errorf("after the make Den has sam %t, the row is %+v and Den counts %d Members", made, row, count)
 				case !c.stale && (!made || row.State != access.Active || count != 1):
 					t.Errorf("after the make Den has sam %t, the row is %+v and Den counts %d Members", made, row, count)

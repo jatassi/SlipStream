@@ -142,8 +142,8 @@ function LibraryChecklist({
       {error !== undefined && <Refusal error={error} />}
       {error === undefined && !sameLibraries(picked, saved) && (
         <p className="text-meta text-ink-3">
-          Applies to Members given access from now on. People who can already watch keep their
-          libraries.
+          This applies to Members given access from now on. Members who can already watch keep the
+          libraries they have.
         </p>
       )}
     </fieldset>

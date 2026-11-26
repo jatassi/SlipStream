@@ -29,11 +29,11 @@ func (e *LibrariesShortError) Error() string {
 }
 
 // PlexRefusedError is plex.tv refusing a share or a Plex Home invite.
-// Reply is plex.tv's, which the Admin reads.
-type PlexRefusedError struct{ Server, Reply string }
+// Detail is the sentence the Admin reads, with plex.tv's reply.
+type PlexRefusedError struct{ Server, Detail string }
 
 func (e *PlexRefusedError) Error() string {
-	return fmt.Sprintf("plex.tv refused the share of %s: %s", e.Server, e.Reply)
+	return "plex.tv refused the share of " + e.Server
 }
 
 // AccessUnreachedError is a server an access operation found no route to.

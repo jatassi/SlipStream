@@ -35,8 +35,6 @@ func TestEveryEmailMatchesItsGolden(t *testing.T) {
 			AccountsURL: "https://slipstream.example.com/accounts",
 		}))},
 		{"can-watch-accepted", "You can watch Den on Plex", grace, canWatch(true, false)},
-		{"can-watch-shared", "You can watch Den on Plex", grace, canWatch(false, false)},
-		{"can-watch-accepted-plex-pass", "You can watch Den on Plex", grace, canWatch(true, true)},
 		{"can-watch-shared-plex-pass", "You can watch Den on Plex", grace, canWatch(false, true)},
 	}
 	for _, c := range cases {

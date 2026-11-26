@@ -67,7 +67,7 @@ func (g *granter) CheckGrants(_ context.Context, _ storage.Reader[storage.Librar
 	for _, sg := range gs.MediaServers {
 		s, ok := g.servers[sg.Server]
 		if !ok {
-			return &identity.NotGrantableError{Name: sg.Server.String(), Why: identity.NotShown}
+			return &identity.NotGrantableError{Why: identity.Gone}
 		}
 		if !s.shown {
 			return &identity.NotGrantableError{Name: s.name, Why: identity.NotShown}

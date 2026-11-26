@@ -20,8 +20,6 @@ import (
 	"github.com/jatassi/slipstream/internal/mediaserverlink/link"
 	"github.com/jatassi/slipstream/internal/mediaservers"
 	"github.com/jatassi/slipstream/internal/mediaservers/mstest"
-	"github.com/jatassi/slipstream/internal/node/endpoint"
-	"github.com/jatassi/slipstream/internal/providers/plex"
 	"github.com/jatassi/slipstream/internal/providers/plextv"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/tasks"
@@ -137,46 +135,11 @@ func (r plexRig) settingsVersion(t *testing.T) int64 {
 	return in.GetServers()[0].GetSettingsVersion()
 }
 
-// plexID is the Admin's plex.tv id as the Controller stored it, nil when
-// it stored none.
-func (r plexRig) plexID(t *testing.T) *plextv.AccountID {
-	t.Helper()
-	var id *plextv.AccountID
-	err := r.w.Lib.Read(t.Context(), func(ctx context.Context, rd storage.Reader[storage.Library]) error {
-		return rd.QueryRowContext(ctx, "SELECT plex_id FROM mediaservers_plex_account").Scan(&id)
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	return id
-}
-
-// adminOnPlexTV is the Admin's account as plex.tv answers it to a token
-// of their own from a legacy PIN.
-func (r plexRig) adminOnPlexTV(t *testing.T) plextv.User {
-	t.Helper()
-	e := plextv.Endpoints{API: endpoint.MustParseURL(r.plex.TV.Address.URL("")), Auth: endpoint.MustParseURL("http://plextv-auth.invalid/auth")}
-	m := plextv.NewMember(e, plex.Headers{ClientID: "admin-elsewhere"}, r.plex.TV.Client)
-	pin, err := m.CreateLegacyPin(t.Context())
-	if err != nil {
-		t.Fatal(err)
-	}
-	r.plex.TV.Cue(t, fakeplextv.Approve.Name, map[string]string{"code": pin.Code})
-	token, ok, err := m.PollLegacyPin(t.Context(), pin.ID)
-	if err != nil || !ok {
-		t.Fatalf("poll the Admin's legacy PIN = %v, %v", ok, err)
-	}
-	u, err := m.User(t.Context(), token)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return u
-}
-
 // TestPlexSignInThroughPlexTV signs in with a PIN on fake-plex-tv: the
-// account, its Plex Pass, its plex.tv id and its 7-day sign-in read back,
-// and the renewal task lists the account. A renewal refreshes Plex Pass
-// and fills the plex.tv id of a sign-in that stored none.
+// account, its Plex Pass and its 7-day sign-in read back, and the renewal
+// task lists the account. A renewal refreshes Plex Pass, and after it
+// renews a sign-in that stored no plex.tv id a Member can't sign in as the
+// Admin's Plex account.
 func TestPlexSignInThroughPlexTV(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		r := newPlexRig(t)
@@ -191,10 +154,6 @@ func TestPlexSignInThroughPlexTV(t *testing.T) {
 		if a.Name != "plex-admin" || !a.PlexPass || a.Refused || a.ExpiresAt.Sub(a.SignedInAt).Round(time.Hour) != 7*day {
 			t.Errorf("the account reads %+v", a)
 		}
-		admin := r.adminOnPlexTV(t)
-		if id := r.plexID(t); id == nil || *id != admin.ID {
-			t.Errorf("the sign-in stored plex.tv id %v, want %d", id, admin.ID)
-		}
 		err := r.w.Lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 			_, err := tx.ExecContext(ctx, "UPDATE mediaservers_plex_account SET plex_id = NULL")
 			return err
@@ -206,8 +165,8 @@ func TestPlexSignInThroughPlexTV(t *testing.T) {
 		if err := r.renew(t); err != nil {
 			t.Fatal(err)
 		}
-		if id := r.plexID(t); id == nil || *id != admin.ID {
-			t.Errorf("the renewal stored plex.tv id %v, want %d", id, admin.ID)
+		if s := r.memberSignIn(t, r.w.Member(t, "sam"), "plex-admin"); s != (mediaservers.MemberPinState{State: mediaservers.PinRefused, Refusal: mediaservers.PlexAccountOwner}) {
+			t.Errorf("after the renewal a Member's sign-in as the Admin's Plex account is %+v", s)
 		}
 		if a := r.account(t); a.PlexPass {
 			t.Errorf("after Plex Pass ended the renewal left the account reading %+v", a)

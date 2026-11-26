@@ -38,8 +38,8 @@ const waitingFor: {
 
 const lines: { readonly [S in State]: (row: Access) => string } = {
   offered: (row) => waitingFor[row.server.access](row),
-  waiting: ({ plex }) =>
-    `Signed in through Plex as ${[plex?.username, plex?.email].filter(Boolean).join(", ")}.`,
+  waiting: ({ member, plex }) =>
+    `${member.name} signed in with Plex as ${plex?.username ?? ""} (${plex?.email ?? ""}).`,
   shared: ({ member }) => `Waiting for ${member.name} to accept the share in Plex's email.`,
   making: ({ member }) => `Making ${member.name}'s account…`,
   active: (row) => {
@@ -50,7 +50,7 @@ const lines: { readonly [S in State]: (row: Access) => string } = {
     [`SlipStream couldn't remove ${member.name}'s access to ${server.name}.`, problem?.detail]
       .filter(Boolean)
       .join(" "),
-  removed: ({ server }) => `Access removed. The account on ${server.name} is turned off.`,
+  removed: ({ server }) => `Access is removed, and the account on ${server.name} is turned off.`,
 };
 
 /** What a row's access is now, for an Admin, with any failure's detail. */
@@ -203,7 +203,7 @@ function LinkForm({
       }}
     >
       <p className="text-ink-2">
-        {`${row.member.name} signs in to ${row.server.name} as this user and keeps its libraries.`}
+        {`${row.member.name} signs in to ${row.server.name} as this user. SlipStream doesn't change the libraries this user can see.`}
       </p>
       <form.AppForm>
         <form.Field name="userId">
@@ -233,7 +233,7 @@ function LinkUsers({ row, onDone }: { row: Access; onDone: () => void }) {
   const [first, ...rest] = users;
   return first === undefined ? (
     <Empty look="inline">
-      {`${row.server.name} has no account to link. Administrators, turned-off users and users linked to other Members aren't listed.`}
+      {`${row.server.name} has no user to link. Users with admin rights on ${row.server.name}, turned-off users and users linked to other Members aren't listed.`}
     </Empty>
   ) : (
     <LinkForm row={row} users={[first, ...rest]} onDone={onDone} />

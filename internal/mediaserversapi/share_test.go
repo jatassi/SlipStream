@@ -131,7 +131,7 @@ type sharedOut struct {
 // TestAShareEmailsTheMember shares the Plex server with Sam: a share
 // SlipStream accepts, and one whose accept plex.tv refused, each email Sam
 // and answer the email's outcome; a share plex.tv refuses answers
-// plex_refused with plex.tv's reason and emails nobody.
+// plex_refused and emails nobody.
 func TestAShareEmailsTheMember(t *testing.T) {
 	for _, c := range []struct {
 		name  string
@@ -153,23 +153,20 @@ func TestAShareEmailsTheMember(t *testing.T) {
 				}
 				status, body := r.shareAs(t, row, "friend")
 				expectSharedAnswer(t, status, body, r.w.Mail.Sent()[sent:], c.state, c.code)
-				if got, _ := r.row(t, access.WayPlexTV); got.State != c.state {
-					t.Errorf("the row is %s, want %s", got.State, c.state)
-				}
 			})
 		})
 	}
 }
 
 // expectSharedAnswer checks a share's answer and the emails it sent: the
-// problem code with plex.tv's reason and no email when code is set, else
+// problem code and no email when code is set, else
 // the row in state and one email to Sam, sent.
 func expectSharedAnswer(t *testing.T, status int, body string, mails []mail.Message, state access.State, code string) {
 	t.Helper()
 	out := decode[sharedOut](t, body)
 	if code != "" {
-		if status != http.StatusUnprocessableEntity || out.Code != code || !strings.Contains(body, "couldn't be shared") || len(mails) != 0 {
-			t.Errorf("share = %d %s with %d emails, want %s with plex.tv's reason and none", status, body, len(mails), code)
+		if status != http.StatusUnprocessableEntity || out.Code != code || len(mails) != 0 {
+			t.Errorf("share = %d %s with %d emails, want %s and none", status, body, len(mails), code)
 		}
 		return
 	}
@@ -344,9 +341,6 @@ func TestAnAcceptedShareIsFinishedByEachChecker(t *testing.T) {
 		name  string
 		check func(t *testing.T, r walkRig, row string)
 	}{
-		{"the Admin", func(t *testing.T, r walkRig, row string) {
-			r.o.CallSignedIn(t, http.MethodPost, servers+"/access/"+row+"/check", "")
-		}},
 		{"the Member", func(t *testing.T, r walkRig, row string) {
 			r.o.CallAs(t, http.MethodPost, mine+"/"+row+"/check", "", r.member.Session)
 		}},

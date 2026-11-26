@@ -20,7 +20,7 @@ type offerInput struct {
 	ID       string `path:"id" format:"uuid" doc:"The Member's Account"`
 	ServerID string `path:"serverId" format:"uuid"`
 	Body     struct {
-		PlexHome bool `json:"plexHome,omitempty" doc:"Plex only: add the Member to the Plex Home rather than as a friend"`
+		PlexHome bool `json:"plexHome,omitempty" doc:"Plex only: true adds the Member to the Plex Home; false shares the server as a friend"`
 	}
 }
 
