@@ -60,7 +60,7 @@ type AccessMember struct {
 type PlexPart struct {
 	Username string `json:"username,omitempty" doc:"The Member's Plex username; absent until the Member signs in to Plex"`
 	Email    string `json:"email,omitempty" format:"email" doc:"The Member's Plex email; absent until the Member signs in to Plex"`
-	PlexHome bool   `json:"plexHome" doc:"Offered as, or added to, the Plex Home rather than as a friend"`
+	PlexHome bool   `json:"plexHome" doc:"True when the Member is offered or added to the Plex Home; false for a share as a friend"`
 	ByHand   bool   `json:"byHand" doc:"The Admin shared the server in Plex and marked it as added"`
 }
 
@@ -72,7 +72,7 @@ type UserPart struct {
 // AccessProblem is the last failed call on an access row, for Admins only.
 type AccessProblem struct {
 	Code   ProblemCode `json:"code" enum:"plex_refused,plex_libraries_short,username_taken,server_refused,media_server_unreached,failed"`
-	Detail string      `json:"detail,omitempty" doc:"The reply of plex.tv or the server, when there was one"`
+	Detail string      `json:"detail,omitempty" doc:"What went wrong, as a sentence for an Admin"`
 }
 
 // Acted is an Admin's operation on an access row.

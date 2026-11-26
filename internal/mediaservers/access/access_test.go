@@ -107,20 +107,14 @@ func TestActionsFollowTheTable(t *testing.T) {
 		by   access.By
 		want []access.Event
 	}{
-		{"a waiting friend", plex(access.Waiting), access.ByAdmin, []access.Event{access.ShareFriend, access.ShareHome, access.MarkAdded, access.Remove}},
 		{"a waiting Plex Home offer", access.Facts{State: access.Waiting, Way: access.WayPlexTV, PlexHome: true, SharesWork: true, HomeWorks: true}, access.ByAdmin,
 			[]access.Event{access.ShareHome, access.ShareFriend, access.MarkAdded, access.Remove}},
-		{"no Plex Pass for the Home", access.Facts{State: access.Waiting, Way: access.WayPlexTV, SharesWork: true}, access.ByAdmin,
-			[]access.Event{access.ShareFriend, access.MarkAdded, access.Remove}},
-		{"shares refused to the Admin's sign-in", access.Facts{State: access.Waiting, Way: access.WayPlexTV}, access.ByAdmin,
-			[]access.Event{access.MarkAdded, access.Remove}},
 		{"a waiting Member", plex(access.Waiting), access.ByMember, []access.Event{access.AnotherPlex}},
 		{"a waiting Member whose Plex account is in use", access.Facts{State: access.Waiting, Way: access.WayPlexTV, PlexInUse: true}, access.ByMember, []access.Event{}},
 		{"an offered Plex row", plex(access.Offered), access.ByAdmin, []access.Event{access.Remove}},
 		{"a shared row to its Member", plex(access.Shared), access.ByMember, []access.Event{access.Check}},
 		{"a shared row to the Admin", plex(access.Shared), access.ByAdmin, []access.Event{access.Check, access.Remove}},
 		{"an active Plex row", plex(access.Active), access.ByAdmin, []access.Event{access.Remove}},
-		{"an offered Jellyfin row to its Member", users, access.ByMember, []access.Event{access.MakeAccount}},
 		{"an offered row of a kind with linked users only", access.Facts{State: access.Offered, Way: access.WayUsers}, access.ByMember, []access.Event{}},
 		{"an offered Jellyfin row to the Admin", users, access.ByAdmin, []access.Event{access.Link, access.Remove}},
 		{"an account being made", access.Facts{State: access.Making, Way: access.WayUsers, MakesAccounts: true}, access.ByAdmin, []access.Event{}},

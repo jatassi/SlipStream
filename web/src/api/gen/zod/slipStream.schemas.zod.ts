@@ -6566,7 +6566,9 @@ export const IdentityGrantedServer = zod.object({
   name: zod.string(),
   plexHome: zod
     .boolean()
-    .describe("Plex only: the Member joins the Plex Home rather than as a friend"),
+    .describe(
+      "Plex only: true adds the Member to the Plex Home; false shares the server as a friend",
+    ),
   present: zod.boolean().describe("False once the server is removed"),
   server: zod.uuid(),
   shown: zod
@@ -6719,7 +6721,9 @@ export const IdentityServerGrant = zod.object({
   plexHome: zod
     .boolean()
     .exactOptional()
-    .describe("Plex only: add the Member to the Plex Home rather than as a friend"),
+    .describe(
+      "Plex only: true adds the Member to the Plex Home; false shares the server as a friend",
+    ),
   server: zod.uuid().describe("A Media Server shown to Members"),
 });
 
@@ -8579,7 +8583,9 @@ export const MediaserversPlexPart = zod.object({
     .describe("The Member's Plex email; absent until the Member signs in to Plex"),
   plexHome: zod
     .boolean()
-    .describe("Offered as, or added to, the Plex Home rather than as a friend"),
+    .describe(
+      "True when the Member is offered or added to the Plex Home; false for a share as a friend",
+    ),
   username: zod
     .string()
     .exactOptional()
@@ -8598,10 +8604,7 @@ export const MediaserversAccessProblem = zod.object({
     "media_server_unreached",
     "failed",
   ]),
-  detail: zod
-    .string()
-    .exactOptional()
-    .describe("The reply of plex.tv or the server, when there was one"),
+  detail: zod.string().exactOptional().describe("What went wrong, as a sentence for an Admin"),
 });
 
 export type MediaserversAccessProblem = zod.input<typeof MediaserversAccessProblem>;
@@ -11164,7 +11167,9 @@ export const OfferInputBody = zod.object({
   plexHome: zod
     .boolean()
     .exactOptional()
-    .describe("Plex only: add the Member to the Plex Home rather than as a friend"),
+    .describe(
+      "Plex only: true adds the Member to the Plex Home; false shares the server as a friend",
+    ),
 });
 
 export type OfferInputBody = zod.input<typeof OfferInputBody>;

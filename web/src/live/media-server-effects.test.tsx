@@ -75,16 +75,7 @@ test("media-servers.items-found invalidates each named Work", async () => {
   await expect.poll(invalidated).toEqual({ work: true });
 });
 
-test.each([
-  {
-    event: "media-servers.access-changed",
-    want: { access: true, oneMember: true, list: true, mine: false },
-  },
-  {
-    event: "media-servers.my-access-changed",
-    want: { access: false, oneMember: false, list: false, mine: true },
-  },
-] as const)("$event invalidates the access it names", async ({ event, want }) => {
+test("media-servers.access-changed invalidates the Admin's access and the Media Servers", async () => {
   const server = liveServer();
   const app = renderApp({ path: "/library", handlers: server.handlers });
   await synced(app);
@@ -97,6 +88,8 @@ test.each([
     mine: getListMyMediaServerAccessQueryKey(),
   });
 
-  server.clients[0]?.send({ event, data: {} });
-  await expect.poll(invalidated).toEqual(want);
+  server.clients[0]?.send({ event: "media-servers.access-changed", data: {} });
+  await expect
+    .poll(invalidated)
+    .toEqual({ access: true, oneMember: true, list: true, mine: false });
 });

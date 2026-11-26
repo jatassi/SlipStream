@@ -223,13 +223,14 @@ func TestIssuingRefusesAServerItCantOffer(t *testing.T) {
 		status             int
 	}{
 		{grant: `{"server":"` + loft.String() + `"}`, status: 409, code: "not_shown_to_members", names: "Loft"},
-		{grant: `{"server":"` + gone.String() + `"}`, status: 409, code: "not_shown_to_members", names: gone.String()},
+		{grant: `{"server":"` + gone.String() + `"}`, status: 409, code: "not_shown_to_members"},
 		{grant: `{"server":"` + attic.String() + `","plexHome":true}`, status: 422, code: "plex_home_not_plex", names: "Attic"},
 	} {
 		w := n.as(a, http.MethodPost, "/api/v1/signup-links", `{"email":"grace@example.com","mediaServers":[`+c.grant+`]}`)
 		got := decode[struct{ Code, Detail string }](t, w, c.status)
-		if got.Code != c.code || !strings.HasPrefix(got.Detail, c.names+" ") {
-			t.Fatalf("issuing with %s = %+v, want %s naming %s", c.grant, got, c.code, c.names)
+		named := c.names == "" || strings.HasPrefix(got.Detail, c.names+" ")
+		if got.Code != c.code || !named || strings.Contains(got.Detail, gone.String()) {
+			t.Fatalf("issuing with %s = %+v, want %s naming %q and never the id", c.grant, got, c.code, c.names)
 		}
 	}
 	expect(t, n.as(a, http.MethodGet, "/api/v1/signup-links", ""), 200, `{"links":[]}`+"\n")

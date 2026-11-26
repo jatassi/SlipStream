@@ -3,6 +3,7 @@ package mediaservers
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/identity"
@@ -38,7 +39,7 @@ func (s service) Share(ctx context.Context, _ identity.Admin, id AccessID, as In
 	a, err := s.m.act(ctx, id, on, func(ctx context.Context, r accessRow) (step, error) {
 		st, err := s.m.share(ctx, r, on)
 		if err == nil && st.outcome == access.Refused {
-			refused = &PlexRefusedError{Server: r.server.Name, Reply: st.problem.Detail}
+			refused = &PlexRefusedError{Server: r.server.Name, Detail: st.problem.Detail}
 		}
 		ran = &st
 		return st, err
@@ -92,13 +93,13 @@ func (m *MediaServers) share(ctx context.Context, r accessRow, on access.Event) 
 			return step{}, err
 		}
 		if err := tv.InviteHome(ctx, admin.jwt, invitee); err != nil {
-			return declined(err)
+			return declined(err, r.server.Name)
 		}
 	}
 	share := found.Share
 	if share == "" {
 		if share, err = tv.Share(ctx, admin.jwt, r.server.Identity, who.ID, ids); err != nil {
-			return declined(err)
+			return declined(err, r.server.Name)
 		}
 	}
 	st := step{outcome: access.NotAccepted, set: rowSet{shareID: &share}}
@@ -110,9 +111,10 @@ func (m *MediaServers) share(ctx context.Context, r accessRow, on access.Event) 
 
 // declined is a sharing call plex.tv refused as the row keeps it, with
 // plex.tv's reply, and any other failure as the operation's error.
-func declined(err error) (step, error) {
+func declined(err error, server string) (step, error) {
 	if e, ok := errors.AsType[*plextv.Error](err); ok && plextv.Declined(err) {
-		return step{outcome: access.Refused, problem: &AccessProblem{Code: ProblemPlexRefused, Detail: e.Detail}}, nil
+		detail := fmt.Sprintf("Plex refused to share %s. Its response was %q.", server, e.Detail)
+		return step{outcome: access.Refused, problem: &AccessProblem{Code: ProblemPlexRefused, Detail: detail}}, nil
 	}
 	return step{}, fromPlexTV(err)
 }

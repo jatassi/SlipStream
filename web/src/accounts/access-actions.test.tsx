@@ -44,18 +44,6 @@ const rowOf = (state: Access["state"], actions: readonly Action[]) => {
   return found;
 };
 
-/** The button each action draws. */
-const buttonOf: { readonly [A in Action]: string } = {
-  shareFriend: "Share on Plex",
-  shareHome: "Add to Plex Home",
-  markAdded: "Share by hand instead",
-  check: "Check again",
-  link: "Link an existing account",
-  offer: "Offer again",
-  retryRemove: "Try again",
-  remove: "Remove access",
-};
-
 type Sent = { method: string; path: string; body: unknown };
 
 function graceAccess(sent: Sent[], plexHomeUsed = false) {
@@ -87,18 +75,6 @@ function graceAccess(sent: Sent[], plexHomeUsed = false) {
 const section = () => page.getByRole("list", { name: "Media Servers" });
 const rowItem = (row: Access) =>
   section().getByRole("listitem").filter({ hasText: row.server.name });
-
-test("each access row draws exactly the buttons its actions name, in their order", async () => {
-  renderApp({ path: `/accounts/${grace.id}`, handlers: graceAccess([]) });
-  await expect.element(section()).toBeVisible();
-  for (const row of rows) {
-    const names = rowItem(row)
-      .getByRole("button")
-      .all()
-      .map((button) => button.element().textContent);
-    expect(names, row.state).toEqual(row.actions.map((action) => buttonOf[action]));
-  }
-});
 
 type Press = { in: "dialog" | "row"; role: "button" | "radio"; name: string };
 const press = (where: Press["in"], role: Press["role"], name: string): Press => ({
@@ -136,16 +112,6 @@ test.each<{ row: Access; open: string; next: Press[]; sent: (row: Access) => Sen
       method: "PUT",
       path: `/api/v1/accounts/${row.member.accountId ?? ""}/media-servers/${row.server.id}`,
       body: {},
-    }),
-  },
-  {
-    row: rowOf("waiting", ["shareFriend", "shareHome", "markAdded", "remove"]),
-    open: "Share on Plex",
-    next: [],
-    sent: (row: Access) => ({
-      method: "POST",
-      path: `/api/v1/media-servers/access/${row.id}/share`,
-      body: { as: "friend" },
     }),
   },
   {

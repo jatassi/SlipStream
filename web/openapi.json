@@ -11361,7 +11361,7 @@
             "type": "string"
           },
           "plexHome": {
-            "description": "Plex only: the Member joins the Plex Home rather than as a friend",
+            "description": "Plex only: true adds the Member to the Plex Home; false shares the server as a friend",
             "type": "boolean"
           },
           "present": {
@@ -11705,7 +11705,7 @@
         "additionalProperties": false,
         "properties": {
           "plexHome": {
-            "description": "Plex only: add the Member to the Plex Home rather than as a friend",
+            "description": "Plex only: true adds the Member to the Plex Home; false shares the server as a friend",
             "type": "boolean"
           },
           "server": {
@@ -15321,7 +15321,7 @@
             "type": "string"
           },
           "detail": {
-            "description": "The reply of plex.tv or the server, when there was one",
+            "description": "What went wrong, as a sentence for an Admin",
             "type": "string"
           }
         },
@@ -16306,7 +16306,7 @@
             "type": "string"
           },
           "plexHome": {
-            "description": "Offered as, or added to, the Plex Home rather than as a friend",
+            "description": "True when the Member is offered or added to the Plex Home; false for a share as a friend",
             "type": "boolean"
           },
           "username": {
@@ -20914,7 +20914,7 @@
         "additionalProperties": false,
         "properties": {
           "plexHome": {
-            "description": "Plex only: add the Member to the Plex Home rather than as a friend",
+            "description": "Plex only: true adds the Member to the Plex Home; false shares the server as a friend",
             "type": "boolean"
           }
         },
