@@ -76,7 +76,7 @@ test.each([
   ["since", local(16, 9, 5), "since 9:05 AM"],
   ["since", local(15, 9, 5), "since yesterday at 9:05 AM"],
   ["since", local(3, 9, 5), "since Oct 3 at 9:05 AM"],
-  ["sinceDay", local(16, 9, 5), "since today"],
+  ["sinceDay", local(16, 9, 5), "today"],
   ["sinceDay", local(15, 9, 5), "since yesterday"],
   ["sinceDay", local(12, 9, 5), "since Mon"],
   ["sinceDay", local(3, 9, 5), "since Oct 3"],
