@@ -3,12 +3,10 @@ package jellyfin
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"maps"
 	"net/http"
 	"net/url"
-	"strings"
 )
 
 // User is one server user.
@@ -114,7 +112,7 @@ func (p Policy) Restricted(folders []string) (Policy, error) {
 	}
 	return p.with(map[string]json.RawMessage{
 		"IsAdministrator": jsonFalse, "IsDisabled": jsonFalse, "EnableAllFolders": jsonFalse,
-		"EnabledFolders": enabled, "BlockedMediaFolders": json.RawMessage("[]"),
+		"EnabledFolders": enabled,
 	}), nil
 }
 
@@ -129,12 +127,4 @@ func (p Policy) with(set map[string]json.RawMessage) Policy {
 	out := maps.Clone(p)
 	maps.Copy(out, set)
 	return out
-}
-
-// Taken is whether err is the server's 400 for a user name another user
-// has in any case. Jellyfin's UserManager and Emby both answer "A user
-// with the name '{name}' already exists." to a create and to a rename.
-func Taken(err error) bool {
-	e, ok := errors.AsType[*Error](err)
-	return ok && e.Status == http.StatusBadRequest && strings.Contains(e.Detail, "A user with the name ")
 }

@@ -1,1 +1,1 @@
-export type MediaserversMyServerAccess = "plex_tv" | "users" | "users_linked";
+export type MediaserversMyServerAccess = "plex_tv" | "users";

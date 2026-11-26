@@ -10,7 +10,7 @@ const accountForm = z.object({
   password: z.string().min(1, "Enter a password."),
 });
 
-function MakeAccount({ row }: BlockProps) {
+export function UsersOffered({ row }: BlockProps) {
   const form = useAppForm({
     defaultValues: { username: "", password: "" },
     validators: { onSubmit: accountForm },
@@ -53,17 +53,6 @@ function MakeAccount({ row }: BlockProps) {
         Already have an account on {row.server.name}? Ask {row.adminName} to link it.
       </p>
     </form>
-  );
-}
-
-export function UsersOffered(props: BlockProps) {
-  const { row } = props;
-  return row.actions.includes("makeAccount") ? (
-    <MakeAccount {...props} />
-  ) : (
-    <p>
-      Ask {row.adminName} for an account on {row.server.name}.
-    </p>
   );
 }
 

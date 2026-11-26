@@ -68,9 +68,6 @@ func (s service) MakeAccount(ctx context.Context, me identity.Account, id Access
 		return MyAccessRow{}, err
 	}
 	defer release()
-	if s.m.kind(r.server.Kind).About().Access != link.AccessUsers {
-		return MyAccessRow{}, &AccessStateError{Member: r.MemberName, Server: r.server.Name}
-	}
 	if r.State == access.Making {
 		if r, err = s.m.unmadeAgain(ctx, r); err != nil {
 			return MyAccessRow{}, err
@@ -164,7 +161,11 @@ func (m *MediaServers) unmake(ctx context.Context, r accessRow) (step, error) {
 
 // deleteMade deletes the user r's make made: by its id, or uid when the
 // create answered one the row doesn't hold yet, else by r's temporary
-// name.
+// name. It is the only user SlipStream deletes, a removal disables, and
+// it never had watch data: no one signs in under its temporary name and a
+// carry writes no data a new item holds. Jellyfin 12.2 and 12.4 exit when
+// a user is deleted within seconds of a change to its watch data (online
+// run 2026-11-26).
 func (u usersAt) deleteMade(ctx context.Context, r accessRow, uid string) error {
 	if r.ServerUserID != nil {
 		uid = *r.ServerUserID
@@ -347,11 +348,10 @@ func left(r accessRow, st step) step {
 // problemOf is a failed call on u's server as an Admin reads it.
 func (u usersAt) problemOf(err error) *AccessProblem {
 	if refused, ok := errors.AsType[*link.NameRefusedError](err); ok {
-		code := ProblemServerRefused
 		if refused.Taken {
-			code = ProblemUsernameTaken
+			return &AccessProblem{Code: ProblemUsernameTaken, Detail: u.server + " has a user with this username."}
 		}
-		return &AccessProblem{Code: code, Detail: fmt.Sprintf("%s refused the username. Its response was %q.", u.server, refused.Reply)}
+		return &AccessProblem{Code: ProblemServerRefused, Detail: fmt.Sprintf("%s refused the username. Its response was %q.", u.server, refused.Reply)}
 	}
 	if p, ok := link.ServerProblem(err); ok && p.Reason != link.ReasonUnreachable {
 		detail := fmt.Sprintf("%s responded with status %d.", u.server, p.Status)

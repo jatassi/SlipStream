@@ -47,7 +47,7 @@ func Run(t *testing.T, tg Target) {
 		{"DeletedWaitsTheDelay", DeletedWaitsTheDelay},
 		{"TranscodeAfterReport", TranscodeAfterReport},
 		{"EnabledFoldersTakeGUID", EnabledFoldersTakeGUID},
-		{"PolicyPostReplaces", PolicyPostReplaces},
+		{"PolicyPostMerges", PolicyPostMerges},
 		{"KeyCreated", func(t *testing.T, _ Target, _ mediaservers.Target, s *mediabrowser.Server) { s.KeyCreated(t) }},
 		{"SocketPushesSessions", func(t *testing.T, _ Target, _ mediaservers.Target, s *mediabrowser.Server) { s.SocketPushesSessions(t) }},
 	}
@@ -258,8 +258,8 @@ func TranscodeAfterReport(t *testing.T, tg Target, shared mediaservers.Target, s
 }
 
 // EnabledFoldersTakeGUID restricts a user to the library by its Guid,
-// which the user then sees, as fake-emby plays it. It logs what the
-// library's ItemId in EnabledFolders shows, for the online run to record.
+// which the user then sees, and by its ItemId, which shows the user
+// nothing (online run 2026-11-26).
 func EnabledFoldersTakeGUID(t *testing.T, tg Target, shared mediaservers.Target, s *mediabrowser.Server) {
 	m := s.NewMember(t)
 	defer s.Drop(t, m)
@@ -268,14 +268,16 @@ func EnabledFoldersTakeGUID(t *testing.T, tg Target, shared mediaservers.Target,
 		t.Fatalf("a user restricted to %s by its Guid sees no video", tg.Library)
 	}
 	s.Restrict(t, m, s.Folder(t, shared.Library, false))
-	t.Logf("restricted to %s by its ItemId, the user sees %d videos", tg.Library, s.Sees(t, m))
+	if n := s.Sees(t, m); n != 0 {
+		t.Fatalf("a user restricted to %s by its ItemId sees %d videos, want none", tg.Library, n)
+	}
 }
 
-// PolicyPostReplaces posts a user's policy without EnableMediaPlayback,
-// which a new user has on. It logs whether the post replaced the policy,
-// turning it off, or merged it, keeping it on. Restrict posts every field,
-// so either works for SlipStream.
-func PolicyPostReplaces(t *testing.T, _ Target, _ mediaservers.Target, s *mediabrowser.Server) {
+// PolicyPostMerges posts a user's policy without EnableMediaPlayback,
+// which a new user has on, and it stays on: Emby merges a policy post
+// where Jellyfin replaces the policy (online run 2026-11-26). Restrict
+// posts every field, so SlipStream is right on both.
+func PolicyPostMerges(t *testing.T, _ Target, _ mediaservers.Target, s *mediabrowser.Server) {
 	m := s.NewMember(t)
 	defer s.Drop(t, m)
 	p, err := s.C.UserPolicy(t.Context(), m.ID)
@@ -290,5 +292,7 @@ func PolicyPostReplaces(t *testing.T, _ Target, _ mediaservers.Target, s *mediab
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Logf("after a policy post without EnableMediaPlayback it reads %s", after["EnableMediaPlayback"])
+	if string(after["EnableMediaPlayback"]) != "true" {
+		t.Fatalf("after a policy post without EnableMediaPlayback it reads %s, want true", after["EnableMediaPlayback"])
+	}
 }

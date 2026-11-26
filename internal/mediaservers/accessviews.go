@@ -45,7 +45,7 @@ type AccessServer struct {
 	ID     string         `json:"id" format:"uuid"`
 	Name   string         `json:"name"`
 	Kind   api.Enum[Kind] `json:"kind"`
-	Access string         `json:"access" enum:"plex_tv,users,users_linked" doc:"How Members get access: plex_tv through a Plex share, users with a user the Member makes or the Admin links, users_linked with a user the Admin links"`
+	Access string         `json:"access" enum:"plex_tv,users" doc:"How Members get access: plex_tv through a Plex share, users with a user the Member makes or the Admin links"`
 }
 
 // AccessMember is the Member of an access row.
@@ -111,7 +111,7 @@ type MyAccessRow struct {
 type MyServer struct {
 	Name   string `json:"name"`
 	Label  string `json:"label" doc:"The kind's product name, such as Jellyfin"`
-	Access string `json:"access" enum:"plex_tv,users,users_linked"`
+	Access string `json:"access" enum:"plex_tv,users"`
 }
 
 // HowToWatch is what a Member needs to watch on a server in its app.

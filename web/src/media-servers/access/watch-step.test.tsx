@@ -38,15 +38,6 @@ test.each<[string, MyRow, string[]]>([
     { ...plexWaiting, state: "shared", actions: [] },
     ["Sign in with Plex again"],
   ],
-  [
-    "Jellyfin offered, linked by the Admin only",
-    {
-      ...jellyfinOffered,
-      server: { ...jellyfinOffered.server, access: "users_linked" },
-      actions: [],
-    },
-    [],
-  ],
   ["Jellyfin making", { ...jellyfinOffered, state: "making", actions: [] }, []],
 ])(
   "%s draws the buttons its actions name, and Skip for now while it is pending",

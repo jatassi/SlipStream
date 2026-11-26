@@ -4,12 +4,14 @@ import (
 	"crypto/rand"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/url"
 	"reflect"
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/jatassi/slipstream/conformance/internal/mediaservers"
 	"github.com/jatassi/slipstream/internal/providers/jellyfin"
@@ -23,7 +25,7 @@ func (s *Server) UserCases() []mediaservers.Case {
 		{Name: "UserNameTaken", Run: s.UserNameTaken},
 		{Name: "UserRenamed", Run: s.UserRenamed},
 		{Name: "UserPolicyRoundTrip", Run: s.UserPolicyRoundTrip},
-		{Name: "BlockedBeatsEnabled", Run: s.BlockedBeatsEnabled},
+		{Name: "EnabledFoldersRestrict", Run: s.EnabledFoldersRestrict},
 		{Name: "UserDisabled", Run: s.UserDisabled},
 		{Name: "UserDeletedTwice", Run: s.UserDeletedTwice},
 		{Name: "FailedSignInsLock", Run: s.FailedSignInsLock},
@@ -53,9 +55,18 @@ func (s *Server) NewMember(t *testing.T) Member {
 	return m
 }
 
-// Drop deletes m. A user already deleted is no error.
+// dataSettle is how long Drop waits after a change to a user's watch data
+// before it deletes the user. Jellyfin 12.2 and 12.4 exit when a user is
+// deleted within about 10 s of one (online run 2026-11-26).
+const dataSettle = 30 * time.Second
+
+// Drop deletes m, dataSettle past the last change to its watch data on a
+// real server. A user already deleted is no error.
 func (s *Server) Drop(t *testing.T, m Member) {
 	t.Helper()
+	if at, ok := s.watched[m.ID]; ok && !s.tg.Fake {
+		time.Sleep(time.Until(at.Add(dataSettle)))
+	}
 	if err := s.C.DeleteUser(t.Context(), m.ID); err != nil && !jellyfin.NotFound(err) {
 		t.Errorf("deleting the throwaway user %s: %v", m.Name, err)
 	}
@@ -79,9 +90,10 @@ func (s *Server) SignInAs(t *testing.T, name, password string) error {
 	return jellyfin.New(base, s.f, auth.AccessToken, app, s.tg.HTTP).Logout(ctx)
 }
 
-func refused(err error) bool {
+// status is whether err is the server's answer with code.
+func status(err error, code int) bool {
 	e, ok := errors.AsType[*jellyfin.Error](err)
-	return ok && (e.Status == http.StatusUnauthorized || e.Status == http.StatusForbidden)
+	return ok && e.Status == code
 }
 
 // Folder is the library key as a policy's EnabledFolders names it: the
@@ -165,37 +177,52 @@ func (s *Server) UserMadeSignsIn(t *testing.T) {
 	if err := s.SignInAs(t, m.Name, chosen); err != nil {
 		t.Fatalf("signing in with the password the key set: %v", err)
 	}
-	if err := s.SignInAs(t, m.Name, m.Password); !refused(err) {
-		t.Fatalf("signing in with the replaced password answered %v, want a refusal", err)
+	if err := s.SignInAs(t, m.Name, m.Password); !status(err, http.StatusUnauthorized) {
+		t.Fatalf("signing in with the replaced password answered %v, want 401", err)
+	}
+}
+
+// takenReply is each product's 400 to a name another user has in any
+// case, from the online run 2026-11-26. Jellyfin's says nothing of why,
+// so SlipStream reads the users before a rename.
+func (s *Server) takenReply(name string) string {
+	if s.f == jellyfin.Emby {
+		return fmt.Sprintf("A user with the name '%s' already exists.", name)
+	}
+	return "Error processing request."
+}
+
+// refusedAs fails t unless err is the server's 400 to name taken.
+func (s *Server) refusedAs(t *testing.T, err error, name string) {
+	t.Helper()
+	e, ok := errors.AsType[*jellyfin.Error](err)
+	if !ok || e.Status != http.StatusBadRequest || e.Detail != s.takenReply(name) {
+		t.Fatalf("the taken name %s answered %v, want 400 %q", name, err, s.takenReply(name))
 	}
 }
 
 // UserNameTaken makes a user under a name another user has in other
-// case. The server answers 400, and Taken reads it.
+// case, which the server refuses with its 400.
 func (s *Server) UserNameTaken(t *testing.T) {
 	m := s.NewMember(t)
 	defer s.Drop(t, m)
-	u, err := s.C.CreateUser(t.Context(), strings.ToUpper(m.Name), secret())
+	upper := strings.ToUpper(m.Name)
+	u, err := s.C.CreateUser(t.Context(), upper, secret())
 	if err == nil {
 		_ = s.C.DeleteUser(t.Context(), u.ID)
 		t.Fatalf("a second user named %s in other case was made", m.Name)
 	}
-	if !jellyfin.Taken(err) {
-		t.Fatalf("the duplicate name answered %v, want Taken's 400", err)
-	}
-	t.Logf("the duplicate name answered %v", err)
+	s.refusedAs(t, err, upper)
 }
 
 // UserRenamed renames a user to another user's name in other case, which
-// the server refuses with Taken's 400, then to a free name, which signs
-// in.
+// the server refuses with its 400, then to a free name, which signs in.
 func (s *Server) UserRenamed(t *testing.T) {
 	a, b := s.NewMember(t), s.NewMember(t)
 	defer s.Drop(t, a)
 	defer s.Drop(t, b)
-	if err := s.C.UpdateUser(t.Context(), a.ID, strings.ToUpper(b.Name)); !jellyfin.Taken(err) {
-		t.Fatalf("renaming to a taken name answered %v, want Taken's 400", err)
-	}
+	upper := strings.ToUpper(b.Name)
+	s.refusedAs(t, s.C.UpdateUser(t.Context(), a.ID, upper), upper)
 	renamed := a.Name + "-renamed"
 	if err := s.C.UpdateUser(t.Context(), a.ID, renamed); err != nil {
 		t.Fatal(err)
@@ -239,36 +266,27 @@ func (s *Server) UserPolicyRoundTrip(t *testing.T) {
 	}
 }
 
-// BlockedBeatsEnabled restricts a user to the target's library, which it
-// then sees, and blocks the same library, which hides it.
-func (s *Server) BlockedBeatsEnabled(t *testing.T) {
+// EnabledFoldersRestrict restricts a user to no library, which then sees
+// no video, and to the target's library, which it sees. EnabledFolders is
+// how SlipStream hides a library: BlockedMediaFolders hides nothing on
+// Jellyfin 12.2 and 12.4, and Emby 4.10 has no such field (online run
+// 2026-11-26).
+func (s *Server) EnabledFoldersRestrict(t *testing.T) {
 	m := s.NewMember(t)
 	defer s.Drop(t, m)
-	f := s.folder(t)
-	s.Restrict(t, m, f)
+	s.Restrict(t, m)
+	if n := s.Sees(t, m); n != 0 {
+		t.Fatalf("a user restricted to no library sees %d videos", n)
+	}
+	s.Restrict(t, m, s.folder(t))
 	if s.Sees(t, m) == 0 {
 		t.Fatalf("a user restricted to %s sees no video", s.tg.Library)
-	}
-	p, err := s.C.UserPolicy(t.Context(), m.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	blocked, err := json.Marshal([]string{f})
-	if err != nil {
-		t.Fatal(err)
-	}
-	p["BlockedMediaFolders"] = blocked
-	if err := s.C.SetPolicy(t.Context(), m.ID, p); err != nil {
-		t.Fatal(err)
-	}
-	if n := s.Sees(t, m); n != 0 {
-		t.Fatalf("a user with %s enabled and blocked sees %d videos", s.tg.Library, n)
 	}
 }
 
 // UserDisabled marks a video played for a restricted user, then disables
-// the user, which can't sign in and keeps its watch data, and restricts
-// it again, which lets it sign in.
+// the user, whose right password both products answer 403 and which keeps
+// its watch data, and restricts it again, which lets it sign in.
 func (s *Server) UserDisabled(t *testing.T) {
 	m := s.NewMember(t)
 	defer s.Drop(t, m)
@@ -281,6 +299,7 @@ func (s *Server) UserDisabled(t *testing.T) {
 		t.Fatalf("a user restricted to %s sees no video", s.tg.Library)
 	}
 	item := page.Items[0].ID
+	s.watched[m.ID] = time.Now()
 	if err := s.C.MarkPlayed(t.Context(), m.ID, item); err != nil {
 		t.Fatal(err)
 	}
@@ -294,8 +313,8 @@ func (s *Server) UserDisabled(t *testing.T) {
 	if !s.flags(t, m).IsDisabled {
 		t.Fatal("the listing shows the disabled user enabled")
 	}
-	if err := s.SignInAs(t, m.Name, m.Password); !refused(err) {
-		t.Fatalf("the disabled user's sign-in answered %v, want a refusal", err)
+	if err := s.SignInAs(t, m.Name, m.Password); !status(err, http.StatusForbidden) {
+		t.Fatalf("the disabled user's sign-in answered %v, want 403", err)
 	}
 	if d, err := s.C.UserData(t.Context(), m.ID, item); err != nil || !d.Played {
 		t.Fatalf("the disabled user's data on %s is %+v (err %v), want it played", item, d, err)
@@ -326,21 +345,53 @@ func (s *Server) UserDeletedTwice(t *testing.T) {
 	}
 }
 
-// FailedSignInsLock records how many wrong passwords disable a user. It
-// asserts nothing.
+// lockedOut is whether p names when Emby locked the user out.
+func lockedOut(t *testing.T, p jellyfin.Policy) bool {
+	t.Helper()
+	var at *time.Time
+	if raw, ok := p["LockedOutDate"]; ok {
+		if err := json.Unmarshal(raw, &at); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return at != nil && !at.IsZero()
+}
+
+// FailedSignInsLock signs in with a wrong password until the user is
+// locked out, at most 10 times, then with the right one. Emby 4.10 sets
+// Policy.LockedOutDate and refuses the right password with 403, its
+// IsDisabled still false. Jellyfin's new user has
+// LoginAttemptsBeforeLockout -1 and never locks (online run 2026-11-26).
 func (s *Server) FailedSignInsLock(t *testing.T) {
 	m := s.NewMember(t)
 	defer s.Drop(t, m)
 	s.Restrict(t, m, s.folder(t))
 	const tries = 10
-	for n := range tries {
-		if err := s.SignInAs(t, m.Name, "wrong-"+m.Password); err == nil {
-			t.Fatal("a wrong password signed in")
+	locked := 0
+	for n := 1; n <= tries && locked == 0; n++ {
+		if err := s.SignInAs(t, m.Name, "wrong-"+m.Password); !status(err, http.StatusUnauthorized) {
+			t.Fatalf("wrong password %d answered %v, want 401", n, err)
 		}
-		if s.flags(t, m).IsDisabled {
-			t.Logf("%d wrong passwords disabled the user", n+1)
-			return
+		p, err := s.C.UserPolicy(t.Context(), m.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if lockedOut(t, p) {
+			locked = n
 		}
 	}
-	t.Logf("%d wrong passwords left the user enabled", tries)
+	if s.flags(t, m).IsDisabled {
+		t.Fatalf("%d wrong passwords disabled the user", tries)
+	}
+	err := s.SignInAs(t, m.Name, m.Password)
+	if s.f == jellyfin.Emby {
+		if locked == 0 || !status(err, http.StatusForbidden) {
+			t.Fatalf("after %d wrong passwords Emby locked the user at %d and the right one answered %v, want a lock and 403", tries, locked, err)
+		}
+		t.Logf("%d wrong passwords locked the user out", locked)
+		return
+	}
+	if locked != 0 || err != nil {
+		t.Fatalf("after %d wrong passwords Jellyfin locked the user at %d and the right one answered %v, want no lock", tries, locked, err)
+	}
 }

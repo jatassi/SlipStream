@@ -334,10 +334,9 @@ func (m *MediaServers) actions(w accessWorld, a db.MediaserversMemberAccess, by 
 	shares, home := m.plexWorks(w.plexPass)
 	return access.Actions(access.Facts{
 		State: a.State, Way: a.Way, PlexHome: a.PlexHome,
-		MakesAccounts: m.kind(w.server(a.ServerID).Kind).About().Access == link.AccessUsers,
-		PlexInUse:     w.plexInUse(a.AccountID),
-		SharesWork:    shares,
-		HomeWorks:     home,
+		PlexInUse:  w.plexInUse(a.AccountID),
+		SharesWork: shares,
+		HomeWorks:  home,
 	}, by)
 }
 

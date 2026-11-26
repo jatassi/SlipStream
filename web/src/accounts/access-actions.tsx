@@ -33,7 +33,6 @@ const waitingFor: {
 } = {
   plex_tv: ({ member }) => `Waiting for ${member.name} to sign in with Plex.`,
   users: ({ member }) => `Waiting for ${member.name} to make an account.`,
-  users_linked: ({ server }) => `Waiting for you to link an account on ${server.name}.`,
 };
 
 const lines: { readonly [S in State]: (row: Access) => string } = {

@@ -194,9 +194,6 @@ type Facts struct {
 	State    State
 	Way      Way
 	PlexHome bool
-	// MakesAccounts is whether the Member may make their own user: the
-	// kind's access is users, not users_linked.
-	MakesAccounts bool
 	// PlexInUse is whether one of the Account's Plex rows is shared or
 	// active.
 	PlexInUse bool
@@ -234,7 +231,6 @@ func Actions(f Facts, by By) []Event {
 // action only where it moves the row: on an offered or waiting row it is
 // the Account page's choice of Friend or Plex Home.
 var gates = map[Event]func(Facts) bool{
-	MakeAccount: func(f Facts) bool { return f.MakesAccounts },
 	AnotherPlex: func(f Facts) bool { return !f.PlexInUse },
 	ShareFriend: func(f Facts) bool { return f.SharesWork },
 	ShareHome:   func(f Facts) bool { return f.HomeWorks },

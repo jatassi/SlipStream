@@ -15334,11 +15334,10 @@
         "additionalProperties": false,
         "properties": {
           "access": {
-            "description": "How Members get access: plex_tv through a Plex share, users with a user the Member makes or the Admin links, users_linked with a user the Admin links",
+            "description": "How Members get access: plex_tv through a Plex share, users with a user the Member makes or the Admin links",
             "enum": [
               "plex_tv",
-              "users",
-              "users_linked"
+              "users"
             ],
             "type": "string"
           },
@@ -16146,8 +16145,7 @@
           "access": {
             "enum": [
               "plex_tv",
-              "users",
-              "users_linked"
+              "users"
             ],
             "type": "string"
           },

@@ -300,7 +300,7 @@ func answered(err error, ok func(error) bool) bool {
 
 func takenName(err error) bool {
 	r, ok := errors.AsType[*link.NameRefusedError](err)
-	return ok && r.Taken && r.Reply != ""
+	return ok && r.Taken
 }
 
 func crossUsers(t *testing.T, name link.KindName) {

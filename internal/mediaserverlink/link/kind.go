@@ -52,9 +52,6 @@ const (
 	AccessPlexTV Access = "plex_tv"
 	// AccessUsers is a user the Member makes, or the Admin links.
 	AccessUsers Access = "users"
-	// AccessUsersLinked is a user the Admin links. The Member can't make
-	// one.
-	AccessUsersLinked Access = "users_linked"
 )
 
 // Kind is everything SlipStream knows about one Media Server product.

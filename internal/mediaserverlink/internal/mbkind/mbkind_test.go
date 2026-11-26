@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -16,6 +17,7 @@ import (
 	"github.com/jatassi/slipstream/fakes/emby"
 	"github.com/jatassi/slipstream/fakes/fake"
 	"github.com/jatassi/slipstream/fakes/fake/faketest"
+	"github.com/jatassi/slipstream/fakes/fault"
 	"github.com/jatassi/slipstream/fakes/jellyfin"
 	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/internal/mediaserverlink"
@@ -449,6 +451,26 @@ func TestCarryKeepsEveryUsersWatchDataAndCollections(t *testing.T) {
 		}
 		if in := w.silents(); !slices.Contains(in, it.Item) {
 			t.Errorf("Silents holds %v, want the new item %s", in, it.Item)
+		}
+	})
+}
+
+// TestACarryWritesNoDataTheNewItemHolds carries Metropolis, which no
+// user has watched, while the server answers 500 to every watch data
+// write: the carry writes none and loses nothing.
+func TestACarryWritesNoDataTheNewItemHolds(t *testing.T) {
+	writes := map[wire.Flavor][]string{wire.Jellyfin: {"set-user-data"}, wire.Emby: {"user-item-data", "favorite", "unfavorite"}}
+	each(t, func(t *testing.T, w *world) {
+		for _, route := range writes[w.p.flavor] {
+			rule := fault.Rule{ID: route, Target: fault.Target(w.p.kind.About().Name), Route: route, Fault: fault.Status{Code: http.StatusInternalServerError}}
+			if _, err := w.f.Faults.Set(rule); err != nil {
+				t.Fatal(err)
+			}
+		}
+		ch := w.change(link.ChangeMoved, "Movies/Metropolis (1927)/Metropolis (1927).mkv", "Movies/Metropolis (1927)/Metropolis (1927) - 1080p.mkv")
+		w.move("Movies/Metropolis (1927)/Metropolis (1927).mkv", "Movies/Metropolis (1927)/Metropolis (1927) - 1080p.mkv")
+		if o := outcomes(w.drive(job(link.Carry{Changes: []link.JobChange{ch}})))[ch.ID]; o.Result != link.ResultAccepted || len(o.Lost) != 0 {
+			t.Errorf("outcome = %+v, want accepted with nothing lost", o)
 		}
 	})
 }

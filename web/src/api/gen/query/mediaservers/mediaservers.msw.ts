@@ -65,7 +65,7 @@ export const getListMyMediaServerAccessResponseMock = (
     id: faker.string.uuid(),
     pending: faker.datatype.boolean(),
     server: {
-      access: faker.helpers.arrayElement(["plex_tv", "users", "users_linked"] as const),
+      access: faker.helpers.arrayElement(["plex_tv", "users"] as const),
       label: faker.string.alpha({ length: { min: 10, max: 20 } }),
       name: faker.string.alpha({ length: { min: 10, max: 20 } }),
     },
@@ -122,7 +122,7 @@ export const getMakeMediaServerAccountResponseMock = (
   id: faker.string.uuid(),
   pending: faker.datatype.boolean(),
   server: {
-    access: faker.helpers.arrayElement(["plex_tv", "users", "users_linked"] as const),
+    access: faker.helpers.arrayElement(["plex_tv", "users"] as const),
     label: faker.string.alpha({ length: { min: 10, max: 20 } }),
     name: faker.string.alpha({ length: { min: 10, max: 20 } }),
   },
@@ -147,7 +147,7 @@ export const getCheckMyMediaServerAccessResponseMock = (
   id: faker.string.uuid(),
   pending: faker.datatype.boolean(),
   server: {
-    access: faker.helpers.arrayElement(["plex_tv", "users", "users_linked"] as const),
+    access: faker.helpers.arrayElement(["plex_tv", "users"] as const),
     label: faker.string.alpha({ length: { min: 10, max: 20 } }),
     name: faker.string.alpha({ length: { min: 10, max: 20 } }),
   },
@@ -224,7 +224,7 @@ export const getOfferMediaServerResponseMock = (
               }
             : {}),
           server: {
-            access: faker.helpers.arrayElement(["plex_tv", "users", "users_linked"] as const),
+            access: faker.helpers.arrayElement(["plex_tv", "users"] as const),
             id: faker.string.uuid(),
             kind: faker.helpers.arrayElement(["plex", "jellyfin", "emby"] as const),
             name: faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -420,7 +420,7 @@ export const getListMediaServerAccessResponseMock = (
 ): MediaserversAccessList => ({
   offerable: faker.helpers.arrayElement([
     Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
-      access: faker.helpers.arrayElement(["plex_tv", "users", "users_linked"] as const),
+      access: faker.helpers.arrayElement(["plex_tv", "users"] as const),
       id: faker.string.uuid(),
       kind: faker.helpers.arrayElement(["plex", "jellyfin", "emby"] as const),
       name: faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -482,7 +482,7 @@ export const getListMediaServerAccessResponseMock = (
         }
       : {}),
     server: {
-      access: faker.helpers.arrayElement(["plex_tv", "users", "users_linked"] as const),
+      access: faker.helpers.arrayElement(["plex_tv", "users"] as const),
       id: faker.string.uuid(),
       kind: faker.helpers.arrayElement(["plex", "jellyfin", "emby"] as const),
       name: faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -572,7 +572,7 @@ export const getRemoveMediaServerAccessResponseMock = (
               }
             : {}),
           server: {
-            access: faker.helpers.arrayElement(["plex_tv", "users", "users_linked"] as const),
+            access: faker.helpers.arrayElement(["plex_tv", "users"] as const),
             id: faker.string.uuid(),
             kind: faker.helpers.arrayElement(["plex", "jellyfin", "emby"] as const),
             name: faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -664,7 +664,7 @@ export const getCheckMediaServerAccessResponseMock = (
               }
             : {}),
           server: {
-            access: faker.helpers.arrayElement(["plex_tv", "users", "users_linked"] as const),
+            access: faker.helpers.arrayElement(["plex_tv", "users"] as const),
             id: faker.string.uuid(),
             kind: faker.helpers.arrayElement(["plex", "jellyfin", "emby"] as const),
             name: faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -756,7 +756,7 @@ export const getLinkMediaServerUserResponseMock = (
               }
             : {}),
           server: {
-            access: faker.helpers.arrayElement(["plex_tv", "users", "users_linked"] as const),
+            access: faker.helpers.arrayElement(["plex_tv", "users"] as const),
             id: faker.string.uuid(),
             kind: faker.helpers.arrayElement(["plex", "jellyfin", "emby"] as const),
             name: faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -848,7 +848,7 @@ export const getMarkMediaServerAccessAddedResponseMock = (
               }
             : {}),
           server: {
-            access: faker.helpers.arrayElement(["plex_tv", "users", "users_linked"] as const),
+            access: faker.helpers.arrayElement(["plex_tv", "users"] as const),
             id: faker.string.uuid(),
             kind: faker.helpers.arrayElement(["plex", "jellyfin", "emby"] as const),
             name: faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -940,7 +940,7 @@ export const getShareMediaServerAccessResponseMock = (
               }
             : {}),
           server: {
-            access: faker.helpers.arrayElement(["plex_tv", "users", "users_linked"] as const),
+            access: faker.helpers.arrayElement(["plex_tv", "users"] as const),
             id: faker.string.uuid(),
             kind: faker.helpers.arrayElement(["plex", "jellyfin", "emby"] as const),
             name: faker.string.alpha({ length: { min: 10, max: 20 } }),

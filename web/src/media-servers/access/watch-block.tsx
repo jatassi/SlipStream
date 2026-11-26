@@ -37,7 +37,6 @@ const blocks: { readonly [A in Access]: { readonly [S in State]: Block } } = {
     active: Watching,
   },
   users,
-  users_linked: users,
 };
 
 export function WatchBlock(props: BlockProps) {

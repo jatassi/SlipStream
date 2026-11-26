@@ -238,7 +238,7 @@ func restore(ctx context.Context, c *conn, j link.Job, w link.Carry) (link.Advan
 		if !ok {
 			continue
 		}
-		if err := c.write(ctx, v, it.ID, ch.Snapshot); err != nil {
+		if err := c.write(ctx, v, it.ID, ch.Path, ch.Snapshot); err != nil {
 			return link.Advanced{}, err
 		}
 	}
@@ -253,18 +253,20 @@ func restore(ctx context.Context, c *conn, j link.Job, w link.Carry) (link.Advan
 	return a, nil
 }
 
-func (c *conn) write(ctx context.Context, v view, item string, s *link.Snapshot) error {
+// write puts the snapshot onto item at path, leaving out each user whose
+// data there already matches, so a user who never had watch data never
+// gets a change to it, which deleting a made user relies on.
+func (c *conn) write(ctx context.Context, v view, item string, path link.ServerPath, s *link.Snapshot) error {
 	for _, d := range s.Users {
-		if !slices.ContainsFunc(v.users, func(u jellyfin.User) bool { return u.ID == d.User }) {
+		u := slices.IndexFunc(v.users, func(u jellyfin.User) bool { return u.ID == d.User })
+		if u < 0 {
 			continue
 		}
-		if err := c.c.SetUserData(ctx, d.User, item, wire(d)); err != nil {
-			return err
+		if mine, _ := v.byUser[u].at(path); holds(userData(d.User, mine.UserData), d) {
+			continue
 		}
-		if c.f.favoriteApart {
-			if err := c.c.SetFavorite(ctx, d.User, item, d.Favorite); err != nil {
-				return err
-			}
+		if err := c.setUserData(ctx, item, d); err != nil {
+			return err
 		}
 	}
 	for _, name := range s.Collections {
@@ -284,6 +286,19 @@ func (c *conn) write(ctx context.Context, v view, item string, s *link.Snapshot)
 		v.ids[name] = id
 	}
 	return nil
+}
+
+func (c *conn) setUserData(ctx context.Context, item string, d link.UserData) error {
+	if err := c.c.SetUserData(ctx, d.User, item, wire(d)); err != nil || !c.f.favoriteApart {
+		return err
+	}
+	return c.c.SetFavorite(ctx, d.User, item, d.Favorite)
+}
+
+// holds is whether now is was, to the second of the last play.
+func holds(now, was link.UserData) bool {
+	return now.Played == was.Played && now.PlayCount == was.PlayCount && now.Favorite == was.Favorite && now.Position == was.Position &&
+		now.LastPlayed.Truncate(time.Second).Equal(was.LastPlayed.Truncate(time.Second))
 }
 
 // lost is what the item at ch's new path doesn't hold of its snapshot.

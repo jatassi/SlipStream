@@ -126,10 +126,11 @@ func (s *server) guard(need level, h func(http.ResponseWriter, *http.Request, ca
 }
 
 // authenticate is POST /Users/AuthenticateByName. A second sign-in with
-// one DeviceId revokes the token the first got (#71 delta 13). A disabled
-// user is refused: Jellyfin's UserManager throws a SecurityException,
-// which it answers 403, and Emby's answer is unrecorded, so the fake
-// answers 401.
+// one DeviceId revokes the token the first got (#71 delta 13). Each
+// refusal is the online run of 2026-11-26's: Jellyfin answers a disabled
+// user 403 whatever the password; Emby answers a wrong password 401 and
+// locks the user out after lockoutAfter of them, then answers the right
+// one 403, as it does for a disabled user.
 func (s *server) authenticate(w http.ResponseWriter, r *http.Request, _ caller) {
 	app := s.client(r)
 	if app["DeviceId"] == "" {
@@ -143,16 +144,12 @@ func (s *server) authenticate(w http.ResponseWriter, r *http.Request, _ caller) 
 	}
 	s.mu.Lock()
 	found, ok := s.userNamed(in.Username, nil)
-	if !ok || found.password != in.Pw {
+	if refusal, status := s.refusal(found, ok, in.Pw); status != 0 {
 		s.mu.Unlock()
-		w.WriteHeader(http.StatusUnauthorized)
+		http.Error(w, refusal, status)
 		return
 	}
-	if found.policy.IsDisabled {
-		s.mu.Unlock()
-		w.WriteHeader(map[Flavor]int{Jellyfin: http.StatusForbidden, Emby: http.StatusUnauthorized}[s.p.Flavor])
-		return
-	}
+	found.failures = 0
 	u := *found
 	for t, sess := range s.tokens {
 		if sess.device == app["DeviceId"] {
@@ -170,6 +167,33 @@ func (s *server) authenticate(w http.ResponseWriter, r *http.Request, _ caller) 
 			"DeviceName": app["Device"], "DeviceId": app["DeviceId"], "ApplicationVersion": app["Version"], "IsActive": true,
 		},
 	})
+}
+
+// lockoutAfter is how many wrong passwords in a row lock an Emby user
+// out: the online run of 2026-11-26 saw 10 do it.
+const lockoutAfter = 10
+
+// refusal is the reply to a sign-in as u, found when ok, with pw, and its
+// status: 0 when it signs in. The caller holds s.mu.
+func (s *server) refusal(u *user, ok bool, pw string) (reply string, status int) {
+	switch {
+	case !ok:
+		return "", http.StatusUnauthorized
+	case s.p.Flavor == Jellyfin && u.policy.IsDisabled:
+		return "Error processing request.", http.StatusForbidden
+	case u.password != pw:
+		u.failures++
+		if s.p.Flavor == Emby && u.failures >= lockoutAfter && u.policy.LockedOutDate == nil {
+			now := time.Now().UTC()
+			u.policy.LockedOutDate = &now
+		}
+		return "", http.StatusUnauthorized
+	case u.policy.IsDisabled:
+		return "Your account has been disabled. Please contact your server administrator for more information.", http.StatusForbidden
+	case u.policy.LockedOutDate != nil:
+		return "Your account has been temporarily locked out. Please try again later.", http.StatusForbidden
+	}
+	return "", 0
 }
 
 func (s *server) logout(w http.ResponseWriter, r *http.Request, _ caller) {

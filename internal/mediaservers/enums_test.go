@@ -29,7 +29,7 @@ func joined[S ~string](values []S) string {
 }
 
 var (
-	accesses = []link.Access{link.AccessPlexTV, link.AccessUsers, link.AccessUsersLinked}
+	accesses = []link.Access{link.AccessPlexTV, link.AccessUsers}
 	problems = []mediaservers.ProblemCode{
 		mediaservers.ProblemPlexRefused, mediaservers.ProblemPlexLibrariesShort, mediaservers.ProblemUsernameTaken,
 		mediaservers.ProblemServerRefused, mediaservers.ProblemMediaServerUnreached, mediaservers.ProblemFailed,
