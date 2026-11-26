@@ -47,7 +47,7 @@ type Target struct {
 	// Admin signs in as an administrator for the cases that need a user,
 	// nil when the target gives none.
 	Admin *Admin
-	Play  func(t *testing.T, p link.ServerPath, d link.Decision) (session Played, stop func())
+	Play  func(t *testing.T, p mediaservers.Played) (session Played, stop func())
 	// Fake runs the cases that need the fake's cues.
 	Fake          bool
 	Settle, Bound time.Duration
@@ -102,8 +102,19 @@ var _ mediaservers.Server = (*Server)(nil)
 
 // Exposed is the kind's own read, with the target's key.
 func (s *Server) Exposed(ctx context.Context) (link.Exposed, error) {
+	k, d := s.kind()
+	return k.Dial(d).Exposed(ctx)
+}
+
+// Sessions is the kind's own read, with the target's key.
+func (s *Server) Sessions(ctx context.Context) ([]link.Session, error) {
+	k, d := s.kind()
+	return mediaservers.Sessions(ctx, k, d)
+}
+
+func (s *Server) kind() (link.Kind, link.Dialed) {
 	k, _ := mediaserverlink.Kinds.Of(link.KindName(s.f.String()))
-	return k.Dial(link.Dialed{Address: s.tg.Address, Credential: link.Credential{APIKey: s.tg.Key}, DeviceID: App.DeviceID, HTTP: s.tg.HTTP}).Exposed(ctx)
+	return k, link.Dialed{Address: s.tg.Address, Credential: link.Credential{APIKey: s.tg.Key}, DeviceID: App.DeviceID, HTTP: s.tg.HTTP}
 }
 
 // Shared is tg as the shared cases take it, with its server and its
@@ -126,8 +137,8 @@ func Shared(t *testing.T, kind link.KindName, f jellyfin.Flavor, tg Target) (med
 	}
 	shared.Fresh, shared.Second = s.keyed(t, tg.Fresh), s.keyed(t, tg.Second)
 	if tg.Play != nil {
-		shared.Play = func(t *testing.T, p link.ServerPath, d link.Decision) func() {
-			played, stop := tg.Play(t, p, d)
+		shared.Play = func(t *testing.T, p mediaservers.Played) func() {
+			played, stop := tg.Play(t, p)
 			if f == jellyfin.Emby {
 				s.Report(t, played)
 			}
@@ -542,32 +553,6 @@ func (s *Server) Watched(ctx context.Context, item, name string) error {
 		return err
 	}
 	return s.collect(ctx, name, item)
-}
-
-var videoDecisions = map[bool]link.StreamDecision{true: link.StreamDirect, false: link.StreamTranscode}
-
-func (s *Server) Sessions(ctx context.Context) ([]link.Session, error) {
-	sessions, err := s.C.Sessions(ctx)
-	if err != nil {
-		return nil, err
-	}
-	var out []link.Session
-	for _, sess := range sessions {
-		if sess.NowPlayingItem == nil {
-			continue
-		}
-		ls := link.Session{Key: sess.ID, User: sess.UserName, Player: sess.DeviceName, Product: sess.Client,
-			Streams: link.Streams{Video: link.StreamDirect, Audio: link.StreamDirect, Subtitles: link.SubtitlesNone}}
-		if ls.Version.Path, err = link.ParsePath(sess.NowPlayingItem.Path); err != nil {
-			return nil, err
-		}
-		if ti := sess.TranscodingInfo; ti != nil && sess.PlayState != nil && sess.PlayState.PlayMethod == jellyfin.Transcode {
-			ls.Streams.Video, ls.Streams.ContainerChanged, ls.Reasons = videoDecisions[ti.IsVideoDirect], true, ti.TranscodeReasons
-			ls.Hardware = ti.VideoEncoderIsHardware || (ti.HardwareAccelerationType != "" && ti.HardwareAccelerationType != "none")
-		}
-		out = append(out, ls)
-	}
-	return out, nil
 }
 
 // SignIn signs in as the target's administrator with app, and answers a

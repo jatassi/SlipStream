@@ -53,7 +53,8 @@ func (p played) transcoding() string {
 func (w watched) play(t *testing.T) played {
 	t.Helper()
 	raw, err := json.Marshal(w.den.Cue(t, "jellyfin-play", map[string]any{
-		"path": clip, "user": "ada", "player": "Living room", "decision": link.DecisionTranscode, "reasons": []string{"ContainerNotSupported"},
+		"path": clip, "user": "ada", "player": "Living room", "playerKey": "living-room", "reasons": []string{"ContainerNotSupported"},
+		"video": link.StreamTranscode, "audio": link.StreamDirect, "subtitles": link.SubtitlesNone, "containerChanged": true,
 	}))
 	var p played
 	if err == nil {

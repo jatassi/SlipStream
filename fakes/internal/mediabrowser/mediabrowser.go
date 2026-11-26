@@ -67,6 +67,9 @@ type Server struct {
 	// records them.
 	Remote, IPv6 bool
 	Published    []string
+	// Streamed are the files whose streams the server reports from the
+	// start.
+	Streamed []serverfake.Streamed
 }
 
 // User is one server user. The first administrator owns the watch data a
@@ -96,9 +99,13 @@ func Captures(name string) (reports, scans, items, users fake.CaptureSpec) {
 }
 
 // Cues are a Product's cue specs: a playback, its stop, a restart, the
-// server's own scheduled scan, and a 500 on a route's next call.
+// server's own scheduled scan, a 500 on a route's next call, a file's
+// streams and files the server doesn't list.
 func Cues(name string) []fake.CueSpec {
-	return []fake.CueSpec{{Name: name + "-play"}, {Name: name + "-stop"}, {Name: name + "-restart"}, {Name: name + "-scan"}, {Name: name + "-fail-next"}}
+	return []fake.CueSpec{
+		{Name: name + "-play"}, {Name: name + "-stop"}, {Name: name + "-restart"}, {Name: name + "-scan"}, {Name: name + "-fail-next"},
+		{Name: name + "-streams"}, {Name: name + "-skip"},
+	}
 }
 
 // Report is a reports record's data: one POST /Library/Media/Updated.
@@ -166,6 +173,9 @@ func Serve(env fake.Env, p Product, srv *Server) (fake.Server, error) {
 	}
 	if srv != nil {
 		if s.core, err = newCore(env, p, srv); err != nil {
+			return nil, err
+		}
+		if err := serverfake.Streams(env, p.Name, s.core, srv.Streamed); err != nil {
 			return nil, err
 		}
 		s.keys = append(s.keys, srv.Keys...)
@@ -292,7 +302,7 @@ func ServeScenario(env fake.Env, p Product, s scenario.Scenario, versions []stri
 	srv := &Server{
 		Name: played.Name, Version: played.Version, ID: played.ID(32), Keys: []string{played.Key()},
 		Users: []User{{Name: serverfake.Admin, Password: serverfake.AdminPassword, Admin: true}}, Root: played.Root,
-		Remote: played.Remote, Published: played.Published,
+		Remote: played.Remote, Published: played.Published, Streamed: played.Streamed,
 	}
 	for _, u := range played.Users {
 		srv.Users = append(srv.Users, User{Name: u})

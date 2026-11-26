@@ -10,6 +10,7 @@ import (
 
 	conformance "github.com/jatassi/slipstream/conformance/jellyfin"
 	"github.com/jatassi/slipstream/fakes/fake/faketest"
+	"github.com/jatassi/slipstream/fakes/internal/serverfake"
 	"github.com/jatassi/slipstream/fakes/jellyfin"
 	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/internal/mediaserverlink/link"
@@ -89,11 +90,20 @@ func target(t *testing.T, f faketest.Served, settle, bound time.Duration) confor
 		Second:    &conformance.Library{Library: "Movies 4K", Folder: path(t, "/media/Movies 4K"), Disk: conformance.DirDisk{Dir: filepath.Join(f.Media, "Movies 4K")}},
 		FreshRoot: &conformance.Root{Folder: path(t, "/media/New"), Disk: conformance.DirDisk{Dir: filepath.Join(f.Media, "New")}},
 		Admin:     &conformance.Admin{User: "jackson", Password: "conformance-password"},
-		Play: func(t *testing.T, p link.ServerPath, d link.Decision) (conformance.Played, func()) {
-			played, _ := f.Cue(t, "jellyfin-play", jellyfin.Play{Path: p.String(), User: "jackson", Player: "Living Room", Decision: d}).(jellyfin.Played)
+		Play: func(t *testing.T, p conformance.Play) (conformance.Played, func()) {
+			played, _ := f.Cue(t, "jellyfin-play", cued(p)).(jellyfin.Played)
 			return conformance.Played{Session: played.Session, Item: played.Item}, func() { f.Cue(t, "jellyfin-stop", jellyfin.Stop{Session: played.Session}) }
 		},
 		Fake: true, Settle: settle, Bound: bound,
 		Log: slog.New(slog.NewTextHandler(t.Output(), nil)),
+	}
+}
+
+// cued is the play cue for p, by jackson on Living Room.
+func cued(p conformance.Play) jellyfin.Play {
+	return jellyfin.Play{
+		Path: p.Path.String(), Version: p.Version.String(), User: "jackson", Player: "Living Room", PlayerKey: p.PlayerKey, Platform: p.Platform,
+		Video: p.Streams.Video, Audio: p.Streams.Audio, Subtitles: p.Streams.Subtitles, ContainerChanged: p.Streams.ContainerChanged,
+		AudioTrack: serverfake.Track(p.Audio), SubtitleTrack: serverfake.Track(p.Subtitle), Reasons: p.Reasons,
 	}
 }

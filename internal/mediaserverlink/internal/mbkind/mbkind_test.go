@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"net/http"
 	"net/url"
 	"os"
@@ -600,10 +601,10 @@ type played struct{ Session, Item string }
 func (w *world) play(d link.Decision) played {
 	w.t.Helper()
 	var p played
-	raw, err := json.Marshal(w.f.Cue(w.t, string(w.p.kind.About().Name)+"-play", map[string]any{
-		"path": w.at(metropolis).String(), "user": "jackson", "player": "Living room",
-		"decision": d, "reasons": reasonsFor(d), "hardware": d == link.DecisionTranscode,
-	}))
+	raw, err := json.Marshal(w.f.Cue(w.t, string(w.p.kind.About().Name)+"-play", cue(d, map[string]any{
+		"path": w.at(metropolis).String(), "user": "jackson", "player": "Living room", "playerKey": "living-room",
+		"reasons": reasonsFor(d), "hardware": d == link.DecisionTranscode,
+	})))
 	if err == nil {
 		err = json.Unmarshal(raw, &p)
 	}
@@ -612,6 +613,18 @@ func (w *world) play(d link.Decision) played {
 	}
 	synctest.Wait()
 	return p
+}
+
+// streamsOf are the streams a play cue plays for each decision.
+var streamsOf = map[link.Decision]map[string]any{
+	link.DecisionDirectPlay:   {"video": link.StreamDirect, "audio": link.StreamDirect, "subtitles": link.SubtitlesNone},
+	link.DecisionDirectStream: {"video": link.StreamDirect, "audio": link.StreamDirect, "subtitles": link.SubtitlesNone, "containerChanged": true},
+	link.DecisionTranscode:    {"video": link.StreamTranscode, "audio": link.StreamDirect, "subtitles": link.SubtitlesNone, "containerChanged": true},
+}
+
+func cue(d link.Decision, args map[string]any) map[string]any {
+	maps.Copy(args, streamsOf[d])
+	return args
 }
 
 func reasonsFor(d link.Decision) []string {

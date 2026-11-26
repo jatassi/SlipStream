@@ -218,7 +218,7 @@ func Shared(t *testing.T, tg Target) {
 		{"Identity", Identity}, {"LibrariesAndFolders", LibrariesAndFolders}, {"AddedShowsUp", AddedShowsUp},
 		{"ReplacedKeepsItem", ReplacedKeepsItem}, {"RemovedLeaves", RemovedLeaves}, {"FreshFolderNeedsScan", FreshFolderNeedsScan},
 		{"ScanEndSignal", ScanEndSignal}, {"CarryKeepsWatchData", CarryKeepsWatchData}, {"SidecarRemoved", SidecarRemoved},
-		{"Sessions", Sessions}, {"CopyMovedLands", CopyMovedLands}, {"Exposed", Exposed},
+		{"Sessions", ReadsDecisions}, {"CopyMovedLands", CopyMovedLands}, {"Exposed", Exposed},
 	} {
 		cases = append(cases, Case{Name: c.name, Run: func(t *testing.T) { c.run(t, tg) }})
 	}
@@ -396,34 +396,6 @@ func SidecarRemoved(t *testing.T, tg Target) {
 		it, ok, err := tg.Server.ItemAt(t.Context(), tg.Library, f.At(video))
 		return ok && it.Sidecars == 0, err
 	})
-}
-
-func Sessions(t *testing.T, tg Target) {
-	if tg.Play == nil {
-		Skip(t, "a real server's sessions need a player")
-	}
-	f := tg.Case(t)
-	defer f.Clear()
-	r := Rel(t, "Playing", ".mkv")
-	f.Place(r)
-	f.Tell(r)
-	f.Found(r)
-	for _, d := range link.Decisions() {
-		stop := tg.Play(t, f.At(r), d)
-		sessions, err := tg.Server.Sessions(t.Context())
-		if err != nil {
-			t.Fatal(err)
-		}
-		i := slices.IndexFunc(sessions, func(s link.Session) bool { return s.Version.Path.Key() == f.At(r).Key() })
-		if i < 0 || sessions[i].Streams.Decision() != d {
-			t.Fatalf("playing %s as %s, the sessions are %+v", f.At(r), d, sessions)
-		}
-		stop()
-		Eventually(t, tg, "the session's end", func() (bool, error) {
-			sessions, err := tg.Server.Sessions(t.Context())
-			return !slices.ContainsFunc(sessions, func(s link.Session) bool { return s.Version.Path.Key() == f.At(r).Key() }), err
-		})
-	}
 }
 
 // Exposed is what S51 (Reachability diagnostic) reads of a server: once a

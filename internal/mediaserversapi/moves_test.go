@@ -199,7 +199,10 @@ func TestAMoveToAnotherRootKeepsEveryUsersWatchData(t *testing.T) {
 func TestPlayingReadsAPlayByItsPathAndNotOnAServerAway(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		m := newMoving(t, "jellyfin", true, p+"Trip/Trip.mkv")
-		m.den.Cue(t, "jellyfin-play", map[string]any{"path": p + "Trip/Trip.mkv", "user": "ada", "player": "Living room", "decision": link.DecisionDirectPlay})
+		m.den.Cue(t, "jellyfin-play", map[string]any{
+			"path": p + "Trip/Trip.mkv", "user": "ada", "player": "Living room", "playerKey": "living-room",
+			"video": link.StreamDirect, "audio": link.StreamDirect, "subtitles": link.SubtitlesNone,
+		})
 		settle(every)
 		trip := m.w.Place(m.root, mustRel(t, "Trip/Trip.mkv"))
 		playing := func() map[files.ID][]link.ServerID {
@@ -239,7 +242,10 @@ func TestASnapshotAPlayFollowsIsStale(t *testing.T) {
 		if got := m.snapshotted(t, trip); !got[m.server(t)] {
 			t.Fatalf("Snapshotted after PrepareMove = %v", got)
 		}
-		m.den.Cue(t, "jellyfin-play", map[string]any{"path": p + "Trip/Trip.mkv", "user": "ada", "player": "Living room", "decision": link.DecisionDirectPlay})
+		m.den.Cue(t, "jellyfin-play", map[string]any{
+			"path": p + "Trip/Trip.mkv", "user": "ada", "player": "Living room", "playerKey": "living-room",
+			"video": link.StreamDirect, "audio": link.StreamDirect, "subtitles": link.SubtitlesNone,
+		})
 		settle(every)
 		if got := m.snapshotted(t, trip); got[m.server(t)] {
 			t.Errorf("Snapshotted after a play = %v, want stale", got)

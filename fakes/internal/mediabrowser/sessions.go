@@ -14,6 +14,7 @@ import (
 
 	"github.com/jatassi/slipstream/fakes/fake"
 	"github.com/jatassi/slipstream/fakes/internal/mediaserver"
+	"github.com/jatassi/slipstream/fakes/internal/serverfake"
 	"github.com/jatassi/slipstream/internal/mediaserverlink/link"
 )
 
@@ -37,17 +38,18 @@ func (s *server) renderSession(sess mediaserver.Session) map[string]any {
 	}
 	s.mu.Unlock()
 	item := s.renderItem(sess.Item, sess.User)
+	d := sess.Streams.Decision()
 	m := map[string]any{
-		"Id": sess.Key, "UserId": sess.User, "UserName": name, "Client": either(sess.Product, s.p.ProductName+" Web"),
-		"DeviceName": sess.Player, "DeviceId": "fake-player-" + sess.Key, "RemoteEndPoint": "192.168.1.30", "IsActive": true,
+		"Id": sess.Key, "UserId": sess.User, "UserName": name, "Client": either(sess.Player.Product, s.p.ProductName+" Web"),
+		"DeviceName": sess.Player.Name, "DeviceId": "fake-player-" + sess.Key, "RemoteEndPoint": "192.168.1.30", "IsActive": true,
 		"NowPlayingItem": item,
-		"PlayState":      map[string]any{"PlayMethod": playMethods[sess.Decision], "PositionTicks": 0, "MediaSourceId": id("source " + sess.Path.String())},
+		"PlayState":      map[string]any{"PlayMethod": playMethods[d], "PositionTicks": 0, "MediaSourceId": id("source " + sess.Path.String())},
 	}
-	if sess.Decision == link.DecisionDirectPlay || (s.p.Flavor == Emby && sess.Unreported) {
+	if d == link.DecisionDirectPlay || (s.p.Flavor == Emby && sess.Unreported) {
 		return m
 	}
 	t := map[string]any{
-		"IsVideoDirect": sess.Decision == link.DecisionDirectStream, "IsAudioDirect": false, "VideoCodec": "h264", "AudioCodec": "aac",
+		"IsVideoDirect": d == link.DecisionDirectStream, "IsAudioDirect": false, "VideoCodec": "h264", "AudioCodec": "aac",
 		"TranscodeReasons": nonNilStrings(sess.Reasons),
 	}
 	if sess.Hardware {
@@ -259,18 +261,10 @@ func (p *push) event(ctx context.Context, e mediaserver.Event) bool {
 	return true
 }
 
-// Play is a play cue's arguments: a session on the file at Path, as the
-// server stores it, by the user named User. On Emby its transcode shows
-// only once the player reports its playback.
-type Play struct {
-	Path     string        `json:"path"`
-	User     string        `json:"user"`
-	Player   string        `json:"player"`
-	Product  string        `json:"product,omitempty"`
-	Decision link.Decision `json:"decision"`
-	Reasons  []string      `json:"reasons,omitempty"`
-	Hardware bool          `json:"hardware,omitempty"`
-}
+// Play is a play cue's arguments, by the user named User. On Emby a
+// play is unreported by default: its transcode shows only once the player
+// reports its playback.
+type Play = serverfake.Play
 
 // Played is a play cue's result: the session's Id, the PlaySessionId a
 // player reports with.
@@ -286,23 +280,17 @@ type Stop struct {
 func (s *server) cues(routes fake.Routes) error {
 	n := s.p.Name
 	if err := fake.OnCue(s.env, n+"-play", func(_ context.Context, a Play) (any, error) {
-		p, err := link.ParsePath(a.Path)
-		if err != nil {
-			return nil, err
-		}
-		if _, err := link.ParseDecision(string(a.Decision)); err != nil {
-			return nil, err
-		}
 		s.mu.Lock()
 		u, ok := s.userNamed(a.User, nil)
 		s.mu.Unlock()
 		if !ok {
 			return nil, fmt.Errorf("%s has no user %s", s.srv.Name, a.User)
 		}
-		sess, err := s.core.Start(mediaserver.Play{
-			Path: p, User: u.id, Player: a.Player, Product: a.Product, Decision: a.Decision, Reasons: a.Reasons,
-			Hardware: a.Hardware, Unreported: s.p.Flavor == Emby,
-		})
+		p, err := a.Core(u.id, s.p.Flavor == Emby)
+		if err != nil {
+			return nil, err
+		}
+		sess, err := s.core.Start(p)
 		if err != nil {
 			return nil, err
 		}
