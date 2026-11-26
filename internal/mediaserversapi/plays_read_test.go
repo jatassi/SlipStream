@@ -204,13 +204,13 @@ type nowPlaying struct {
 	Sessions []struct{ PlayID, WorkID string }
 }
 
-// TestPlaysAndSessionsRefuseAMember has a Member read Den's plays and Now
-// playing.
-func TestPlaysAndSessionsRefuseAMember(t *testing.T) {
+// TestPlaybackPlaysAndSessionsRefuseAMember has a Member read Den's
+// Playback report, plays and Now playing.
+func TestPlaybackPlaysAndSessionsRefuseAMember(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		w := newWatched(t)
 		sam := w.w.Member(t, "sam")
-		for _, route := range []string{"/plays", "/sessions"} {
+		for _, route := range []string{"/playback", "/plays", "/sessions"} {
 			if status, body := w.o.CallAs(t, http.MethodGet, servers+"/"+w.id+route, "", sam.Session); status != http.StatusForbidden {
 				t.Errorf("a Member's GET %s = %d %s, want 403", route, status, body)
 			}

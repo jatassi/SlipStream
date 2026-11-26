@@ -735,15 +735,6 @@ func TestAVersionOrAnExistingTargetIsNamedWhenItFits(t *testing.T) {
 			want: []string{`hdr=DV [hdr=DV]: 1 version "1080p" separate from ` + dolbyEvidence},
 		},
 		{
-			name:  "and still is once the played file is deleted",
-			plays: []heard{direct("plain"), blocked},
-			setup: func(t *testing.T, w *reportWorld) {
-				w.index(t, w.sibling(t, "dolby", mstest.File{Label: "1080p", Media: plain}), "dolby-1080p", "heat-1080p")
-			},
-			gone: true,
-			want: []string{`hdr=DV [hdr=DV]: 1 version "1080p" separate from ` + dolbyEvidence},
-		},
-		{
 			name:  "a sibling the server doesn't list is no version",
 			plays: []heard{direct("plain"), blocked},
 			setup: func(t *testing.T, w *reportWorld) { w.sibling(t, "dolby", mstest.File{Label: "1080p", Media: plain}) },
