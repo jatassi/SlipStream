@@ -183,14 +183,14 @@ func (s *server) refusal(u *user, ok bool, pw string) (reply string, status int)
 		return "Error processing request.", http.StatusForbidden
 	case u.password != pw:
 		u.failures++
-		if s.p.Flavor == Emby && u.failures >= lockoutAfter && u.policy.LockedOutDate == nil {
-			now := time.Now().UTC()
-			u.policy.LockedOutDate = &now
+		if s.p.Flavor == Emby && u.failures >= lockoutAfter && !u.policy.lockedOut() {
+			at := time.Now().UnixMilli()
+			u.policy.LockedOutDate = &at
 		}
 		return "", http.StatusUnauthorized
 	case u.policy.IsDisabled:
 		return "Your account has been disabled. Please contact your server administrator for more information.", http.StatusForbidden
-	case u.policy.LockedOutDate != nil:
+	case u.policy.lockedOut():
 		return "Your account has been temporarily locked out. Please try again later.", http.StatusForbidden
 	}
 	return "", 0

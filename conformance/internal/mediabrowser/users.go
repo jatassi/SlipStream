@@ -345,16 +345,18 @@ func (s *Server) UserDeletedTwice(t *testing.T) {
 	}
 }
 
-// lockedOut is whether p names when Emby locked the user out.
+// lockedOut is whether p names when Emby locked the user out. Emby 4.10
+// sends LockedOutDate as Unix milliseconds, 0 while the user isn't
+// locked (online run 2026-11-26).
 func lockedOut(t *testing.T, p jellyfin.Policy) bool {
 	t.Helper()
-	var at *time.Time
+	var ms int64
 	if raw, ok := p["LockedOutDate"]; ok {
-		if err := json.Unmarshal(raw, &at); err != nil {
+		if err := json.Unmarshal(raw, &ms); err != nil {
 			t.Fatal(err)
 		}
 	}
-	return at != nil && !at.IsZero()
+	return ms > 0
 }
 
 // FailedSignInsLock signs in with a wrong password until the user is
