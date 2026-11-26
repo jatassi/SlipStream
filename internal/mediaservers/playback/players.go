@@ -17,13 +17,20 @@ type playerPlays struct {
 func playersOf(ps []Play) []playerPlays {
 	var out []playerPlays
 	at := map[string]int{}
+	var n []int
 	for _, p := range ps {
-		i, ok := at[p.PlayerKey]
-		if !ok {
-			i = len(out)
-			at[p.PlayerKey] = i
+		if _, ok := at[p.PlayerKey]; !ok {
+			at[p.PlayerKey] = len(out)
 			out = append(out, playerPlays{key: p.PlayerKey})
+			n = append(n, 0)
 		}
+		n[at[p.PlayerKey]]++
+	}
+	for i := range out {
+		out[i].plays = make([]Play, 0, n[i])
+	}
+	for _, p := range ps {
+		i := at[p.PlayerKey]
 		out[i].plays = append(out[i].plays, p)
 	}
 	return out

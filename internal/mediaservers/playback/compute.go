@@ -1,7 +1,7 @@
 package playback
 
 import (
-	"slices"
+	"sync"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/files"
@@ -32,13 +32,13 @@ type Play struct {
 	// ItemKey is the item the server played, frozen at play time.
 	ItemKey                              string
 	PlayerKey, Player, Platform, Product string
-	User                                 string
 	Decision                             link.Decision
 	Streams                              link.Streams
-	Reasons                              []string
-	Received                             link.Received
-	Snapshot                             *Snapshot
-	Started, LastSeen                    time.Time
+	// Reasons and Received are read for a transcode only.
+	Reasons           []string
+	Received          link.Received
+	Snapshot          *Snapshot
+	Started, LastSeen time.Time
 }
 
 // judgedPlay is a transcoded play with a snapshot, its blocking
@@ -49,39 +49,52 @@ type judgedPlay struct {
 	outcome Outcome
 }
 
-// Compute is the Playback report of in's plays.
+// Compute is the Playback report of in's plays. Each player's plays
+// prove and judge only that player's, so players are judged concurrently.
 func Compute(in Input) Report {
+	pls := playersOf(in.Plays)
 	rep := Report{
 		Since: in.Window.Since, Window: int64(in.Window.Keep / time.Second), Reachable: in.Reachable,
-		Plex: in.Kind == "plex", Players: []Player{},
+		Plex: in.Kind == "plex", Players: make([]Player, len(pls)),
 	}
-	for _, pl := range playersOf(in.Plays) {
-		pr := prove(pl.plays)
-		var judged []judgedPlay
-		for _, p := range pl.plays {
-			if p.Decision != link.DecisionTranscode || p.Snapshot == nil {
-				continue
-			}
-			dims := blocking(p, pr)
-			judged = append(judged, judgedPlay{play: p, dims: dims, outcome: outcomeOf(in, p, dims, pr)})
-		}
-		player := pl.view()
-		player.Groups = groupsOf(judged)
-		rep.Plays += player.Plays
-		rep.Transcoded += player.Transcoded
-		rep.Unmatched += player.Unmatched
-		rep.Players = append(rep.Players, player)
+	var wg sync.WaitGroup
+	for i, pl := range pls {
+		wg.Go(func() { rep.Players[i] = pl.judge(in) })
+	}
+	wg.Wait()
+	for _, p := range rep.Players {
+		rep.Plays += p.Plays
+		rep.Transcoded += p.Transcoded
+		rep.Unmatched += p.Unmatched
 	}
 	sortWorstFirst(rep.Players)
 	return rep
 }
 
+// judge is the player with its transcodes grouped by what blocked them.
+func (pl playerPlays) judge(in Input) Player {
+	pr := prove(pl.plays)
+	var judged []judgedPlay
+	for _, p := range pl.plays {
+		if p.Decision != link.DecisionTranscode || p.Snapshot == nil {
+			continue
+		}
+		dims := blocking(p, pr)
+		judged = append(judged, judgedPlay{play: p, dims: dims, outcome: outcomeOf(in, p, dims, pr)})
+	}
+	player := pl.view()
+	player.Groups = groupsOf(judged)
+	return player
+}
+
 // ItemsToJudge is the Items of the transcoded plays with a snapshot,
 // whose files a version could be.
 func ItemsToJudge(ps []Play) []works.ItemID {
+	seen := map[works.ItemID]bool{}
 	var out []works.ItemID
 	for _, p := range ps {
-		if p.Decision == link.DecisionTranscode && p.Snapshot != nil && !slices.Contains(out, p.Snapshot.Item) {
+		if p.Decision == link.DecisionTranscode && p.Snapshot != nil && !seen[p.Snapshot.Item] {
+			seen[p.Snapshot.Item] = true
 			out = append(out, p.Snapshot.Item)
 		}
 	}
@@ -90,9 +103,11 @@ func ItemsToJudge(ps []Play) []works.ItemID {
 
 // WorksOf is the Works of the plays' snapshots and of the siblings.
 func WorksOf(ps []Play, s Siblings) []works.WorkID {
+	seen := map[works.WorkID]bool{}
 	var out []works.WorkID
 	add := func(w works.WorkID) {
-		if !slices.Contains(out, w) {
+		if !seen[w] {
+			seen[w] = true
 			out = append(out, w)
 		}
 	}

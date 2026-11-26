@@ -67,10 +67,14 @@ func prove(plays []Play) Proofs {
 // proven is the newest play proving f: the value itself, or for an
 // ordered kind any higher one.
 func (pr Proofs) proven(f Fact) (Play, bool) {
+	if !ordered(f.Kind) {
+		p, ok := pr.byKind[f.Kind][f.Text]
+		return p.play, ok
+	}
 	var newest Play
 	found := false
 	for text, p := range pr.byKind[f.Kind] {
-		if text != f.Text && (!ordered(f.Kind) || p.rank < f.Rank) {
+		if text != f.Text && p.rank < f.Rank {
 			continue
 		}
 		if !found || newer(p.play, newest) {

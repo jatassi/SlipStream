@@ -298,6 +298,77 @@ func (q *Queries) ListOpenPlays(ctx context.Context, serverID link.ServerID) ([]
 	return items, nil
 }
 
+const listPlayerPlaysPage = `-- name: ListPlayerPlaysPage :many
+SELECT server_id, id, session_key, server_path, path_key, item_key, player_key, player, platform, product, user_name, decision, video, audio, subtitles, hardware, reasons, received, audio_track, subtitle_track, file_id, snapshot, started_at, last_seen_at, ended_at FROM mediaservers_play
+WHERE server_id = ?1 AND player_key = ?2
+    AND (started_at < ?3 OR (started_at = ?3 AND id < ?4))
+ORDER BY started_at DESC, id DESC
+LIMIT ?5
+`
+
+type ListPlayerPlaysPageParams struct {
+	ServerID link.ServerID
+	Player   string
+	BeforeAt storage.Time
+	BeforeID link.PlayID
+	N        int64
+}
+
+func (q *Queries) ListPlayerPlaysPage(ctx context.Context, arg ListPlayerPlaysPageParams) ([]MediaserversPlay, error) {
+	rows, err := q.db.QueryContext(ctx, listPlayerPlaysPage,
+		arg.ServerID,
+		arg.Player,
+		arg.BeforeAt,
+		arg.BeforeID,
+		arg.N,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []MediaserversPlay
+	for rows.Next() {
+		var i MediaserversPlay
+		if err := rows.Scan(
+			&i.ServerID,
+			&i.ID,
+			&i.SessionKey,
+			&i.ServerPath,
+			&i.PathKey,
+			&i.ItemKey,
+			&i.PlayerKey,
+			&i.Player,
+			&i.Platform,
+			&i.Product,
+			&i.UserName,
+			&i.Decision,
+			&i.Video,
+			&i.Audio,
+			&i.Subtitles,
+			&i.Hardware,
+			&i.Reasons,
+			&i.Received,
+			&i.AudioTrack,
+			&i.SubtitleTrack,
+			&i.FileID,
+			&i.Snapshot,
+			&i.StartedAt,
+			&i.LastSeenAt,
+			&i.EndedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listPlays = `-- name: ListPlays :many
 SELECT server_id, id, session_key, server_path, path_key, item_key, player_key, player, platform, product, user_name, decision, video, audio, subtitles, hardware, reasons, received, audio_track, subtitle_track, file_id, snapshot, started_at, last_seen_at, ended_at FROM mediaservers_play
 WHERE server_id = ?1
@@ -356,15 +427,13 @@ func (q *Queries) ListPlays(ctx context.Context, serverID link.ServerID) ([]Medi
 const listPlaysPage = `-- name: ListPlaysPage :many
 SELECT server_id, id, session_key, server_path, path_key, item_key, player_key, player, platform, product, user_name, decision, video, audio, subtitles, hardware, reasons, received, audio_track, subtitle_track, file_id, snapshot, started_at, last_seen_at, ended_at FROM mediaservers_play
 WHERE server_id = ?1
-    AND (CAST(?2 AS TEXT) = '' OR player_key = ?2)
-    AND (started_at < ?3 OR (started_at = ?3 AND id < ?4))
+    AND (started_at < ?2 OR (started_at = ?2 AND id < ?3))
 ORDER BY started_at DESC, id DESC
-LIMIT ?5
+LIMIT ?4
 `
 
 type ListPlaysPageParams struct {
 	ServerID link.ServerID
-	Player   string
 	BeforeAt storage.Time
 	BeforeID link.PlayID
 	N        int64
@@ -373,7 +442,6 @@ type ListPlaysPageParams struct {
 func (q *Queries) ListPlaysPage(ctx context.Context, arg ListPlaysPageParams) ([]MediaserversPlay, error) {
 	rows, err := q.db.QueryContext(ctx, listPlaysPage,
 		arg.ServerID,
-		arg.Player,
 		arg.BeforeAt,
 		arg.BeforeID,
 		arg.N,
@@ -426,7 +494,10 @@ func (q *Queries) ListPlaysPage(ctx context.Context, arg ListPlaysPageParams) ([
 }
 
 const listPlaysSince = `-- name: ListPlaysSince :many
-SELECT server_id, id, session_key, server_path, path_key, item_key, player_key, player, platform, product, user_name, decision, video, audio, subtitles, hardware, reasons, received, audio_track, subtitle_track, file_id, snapshot, started_at, last_seen_at, ended_at FROM mediaservers_play
+SELECT id, file_id, item_key, player_key, player, platform, product, decision, video, audio, subtitles,
+    reasons, CAST(received AS TEXT) AS received_json, CAST(coalesce(snapshot, '') AS TEXT) AS snapshot_json,
+    started_at, last_seen_at
+FROM mediaservers_play
 WHERE server_id = ?1 AND started_at >= ?2
 ORDER BY started_at, id
 `
@@ -436,41 +507,51 @@ type ListPlaysSinceParams struct {
 	Since    storage.Time
 }
 
-func (q *Queries) ListPlaysSince(ctx context.Context, arg ListPlaysSinceParams) ([]MediaserversPlay, error) {
+type ListPlaysSinceRow struct {
+	ID           link.PlayID
+	FileID       files.ID
+	ItemKey      string
+	PlayerKey    string
+	Player       string
+	Platform     string
+	Product      string
+	Decision     link.Decision
+	Video        link.StreamDecision
+	Audio        link.StreamDecision
+	Subtitles    link.SubtitleDecision
+	Reasons      string
+	ReceivedJson string
+	SnapshotJson string
+	StartedAt    storage.Time
+	LastSeenAt   storage.Time
+}
+
+func (q *Queries) ListPlaysSince(ctx context.Context, arg ListPlaysSinceParams) ([]ListPlaysSinceRow, error) {
 	rows, err := q.db.QueryContext(ctx, listPlaysSince, arg.ServerID, arg.Since)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []MediaserversPlay
+	var items []ListPlaysSinceRow
 	for rows.Next() {
-		var i MediaserversPlay
+		var i ListPlaysSinceRow
 		if err := rows.Scan(
-			&i.ServerID,
 			&i.ID,
-			&i.SessionKey,
-			&i.ServerPath,
-			&i.PathKey,
+			&i.FileID,
 			&i.ItemKey,
 			&i.PlayerKey,
 			&i.Player,
 			&i.Platform,
 			&i.Product,
-			&i.UserName,
 			&i.Decision,
 			&i.Video,
 			&i.Audio,
 			&i.Subtitles,
-			&i.Hardware,
 			&i.Reasons,
-			&i.Received,
-			&i.AudioTrack,
-			&i.SubtitleTrack,
-			&i.FileID,
-			&i.Snapshot,
+			&i.ReceivedJson,
+			&i.SnapshotJson,
 			&i.StartedAt,
 			&i.LastSeenAt,
-			&i.EndedAt,
 		); err != nil {
 			return nil, err
 		}

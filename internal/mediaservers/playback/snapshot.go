@@ -5,6 +5,7 @@ package playback
 import (
 	"database/sql/driver"
 	"encoding/json"
+	jsonv2 "encoding/json/v2"
 	"fmt"
 	"slices"
 
@@ -33,7 +34,7 @@ func (s *Snapshot) Scan(src any) error {
 	default:
 		return fmt.Errorf("read a play's snapshot from %T", src)
 	}
-	if err := json.Unmarshal(b, s); err != nil {
+	if err := jsonv2.Unmarshal(b, s); err != nil {
 		return fmt.Errorf("read a play's snapshot: %w", err)
 	}
 	return nil
