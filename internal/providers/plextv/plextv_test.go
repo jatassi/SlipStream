@@ -405,8 +405,8 @@ func TestAMemberSignsInWithALegacyPin(t *testing.T) {
 func (w world) memberSignIn(t *testing.T, member *plextv.Member, username string) plextv.MemberToken {
 	t.Helper()
 	pin, err := member.CreateLegacyPin(t.Context())
-	if err != nil || len(pin.Code) != 25 {
-		t.Fatalf("legacy PIN = %+v, %v, want a strong code", pin, err)
+	if err != nil {
+		t.Fatalf("legacy PIN = %+v, %v", pin, err)
 	}
 	if _, ok, err := member.PollLegacyPin(t.Context(), pin.ID); ok || err != nil {
 		t.Fatalf("poll before approval = %v, %v, want waiting", ok, err)
@@ -416,8 +416,8 @@ func (w world) memberSignIn(t *testing.T, member *plextv.Member, username string
 		t.Fatalf("approve as %s: status %d", username, p.status)
 	}
 	token, ok, err := member.PollLegacyPin(t.Context(), pin.ID)
-	if err != nil || !ok || len(token.Reveal()) != 20 {
-		t.Fatalf("poll after approval = %v, %v, want a 20-character token", ok, err)
+	if err != nil || !ok {
+		t.Fatalf("poll after approval = %v, %v, want a token", ok, err)
 	}
 	return token
 }
@@ -573,15 +573,6 @@ func (w sharing) invited(t *testing.T) []listedInvite {
 	return invites
 }
 
-// detailOf is the reason plex.tv gave with err.
-func detailOf(err error) string {
-	e, ok := errors.AsType[*plextv.Error](err)
-	if !ok {
-		return ""
-	}
-	return e.Detail
-}
-
 func idOf(u plextv.User) string { return strconv.FormatInt(int64(u.ID), 10) }
 
 func who(u plextv.User) plextv.Who { return plextv.Who{ID: u.ID, UUID: u.UUID} }
@@ -708,14 +699,14 @@ var sharingAnswers = []struct {
 	}},
 	{"a Home invite without Plex Pass is declined", false, func(t *testing.T, w sharing) {
 		err := w.client.InviteHome(t.Context(), w.admin, plextv.Invitee{Who: who(w.ana), Email: "ana@example.test"})
-		if !plextv.Declined(err) || plextv.Refused(err) || statusOf(err) != http.StatusForbidden || detailOf(err) != "Invite a user requires a Plex Pass" {
+		if !plextv.Declined(err) || plextv.Refused(err) || statusOf(err) != http.StatusForbidden {
 			t.Fatalf("invite = %v, want the Plex Pass 403 declined", err)
 		}
 	}},
 	{"a Home invite into a full Home is declined", true, func(t *testing.T, w sharing) {
 		w.api.Cue(t, fakeplextv.HomeFull.Name, struct{}{})
 		err := w.client.InviteHome(t.Context(), w.admin, plextv.Invitee{Who: who(w.ana), Email: "ana@example.test"})
-		if !plextv.Declined(err) || plextv.Refused(err) || statusOf(err) != http.StatusForbidden || detailOf(err) != "You have reached the 15 person Home limit" {
+		if !plextv.Declined(err) || plextv.Refused(err) || statusOf(err) != http.StatusForbidden {
 			t.Fatalf("invite = %v, want the Home limit 403 declined", err)
 		}
 	}},

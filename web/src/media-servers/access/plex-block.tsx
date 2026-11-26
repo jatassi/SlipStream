@@ -122,14 +122,14 @@ export function PlexWaiting({ row, mine }: BlockProps) {
     <>
       {mine.mailSetUp ? (
         <p>
-          Signed in to Plex as {username}. {row.adminName} shares {row.server.name} with you next,
-          and SlipStream emails you when you can watch. You may also get an email from Plex, and you
-          don&apos;t need to do anything with it.
+          You&apos;re signed in to Plex as {username}. {row.adminName} shares {row.server.name} with
+          you next, and SlipStream emails you when you can watch. You may also get an email from
+          Plex, and you don&apos;t need to do anything with it.
         </p>
       ) : (
         <p>
-          Signed in to Plex as {username}. Tell {row.adminName} you signed in to Plex. SlipStream
-          can&apos;t email them.
+          You&apos;re signed in to Plex as {username}. SlipStream can&apos;t email {row.adminName}.
+          Tell them you signed in to Plex.
         </p>
       )}
       {another.error !== null && (

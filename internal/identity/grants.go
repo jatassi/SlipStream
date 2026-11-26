@@ -65,7 +65,7 @@ type Granter interface {
 
 // NotGrantableError is a grant its owner refuses.
 type NotGrantableError struct {
-	// Name is the server's, for the problem detail.
+	// Name is the server's, for the problem detail, and empty for Gone.
 	Name string
 	Why  NotGrantable
 }
@@ -73,15 +73,21 @@ type NotGrantableError struct {
 type NotGrantable uint8
 
 const (
-	// NotShown is a server that is gone or not shown to Members.
+	// NotShown is a server not shown to Members.
 	NotShown NotGrantable = iota + 1
 	// NotPlexWay is Plex Home asked of a server that isn't Plex.
 	NotPlexWay
+	// Gone is a server that was removed.
+	Gone
 )
 
 func (e *NotGrantableError) Error() string {
-	if e.Why == NotPlexWay {
+	switch e.Why {
+	case NotShown:
+	case NotPlexWay:
 		return e.Name + " isn't a Plex server and has no Plex Home"
+	case Gone:
+		return "a Media Server on the link was removed"
 	}
 	return e.Name + " isn't shown to Members"
 }
@@ -105,7 +111,7 @@ func (NoGrants) CheckGrants(_ context.Context, _ storage.Reader[file], g Grants)
 	if g.Empty() {
 		return nil
 	}
-	return &NotGrantableError{Name: g.MediaServers[0].Server.String(), Why: NotShown}
+	return &NotGrantableError{Why: Gone}
 }
 
 func (NoGrants) Describe(context.Context, storage.Reader[file], Grants) (Described, error) {

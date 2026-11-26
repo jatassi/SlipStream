@@ -56,8 +56,12 @@ var errorCodes = []struct {
 // in its Op the codes it may produce.
 func answer(err error) error {
 	if e, ok := errors.AsType[*identity.NotGrantableError](err); ok {
-		if e.Why == identity.NotPlexWay {
+		switch e.Why {
+		case identity.NotShown:
+		case identity.NotPlexWay:
 			return plexHomeNotPlex.Because(e.Name + " isn't a Plex server, so it has no Plex Home. Offer it without Plex Home.")
+		case identity.Gone:
+			return notShownToMembers.Because("A Media Server on this link was removed. Reload the page and pick the servers again.")
 		}
 		return notShownToMembers.Because(e.Name + " isn't shown to Members. Turn on Show to Members on its page first.")
 	}

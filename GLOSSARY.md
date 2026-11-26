@@ -103,7 +103,7 @@ _Avoid_: Available (for an Item or cell), complete
 
 **Needs you**:
 The list of what only a person can resolve, such as failed cells, upgrades available, pending and Delayed Requests, and jobs left waiting, each with its cause and recovery. Accounts has its own, which lists Members waiting for a Media Server share and Media Server access SlipStream couldn't remove.
-_In UI_: The page name "Needs you" only. A sentence names the problem or says "needs attention".
+_In UI_: The page name "Needs you", and the Accounts section of that name. A sentence names the problem or says "needs attention".
 _Avoid_: Alerts, attention, inbox
 
 **Monitoring preset**:

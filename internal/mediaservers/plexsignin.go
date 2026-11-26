@@ -310,7 +310,7 @@ func (m *MediaServers) toAddMail(ctx context.Context, u plextv.User, rows []acce
 	}
 	admins, err := m.cfg.Admins(ctx)
 	if err != nil {
-		m.cfg.Log.Error("couldn't read the Admins to email a Member's Plex account", "err", err.Error())
+		m.cfg.Log.Error("couldn't read the Admins to email them a Member's Plex account", "err", err.Error())
 		return
 	}
 	var address identity.Address
@@ -319,7 +319,7 @@ func (m *MediaServers) toAddMail(ctx context.Context, u plextv.User, rows []acce
 		return err
 	})
 	if err != nil {
-		m.cfg.Log.Error("couldn't read the Address to email a Member's Plex account", "err", err.Error())
+		m.cfg.Log.Error("couldn't read the Address to email the Admins a Member's Plex account", "err", err.Error())
 		return
 	}
 	accounts := address.URL().JoinPath("accounts").String()

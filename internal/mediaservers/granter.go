@@ -36,7 +36,7 @@ func (g granter) CheckGrants(ctx context.Context, r storage.Reader[storage.Libra
 	for _, sg := range gr.MediaServers {
 		srv, err := q.GetServer(ctx, link.ServerID{UUID: sg.Server})
 		if errors.Is(err, storage.ErrNoRows) {
-			return &identity.NotGrantableError{Name: sg.Server.String(), Why: identity.NotShown}
+			return &identity.NotGrantableError{Why: identity.Gone}
 		}
 		if err != nil {
 			return err

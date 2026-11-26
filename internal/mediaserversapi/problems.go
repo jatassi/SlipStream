@@ -113,7 +113,7 @@ func accessAnswer(err error) error {
 		return plexLibsShort.Because(fmt.Sprintf("plex.tv doesn't list %s on %s yet. Try again in a few minutes.", e.Library, e.Server))
 	}
 	if e, ok := errors.AsType[*mediaservers.PlexRefusedError](err); ok {
-		return plexRefused.Because(fmt.Sprintf("Plex refused to share %s. Its response was %q.", e.Server, e.Reply))
+		return plexRefused.Because(e.Detail)
 	}
 	if e, ok := errors.AsType[*mediaservers.AccessUnreachedError](err); ok {
 		return unreached.Because(e.Server + " isn't responding to SlipStream. Check that it is running, then try again.")
@@ -144,7 +144,7 @@ func answerMine(err error) error {
 		return accessState.Because(fmt.Sprintf("Your access to %s changed since this page loaded. Reload the page to see it.", e.Server))
 	}
 	if e, ok := errors.AsType[*mediaservers.AccessUnreachedError](err); ok {
-		return unreached.Because(e.Server + " isn't responding to SlipStream. Try again when it responds.")
+		return unreached.Because(e.Server + " isn't responding to SlipStream. Try again in a few minutes.")
 	}
 	if e, ok := errors.AsType[*link.NameRefusedError](err); ok {
 		if e.Taken {

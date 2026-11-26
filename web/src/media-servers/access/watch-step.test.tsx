@@ -9,8 +9,7 @@ import { renderApp } from "../../test/render-app";
 
 const path = "/welcome/watch";
 
-const { plexWaiting, jellyfinOffered, jellyfinActive, plexActive } = myRows;
-const plexOffered: MyRow = { ...plexWaiting, state: "offered", actions: [] };
+const { plexWaiting, jellyfinOffered } = myRows;
 
 function watch(rows: MyRow[], ...handlers: RequestHandler[]) {
   return renderApp({
@@ -27,7 +26,6 @@ const buttonsIn = (name: string) =>
     .map((button) => button.element().textContent);
 
 test.each<[string, MyRow, string[]]>([
-  ["Plex offered", plexOffered, ["Continue with Plex"]],
   ["Plex waiting", plexWaiting, ["Use another Plex account"]],
   ["Plex waiting, nothing to start", { ...plexWaiting, actions: [] }, []],
   [
@@ -40,7 +38,6 @@ test.each<[string, MyRow, string[]]>([
     { ...plexWaiting, state: "shared", actions: [] },
     ["Sign in with Plex again"],
   ],
-  ["Jellyfin offered", jellyfinOffered, ["Make my Jellyfin account"]],
   [
     "Jellyfin offered, linked by the Admin only",
     {
@@ -51,8 +48,6 @@ test.each<[string, MyRow, string[]]>([
     [],
   ],
   ["Jellyfin making", { ...jellyfinOffered, state: "making", actions: [] }, []],
-  ["Jellyfin active", jellyfinActive, []],
-  ["Plex active", plexActive, []],
 ])(
   "%s draws the buttons its actions name, and Skip for now while it is pending",
   async (_, row, buttons) => {

@@ -27,7 +27,7 @@ type grantedServer struct {
 	Kind     string `json:"kind" doc:"The kind's product name, such as Plex"`
 	Present  bool   `json:"present" doc:"False once the server is removed"`
 	Shown    bool   `json:"shown" doc:"Whether Show to Members is on. A server that is off isn't offered when the link is used"`
-	PlexHome bool   `json:"plexHome" doc:"Plex only: the Member joins the Plex Home rather than as a friend"`
+	PlexHome bool   `json:"plexHome" doc:"Plex only: true adds the Member to the Plex Home; false shares the server as a friend"`
 }
 
 // offeredServer is a Media Server a Signup link's page names.
@@ -39,7 +39,7 @@ type offeredServer struct {
 // serverGrant is a Media Server a new Signup link offers.
 type serverGrant struct {
 	Server   string `json:"server" format:"uuid" doc:"A Media Server shown to Members"`
-	PlexHome bool   `json:"plexHome,omitempty" doc:"Plex only: add the Member to the Plex Home rather than as a friend"`
+	PlexHome bool   `json:"plexHome,omitempty" doc:"Plex only: true adds the Member to the Plex Home; false shares the server as a friend"`
 }
 
 func pendingOf(l identity.PendingLink) pendingLink {

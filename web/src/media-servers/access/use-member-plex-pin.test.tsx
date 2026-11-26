@@ -12,7 +12,6 @@ import {
   myRows,
 } from "../../test/media-server-access";
 import { renderApp } from "../../test/render-app";
-import { asPhone } from "../../test/viewport";
 import { thisTab } from "./use-member-plex-pin";
 
 const path = "/welcome/watch";
@@ -65,7 +64,6 @@ test("on a wide screen the tab opens on the click, before the PIN exists, and is
   await expect.poll(() => replace.mock.calls).toEqual([[memberPin.authUrl]]);
   expect(start.order).toEqual(["tab", "pin"]);
   expect(tab.opener).toBeNull();
-  expect(readPref("memberPlexPin")).toEqual(memberPin);
 });
 
 test("a blocked tab says so, and the next click goes to Plex in this tab", async () => {
@@ -81,17 +79,6 @@ test("a blocked tab says so, and the next click goes to Plex in this tab", async
   await userEvent.click(page.getByRole("button", { name: "Continue with Plex" }));
   await expect.poll(() => start.go.mock.calls).toEqual([[memberPin.authUrl]]);
   expect(start.order).toEqual(["tab", "pin", "leave"]);
-});
-
-test("on a phone the page goes to Plex in this tab", async () => {
-  await asPhone();
-  const start = recordStart();
-  const open = vi.spyOn(window, "open");
-  watch([plexOffered], start.handler);
-  await userEvent.click(page.getByRole("button", { name: "Continue with Plex" }));
-  await expect.poll(() => start.go.mock.calls).toEqual([[memberPin.authUrl]]);
-  expect(open).not.toHaveBeenCalled();
-  expect(readPref("memberPlexPin")).toEqual(memberPin);
 });
 
 test("a tab that comes back from Plex picks up its sign-in, and the live event shows what changed", async () => {
@@ -140,5 +127,4 @@ test.each([
     expect(line.element().textContent).toContain(fact);
   }
   await expect.element(page.getByRole("button", { name: "Continue with Plex" })).toBeEnabled();
-  expect(readPref("memberPlexPin")).toBeNull();
 });

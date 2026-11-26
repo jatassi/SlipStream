@@ -81,15 +81,13 @@ test("an Account shows its profile, PIN state, passkeys and sessions", async () 
     handlers: [getGetAccountMockHandler(graceDetail), noAccess],
   });
   await expect.element(page.getByRole("heading", { name: "Grace Lindqvist" })).toBeVisible();
-  await expect
-    .poll(() => factsOf("Profile"))
-    .toEqual([
-      ["Name", "Grace Lindqvist"],
-      ["Email", "grace@example.testChange email"],
-      ["Role", "MemberMake Admin"],
-      ["Sign-in", "OnTurn off"],
-      ["Last sign-in", shown("age", "2026-10-15T08:30:00Z")],
-    ]);
+  expect(factsOf("Profile")).toEqual([
+    ["Name", "Grace Lindqvist"],
+    ["Email", "grace@example.testChange email"],
+    ["Role", "MemberMake Admin"],
+    ["Sign-in", "OnTurn off"],
+    ["Last sign-in", shown("age", "2026-10-15T08:30:00Z")],
+  ]);
   expect(listItems("PIN")).toEqual([
     "The PIN is locked after too many wrong PINs. Send a Reset link to set a new one.Send a Reset link",
   ]);
