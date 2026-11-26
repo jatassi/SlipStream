@@ -16,9 +16,11 @@ description: >-
   Moon's has a higher bitrate than Den TV has played. Kitchen iPad has no
   direct play, so its transcode on video codec is unproven, and it plays a
   file from shelf, a folder no root names. Hallway Stick burns Saltmarsh
-  Radio's subtitles, which no Target fixes. On Emby, which lists each
-  file as its own item, Lounge TV plays Heat as Living Room TV does. On
-  Plex, Office PC transcodes Copper Kettle's video, receiving what the
+  Radio's subtitles, which no Target fixes. Heat's files are named as
+  Jellyfin and Emby group two versions, so its 1080p version is in the
+  item. On Emby, Lounge TV plays Night Ferry, whose files are named so no
+  server groups them, as Living Room TV plays Heat, so its 1080p version
+  is its own item. On Plex, Office PC transcodes Copper Kettle's video, receiving what the
   file holds, and Plex gives no reasons.
 seed: playback
 admin:
@@ -36,15 +38,15 @@ nodes:
         plays:
           - player: {name: Living Room TV, key: living-room-tv, platform: Android TV, product: Jellyfin Android TV}
             user: admin
-            file: "movies/Heat (1995) {tmdb-9000301}/Heat.1995.2160p.WEB-DL.DV.H265-FKW.mkv"
-            version: "movies/Heat (1995) {tmdb-9000301}/Heat.1995.1080p.WEB-DL.H264-FKW.mkv"
+            file: "movies/Heat (1995)/Heat (1995) - 2160p.mkv"
+            version: "movies/Heat (1995)/Heat (1995) - 1080p.mkv"
             video: direct
             audio: direct
             subtitles: none
             count: 2
           - player: {name: Living Room TV, key: living-room-tv, platform: Android TV, product: Jellyfin Android TV}
             user: admin
-            file: "movies/Heat (1995) {tmdb-9000301}/Heat.1995.2160p.WEB-DL.DV.H265-FKW.mkv"
+            file: "movies/Heat (1995)/Heat (1995) - 2160p.mkv"
             video: transcode
             audio: direct
             subtitles: none
@@ -125,14 +127,14 @@ nodes:
         plays:
           - player: &lounge {name: Lounge TV, key: lounge-tv, platform: Samsung Tizen, product: Emby for Samsung}
             user: admin
-            file: "movies/Heat (1995) {tmdb-9000301}/Heat.1995.1080p.WEB-DL.H264-FKW.mkv"
+            file: "movies/Night Ferry (2014) {tmdb-9000305}/Night.Ferry.2014.1080p.WEB-DL.H264-FKW.mkv"
             video: direct
             audio: direct
             subtitles: none
             count: 2
           - player: *lounge
             user: admin
-            file: "movies/Heat (1995) {tmdb-9000301}/Heat.1995.2160p.WEB-DL.DV.H265-FKW.mkv"
+            file: "movies/Night Ferry (2014) {tmdb-9000305}/Night.Ferry.2014.2160p.WEB-DL.DV.H265-FKW.mkv"
             video: transcode
             audio: direct
             subtitles: none
@@ -161,6 +163,7 @@ tmdb:
     - {id: 9000302, imdb_id: tt9000302, title: Ember Lane, released: 2017-03-10, runtime: 101m}
     - {id: 9000303, imdb_id: tt9000303, title: Glass Harbor, released: 2019-08-23, runtime: 112m}
     - {id: 9000304, imdb_id: tt9000304, title: Paper Moon, released: 2020-11-06, runtime: 95m}
+    - {id: 9000305, imdb_id: tt9000305, title: Night Ferry, released: 2014-10-03, runtime: 109m}
 tvdb:
   series:
     - id: 9100201
@@ -189,10 +192,16 @@ library:
   folders:
     - folder: movies
       files:
-        - path: Heat (1995) {tmdb-9000301}/Heat.1995.2160p.WEB-DL.DV.H265-FKW.mkv
+        - path: Heat (1995)/Heat (1995) - 2160p.mkv
           video: {width: 3840, height: 2160, seconds: 1, hdr: dv8}
           audio: [{codec: truehd, channels: 6, language: eng, default: true}]
-        - path: Heat (1995) {tmdb-9000301}/Heat.1995.1080p.WEB-DL.H264-FKW.mkv
+        - path: Heat (1995)/Heat (1995) - 1080p.mkv
+          video: {width: 1920, height: 1080, seconds: 1, hdr: sdr}
+          audio: [{codec: aac, channels: 2, language: eng, default: true}]
+        - path: Night Ferry (2014) {tmdb-9000305}/Night.Ferry.2014.2160p.WEB-DL.DV.H265-FKW.mkv
+          video: {width: 3840, height: 2160, seconds: 1, hdr: dv8}
+          audio: [{codec: truehd, channels: 6, language: eng, default: true}]
+        - path: Night Ferry (2014) {tmdb-9000305}/Night.Ferry.2014.1080p.WEB-DL.H264-FKW.mkv
           video: {width: 1920, height: 1080, seconds: 1, hdr: sdr}
           audio: [{codec: aac, channels: 2, language: eng, default: true}]
         - path: The Quiet Orchard (2021) {tmdb-9000001}/The.Quiet.Orchard.2021.2160p.WEB-DL.DV.H265-FKW.mkv

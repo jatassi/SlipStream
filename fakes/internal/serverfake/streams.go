@@ -107,3 +107,16 @@ func Streams(env fake.Env, kind string, core *mediaserver.Server, files []Stream
 		return map[string]int{"skipped": len(paths)}, nil
 	})
 }
+
+// Looks takes the <kind>-looked cue, which answers once a client next
+// reads core's sessions list: a later look at every session playing now.
+func Looks(env fake.Env, kind string, core *mediaserver.Server) error {
+	return fake.OnCue(env, kind+"-looked", func(ctx context.Context, _ struct{}) (any, error) {
+		select {
+		case <-core.NextLook():
+			return map[string]bool{"looked": true}, nil
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+	})
+}

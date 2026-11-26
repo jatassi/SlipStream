@@ -59,7 +59,7 @@ var Fake = fake.Spec{
 	New:       newServer,
 	Endpoints: func(*node.EndpointsBlock, fake.Address) {},
 	Online:    fake.OnlineSuite("plex"),
-	Cues:      []fake.CueSpec{{Name: "plex-play"}, {Name: "plex-select"}, {Name: "plex-stop"}, {Name: "plex-restart"}, {Name: "plex-scan"}, {Name: "plex-streams"}, {Name: "plex-skip"}},
+	Cues:      []fake.CueSpec{{Name: "plex-play"}, {Name: "plex-select"}, {Name: "plex-stop"}, {Name: "plex-restart"}, {Name: "plex-scan"}, {Name: "plex-streams"}, {Name: "plex-skip"}, {Name: "plex-looked"}},
 	Captures:  []fake.CaptureSpec{Refreshes, Items},
 	Entered:   serverfake.Entered(name),
 }
@@ -223,6 +223,9 @@ func serve(env fake.Env, srv *Server) (fake.Server, error) {
 		}
 		s.core = core
 		if err := serverfake.Streams(env, name, core, srv.Streamed); err != nil {
+			return nil, err
+		}
+		if err := serverfake.Looks(env, name, core); err != nil {
 			return nil, err
 		}
 		if s.items, err = env.Capture(Items.Name); err != nil {

@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
-	"time"
 
 	"github.com/jatassi/slipstream/fakes/internal/mediaserver"
 	"github.com/jatassi/slipstream/fakes/internal/serverfake"
@@ -19,9 +18,10 @@ import (
 
 // Plays plays each Scenario server's plays through its fake. It waits for
 // every Work a play names to be imported and for the server to list it,
-// starts every play at once, waits until each is seen on a later look,
-// with a snapshot when its file is in a root, then stops them all and
-// waits until each has ended.
+// starts every play at once, waits until each has started, with a
+// snapshot when its file is in a root, and for the server's next look at
+// its sessions, then stops them all and waits until each has ended, last
+// seen on that later look.
 func Plays(ctx context.Context, c *http.Client, s scenario.Scenario, ready []node.Ready, claims Claims, mediaDir string, w MediaWorld) error {
 	controller := controllerURL(s, ready)
 	var playing []serverfake.Played
@@ -137,29 +137,34 @@ func play(ctx context.Context, c *http.Client, s scenario.Scenario, controller, 
 	if err != nil {
 		return err
 	}
-	if err := awaitPlays(ctx, c, controller, apiKey, id, func(plays []nodeapi.Play) bool {
-		seen, with := 0, 0
+	if err := awaitPlays(ctx, c, controller, apiKey, session, id, func(plays []nodeapi.Play) bool {
+		with := 0
 		for _, pl := range plays {
-			if pl.LastSeenAt.After(pl.StartedAt) {
-				seen++
-			}
 			if pl.Work != nil {
 				with++
 			}
 		}
-		return len(plays) == len(sessions) && seen == len(sessions) && with == snapped
+		return len(plays) == len(sessions) && with == snapped
 	}); err != nil {
-		return fmt.Errorf("wait for %d plays to be seen: %w", len(sessions), err)
+		return fmt.Errorf("wait for %d plays to start: %w", len(sessions), err)
+	}
+	if err := w.Cue(ctx, p.Kind+"-looked", struct{}{}, nil); err != nil {
+		return err
 	}
 	for _, key := range sessions {
 		if err := w.Cue(ctx, p.Kind+"-stop", map[string]string{"session": key}, nil); err != nil {
 			return err
 		}
 	}
-	if err := awaitPlays(ctx, c, controller, apiKey, id, func(plays []nodeapi.Play) bool {
+	var ended []nodeapi.Play
+	if err := awaitPlays(ctx, c, controller, apiKey, session, id, func(plays []nodeapi.Play) bool {
+		ended = plays
 		return !slices.ContainsFunc(plays, func(pl nodeapi.Play) bool { return pl.EndedAt == nil })
 	}); err != nil {
 		return fmt.Errorf("wait for %d plays to end: %w", len(sessions), err)
+	}
+	if slices.ContainsFunc(ended, func(pl nodeapi.Play) bool { return !pl.LastSeenAt.After(pl.StartedAt) }) {
+		return fmt.Errorf("a play of media server %s ended without a later look", id)
 	}
 	return nil
 }
@@ -208,22 +213,13 @@ func start(ctx context.Context, s scenario.Scenario, p serverfake.Played, w Medi
 	return sessions, snapped, nil
 }
 
-// awaitPlays polls the plays of the server id until done holds. A later
-// look moves a play's last seen without any event, so it polls.
-func awaitPlays(ctx context.Context, c *http.Client, controller, apiKey, id string, done func([]nodeapi.Play) bool) error {
-	tick := time.NewTicker(time.Second)
-	defer tick.Stop()
-	for {
+// awaitPlays waits until done holds of the plays of the server id, read
+// at each media-servers.plays-changed.
+func awaitPlays(ctx context.Context, c *http.Client, controller, apiKey string, session *http.Cookie, id string, done func([]nodeapi.Play) bool) error {
+	return nodeapi.AwaitEvent(ctx, c, controller, session, "media-servers.plays-changed", func() (bool, error) {
 		plays, err := nodeapi.Plays(ctx, c, controller, apiKey, id)
-		if err != nil || done(plays) {
-			return err
-		}
-		select {
-		case <-ctx.Done():
-			return fmt.Errorf("wait for the plays of media server %s: %w", id, context.Cause(ctx))
-		case <-tick.C:
-		}
-	}
+		return err == nil && done(plays), err
+	})
 }
 
 // cueOf is pl as p's <kind>-play cue takes it, reported by its player.

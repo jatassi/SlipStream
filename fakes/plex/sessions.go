@@ -91,6 +91,7 @@ func (s *server) sessions(w http.ResponseWriter, _ *http.Request) {
 		out = append(out, m)
 	}
 	writeJSON(w, container{map[string]any{"size": len(out), "Metadata": out}})
+	s.core.Listed()
 }
 
 // playing is ms as a session lists them: the played Media is what the
