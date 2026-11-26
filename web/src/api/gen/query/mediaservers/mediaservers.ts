@@ -56,7 +56,6 @@ import type {
   GetMediaServerPlayback409,
   GetMediaServerPlayback422,
   GetMediaServerPlayback500,
-  GetMediaServerPlayback501,
   GetMediaServerSettings401,
   GetMediaServerSettings403,
   GetMediaServerSettings409,
@@ -125,7 +124,6 @@ import type {
   ListMediaServerPlays409,
   ListMediaServerPlays422,
   ListMediaServerPlays500,
-  ListMediaServerPlays501,
   ListMediaServerPlaysParams,
   ListMediaServerSessions401,
   ListMediaServerSessions403,
@@ -4742,7 +4740,6 @@ export const getGetMediaServerPlaybackSuspenseQueryOptions = <
     | GetMediaServerPlayback409
     | GetMediaServerPlayback422
     | GetMediaServerPlayback500
-    | GetMediaServerPlayback501
   >,
 >(
   id: string,
@@ -4783,7 +4780,6 @@ export type GetMediaServerPlaybackSuspenseQueryError = ErrorType<
   | GetMediaServerPlayback409
   | GetMediaServerPlayback422
   | GetMediaServerPlayback500
-  | GetMediaServerPlayback501
 >;
 
 export function useGetMediaServerPlaybackSuspense<
@@ -4795,7 +4791,6 @@ export function useGetMediaServerPlaybackSuspense<
     | GetMediaServerPlayback409
     | GetMediaServerPlayback422
     | GetMediaServerPlayback500
-    | GetMediaServerPlayback501
   >,
 >(
   id: string,
@@ -4816,7 +4811,6 @@ export function useGetMediaServerPlaybackSuspense<
     | GetMediaServerPlayback409
     | GetMediaServerPlayback422
     | GetMediaServerPlayback500
-    | GetMediaServerPlayback501
   >,
 >(
   id: string,
@@ -4837,7 +4831,6 @@ export function useGetMediaServerPlaybackSuspense<
     | GetMediaServerPlayback409
     | GetMediaServerPlayback422
     | GetMediaServerPlayback500
-    | GetMediaServerPlayback501
   >,
 >(
   id: string,
@@ -4862,7 +4855,6 @@ export function useGetMediaServerPlaybackSuspense<
     | GetMediaServerPlayback409
     | GetMediaServerPlayback422
     | GetMediaServerPlayback500
-    | GetMediaServerPlayback501
   >,
 >(
   id: string,
@@ -4930,7 +4922,6 @@ export const getListMediaServerPlaysSuspenseQueryOptions = <
     | ListMediaServerPlays409
     | ListMediaServerPlays422
     | ListMediaServerPlays500
-    | ListMediaServerPlays501
   >,
 >(
   id: string,
@@ -4970,7 +4961,6 @@ export type ListMediaServerPlaysSuspenseQueryError = ErrorType<
   | ListMediaServerPlays409
   | ListMediaServerPlays422
   | ListMediaServerPlays500
-  | ListMediaServerPlays501
 >;
 
 export function useListMediaServerPlaysSuspense<
@@ -4982,7 +4972,6 @@ export function useListMediaServerPlaysSuspense<
     | ListMediaServerPlays409
     | ListMediaServerPlays422
     | ListMediaServerPlays500
-    | ListMediaServerPlays501
   >,
 >(
   id: string,
@@ -5004,7 +4993,6 @@ export function useListMediaServerPlaysSuspense<
     | ListMediaServerPlays409
     | ListMediaServerPlays422
     | ListMediaServerPlays500
-    | ListMediaServerPlays501
   >,
 >(
   id: string,
@@ -5026,7 +5014,6 @@ export function useListMediaServerPlaysSuspense<
     | ListMediaServerPlays409
     | ListMediaServerPlays422
     | ListMediaServerPlays500
-    | ListMediaServerPlays501
   >,
 >(
   id: string,
@@ -5052,7 +5039,6 @@ export function useListMediaServerPlaysSuspense<
     | ListMediaServerPlays409
     | ListMediaServerPlays422
     | ListMediaServerPlays500
-    | ListMediaServerPlays501
   >,
 >(
   id: string,

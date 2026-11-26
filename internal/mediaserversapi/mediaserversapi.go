@@ -632,12 +632,12 @@ func Routes(r *api.Router, servers Servers) {
 	api.Register(o, api.Admin, api.Op{
 		ID: "getMediaServerPlayback", Method: http.MethodGet, Path: base + "/{id}/playback", Status: http.StatusOK,
 		Summary: "Get a Media Server's Playback report: why each player transcoded the files it played, and which file or Target would avoid it",
-		Errors:  []*api.Code{serverNotFound, notYet},
+		Errors:  []*api.Code{serverNotFound},
 	}, h.playback)
 	api.Register(o, api.Admin, api.Op{
 		ID: "listMediaServerPlays", Method: http.MethodGet, Path: base + "/{id}/plays", Status: http.StatusOK,
 		Summary: "List a Media Server's plays in the play history, newest first, for one player or all",
-		Errors:  []*api.Code{serverNotFound, playNotFound, notYet},
+		Errors:  []*api.Code{serverNotFound, playNotFound},
 	}, h.plays)
 	api.Register(o, api.Admin, api.Op{
 		ID: "listMediaServerCredentialHolders", Method: http.MethodGet, Path: base + "/{id}/credential-holders", Status: http.StatusOK,

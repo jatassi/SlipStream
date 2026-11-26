@@ -66,12 +66,18 @@ func causeOf(dims []Blocked) []Blocked {
 }
 
 // withOutcome is os counting o's play, in the outcome of its kind that
-// names the same version, suggestion or Target.
+// names the same version, suggestion or Target, with o's Work line when
+// its Work is new to it.
 func withOutcome(os []Outcome, o Outcome) []Outcome {
 	k := outcomeKey(o)
 	for i := range os {
 		if outcomeKey(os[i]) == k {
 			os[i].Plays++
+			for _, l := range o.Works {
+				if !slices.ContainsFunc(os[i].Works, func(m WorkLine) bool { return m.WorkID == l.WorkID }) {
+					os[i].Works = append(os[i].Works, l)
+				}
+			}
 			return os
 		}
 	}

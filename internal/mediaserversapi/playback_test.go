@@ -11,12 +11,14 @@ import (
 	"testing/synctest"
 	"time"
 
+	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/media"
 	"github.com/jatassi/slipstream/internal/mediaserverlink/link"
 	"github.com/jatassi/slipstream/internal/mediaservers/mstest"
 	"github.com/jatassi/slipstream/internal/mediaservers/playback"
 	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/storage"
+	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
@@ -90,27 +92,65 @@ type reportWorld struct {
 	next   time.Time
 	// played is the play ids in report order.
 	played []link.PlayID
+	// files is the library's files by name.
+	files map[string]mstest.File
 }
 
 func newReportWorld(t *testing.T) *reportWorld {
 	t.Helper()
 	r := newRig(t)
 	r.w.Jellyfin(t, host, den(floorVer))
-	w := &reportWorld{rig: r, id: r.add(t)}
+	w := &reportWorld{rig: r, id: r.add(t), files: map[string]mstest.File{}}
 	w.server = serverOf(t, w.id)
 	synctest.Wait()
 	r.w.Stop(r.w.Seedbox)
 	wait(day)
 	w.next = time.Now().Add(-23 * time.Hour)
 	for name, rec := range library {
-		file := r.w.File(t, mstest.File{Work: works.WorkID{UUID: storage.NewUUID()}, Item: works.ItemID{UUID: storage.NewUUID()}, Label: name, Media: rec})
-		path, err := link.ParsePath(shelves + "/" + name + ".mkv")
-		if err != nil {
-			t.Fatal(err)
-		}
-		r.w.Index(t, w.server, path, file, name)
+		f := mstest.File{Work: works.WorkID{UUID: storage.NewUUID()}, Item: works.ItemID{UUID: storage.NewUUID()}, Label: name, Media: rec}
+		f.ID = r.w.File(t, f)
+		w.files[name] = f
+		w.index(t, f.ID, name, name)
 	}
 	return w
+}
+
+// index has Den name file at name.mkv, as item.
+func (w *reportWorld) index(t *testing.T, file files.ID, name, item string) {
+	t.Helper()
+	path, err := link.ParsePath(shelves + "/" + name + ".mkv")
+	if err != nil {
+		t.Fatal(err)
+	}
+	w.w.Index(t, w.server, path, file, item)
+}
+
+// sibling puts f in the library as another file of the file of's Work
+// and Item, with of's Profile.
+func (w *reportWorld) sibling(t *testing.T, of string, f mstest.File) files.ID {
+	t.Helper()
+	base := w.files[of]
+	f.Work, f.Item, f.Profile = base.Work, base.Item, base.Profile
+	return w.w.File(t, f)
+}
+
+// profile puts the file name's Work in the Profile profile.
+func (w *reportWorld) profile(t *testing.T, name, profile string) {
+	t.Helper()
+	f := w.files[name]
+	f.Profile = profile
+	w.w.File(t, f)
+	w.files[name] = f
+}
+
+// work is the name of the library file whose Work is id.
+func (w *reportWorld) work(id string) string {
+	for name, f := range w.files {
+		if f.Work.String() == id {
+			return name
+		}
+	}
+	return id
 }
 
 func (w *reportWorld) hear(t *testing.T, hs ...heard) {
@@ -159,31 +199,53 @@ func (w *reportWorld) player(t *testing.T, key string) playback.Player {
 }
 
 // lines is each of the player's groups as "<dims> [<cause>]: <plays>
-// <kind> <what it names>, ...", a play named by its place in report
-// order from 1.
+// <kind> <what it names> from <evidence>, ...", a play named by its place
+// in report order from 1 and a Work by its library file's name.
 func (w *reportWorld) lines(t *testing.T, key string) []string {
 	t.Helper()
 	var out []string
 	for _, g := range w.player(t, key).Groups {
 		var os []string
 		for _, o := range g.Outcomes {
-			s := fmt.Sprintf("%d %s", o.Plays, o.Kind)
-			switch {
-			case o.Missing != nil:
-				s += " " + dims(*o.Missing)
-			case o.Suggestion != nil:
-				var b strings.Builder
-				fmt.Fprintf(&b, " %q from", o.Suggestion.Name)
-				for _, e := range o.Evidence {
-					fmt.Fprintf(&b, " %s=%s#%d", e.Fact, e.Value, w.place(e.PlayID))
-				}
-				s += b.String()
-			}
-			os = append(os, s)
+			os = append(os, w.outcome(o))
 		}
 		out = append(out, dims(g.Dimensions...)+" ["+dims(g.Cause...)+"]: "+strings.Join(os, ", "))
 	}
 	return out
+}
+
+func (w *reportWorld) outcome(o playback.Outcome) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "%d %s", o.Plays, o.Kind)
+	switch {
+	case o.Missing != nil:
+		b.WriteString(" " + dims(*o.Missing))
+	case o.Version != nil:
+		fmt.Fprintf(&b, " %q", o.Version.Label)
+		if o.Version.SeparateItem {
+			b.WriteString(" separate")
+		}
+	case o.Suggestion != nil:
+		fmt.Fprintf(&b, " %q", o.Suggestion.Name)
+	case o.Target != nil:
+		fmt.Fprintf(&b, " %q", o.Target.Name)
+		for _, l := range o.Works {
+			fmt.Fprintf(&b, " %s=%s", w.work(l.WorkID), l.State)
+			switch {
+			case l.Profile != nil:
+				b.WriteString(":" + l.Profile.Name)
+			case l.Fact != nil:
+				fmt.Fprintf(&b, ":%s=%s", l.Fact.Fact, l.Fact.Value)
+			}
+		}
+	}
+	if len(o.Evidence) > 0 {
+		b.WriteString(" from")
+	}
+	for _, e := range o.Evidence {
+		fmt.Fprintf(&b, " %s=%s#%d", e.Fact, e.Value, w.place(e.PlayID))
+	}
+	return b.String()
 }
 
 func (w *reportWorld) place(id string) int {
@@ -601,4 +663,192 @@ func TestTheReportSaysWhetherItsServerIsReachableAndPlex(t *testing.T) {
 			t.Error("a Plex server's report doesn't read Plex")
 		}
 	})
+}
+
+// sdr is a Target for 1080p SDR x264 files without the audio codecs tv
+// hasn't received unchanged, in each of profiles.
+func sdr(profiles ...string) targets.Target {
+	t := targets.Target{Tiers: []targets.Tier{{{Quality: release.WEBDL1080p}}}}
+	t.Filters.Video = targets.Filter[release.VideoCodec]{Mode: targets.Only, Values: []release.VideoCodec{"x264"}}
+	t.Filters.HDR = targets.Filter[release.HDR]{Mode: targets.Not, Values: []release.HDR{"DV", "HDR10+", "HDR10", "HLG"}}
+	t.Filters.Audio = targets.Filter[release.AudioCodec]{Mode: targets.Not, Values: []release.AudioCodec{"DTS-HD MA", "DTS", "DD", "AAC", "FLAC", "PCM", "Opus", "MP3"}}
+	for _, p := range profiles {
+		t.Profiles = append(t.Profiles, targets.ProfileRef{Name: p})
+	}
+	return t
+}
+
+// TestAVersionOrAnExistingTargetIsNamedWhenItFits reads tv's groups after
+// a direct play and a transcode blocked on Dolby Vision. A listed sibling
+// with every tracked fact proven that clears the block is a version; with
+// none, a Target inside the envelope that the played file didn't meet is
+// named with what its Work lacks; with neither, the play suggests.
+func TestAVersionOrAnExistingTargetIsNamedWhenItFits(t *testing.T) {
+	blocked := transcoded("dolby", "VideoRangeTypeNotSupported")
+	blockedHD := transcoded("dolbyHD", "VideoRangeTypeNotSupported")
+	const (
+		dolbyEvidence    = "container=MKV#1 bitrate=8000000#1 resolution=1080p#1 video_codec=x264#1 video_profile=High#1 bit_depth=8#1 hdr=SDR#1 audio_codec=DD+#1 channels=6#2"
+		envelopeEvidence = "resolution=1080p#1 video_codec=x264#1 hdr=SDR#1 audio_codec=TrueHD#2 audio_codec=DD+#1 channels=7.1#2"
+	)
+	plainMP4 := plain
+	plainMP4.Container = "mov,mp4,m4a,3gp,3g2,mj2"
+	plainDTS := plain
+	plainDTS.Audio = []media.Audio{{Codec: "dts", Channels: 6, Language: "en", Default: true}}
+	withTarget := func(name string, spec targets.Target) func(*testing.T, *reportWorld) {
+		return func(t *testing.T, w *reportWorld) {
+			t.Helper()
+			w.w.Target(t, name, spec)
+			w.profile(t, "dolby", "Movies")
+		}
+	}
+	for _, tc := range []struct {
+		name  string
+		plays []heard
+		setup func(*testing.T, *reportWorld)
+		// gone deletes the played file before the report reads.
+		gone bool
+		want []string
+	}{
+		{
+			name:  "a listed sibling with every fact proven is a version the player can choose",
+			plays: []heard{direct("plain"), blocked},
+			setup: func(t *testing.T, w *reportWorld) {
+				w.index(t, w.sibling(t, "dolby", mstest.File{Label: "1080p", Media: plain}), "dolby-1080p", "dolby")
+			},
+			want: []string{`hdr=DV [hdr=DV]: 1 version "1080p" from ` + dolbyEvidence},
+		},
+		{
+			name:  "and still is once the played file is deleted",
+			plays: []heard{direct("plain"), blocked},
+			setup: func(t *testing.T, w *reportWorld) {
+				w.index(t, w.sibling(t, "dolby", mstest.File{Label: "1080p", Media: plain}), "dolby-1080p", "dolby")
+			},
+			gone: true,
+			want: []string{`hdr=DV [hdr=DV]: 1 version "1080p" from ` + dolbyEvidence},
+		},
+		{
+			name:  "a sibling the server lists as another item is a separate item",
+			plays: []heard{direct("plain"), blocked},
+			setup: func(t *testing.T, w *reportWorld) {
+				w.index(t, w.sibling(t, "dolby", mstest.File{Label: "1080p", Media: plain}), "dolby-1080p", "heat-1080p")
+			},
+			want: []string{`hdr=DV [hdr=DV]: 1 version "1080p" separate from ` + dolbyEvidence},
+		},
+		{
+			name:  "and still is once the played file is deleted",
+			plays: []heard{direct("plain"), blocked},
+			setup: func(t *testing.T, w *reportWorld) {
+				w.index(t, w.sibling(t, "dolby", mstest.File{Label: "1080p", Media: plain}), "dolby-1080p", "heat-1080p")
+			},
+			gone: true,
+			want: []string{`hdr=DV [hdr=DV]: 1 version "1080p" separate from ` + dolbyEvidence},
+		},
+		{
+			name:  "a sibling the server doesn't list is no version",
+			plays: []heard{direct("plain"), blocked},
+			setup: func(t *testing.T, w *reportWorld) { w.sibling(t, "dolby", mstest.File{Label: "1080p", Media: plain}) },
+			want:  []string{`hdr=DV [hdr=DV]: 1 suggest "1080p SDR" from ` + envelopeEvidence},
+		},
+		{
+			name:  "a sibling with DTS audio the player hasn't received unchanged is no version",
+			plays: []heard{direct("plain"), blocked},
+			setup: func(t *testing.T, w *reportWorld) {
+				w.index(t, w.sibling(t, "dolby", mstest.File{Label: "1080p", Media: plainDTS}), "dolby-1080p", "dolby")
+			},
+			want: []string{`hdr=DV [hdr=DV]: 1 suggest "1080p SDR" from ` + envelopeEvidence},
+		},
+		{
+			name:  "with HDR10 proven an HDR10 sibling of a Dolby Vision 8.1 file clears hdr",
+			plays: []heard{direct("hdr10"), blockedHD},
+			setup: func(t *testing.T, w *reportWorld) {
+				w.index(t, w.sibling(t, "dolbyHD", mstest.File{Label: "1080p HDR10", Media: hdr10}), "dolbyHD-hdr10", "dolbyHD")
+			},
+			want: []string{
+				`hdr=DV [hdr=DV]: 1 version "1080p HDR10" from container=MKV#1 bitrate=10000000#1 resolution=1080p#1 video_codec=x265#1 video_profile=Main 10#1 bit_depth=10#1 hdr=HDR10#1 audio_codec=DD+#2 channels=6#2`,
+			},
+		},
+		{
+			name:  "while HDR10 is unproven it doesn't",
+			plays: []heard{direct("plain"), blockedHD},
+			setup: func(t *testing.T, w *reportWorld) {
+				w.index(t, w.sibling(t, "dolbyHD", mstest.File{Label: "1080p HDR10", Media: hdr10}), "dolbyHD-hdr10", "dolbyHD")
+			},
+			want: []string{`hdr=DV [hdr=DV]: 1 suggest "1080p SDR" from resolution=1080p#1 video_codec=x264#1 hdr=SDR#1 audio_codec=DD+#2 channels=5.1#2`},
+		},
+		{
+			name:  "a Target in the Work's Profile that no file meets is no_file",
+			plays: []heard{direct("plain"), blocked},
+			setup: withTarget("1080p SDR", sdr("Movies")),
+			want:  []string{`hdr=DV [hdr=DV]: 1 existing "1080p SDR" dolby=no_file from ` + envelopeEvidence},
+		},
+		{
+			name:  "a Target outside the Work's Profile is not_in_profile",
+			plays: []heard{direct("plain"), blocked},
+			setup: withTarget("1080p SDR", sdr()),
+			want:  []string{`hdr=DV [hdr=DV]: 1 existing "1080p SDR" dolby=not_in_profile:Movies from ` + envelopeEvidence},
+		},
+		{
+			name:  "a file that meets it but the server doesn't list is not_listed",
+			plays: []heard{direct("plain"), blocked},
+			setup: func(t *testing.T, w *reportWorld) {
+				withTarget("1080p SDR", sdr("Movies"))(t, w)
+				w.sibling(t, "dolby", mstest.File{Label: "1080p", Media: plain, Met: []string{"1080p SDR"}})
+			},
+			want: []string{`hdr=DV [hdr=DV]: 1 existing "1080p SDR" dolby=not_listed from ` + envelopeEvidence},
+		},
+		{
+			name:  "a listed file that meets it with an unproven fact is not_proven, naming the fact",
+			plays: []heard{direct("plain"), blocked},
+			setup: func(t *testing.T, w *reportWorld) {
+				withTarget("1080p SDR", sdr("Movies"))(t, w)
+				w.index(t, w.sibling(t, "dolby", mstest.File{Label: "1080p", Media: plainMP4, Met: []string{"1080p SDR"}}), "dolby-1080p", "dolby")
+			},
+			want: []string{`hdr=DV [hdr=DV]: 1 existing "1080p SDR" dolby=not_proven:container=MP4 from ` + envelopeEvidence},
+		},
+		{
+			name:  "plays of two Works merge into one line per Work",
+			plays: []heard{direct("plain"), blocked, blockedHD},
+			setup: func(t *testing.T, w *reportWorld) {
+				withTarget("1080p SDR", sdr("Movies"))(t, w)
+				w.profile(t, "dolbyHD", "Movies")
+			},
+			want: []string{
+				`hdr=DV [hdr=DV]: 2 existing "1080p SDR" dolby=no_file dolbyHD=no_file from resolution=1080p#1 video_codec=x264#1 hdr=SDR#1 audio_codec=TrueHD#2 audio_codec=DD+#3 channels=7.1#2`,
+			},
+		},
+		{
+			name:  "a Target accepting one value outside the envelope isn't named",
+			plays: []heard{direct("plain"), blocked},
+			setup: func(t *testing.T, w *reportWorld) {
+				spec := sdr("Movies")
+				spec.Filters.Audio.Values = slices.DeleteFunc(spec.Filters.Audio.Values, func(c release.AudioCodec) bool { return c == "DTS" })
+				withTarget("1080p SDR", spec)(t, w)
+			},
+			want: []string{`hdr=DV [hdr=DV]: 1 suggest "1080p SDR" from ` + envelopeEvidence},
+		},
+		{
+			name:  "a Target accepting a Quality with no resolution isn't named",
+			plays: []heard{direct("plain"), blocked},
+			setup: func(t *testing.T, w *reportWorld) {
+				spec := sdr("Movies")
+				spec.Tiers = append(spec.Tiers, targets.Tier{{Quality: release.CAM}})
+				withTarget("1080p SDR", spec)(t, w)
+			},
+			want: []string{`hdr=DV [hdr=DV]: 1 suggest "1080p SDR" from ` + envelopeEvidence},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			synctest.Test(t, func(t *testing.T) {
+				w := newReportWorld(t)
+				tc.setup(t, w)
+				w.hear(t, tc.plays...)
+				if tc.gone {
+					w.w.Gone(t, w.files["dolby"].ID)
+				}
+				if got := w.lines(t, "tv"); !slices.Equal(got, tc.want) {
+					t.Errorf("tv's groups are\n%s\nwant\n%s", strings.Join(got, "\n"), strings.Join(tc.want, "\n"))
+				}
+			})
+		})
+	}
 }
