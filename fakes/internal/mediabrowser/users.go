@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"slices"
 	"strings"
-	"time"
 )
 
 // user is one server user. Its id is minted, so a user made again gets a
@@ -31,11 +30,14 @@ type policy struct {
 	EnableMediaPlayback        bool     `json:"EnableMediaPlayback"`
 	EnableRemoteAccess         bool     `json:"EnableRemoteAccess"`
 	LoginAttemptsBeforeLockout int      `json:"LoginAttemptsBeforeLockout"`
-	// LockedOutDate is when Emby locked the user out.
-	LockedOutDate            *time.Time `json:"LockedOutDate,omitempty"`
-	AuthenticationProviderID string     `json:"AuthenticationProviderId,omitempty"`
-	PasswordResetProviderID  string     `json:"PasswordResetProviderId,omitempty"`
+	// LockedOutDate is when Emby locked the user out, in Unix
+	// milliseconds, 0 while it hasn't. Jellyfin has no such field.
+	LockedOutDate            *int64 `json:"LockedOutDate,omitempty"`
+	AuthenticationProviderID string `json:"AuthenticationProviderId,omitempty"`
+	PasswordResetProviderID  string `json:"PasswordResetProviderId,omitempty"`
 }
+
+func (p policy) lockedOut() bool { return p.LockedOutDate != nil && *p.LockedOutDate > 0 }
 
 // newPolicy is a new user's policy. Jellyfin 10.9 and later name the
 // providers and refuse a policy without them; Emby has no such fields.
@@ -43,6 +45,9 @@ func (s *server) newPolicy(admin bool) policy {
 	p := policy{
 		IsAdministrator: admin, IsHidden: admin, EnableAllFolders: true, EnableMediaPlayback: true, EnableRemoteAccess: true,
 		EnabledFolders: []string{}, LoginAttemptsBeforeLockout: -1,
+	}
+	if s.p.Flavor == Emby {
+		p.LockedOutDate = new(int64)
 	}
 	if s.p.Flavor == Jellyfin {
 		p.AuthenticationProviderID = "Jellyfin.Server.Implementations.Users.DefaultAuthenticationProvider"
