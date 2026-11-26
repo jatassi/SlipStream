@@ -18,6 +18,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -87,7 +88,7 @@ type World struct {
 	// Mail captures every email the Media Servers send, waited or through
 	// the Outbox.
 	Mail     *mailtest.Sender
-	ms       *mediaservers.MediaServers
+	ms       atomic.Pointer[mediaservers.MediaServers]
 	net      *network
 	links    *links
 	roots    *roots.Roots
@@ -193,7 +194,8 @@ func New(t *testing.T) *World {
 // runs them until halt.
 func (w *World) boot() {
 	ms := mediaservers.New(w.cfg)
-	w.ms, w.Service, w.Renewal = ms, ms.Service(), ms.RenewalTask()
+	w.ms.Store(ms)
+	w.Service, w.Renewal = ms.Service(), ms.RenewalTask()
 	w.Identity.SetGranter(ms.Granter())
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
@@ -501,7 +503,7 @@ func (w *World) Intent(t *testing.T, node role.NodeID) *msv1.Intent {
 	var in *msv1.Intent
 	err := w.Lib.Read(t.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {
 		var err error
-		in, err = w.ms.Intent(ctx, r, node)
+		in, err = w.ms.Load().Intent(ctx, r, node)
 		return err
 	})
 	if err != nil {
@@ -564,7 +566,7 @@ func (e changedEvents) Publish(ctx context.Context, v mediaservers.Changed) {
 type rehomed struct{ w *World }
 
 func (r rehomed) Rehomed(ctx context.Context, tx *storage.Tx[storage.Library], root roots.ID) error {
-	return r.w.ms.Rehomed(ctx, tx, root)
+	return r.w.ms.Load().Rehomed(ctx, tx, root)
 }
 
 type rootsChanged struct{ w *World }
@@ -611,12 +613,12 @@ func (w *World) filePlaces(_ context.Context, _ storage.Reader[storage.Library],
 }
 
 // Moves is the Controller's Media Servers, for the calls a Move makes.
-func (w *World) Moves() *mediaservers.MediaServers { return w.ms }
+func (w *World) Moves() *mediaservers.MediaServers { return w.ms.Load() }
 
 // Exposure is what server id publishes, as S51 (Reachability diagnostic)
 // reads it.
 func (w *World) Exposure(ctx context.Context, id link.ServerID) (mediaservers.Exposure, error) {
-	return w.ms.Exposure(ctx, id)
+	return w.ms.Load().Exposure(ctx, id)
 }
 
 // empty is roots that record no files.
@@ -721,7 +723,7 @@ func (c *cadences) SetCadence(_ context.Context, _ tasks.TaskID, v setting.Store
 func (w *World) Tell(t *testing.T, cs ...files.PathChange) {
 	t.Helper()
 	err := w.Lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
-		return w.ms.Changed(ctx, tx, cs)
+		return w.ms.Load().Changed(ctx, tx, cs)
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -731,7 +733,7 @@ func (w *World) Tell(t *testing.T, cs ...files.PathChange) {
 // Prepare is files' once-per-pass call before the disk queue moves bytes.
 func (w *World) Prepare(t *testing.T, rs ...files.Rename) {
 	t.Helper()
-	w.ms.Prepare(t.Context(), rs)
+	w.ms.Load().Prepare(t.Context(), rs)
 }
 
 // Scanned marks every mapping scanned, as the fresh folder rule leaves a
