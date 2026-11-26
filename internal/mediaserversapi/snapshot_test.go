@@ -197,6 +197,72 @@ func TestALateFileResolvesWhenTheIndexLearnsIt(t *testing.T) {
 	})
 }
 
+// TestAnImportAtAListedPathFilesItsPlays has Den list Trip before
+// SlipStream imports it, so the path index holds Trip's path with no
+// file. Once the import is told, a play of Trip, started before it or
+// after, has Trip's file and snapshot within a minute, and
+// media-servers.plays-changed names Den.
+func TestAnImportAtAListedPathFilesItsPlays(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		playFirst bool
+	}{
+		{name: "a play after the import"},
+		{name: "a play before the import", playFirst: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			synctest.Test(t, func(t *testing.T) { importAtAListedPath(t, tc.playFirst) })
+		})
+	}
+}
+
+func importAtAListedPath(t *testing.T, playFirst bool) {
+	const rel = "Trip/Trip.mkv"
+	s := newShelfOf(t, den(floorVer), "", p+rel)
+	settle(24 * time.Hour)
+	server := serverOf(t, s.id)
+	path, err := link.ParsePath(p + rel)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := s.w.Item(t, s.id, path); !ok {
+		t.Fatalf("the index holds no item at %s after Den's next listing", path)
+	}
+	s.w.Target(t, "HD", targets.Target{})
+	work, item := works.WorkID{UUID: storage.NewUUID()}, works.ItemID{UUID: storage.NewUUID()}
+	play := func() link.PlayID {
+		now := time.Now()
+		return s.w.Play(t, s.w.Seedbox, mstest.Play{
+			Server: server, Session: "9", Path: p + rel, PlayerKey: "lrtv", Player: "Living room", User: "ada",
+			Streams: link.Streams{Video: link.StreamDirect, Audio: link.StreamDirect, Subtitles: link.SubtitlesNone},
+			Started: now, Seen: now,
+		})
+	}
+	var id link.PlayID
+	if playFirst {
+		id = play()
+	}
+	before := len(s.w.PlaysChanged())
+	file := s.w.Place(s.root, mustRel(t, rel))
+	s.w.File(t, mstest.File{ID: file, Work: work, Item: item, Label: "1080p", Media: hd, Met: []string{"HD"}})
+	s.tell(t, at(t, files.PathAdded, file, rel))
+	if !playFirst {
+		id = play()
+	}
+	settle(time.Minute)
+	f, snap := s.w.Filed(t, server, id)
+	if f != file || snap == nil || snap.Work != work || snap.Label != "1080p" {
+		t.Errorf("a minute after the import the play has file %s and snapshot %+v, want Trip's %s with its snapshot", f, snap, file)
+	}
+	named := false
+	for _, e := range s.w.PlaysChanged()[before:] {
+		named = named || len(e.ServerIDs) == 1 && e.ServerIDs[0] == s.id
+	}
+	if !named {
+		t.Errorf("media-servers.plays-changed after the import published %v, want Den", s.w.PlaysChanged()[before:])
+	}
+}
+
 // TestEveryWriteToAPlayPublishesPlaysChanged writes Clip's play each way
 // and counts media-servers.plays-changed naming Den after the commit.
 func TestEveryWriteToAPlayPublishesPlaysChanged(t *testing.T) {

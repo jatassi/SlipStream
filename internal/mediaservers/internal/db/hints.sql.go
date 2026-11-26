@@ -11,6 +11,7 @@ import (
 
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/mediaserverlink/link"
+	"github.com/jatassi/slipstream/internal/roots"
 )
 
 const fileAtPath = `-- name: FileAtPath :one
@@ -28,6 +29,23 @@ func (q *Queries) FileAtPath(ctx context.Context, arg FileAtPathParams) (files.I
 	var file_id files.ID
 	err := row.Scan(&file_id)
 	return file_id, err
+}
+
+const getShownFolder = `-- name: GetShownFolder :one
+SELECT server_folder FROM mediaservers_mapping
+WHERE server_id = ?1 AND root_id = ?2 AND shown = 1
+`
+
+type GetShownFolderParams struct {
+	ServerID link.ServerID
+	RootID   roots.ID
+}
+
+func (q *Queries) GetShownFolder(ctx context.Context, arg GetShownFolderParams) (*string, error) {
+	row := q.db.QueryRowContext(ctx, getShownFolder, arg.ServerID, arg.RootID)
+	var server_folder *string
+	err := row.Scan(&server_folder)
+	return server_folder, err
 }
 
 const markItemsStale = `-- name: MarkItemsStale :exec
@@ -55,5 +73,21 @@ func (q *Queries) MarkItemsStale(ctx context.Context, arg MarkItemsStaleParams) 
 		query = strings.Replace(query, "/*SLICE:item_keys*/?", "NULL", 1)
 	}
 	_, err := q.db.ExecContext(ctx, query, queryParams...)
+	return err
+}
+
+const markPathStale = `-- name: MarkPathStale :exec
+UPDATE mediaservers_item
+SET stale = 1
+WHERE server_id = ?1 AND path_key = ?2
+`
+
+type MarkPathStaleParams struct {
+	ServerID link.ServerID
+	PathKey  string
+}
+
+func (q *Queries) MarkPathStale(ctx context.Context, arg MarkPathStaleParams) error {
+	_, err := q.db.ExecContext(ctx, markPathStale, arg.ServerID, arg.PathKey)
 	return err
 }
