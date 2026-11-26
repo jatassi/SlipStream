@@ -661,7 +661,7 @@ func watchSees(t *testing.T, w *world, d link.Decision) {
 func sessionsOf(s link.Seen) []string {
 	var out []string
 	for _, x := range s.Sessions {
-		out = append(out, fmt.Sprintf("%s plays %s for %s on %s, %s %q hardware %v", x.Key, x.Path, x.User, x.Player, x.Streams.Decision(), x.Reasons, x.Hardware))
+		out = append(out, fmt.Sprintf("%s plays %s for %s on %s, %s %q hardware %v", x.Key, x.Version.Path, x.User, x.Player, x.Streams.Decision(), x.Reasons, x.Hardware))
 	}
 	return out
 }

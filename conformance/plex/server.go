@@ -45,7 +45,7 @@ func (s *server) Reach(ctx context.Context) (link.Identity, error) {
 	if err != nil {
 		return link.Identity{}, err
 	}
-	v, err := link.ParseVersion(id.Version)
+	v, err := link.ParseServerVersion(id.Version)
 	if err != nil {
 		return link.Identity{}, err
 	}
@@ -337,7 +337,7 @@ func (s *server) Sessions(ctx context.Context) ([]link.Session, error) {
 			ls.Player, ls.Product = sess.Player.Title, sess.Player.Product
 		}
 		if len(sess.Media) > 0 && len(sess.Media[0].Parts) > 0 {
-			if ls.Path, err = link.ParsePath(sess.Media[0].Parts[0].File); err != nil {
+			if ls.Version.Path, err = link.ParsePath(sess.Media[0].Parts[0].File); err != nil {
 				return nil, err
 			}
 		}

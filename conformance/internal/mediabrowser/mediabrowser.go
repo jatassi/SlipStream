@@ -179,7 +179,7 @@ func (s *Server) Reach(ctx context.Context) (link.Identity, error) {
 	if err != nil {
 		return link.Identity{}, err
 	}
-	v, err := link.ParseVersion(info.Version)
+	v, err := link.ParseServerVersion(info.Version)
 	if err != nil {
 		return link.Identity{}, err
 	}
@@ -558,7 +558,7 @@ func (s *Server) Sessions(ctx context.Context) ([]link.Session, error) {
 		}
 		ls := link.Session{Key: sess.ID, User: sess.UserName, Player: sess.DeviceName, Product: sess.Client,
 			Streams: link.Streams{Video: link.StreamDirect, Audio: link.StreamDirect, Subtitles: link.SubtitlesNone}}
-		if ls.Path, err = link.ParsePath(sess.NowPlayingItem.Path); err != nil {
+		if ls.Version.Path, err = link.ParsePath(sess.NowPlayingItem.Path); err != nil {
 			return nil, err
 		}
 		if ti := sess.TranscodingInfo; ti != nil && sess.PlayState != nil && sess.PlayState.PlayMethod == jellyfin.Transcode {

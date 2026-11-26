@@ -304,7 +304,7 @@ func IdentityOnWire(id link.Identity) *msv1.Identity {
 }
 
 func IdentityOf(m *msv1.Identity) (link.Identity, error) {
-	v, err := link.ParseVersion(m.GetVersion())
+	v, err := link.ParseServerVersion(m.GetVersion())
 	if err != nil {
 		return link.Identity{}, err
 	}

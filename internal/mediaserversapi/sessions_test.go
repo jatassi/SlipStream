@@ -39,22 +39,31 @@ func newWatched(t *testing.T) watched {
 	return w
 }
 
-// play starts Clip on Living room for ada, transcoding for a reason, and
-// answers its session key.
-func (w watched) play(t *testing.T) string {
+// played is a play cue's answer: the session the fake started and the
+// item it plays.
+type played struct{ Session, Item string }
+
+// transcoding is the play history's line for p, but its end.
+func (p played) transcoding() string {
+	return `/media/Shelves/Clip.mkv transcode (transcode direct none) ["ContainerNotSupported"] by ada on Living room key fake-player-` +
+		p.Session + " item " + p.Item + ", "
+}
+
+// play starts Clip on Living room for ada, transcoding for a reason.
+func (w watched) play(t *testing.T) played {
 	t.Helper()
 	raw, err := json.Marshal(w.den.Cue(t, "jellyfin-play", map[string]any{
 		"path": clip, "user": "ada", "player": "Living room", "decision": link.DecisionTranscode, "reasons": []string{"ContainerNotSupported"},
 	}))
-	var played struct{ Session string }
+	var p played
 	if err == nil {
-		err = json.Unmarshal(raw, &played)
+		err = json.Unmarshal(raw, &p)
 	}
 	if err != nil {
 		t.Fatal(err)
 	}
 	synctest.Wait()
-	return played.Session
+	return p
 }
 
 func (w watched) plays(t *testing.T) []string {
@@ -81,8 +90,6 @@ func expectPlays(t *testing.T, got []string, want ...string) {
 const playing = `{"reachable":true,"sessions":[{"playId":"id1","user":"ada","player":"Living room","product":"Jellyfin Server Web",` +
 	`"path":"/media/Shelves/Clip.mkv","decision":"transcode","video":"transcode","audio":"direct","subtitles":"none","hardware":false,"reasons":["ContainerNotSupported"],"startedAt":"T"}]}`
 
-const transcoding = `/media/Shelves/Clip.mkv transcode (transcode direct none) ["ContainerNotSupported"] by ada on Living room, `
-
 // TestSessionsShowAPlayUntilItVanishesFromTwoPolls plays Clip on Den: the
 // Admin sees it playing at once and hears of it, and once it stops it
 // stays in the history, ended at the last poll that saw it.
@@ -90,18 +97,18 @@ func TestSessionsShowAPlayUntilItVanishesFromTwoPolls(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		w := newWatched(t)
 		w.o.Expect(t, http.MethodGet, servers+"/"+w.id+"/sessions", "", http.StatusOK, `{"reachable":true,"sessions":[]}`)
-		session := w.play(t)
+		p := w.play(t)
 		w.o.Expect(t, http.MethodGet, servers+"/"+w.id+"/sessions", "", http.StatusOK,
 			playing)
 		if got := w.w.SessionsChanged(); len(got) == 0 || !slices.Equal(got[len(got)-1].ServerIDs, []string{w.id}) {
 			t.Errorf("media-servers.sessions-changed published %v, want Den last", got)
 		}
 		wait(every)
-		w.den.Cue(t, "jellyfin-stop", map[string]string{"session": session})
+		w.den.Cue(t, "jellyfin-stop", map[string]string{"session": p.Session})
 		wait(every)
-		expectPlays(t, w.plays(t), transcoding+"open")
+		expectPlays(t, w.plays(t), p.transcoding()+"open")
 		wait(every)
-		expectPlays(t, w.plays(t), transcoding+"ended 15s in")
+		expectPlays(t, w.plays(t), p.transcoding()+"ended 15s in")
 		w.o.Expect(t, http.MethodGet, servers+"/"+w.id+"/sessions", "", http.StatusOK, `{"reachable":true,"sessions":[]}`)
 	})
 }
@@ -112,13 +119,13 @@ func TestSessionsShowAPlayUntilItVanishesFromTwoPolls(t *testing.T) {
 func TestNamingAnotherReachingNodeEndsThePlays(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		w := newWatched(t)
-		w.play(t)
+		p := w.play(t)
 		wait(every)
 		if status, body := w.o.Call(t, http.MethodPatch, servers+"/"+w.id, `{"reachingNodeId":"`+w.w.Home.String()+`"}`); status != http.StatusOK {
 			t.Fatalf("name home = %d %s", status, body)
 		}
 		synctest.Wait()
-		expectPlays(t, w.plays(t), transcoding+"ended 15s in", transcoding+"open")
+		expectPlays(t, w.plays(t), p.transcoding()+"ended 15s in", p.transcoding()+"open")
 		w.o.Expect(t, http.MethodGet, servers+"/"+w.id+"/sessions", "", http.StatusOK, playing)
 	})
 }
@@ -129,14 +136,14 @@ func TestNamingAnotherReachingNodeEndsThePlays(t *testing.T) {
 func TestALinkDownPastMarkUnhealthyAfterEndsThePlays(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		w := newWatched(t)
-		w.play(t)
+		p := w.play(t)
 		wait(every)
 		w.w.Stop(w.w.Seedbox)
 		w.w.Offline(w.w.Seedbox)
 		wait(5*time.Minute - time.Second)
-		expectPlays(t, w.plays(t), transcoding+"open")
+		expectPlays(t, w.plays(t), p.transcoding()+"open")
 		wait(time.Second)
-		expectPlays(t, w.plays(t), transcoding+"ended 15s in")
+		expectPlays(t, w.plays(t), p.transcoding()+"ended 15s in")
 	})
 }
 
@@ -147,13 +154,13 @@ func TestALinkDownPastMarkUnhealthyAfterEndsThePlays(t *testing.T) {
 func TestAHolderStartedAgainEndsThePlaysItLeftOpen(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		w := newWatched(t)
-		w.play(t)
+		p := w.play(t)
 		_, body := w.o.Call(t, http.MethodGet, servers+"/"+w.id+"/sessions", "")
 		wait(every)
 		w.w.Stop(w.w.Seedbox)
 		wait(every)
 		w.w.Start(w.w.Seedbox)
-		expectPlays(t, w.plays(t), transcoding+"ended 15s in", transcoding+"open")
+		expectPlays(t, w.plays(t), p.transcoding()+"ended 15s in", p.transcoding()+"open")
 
 		old, err := storage.ParseUUID(ownertest.FirstID(body))
 		if err != nil {
@@ -178,6 +185,6 @@ func TestAHolderStartedAgainEndsThePlaysItLeftOpen(t *testing.T) {
 				t.Fatal(err)
 			}
 		}
-		expectPlays(t, w.plays(t), transcoding+"ended 15s in", transcoding+"open")
+		expectPlays(t, w.plays(t), p.transcoding()+"ended 15s in", p.transcoding()+"open")
 	})
 }
