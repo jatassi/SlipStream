@@ -1,4 +1,5 @@
 import {
+  Analytics01Icon,
   ArrowDataTransferVerticalIcon,
   FolderLinksIcon,
   InformationCircleIcon,
@@ -30,6 +31,12 @@ export const serverSections = [
     label: "Now playing",
     icon: PlayCircle02Icon,
     to: "/settings/media-servers/$serverId",
+  },
+  {
+    id: "playback",
+    label: "Playback report",
+    icon: Analytics01Icon,
+    to: "/settings/media-servers/$serverId/playback",
   },
   {
     id: "changes",
