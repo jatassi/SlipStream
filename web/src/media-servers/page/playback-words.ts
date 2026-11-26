@@ -11,23 +11,28 @@ import type {
 } from "../../api/gen/model";
 import type { StatusMark, TermsFor } from "../../ui/state-marks";
 
-// Jellyfin and Emby name their reasons from one TranscodeReason enum. A name
-// this table lacks still shows as the server gave it, under Details.
-const reasonWords: Readonly<Record<string, string>> = {
+/** What each Jellyfin and Emby TranscodeReason means, as it reads after "because". */
+export const reasonLines: Readonly<Record<string, string>> = {
   ContainerNotSupported: "the player can't play its container",
   VideoCodecNotSupported: "the player can't play its video codec",
   AudioCodecNotSupported: "the player can't play its audio codec",
   SubtitleCodecNotSupported: "the player can't show its subtitles",
+  SubtitleContentOptionsEnabled: "the player's subtitle style options are on",
   AudioIsExternal: "its audio is in a separate file",
+  ExternalAudioNotSupported: "its audio is in a separate file",
   SecondaryAudioNotSupported: "the player can't play a second audio track",
+  AudioDelayNotSupported: "an audio delay is set on the player",
+  StreamCountExceedsLimit: "it has more streams than the player allows",
   VideoProfileNotSupported: "the player can't play its video profile",
   VideoLevelNotSupported: "the player can't play its video level",
+  VideoCodecTagNotSupported: "the player can't play its video codec tag",
+  RefFramesNotSupported: "the player can't play its reference frames",
+  VideoRangeTypeNotSupported: "the player can't show its HDR format",
+  VideoRangeNotSupported: "the player can't show its HDR format",
   VideoResolutionNotSupported: "the player can't play its resolution",
   VideoBitDepthNotSupported: "the player can't play its video bit depth",
   VideoFramerateNotSupported: "the player can't play its frame rate",
-  VideoRangeTypeNotSupported: "the player can't show its HDR format",
-  VideoCodecTagNotSupported: "the player can't play its video codec tag",
-  RefFramesNotSupported: "the player can't play its reference frames",
+  VideoRotationNotSupported: "the player can't play rotated video",
   AnamorphicVideoNotSupported: "the player can't play anamorphic video",
   InterlacedVideoNotSupported: "the player can't play interlaced video",
   AudioChannelsNotSupported: "the player can't play its audio channels",
@@ -37,7 +42,6 @@ const reasonWords: Readonly<Record<string, string>> = {
   ContainerBitrateExceedsLimit: "its bitrate is above the player's limit",
   VideoBitrateNotSupported: "its video bitrate is above the player's limit",
   AudioBitrateNotSupported: "its audio bitrate is above the player's limit",
-  StreamCountExceedsLimit: "it has more streams than the player allows",
   UnknownVideoStreamInfo: "the server can't read its video stream",
   UnknownAudioStreamInfo: "the server can't read its audio stream",
   DirectPlayError: "direct play failed on the player",
@@ -56,13 +60,15 @@ const decisionTerms = {
     word: "Direct stream",
     icon: PackageMovingIcon,
     tone: "neutral",
-    definition: "The server repackages the audio and video for the player without converting them.",
+    definition:
+      "The server copies the file's streams into a new container without transcoding them.",
   },
   transcode: {
     word: "Transcode",
     icon: ArrowReloadHorizontalIcon,
     tone: "neutral",
-    definition: "The server converts the file into a format the player can play.",
+    definition:
+      "The server converts the video or audio into a format the player can play, or burns in the subtitles.",
   },
   hardware_transcode: {
     word: "Hardware transcode",
@@ -82,11 +88,25 @@ export function decisionTerm(session: Session): StatusMark {
 
 const list = new Intl.ListFormat("en", { type: "conjunction" });
 
-/** Why the server transcodes, in plain words, or undefined when it gave no known reason. */
-export function transcodeWhy(session: Session): string | undefined {
-  if (session.decision !== "transcode") {
+function transcoded(session: Session): string {
+  const video = session.video === "transcode" || session.subtitles === "burned";
+  const audio = session.audio === "transcode";
+  const streams = video && audio ? "the video and audio" : video ? "the video" : "the audio";
+  const hardware = session.hardware ? " on its graphics hardware" : "";
+  const burned = audio ? " and burns in its subtitles" : " to burn in its subtitles";
+  const burn = session.subtitles === "burned" ? burned : "";
+  const reasons = session.reasons.map((reason) => reasonLines[reason] ?? reason);
+  const why = reasons.length === 0 ? "" : ` because ${list.format(reasons)}`;
+  return `transcodes ${streams}${hardware}${burn}${why}`;
+}
+
+/** What the server does with a live session's streams and why, or undefined for a direct play. */
+export function nowPlayingLine(server: string, session: Session): string | undefined {
+  if (session.decision === "direct_play") {
     return undefined;
   }
-  const known = session.reasons.flatMap((reason) => reasonWords[reason] ?? []);
-  return known.length === 0 ? undefined : `Transcoding because ${list.format(known)}.`;
+  if (session.decision === "direct_stream") {
+    return `${server} copies the file's streams into a new container without transcoding them.`;
+  }
+  return `${server} ${transcoded(session)}.`;
 }

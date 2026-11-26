@@ -59,7 +59,7 @@ Library roots holds the roots, then a "Moves" heading for the three settings tha
 
 Importing sits after Library scan, which links to it, because a scan reads its Video file extensions. A download and a manual import read all three of its settings.
 
-Media Servers holds the settings that apply to every Plex, Jellyfin and Emby server: "Wait before sending", "Check sessions every", "Mark unhealthy after" and "Keep play history for", then the Plex sign-in's "Renew Plex sign-in every" and "Renew when less than this is left". The renewal schedule is the Plex sign-in task's frequency, so it shows on the Tasks page too. A server's own addresses and Nodes stay on that server's page under Settings, and its Path mappings under Path mappings. The Add sheet takes them when the server is added.
+Media Servers holds the settings that apply to every Plex, Jellyfin and Emby server: "Wait before sending", "Check sessions every", "Mark unhealthy after" and "Keep play history for", then the Plex sign-in's "Renew Plex sign-in every" and "Renew when less than this is left". "Keep play history for" is also the window the Playback report covers. The renewal schedule is the Plex sign-in task's frequency, so it shows on the Tasks page too. A server's own addresses and Nodes stay on that server's page under Settings, and its Path mappings under Path mappings. The Add sheet takes them when the server is added.
 
 Member access adds no section and no setting that applies to every server. "Show to Members", "Libraries for Members" and, on Jellyfin and Emby, "Address for Members" belong to one server. They sit under Members on that server's Settings tab, below the server's own fields.
 

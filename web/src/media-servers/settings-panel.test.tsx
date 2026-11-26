@@ -31,7 +31,7 @@ test("the settings lead with what they add up to and save each value on its own"
   await expect
     .element(
       panel.getByText(
-        "SlipStream sends a folder's changes 10 s after its last change, checks what's playing every 15 s and renews the Plex sign-in every 1 day. The defaults suit most servers.",
+        "SlipStream sends a folder's changes 10 s after its last change, checks what's playing every 15 s, keeps play history for 30 days and renews the Plex sign-in every 1 day. The defaults suit most servers.",
       ),
     )
     .toBeVisible();
