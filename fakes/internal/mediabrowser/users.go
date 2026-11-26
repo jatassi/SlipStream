@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"slices"
 	"strings"
+	"time"
 )
 
 // user is one server user. Its id is minted, so a user made again gets a
@@ -14,6 +15,8 @@ import (
 type user struct {
 	id, name, password string
 	policy             policy
+	// failures is the wrong passwords since the last sign-in.
+	failures int
 }
 
 // policy is every policy field the fake renders, so posting back what a
@@ -28,8 +31,10 @@ type policy struct {
 	EnableMediaPlayback        bool     `json:"EnableMediaPlayback"`
 	EnableRemoteAccess         bool     `json:"EnableRemoteAccess"`
 	LoginAttemptsBeforeLockout int      `json:"LoginAttemptsBeforeLockout"`
-	AuthenticationProviderID   string   `json:"AuthenticationProviderId,omitempty"`
-	PasswordResetProviderID    string   `json:"PasswordResetProviderId,omitempty"`
+	// LockedOutDate is when Emby locked the user out.
+	LockedOutDate            *time.Time `json:"LockedOutDate,omitempty"`
+	AuthenticationProviderID string     `json:"AuthenticationProviderId,omitempty"`
+	PasswordResetProviderID  string     `json:"PasswordResetProviderId,omitempty"`
 }
 
 // newPolicy is a new user's policy. Jellyfin 10.9 and later name the
@@ -211,10 +216,14 @@ func (s *server) updateUser(w http.ResponseWriter, r *http.Request, u *user) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// setPolicy is POST /Users/{id}/Policy, which replaces the whole policy.
-// Jellyfin refuses one without its two provider ids.
+// setPolicy is POST /Users/{id}/Policy. Jellyfin replaces the whole
+// policy and refuses one without its two provider ids. Emby merges, so a
+// field the post leaves out keeps its value (online run 2026-11-26).
 func (s *server) setPolicy(w http.ResponseWriter, r *http.Request, u *user) {
 	var p policy
+	if s.p.Flavor == Emby {
+		p = u.policy
+	}
 	if err := json.NewDecoder(r.Body).Decode(&p); err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return

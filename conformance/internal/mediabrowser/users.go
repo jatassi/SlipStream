@@ -90,9 +90,10 @@ func (s *Server) SignInAs(t *testing.T, name, password string) error {
 	return jellyfin.New(base, s.f, auth.AccessToken, app, s.tg.HTTP).Logout(ctx)
 }
 
-func refused(err error) bool {
+// status is whether err is the server's answer with code.
+func status(err error, code int) bool {
 	e, ok := errors.AsType[*jellyfin.Error](err)
-	return ok && (e.Status == http.StatusUnauthorized || e.Status == http.StatusForbidden)
+	return ok && e.Status == code
 }
 
 // Folder is the library key as a policy's EnabledFolders names it: the
@@ -176,8 +177,8 @@ func (s *Server) UserMadeSignsIn(t *testing.T) {
 	if err := s.SignInAs(t, m.Name, chosen); err != nil {
 		t.Fatalf("signing in with the password the key set: %v", err)
 	}
-	if err := s.SignInAs(t, m.Name, m.Password); !refused(err) {
-		t.Fatalf("signing in with the replaced password answered %v, want a refusal", err)
+	if err := s.SignInAs(t, m.Name, m.Password); !status(err, http.StatusUnauthorized) {
+		t.Fatalf("signing in with the replaced password answered %v, want 401", err)
 	}
 }
 
@@ -284,8 +285,8 @@ func (s *Server) EnabledFoldersRestrict(t *testing.T) {
 }
 
 // UserDisabled marks a video played for a restricted user, then disables
-// the user, which can't sign in and keeps its watch data, and restricts
-// it again, which lets it sign in.
+// the user, whose right password both products answer 403 and which keeps
+// its watch data, and restricts it again, which lets it sign in.
 func (s *Server) UserDisabled(t *testing.T) {
 	m := s.NewMember(t)
 	defer s.Drop(t, m)
@@ -312,8 +313,8 @@ func (s *Server) UserDisabled(t *testing.T) {
 	if !s.flags(t, m).IsDisabled {
 		t.Fatal("the listing shows the disabled user enabled")
 	}
-	if err := s.SignInAs(t, m.Name, m.Password); !refused(err) {
-		t.Fatalf("the disabled user's sign-in answered %v, want a refusal", err)
+	if err := s.SignInAs(t, m.Name, m.Password); !status(err, http.StatusForbidden) {
+		t.Fatalf("the disabled user's sign-in answered %v, want 403", err)
 	}
 	if d, err := s.C.UserData(t.Context(), m.ID, item); err != nil || !d.Played {
 		t.Fatalf("the disabled user's data on %s is %+v (err %v), want it played", item, d, err)
@@ -344,21 +345,53 @@ func (s *Server) UserDeletedTwice(t *testing.T) {
 	}
 }
 
-// FailedSignInsLock records how many wrong passwords disable a user. It
-// asserts nothing.
+// lockedOut is whether p names when Emby locked the user out.
+func lockedOut(t *testing.T, p jellyfin.Policy) bool {
+	t.Helper()
+	var at *time.Time
+	if raw, ok := p["LockedOutDate"]; ok {
+		if err := json.Unmarshal(raw, &at); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return at != nil && !at.IsZero()
+}
+
+// FailedSignInsLock signs in with a wrong password until the user is
+// locked out, at most 10 times, then with the right one. Emby 4.10 sets
+// Policy.LockedOutDate and refuses the right password with 403, its
+// IsDisabled still false. Jellyfin's new user has
+// LoginAttemptsBeforeLockout -1 and never locks (online run 2026-11-26).
 func (s *Server) FailedSignInsLock(t *testing.T) {
 	m := s.NewMember(t)
 	defer s.Drop(t, m)
 	s.Restrict(t, m, s.folder(t))
 	const tries = 10
-	for n := range tries {
-		if err := s.SignInAs(t, m.Name, "wrong-"+m.Password); err == nil {
-			t.Fatal("a wrong password signed in")
+	locked := 0
+	for n := 1; n <= tries && locked == 0; n++ {
+		if err := s.SignInAs(t, m.Name, "wrong-"+m.Password); !status(err, http.StatusUnauthorized) {
+			t.Fatalf("wrong password %d answered %v, want 401", n, err)
 		}
-		if s.flags(t, m).IsDisabled {
-			t.Logf("%d wrong passwords disabled the user", n+1)
-			return
+		p, err := s.C.UserPolicy(t.Context(), m.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if lockedOut(t, p) {
+			locked = n
 		}
 	}
-	t.Logf("%d wrong passwords left the user enabled", tries)
+	if s.flags(t, m).IsDisabled {
+		t.Fatalf("%d wrong passwords disabled the user", tries)
+	}
+	err := s.SignInAs(t, m.Name, m.Password)
+	if s.f == jellyfin.Emby {
+		if locked == 0 || !status(err, http.StatusForbidden) {
+			t.Fatalf("after %d wrong passwords Emby locked the user at %d and the right one answered %v, want a lock and 403", tries, locked, err)
+		}
+		t.Logf("%d wrong passwords locked the user out", locked)
+		return
+	}
+	if locked != 0 || err != nil {
+		t.Fatalf("after %d wrong passwords Jellyfin locked the user at %d and the right one answered %v, want no lock", tries, locked, err)
+	}
 }
