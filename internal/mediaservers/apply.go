@@ -51,13 +51,13 @@ func (m *MediaServers) Apply(ctx context.Context, tx *storage.Tx[storage.Library
 		}
 		return q.SetContact(ctx, c.next(id, cur))
 	case *msv1.Report_PlayStarted:
-		return startPlay(ctx, q, id, rep.PlayStarted)
+		return m.startPlay(ctx, q, id, cur, rep.PlayStarted)
 	case *msv1.Report_PlayChanged:
-		return changePlay(ctx, q, id, rep.PlayChanged)
+		return m.changePlay(ctx, q, id, rep.PlayChanged)
 	case *msv1.Report_PlayEnded:
-		return endPlay(ctx, q, id, rep.PlayEnded)
+		return m.endPlay(ctx, q, id, rep.PlayEnded)
 	case *msv1.Report_Watching:
-		return watching(ctx, q, id, rep.Watching)
+		return m.watching(ctx, q, id, rep.Watching)
 	case *msv1.Report_IndexHint:
 		m.senders.wake(id)
 		return hint(ctx, q, id, rep.IndexHint)
