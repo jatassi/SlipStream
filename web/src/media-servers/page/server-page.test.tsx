@@ -19,8 +19,8 @@ test("a server's page leads with its state and what's playing, and keeps the mac
   await expect.element(page.getByText(/^Den Jellyfin is up to date/u)).toBeVisible();
   const tabs = page.getByRole("navigation", { name: "Den Jellyfin" });
   await Promise.all(
-    ["Now playing", "Changes", "Path mappings", "Settings", "Details"].map((tab) =>
-      expect.element(tabs.getByRole("link", { name: tab })).toBeVisible(),
+    ["Now playing", "Playback report", "Changes", "Path mappings", "Settings", "Details"].map(
+      (tab) => expect.element(tabs.getByRole("link", { name: tab })).toBeVisible(),
     ),
   );
   const playing = page.getByRole("list", { name: "Now playing on Den Jellyfin" });
@@ -221,7 +221,7 @@ test("on phone the server's top page shows what's playing and lists its other se
     .toMatchTextContent(/graphics hardware/u);
   await userEvent.keyboard("{Escape}");
   await Promise.all(
-    ["Changes", "Path mappings", "Settings", "Details"].map((name) =>
+    ["Playback report", "Changes", "Path mappings", "Settings", "Details"].map((name) =>
       expect.element(rows.getByRole("link", { name })).toBeVisible(),
     ),
   );

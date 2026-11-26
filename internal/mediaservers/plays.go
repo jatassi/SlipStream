@@ -17,95 +17,69 @@ import (
 // id that Node minted, so applying a report twice changes nothing, and a
 // report for a play the Controller already ended, or a start for a play
 // it already has, changes nothing either.
-func startPlay(ctx context.Context, q *db.Queries, server link.ServerID, m *msv1.PlayStarted) error {
-	s := m.GetSession()
-	id, err := playIDOf(s.GetPlayId())
+func (m *MediaServers) startPlay(ctx context.Context, q *db.Queries, server link.ServerID, cur db.GetContactRow, s *msv1.PlayStarted) error {
+	set, err := q.GetSettings(ctx)
 	if err != nil {
 		return err
 	}
-	path, err := link.ParsePath(s.GetServerPath())
-	if err != nil {
-		return fmt.Errorf("a started play's path: %w", err)
-	}
-	streams, err := streamsOf(s.GetStreams())
+	now := time.Now()
+	w := window(now, KeepPlays.Value(set.KeepPlaysSeconds), cur.PlaysSince.Time())
+	p, err := m.caps().started(s.GetSession(), now, w.Since)
 	if err != nil {
 		return err
 	}
-	started, seen := timeOf(s.GetStartedUnixMs()), timeOf(s.GetSeenUnixMs())
-	if started.IsZero() || seen.Before(started) {
-		return errors.New("a started play's times are out of order")
-	}
-	reasons, err := reasonsOf(s.GetReasons())
-	if err != nil {
-		return err
-	}
-	file, err := q.FileAtPath(ctx, db.FileAtPathParams{ServerID: server, PathKey: path.Key()})
+	file, err := q.FileAtPath(ctx, db.FileAtPathParams{ServerID: server, PathKey: p.path.Key()})
 	if err != nil && !errors.Is(err, storage.ErrNoRows) {
 		return err
 	}
-	return q.StartPlay(ctx, db.StartPlayParams{
-		ServerID: server, ID: id, SessionKey: s.GetSessionKey(), FileID: file, ServerPath: path.String(),
-		PathKey: path.Key(), ItemKey: s.GetItemKey(), PlayerKey: s.GetPlayerKey(), Player: s.GetPlayer(),
-		Platform: s.GetPlatform(), Product: s.GetProduct(), UserName: s.GetUser(),
-		Decision: streams.Decision(), Video: streams.Video, Audio: streams.Audio, Subtitles: streams.Subtitles,
-		Hardware: s.GetHardware(), Reasons: reasons, Received: receivedOf(s.GetReceived()),
-		AudioTrack: trackOf(s.GetAudioTrack()), SubtitleTrack: trackOf(s.GetSubtitleTrack()),
-		StartedAt: storage.FromTime(started), LastSeenAt: storage.FromTime(seen),
-	})
+	return q.StartPlay(ctx, p.startParams(server, file))
 }
 
-func changePlay(ctx context.Context, q *db.Queries, server link.ServerID, m *msv1.PlayChanged) error {
-	id, err := playIDOf(m.GetPlayId())
+func (m *MediaServers) changePlay(ctx context.Context, q *db.Queries, server link.ServerID, c *msv1.PlayChanged) error {
+	p, err := m.caps().changed(c, time.Now())
 	if err != nil {
 		return err
 	}
-	streams, err := streamsOf(m.GetStreams())
-	if err != nil {
-		return err
-	}
-	reasons, err := reasonsOf(m.GetReasons())
-	if err != nil {
-		return err
-	}
-	seen, open, err := laterSeen(ctx, q, server, id, timeOf(m.GetSeenUnixMs()))
+	seen, open, err := laterSeen(ctx, q, server, p.id, p.seen)
 	if err != nil || !open {
 		return err
 	}
 	return q.ChangePlay(ctx, db.ChangePlayParams{
-		ServerID: server, ID: id, Decision: streams.Decision(), Video: streams.Video, Audio: streams.Audio,
-		Subtitles: streams.Subtitles, Hardware: m.GetHardware(), Reasons: reasons, Received: receivedOf(m.GetReceived()),
-		AudioTrack: trackOf(m.GetAudioTrack()), SubtitleTrack: trackOf(m.GetSubtitleTrack()), LastSeenAt: seen,
+		ServerID: server, ID: p.id, Decision: p.streams.Decision(), Video: p.streams.Video, Audio: p.streams.Audio,
+		Subtitles: p.streams.Subtitles, Hardware: p.hardware, Reasons: reasonsJSON(p.reasons), Received: p.received,
+		AudioTrack: p.audio, SubtitleTrack: p.subtitle, LastSeenAt: seen,
 	})
 }
 
-func endPlay(ctx context.Context, q *db.Queries, server link.ServerID, m *msv1.PlayEnded) error {
-	id, err := playIDOf(m.GetPlayId())
+func (m *MediaServers) endPlay(ctx context.Context, q *db.Queries, server link.ServerID, e *msv1.PlayEnded) error {
+	id, err := playIDOf(e.GetPlayId())
 	if err != nil {
 		return err
 	}
-	seen, open, err := laterSeen(ctx, q, server, id, timeOf(m.GetLastSeenUnixMs()))
+	seen, open, err := laterSeen(ctx, q, server, id, m.caps().at(timeOf(e.GetLastSeenUnixMs()), time.Now()))
 	if err != nil || !open {
 		return err
 	}
 	return q.EndPlay(ctx, db.EndPlayParams{ServerID: server, ID: id, EndedAt: seen})
 }
 
-// watching ends every open play of server that m doesn't list, at its
+// watching ends every open play of server that w doesn't list, at its
 // last look: the plays a holder that stopped left open. The plays it
-// lists were seen at m's time.
-func watching(ctx context.Context, q *db.Queries, server link.ServerID, m *msv1.Watching) error {
+// lists were seen at w's time.
+func (m *MediaServers) watching(ctx context.Context, q *db.Queries, server link.ServerID, w *msv1.Watching) error {
 	listed := map[link.PlayID]bool{}
-	for _, b := range m.GetPlayIds() {
+	for _, b := range w.GetPlayIds() {
 		id, err := playIDOf(b)
 		if err != nil {
 			return err
 		}
 		listed[id] = true
 	}
-	at := timeOf(m.GetAtUnixMs())
+	at := timeOf(w.GetAtUnixMs())
 	if at.IsZero() {
 		return errors.New("a Watching report has no time")
 	}
+	at = m.caps().at(at, time.Now())
 	open, err := q.ListOpenPlays(ctx, server)
 	if err != nil {
 		return err
@@ -169,12 +143,9 @@ func timeOf(ms int64) time.Time {
 	return time.UnixMilli(ms).UTC()
 }
 
-func reasonsOf(rs []string) (string, error) {
-	if rs == nil {
-		rs = []string{}
-	}
-	b, err := json.Marshal(rs)
-	return string(b), err
+func reasonsJSON(rs []string) string {
+	b, _ := json.Marshal(rs) //nolint:errchkjson // a string slice always marshals
+	return string(b)
 }
 
 func streamsOf(s *msv1.Streams) (link.Streams, error) {
@@ -191,21 +162,4 @@ func streamsOf(s *msv1.Streams) (link.Streams, error) {
 		return link.Streams{}, fmt.Errorf("a play's subtitles: %w", err)
 	}
 	return link.Streams{Video: video, Audio: audio, Subtitles: subtitles, ContainerChanged: s.GetContainerChanged()}, nil
-}
-
-func receivedOf(r *msv1.Received) link.Received {
-	return link.Received{
-		Container: r.GetContainer(), VideoCodec: r.GetVideoCodec(), Height: int(r.GetHeight()), Bitrate: r.GetBitrate(),
-		AudioCodec: r.GetAudioCodec(), Channels: int(r.GetChannels()),
-	}
-}
-
-func trackOf(t *msv1.Track) *link.Track {
-	switch x := t.GetTrack().(type) {
-	case *msv1.Track_Position:
-		return &link.Track{Position: int(x.Position)}
-	case *msv1.Track_External:
-		return &link.Track{External: &link.ExternalTrack{Codec: x.External.GetCodec(), Language: x.External.GetLanguage()}}
-	}
-	return nil
 }

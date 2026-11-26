@@ -6,6 +6,8 @@ import {
 } from "@hugeicons/core-free-icons";
 
 import type {
+  PlaybackBlockedDimension as Dimension,
+  PlaybackEvidenceFact as FactKind,
   MediaserversSessionView as Session,
   MediaserversSessionViewDecision as Decision,
 } from "../../api/gen/model";
@@ -80,9 +82,9 @@ const decisionTerms = {
 } as const satisfies TermsFor<Shown, "neutral">;
 
 /** The standard name for what the server does with the file, with its definition. */
-export function decisionTerm(session: Session): StatusMark {
+export function decisionTerm(play: Pick<Session, "decision" | "hardware">): StatusMark {
   return decisionTerms[
-    session.decision === "transcode" && session.hardware ? "hardware_transcode" : session.decision
+    play.decision === "transcode" && play.hardware ? "hardware_transcode" : play.decision
   ];
 }
 
@@ -110,3 +112,129 @@ export function nowPlayingLine(server: string, session: Session): string | undef
   }
   return `${server} ${transcoded(session)}.`;
 }
+
+const hdrWords: Readonly<Record<string, string>> = { DV: "Dolby Vision" };
+
+/** An HDR format as the Target editor's filter names it in a sentence. */
+export const hdrWord = (value: string): string => hdrWords[value] ?? value;
+
+const megabits = new Intl.NumberFormat("en", { maximumFractionDigits: 1 });
+
+const bitrateWords = (bits: string) => `${megabits.format(Number(bits) / 1_000_000)} Mb/s`;
+
+/** A dimension a Target can choose, whose envelope a player proves value by value. */
+type Choosable = {
+  readonly lead: (value: string) => string;
+  readonly unproven: (value: string) => string;
+  readonly side: "video" | "audio";
+};
+
+/** A dimension no Target fixes, and what the Admin can do instead. */
+type Fixed = {
+  readonly lead: (value: string) => string;
+  readonly follow: (server: string) => string;
+};
+
+const noTarget = "No Target fixes this";
+
+/**
+ * Each dimension's words after "because", and for one no Target fixes, what
+ * follows. A dimension a Target can choose words what a player hasn't proven
+ * on it instead.
+ */
+export const dimensionWords: { readonly [D in Dimension]: Choosable | Fixed } = {
+  resolution: {
+    lead: (value) => `the player can't play ${value} video`,
+    unproven: (value) => `video below ${value}`,
+    side: "video",
+  },
+  video_codec: {
+    lead: (value) => `the player can't play ${value} video`,
+    unproven: () => "video in another codec",
+    side: "video",
+  },
+  hdr: {
+    lead: (value) => `the player can't show ${hdrWord(value)}`,
+    unproven: (value) => `video without ${hdrWord(value)}`,
+    side: "video",
+  },
+  audio_codec: {
+    lead: (value) => `the player can't play ${value} audio`,
+    unproven: () => "audio in another codec",
+    side: "audio",
+  },
+  channels: {
+    lead: (value) => `the player can't play ${value} audio`,
+    unproven: (value) => `audio with fewer channels than ${value}`,
+    side: "audio",
+  },
+  container: {
+    lead: (value) => `the player can't play the ${value} container`,
+    follow: () => `${noTarget}, because a Target can't choose a file's container.`,
+  },
+  subtitles: {
+    lead: () => "the player can't show the file's subtitles",
+    follow: () => `${noTarget}. Turn subtitles off or choose text subtitles on the player.`,
+  },
+  audio_track: {
+    lead: (reason) => reasonLines[reason] ?? reason,
+    follow: () => `${noTarget}. Choose another audio track on the player.`,
+  },
+  stream_count: {
+    lead: () => "the file has more streams than the player allows",
+    follow: () => `${noTarget}, because a Target can't choose how many streams a file has.`,
+  },
+  video_profile: {
+    lead: () => "the player can't play the file's video profile or level",
+    follow: () => `${noTarget}, because a Target can't choose a file's video profile.`,
+  },
+  bit_depth: {
+    lead: (value) => `the player can't play ${value}-bit video`,
+    follow: () => `${noTarget}, because a Target can't choose a file's bit depth.`,
+  },
+  frame_rate: {
+    lead: () => "the player can't play the file's frame rate",
+    follow: () => `${noTarget}, because a Target can't choose a file's frame rate.`,
+  },
+  video_shape: {
+    lead: (reason) => reasonLines[reason] ?? reason,
+    follow: () => `${noTarget}, because a Target can't choose how a file's video is encoded.`,
+  },
+  audio_format: {
+    lead: (reason) => reasonLines[reason] ?? reason,
+    follow: () => `${noTarget}, because a Target can't choose a file's audio format.`,
+  },
+  bitrate: {
+    lead: () => "the file's bitrate is above the player's limit",
+    follow: () =>
+      `${noTarget}. Check the player's quality setting and the server's limit for streams outside your network.`,
+  },
+  unreadable: {
+    lead: (stream) => `the server can't read the file's ${stream} stream`,
+    follow: (server) => `${noTarget}. Refresh the item's metadata on ${server}.`,
+  },
+  player_error: {
+    lead: () => "direct play failed on the player",
+    follow: () => `${noTarget}. Update the player app or check its playback settings.`,
+  },
+  unknown: {
+    lead: () => "the server gave no reason",
+    follow: () => "Check the player's quality setting.",
+  },
+};
+
+/** A tracked fact's value as a sentence names it after "its", such as "MP4 container". */
+export const factWords: { readonly [F in FactKind]: (value: string) => string } = {
+  container: (value) => `${value} container`,
+  bitrate: (value) => `bitrate of ${bitrateWords(value)}`,
+  resolution: (value) => `${value} video`,
+  video_codec: (value) => `${value} video`,
+  video_profile: (value) => `${value} video profile`,
+  bit_depth: (value) => `${value}-bit video`,
+  hdr: (value) => hdrWord(value),
+  dolby_vision: (value) => `Dolby Vision profile ${value}`,
+  audio_codec: (value) => `${value} audio`,
+  channels: (value) => `${value} audio`,
+  subtitle_codec: (value) => `${value} subtitles`,
+  subtitle_image: (value) => (value === "true" ? "image subtitles" : "text subtitles"),
+};

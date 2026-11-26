@@ -31,6 +31,7 @@ type Played struct {
 	Version   string
 	Root      string
 	Libraries []Library
+	Streamed  []Streamed
 }
 
 // Playing is the Scenario's server of kind, false when it names none.
@@ -62,6 +63,11 @@ func Playing(s scenario.Scenario, kind string, versions []string) (Played, bool,
 		}
 		p.Libraries[i].Folders = append(p.Libraries[i].Folders, p.Folder(r.Folder))
 	}
+	files, err := streamed(s, p)
+	if err != nil {
+		return Played{}, false, err
+	}
+	p.Streamed = files
 	return p, true, nil
 }
 

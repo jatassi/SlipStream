@@ -92,6 +92,7 @@ import { Route as AppSettingsMediaServersServerIdIndexRouteImport } from "./rout
 import { Route as AppSettingsMediaServersServerIdChangesRouteImport } from "./routes/_app/settings/media-servers.$serverId/changes";
 import { Route as AppSettingsMediaServersServerIdDetailsRouteImport } from "./routes/_app/settings/media-servers.$serverId/details";
 import { Route as AppSettingsMediaServersServerIdMappingsRouteImport } from "./routes/_app/settings/media-servers.$serverId/mappings";
+import { Route as AppSettingsMediaServersServerIdPlaybackRouteImport } from "./routes/_app/settings/media-servers.$serverId/playback";
 import { Route as AppSettingsMediaServersServerIdSettingsRouteImport } from "./routes/_app/settings/media-servers.$serverId/settings";
 import { Route as AppSettingsTrackersTrackerIdTorrentsRouteRouteImport } from "./routes/_app/settings/trackers.$trackerId/_torrents/route";
 import { Route as AppSettingsTrackersTrackerIdIndexersRouteImport } from "./routes/_app/settings/trackers.$trackerId/indexers";
@@ -537,6 +538,12 @@ const AppSettingsMediaServersServerIdMappingsRoute =
     path: "/mappings",
     getParentRoute: () => AppSettingsMediaServersServerIdRouteRoute,
   } as any);
+const AppSettingsMediaServersServerIdPlaybackRoute =
+  AppSettingsMediaServersServerIdPlaybackRouteImport.update({
+    id: "/playback",
+    path: "/playback",
+    getParentRoute: () => AppSettingsMediaServersServerIdRouteRoute,
+  } as any);
 const AppSettingsMediaServersServerIdSettingsRoute =
   AppSettingsMediaServersServerIdSettingsRouteImport.update({
     id: "/settings",
@@ -666,6 +673,7 @@ export interface FileRoutesByFullPath {
   "/settings/media-servers/$serverId/changes": typeof AppSettingsMediaServersServerIdChangesRoute;
   "/settings/media-servers/$serverId/details": typeof AppSettingsMediaServersServerIdDetailsRoute;
   "/settings/media-servers/$serverId/mappings": typeof AppSettingsMediaServersServerIdMappingsRoute;
+  "/settings/media-servers/$serverId/playback": typeof AppSettingsMediaServersServerIdPlaybackRoute;
   "/settings/media-servers/$serverId/settings": typeof AppSettingsMediaServersServerIdSettingsRoute;
   "/settings/trackers/$trackerId/indexers": typeof AppSettingsTrackersTrackerIdIndexersRoute;
   "/settings/trackers/$trackerId/routing": typeof AppSettingsTrackersTrackerIdRoutingRoute;
@@ -750,6 +758,7 @@ export interface FileRoutesByTo {
   "/settings/media-servers/$serverId/changes": typeof AppSettingsMediaServersServerIdChangesRoute;
   "/settings/media-servers/$serverId/details": typeof AppSettingsMediaServersServerIdDetailsRoute;
   "/settings/media-servers/$serverId/mappings": typeof AppSettingsMediaServersServerIdMappingsRoute;
+  "/settings/media-servers/$serverId/playback": typeof AppSettingsMediaServersServerIdPlaybackRoute;
   "/settings/media-servers/$serverId/settings": typeof AppSettingsMediaServersServerIdSettingsRoute;
   "/settings/trackers/$trackerId/indexers": typeof AppSettingsTrackersTrackerIdIndexersRoute;
   "/settings/trackers/$trackerId/routing": typeof AppSettingsTrackersTrackerIdRoutingRoute;
@@ -843,6 +852,7 @@ export interface FileRoutesById {
   "/_app/settings/media-servers/$serverId/changes": typeof AppSettingsMediaServersServerIdChangesRoute;
   "/_app/settings/media-servers/$serverId/details": typeof AppSettingsMediaServersServerIdDetailsRoute;
   "/_app/settings/media-servers/$serverId/mappings": typeof AppSettingsMediaServersServerIdMappingsRoute;
+  "/_app/settings/media-servers/$serverId/playback": typeof AppSettingsMediaServersServerIdPlaybackRoute;
   "/_app/settings/media-servers/$serverId/settings": typeof AppSettingsMediaServersServerIdSettingsRoute;
   "/_app/settings/trackers/$trackerId/indexers": typeof AppSettingsTrackersTrackerIdIndexersRoute;
   "/_app/settings/trackers/$trackerId/routing": typeof AppSettingsTrackersTrackerIdRoutingRoute;
@@ -936,6 +946,7 @@ export interface FileRouteTypes {
     | "/settings/media-servers/$serverId/changes"
     | "/settings/media-servers/$serverId/details"
     | "/settings/media-servers/$serverId/mappings"
+    | "/settings/media-servers/$serverId/playback"
     | "/settings/media-servers/$serverId/settings"
     | "/settings/trackers/$trackerId/indexers"
     | "/settings/trackers/$trackerId/routing"
@@ -1020,6 +1031,7 @@ export interface FileRouteTypes {
     | "/settings/media-servers/$serverId/changes"
     | "/settings/media-servers/$serverId/details"
     | "/settings/media-servers/$serverId/mappings"
+    | "/settings/media-servers/$serverId/playback"
     | "/settings/media-servers/$serverId/settings"
     | "/settings/trackers/$trackerId/indexers"
     | "/settings/trackers/$trackerId/routing"
@@ -1112,6 +1124,7 @@ export interface FileRouteTypes {
     | "/_app/settings/media-servers/$serverId/changes"
     | "/_app/settings/media-servers/$serverId/details"
     | "/_app/settings/media-servers/$serverId/mappings"
+    | "/_app/settings/media-servers/$serverId/playback"
     | "/_app/settings/media-servers/$serverId/settings"
     | "/_app/settings/trackers/$trackerId/indexers"
     | "/_app/settings/trackers/$trackerId/routing"
@@ -1723,6 +1736,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof AppSettingsMediaServersServerIdMappingsRouteImport;
       parentRoute: typeof AppSettingsMediaServersServerIdRouteRoute;
     };
+    "/_app/settings/media-servers/$serverId/playback": {
+      id: "/_app/settings/media-servers/$serverId/playback";
+      path: "/playback";
+      fullPath: "/settings/media-servers/$serverId/playback";
+      preLoaderRoute: typeof AppSettingsMediaServersServerIdPlaybackRouteImport;
+      parentRoute: typeof AppSettingsMediaServersServerIdRouteRoute;
+    };
     "/_app/settings/media-servers/$serverId/settings": {
       id: "/_app/settings/media-servers/$serverId/settings";
       path: "/settings";
@@ -1901,6 +1921,7 @@ interface AppSettingsMediaServersServerIdRouteRouteChildren {
   AppSettingsMediaServersServerIdChangesRoute: typeof AppSettingsMediaServersServerIdChangesRoute;
   AppSettingsMediaServersServerIdDetailsRoute: typeof AppSettingsMediaServersServerIdDetailsRoute;
   AppSettingsMediaServersServerIdMappingsRoute: typeof AppSettingsMediaServersServerIdMappingsRoute;
+  AppSettingsMediaServersServerIdPlaybackRoute: typeof AppSettingsMediaServersServerIdPlaybackRoute;
   AppSettingsMediaServersServerIdSettingsRoute: typeof AppSettingsMediaServersServerIdSettingsRoute;
   AppSettingsMediaServersServerIdIndexRoute: typeof AppSettingsMediaServersServerIdIndexRoute;
 }
@@ -1913,6 +1934,8 @@ const AppSettingsMediaServersServerIdRouteRouteChildren: AppSettingsMediaServers
       AppSettingsMediaServersServerIdDetailsRoute,
     AppSettingsMediaServersServerIdMappingsRoute:
       AppSettingsMediaServersServerIdMappingsRoute,
+    AppSettingsMediaServersServerIdPlaybackRoute:
+      AppSettingsMediaServersServerIdPlaybackRoute,
     AppSettingsMediaServersServerIdSettingsRoute:
       AppSettingsMediaServersServerIdSettingsRoute,
     AppSettingsMediaServersServerIdIndexRoute:

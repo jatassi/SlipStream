@@ -38,9 +38,8 @@ type Target struct {
 	// FreshTakesChange is a server that takes a change into a fresh library
 	// without a scan, as Emby did (#101 run 2).
 	FreshTakesChange bool
-	// Play starts a playback of the file at p and answers its stop, nil
-	// when no player is at hand.
-	Play func(t *testing.T, p link.ServerPath, d link.Decision) (stop func())
+	// Play starts p and answers its stop, nil when no player is at hand.
+	Play func(t *testing.T, p Played) (stop func())
 	// Settle is how long the server takes a change it takes at all: the
 	// kind's own delay and a little more. A case waits it out before it
 	// reads a change as ignored.
@@ -48,6 +47,17 @@ type Target struct {
 	// Bound is how long a case waits for the server to take a change.
 	Bound time.Duration
 	Log   *slog.Logger
+}
+
+// Played is a playback a case starts: the file at Path, playing the file
+// at Version, Path's when zero, on the player PlayerKey.
+type Played struct {
+	Path, Version       link.ServerPath
+	PlayerKey, Platform string
+	Streams             link.Streams
+	Received            link.Received
+	Audio, Subtitle     *link.Track
+	Reasons             []string
 }
 
 // Library is a library, one of its folders as the server sees it, and

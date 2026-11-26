@@ -111,8 +111,6 @@ func Decisions() []Decision {
 	return []Decision{DecisionDirectPlay, DecisionDirectStream, DecisionTranscode}
 }
 
-func ParseDecision(s string) (Decision, error) { return parse(s, Decisions(), "decision") }
-
 // StreamDecision is what the server did with a video or audio stream.
 type StreamDecision string
 

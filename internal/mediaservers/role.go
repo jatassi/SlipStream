@@ -11,6 +11,7 @@ import (
 	"github.com/jatassi/slipstream/internal/mail"
 	"github.com/jatassi/slipstream/internal/mediaserverlink/link"
 	"github.com/jatassi/slipstream/internal/mediaservers/internal/db"
+	"github.com/jatassi/slipstream/internal/mediaservers/playback"
 	"github.com/jatassi/slipstream/internal/nodes"
 	msv1 "github.com/jatassi/slipstream/internal/pb/slipstream/mediaserver/v1"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/mediaserver/v1/mediaserverv1connect"
@@ -20,6 +21,7 @@ import (
 	"github.com/jatassi/slipstream/internal/secret"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storing"
+	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
@@ -67,6 +69,17 @@ type Config struct {
 	// WorkFiles is files.LeftIn of one Work: its files whose bytes sit at
 	// their paths.
 	WorkFiles func(ctx context.Context, r storage.Reader[storage.Library], work works.WorkID) ([]files.File, error)
+	// Played is one library file as a play's snapshot reads it: its Work,
+	// its first Item, its label, every Target it meets and its probe.
+	Played func(ctx context.Context, r storage.Reader[storage.Library], id files.ID) (PlayedFile, error)
+	// Siblings is every file that holds each Item and isn't gone, Kept and
+	// moving files included, with each Work's Profile and its Targets in
+	// order.
+	Siblings func(ctx context.Context, r storage.Reader[storage.Library], items []works.ItemID) (playback.Siblings, error)
+	// Targets is every Target.
+	Targets func(ctx context.Context, r storage.Reader[storage.Library]) ([]targets.Target, error)
+	// Batch is timings.housekeeping.prune_batch: plays per prune Write.
+	Batch int
 	// RootWords names each root the way copy does.
 	RootWords func(ctx context.Context, r storage.Reader[storage.Library]) (map[roots.ID]string, error)
 	// RootsChanged wakes after each roots.changed until ctx ends.

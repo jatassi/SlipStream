@@ -54,7 +54,7 @@ var Fake = fake.Spec{
 	New:       newServer,
 	Endpoints: func(*node.EndpointsBlock, fake.Address) {},
 	Online:    fake.OnlineSuite("plex"),
-	Cues:      []fake.CueSpec{{Name: "plex-play"}, {Name: "plex-stop"}, {Name: "plex-restart"}, {Name: "plex-scan"}},
+	Cues:      []fake.CueSpec{{Name: "plex-play"}, {Name: "plex-stop"}, {Name: "plex-restart"}, {Name: "plex-scan"}, {Name: "plex-streams"}, {Name: "plex-skip"}},
 	Captures:  []fake.CaptureSpec{Refreshes, Items},
 	Entered:   serverfake.Entered(name),
 }
@@ -101,6 +101,9 @@ type Server struct {
 	// or C:\Media.
 	Root     string
 	Sections []Section
+	// Streamed are the files whose streams the server reports from the
+	// start.
+	Streamed []serverfake.Streamed
 	// Node is the Node the server runs on. Remote is Remote Access. Custom
 	// is customConnections and Published the connections plex.tv lists
 	// beside each Node's front; a URL with no port names the port the
@@ -144,6 +147,7 @@ func newServer(s scenario.Scenario, env fake.Env) (fake.Server, error) {
 	srv := &Server{
 		Name: p.Name, Version: p.Version, Identifier: p.ID(40), Owner: plexAdmin, PlexPass: true, Root: p.Root,
 		Node: cmp.Or(p.RunsOn, p.Node), Remote: p.Remote, Custom: p.Custom, Published: p.Published, Mapping: p.Mapping,
+		Streamed: p.Streamed,
 	}
 	for i, l := range p.Libraries {
 		title, typ, ok := sectionOf(l.ContentType)
@@ -207,6 +211,9 @@ func serve(env fake.Env, srv *Server) (fake.Server, error) {
 			return nil, err
 		}
 		s.core = core
+		if err := serverfake.Streams(env, name, core, srv.Streamed); err != nil {
+			return nil, err
+		}
 		if s.items, err = env.Capture(Items.Name); err != nil {
 			return nil, err
 		}

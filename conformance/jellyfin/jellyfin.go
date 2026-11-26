@@ -24,6 +24,7 @@ type (
 	Root    = mediabrowser.Root
 	Admin   = mediabrowser.Admin
 	Played  = mediabrowser.Played
+	Play    = mediaservers.Played
 	Disk    = mediaservers.Disk
 	DirDisk = mediaservers.DirDisk
 	Library = mediaservers.Library

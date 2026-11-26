@@ -10,6 +10,7 @@ import (
 
 	"github.com/jatassi/slipstream/fakes/fake"
 	"github.com/jatassi/slipstream/fakes/internal/mediaserver"
+	"github.com/jatassi/slipstream/fakes/internal/serverfake"
 	"github.com/jatassi/slipstream/internal/mediaserverlink/link"
 )
 
@@ -27,10 +28,11 @@ type transcode struct {
 var videoDecisions = map[link.Decision]string{link.DecisionDirectStream: "copy", link.DecisionTranscode: "transcode"}
 
 func transcodeOf(sess mediaserver.Session, key string) *transcode {
-	if sess.Decision == link.DecisionDirectPlay {
+	d := sess.Streams.Decision()
+	if d == link.DecisionDirectPlay {
 		return nil
 	}
-	t := &transcode{Key: key, VideoDecision: videoDecisions[sess.Decision], AudioDecision: "copy", TranscodeHwRequested: sess.Hardware}
+	t := &transcode{Key: key, VideoDecision: videoDecisions[d], AudioDecision: "copy", TranscodeHwRequested: sess.Hardware}
 	if sess.Hardware {
 		t.TranscodeHwDecoding, t.TranscodeHwEncoding = "vaapi", "vaapi"
 	}
@@ -50,7 +52,7 @@ func (s *server) sessions(w http.ResponseWriter, _ *http.Request) {
 		m := s.render(sess.Item)
 		m.SessionKey = sess.Key
 		m.User = map[string]any{"id": "1", "title": sess.User}
-		m.Player = map[string]any{"title": sess.Player, "product": sess.Product, "machineIdentifier": "fake-player-" + sess.Key, "state": "playing"}
+		m.Player = map[string]any{"title": sess.Player.Name, "product": sess.Player.Product, "machineIdentifier": "fake-player-" + sess.Key, "state": "playing"}
 		m.Session = map[string]any{"id": "fake-plex-session-" + sess.Key}
 		m.TranscodeSession = transcodeOf(sess, "/transcode/sessions/"+transcodeKey(sess))
 		decision := "directplay"
@@ -161,7 +163,7 @@ func (s *server) notify(e mediaserver.Event) (notification, bool) {
 		"sessionKey": e.Session.Key, "clientIdentifier": "fake-player-" + e.Session.Key, "ratingKey": e.Session.Item.Key,
 		"key": "/library/metadata/" + e.Session.Item.Key, "state": state, "viewOffset": 0,
 	}
-	if e.Session.Decision != link.DecisionDirectPlay {
+	if e.Session.Streams.Decision() != link.DecisionDirectPlay {
 		entry["transcodeSession"] = transcodeKey(e.Session)
 	}
 	return pushed("playing", "PlaySessionStateNotification", entry), true
@@ -171,19 +173,9 @@ func pushed(typ, field string, entry map[string]any) notification {
 	return notification{NotificationContainer: map[string]any{"type": typ, "size": 1, field: []map[string]any{entry}}}
 }
 
-// Play is a plex-play cue's arguments: a session on the file at Path, as
-// the server stores it.
-type Play struct {
-	Path     string        `json:"path"`
-	User     string        `json:"user"`
-	Player   string        `json:"player"`
-	Product  string        `json:"product,omitempty"`
-	Decision link.Decision `json:"decision"`
-	Hardware bool          `json:"hardware,omitempty"`
-	// Unreported is a client that never sent its timeline, which only
-	// /transcode/sessions lists.
-	Unreported bool `json:"unreported,omitempty"`
-}
+// Play is a plex-play cue's arguments. An unreported client never sent
+// its timeline, which only /transcode/sessions lists.
+type Play = serverfake.Play
 
 // Played is a plex-play cue's result.
 type Played struct {
@@ -200,16 +192,11 @@ type Scan struct {
 
 func (s *server) cues() error {
 	if err := fake.OnCue(s.env, "plex-play", func(_ context.Context, a Play) (any, error) {
-		p, err := link.ParsePath(a.Path)
+		p, err := a.Core(a.User, false)
 		if err != nil {
 			return nil, err
 		}
-		if _, err := link.ParseDecision(string(a.Decision)); err != nil {
-			return nil, err
-		}
-		sess, err := s.core.Start(mediaserver.Play{
-			Path: p, User: a.User, Player: a.Player, Product: a.Product, Decision: a.Decision, Hardware: a.Hardware, Unreported: a.Unreported,
-		})
+		sess, err := s.core.Start(p)
 		if err != nil {
 			return nil, err
 		}

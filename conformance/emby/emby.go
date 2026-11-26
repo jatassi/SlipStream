@@ -27,6 +27,7 @@ type (
 	Target  = mediabrowser.Target
 	Admin   = mediabrowser.Admin
 	Played  = mediabrowser.Played
+	Play    = mediaservers.Played
 	Disk    = mediaservers.Disk
 	DirDisk = mediaservers.DirDisk
 	Library = mediaservers.Library
@@ -232,7 +233,9 @@ func TranscodeAfterReport(t *testing.T, tg Target, shared mediaservers.Target, s
 	f.Place(r)
 	f.Tell(r)
 	f.Found(r)
-	played, stop := tg.Play(t, f.At(r), link.DecisionTranscode)
+	played, stop := tg.Play(t, Play{Path: f.At(r), PlayerKey: "slipstream-conformance-player", Streams: link.Streams{
+		Video: link.StreamTranscode, Audio: link.StreamDirect, Subtitles: link.SubtitlesNone, ContainerChanged: true,
+	}})
 	defer stop()
 	transcoding := func() bool {
 		t.Helper()

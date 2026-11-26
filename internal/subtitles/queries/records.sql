@@ -61,3 +61,9 @@ ON CONFLICT (id) DO UPDATE SET hi = excluded.hi, tail = excluded.tail, source = 
 -- name: DeleteSidecar :execrows
 -- The Sidecar goes only while it still holds the bytes the caller read.
 DELETE FROM subtitles_sidecar WHERE id = sqlc.arg(id) AND sha256 = sqlc.arg(sha256);
+
+-- name: ListSidecarsOfFiles :many
+-- Every Sidecar of the files file_ids names, a JSON array.
+SELECT * FROM subtitles_sidecar
+WHERE file_id IN (SELECT unhex(replace(value, '-', '')) FROM json_each(CAST(sqlc.arg(file_ids) AS TEXT)))
+ORDER BY file_id, language, forced;

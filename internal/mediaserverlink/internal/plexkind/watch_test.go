@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"slices"
 	"sync"
 	"testing"
@@ -65,12 +66,24 @@ func (w *watched) transcoding() bool {
 	return w.looks[len(w.looks)-1].Transcoding
 }
 
+// streamsOf are the streams a play cue plays for each decision.
+var streamsOf = map[link.Decision]map[string]any{
+	link.DecisionDirectPlay:   {"video": link.StreamDirect, "audio": link.StreamDirect, "subtitles": link.SubtitlesNone},
+	link.DecisionDirectStream: {"video": link.StreamDirect, "audio": link.StreamDirect, "subtitles": link.SubtitlesNone, "containerChanged": true},
+	link.DecisionTranscode:    {"video": link.StreamTranscode, "audio": link.StreamDirect, "subtitles": link.SubtitlesNone, "containerChanged": true},
+}
+
+func cue(d link.Decision, args map[string]any) map[string]any {
+	maps.Copy(args, streamsOf[d])
+	return args
+}
+
 func (d *den) play(path link.ServerPath, decision link.Decision, unreported bool) string {
 	d.t.Helper()
-	raw, err := json.Marshal(d.f.Cue(d.t, "plex-play", map[string]any{
-		"path": path.String(), "user": "jackson", "player": "Living room", "decision": decision,
+	raw, err := json.Marshal(d.f.Cue(d.t, "plex-play", cue(decision, map[string]any{
+		"path": path.String(), "user": "jackson", "player": "Living room", "playerKey": "living-room",
 		"hardware": decision == link.DecisionTranscode, "unreported": unreported,
-	}))
+	})))
 	var played struct{ Session string }
 	if err == nil {
 		err = json.Unmarshal(raw, &played)

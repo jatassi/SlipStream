@@ -35,36 +35,23 @@ func (s service) Sessions(ctx context.Context, id link.ServerID) (Sessions, erro
 	}
 	f, ok := s.m.cfg.Facts(reaching)
 	out := Sessions{Reachable: ok, Sessions: []SessionView{}}
-	for _, sf := range f.GetServers() {
-		if !bytes.Equal(sf.GetServerId(), id.Bytes()) {
-			continue
-		}
-		for _, x := range sf.GetSessions() {
-			v, err := sessionView(x)
-			if err != nil {
-				return Sessions{}, err
-			}
-			out.Sessions = append(out.Sessions, v)
-		}
+	for _, p := range s.m.caps().facts(serverFactsOf(f, id), time.Now()) {
+		out.Sessions = append(out.Sessions, SessionView{
+			PlayID: p.id.String(), User: p.user, Player: p.player, Product: p.product, Path: p.path.String(),
+			Decision: string(p.streams.Decision()), Video: string(p.streams.Video), Audio: string(p.streams.Audio),
+			Subtitles: string(p.streams.Subtitles), Hardware: p.hardware, Reasons: p.reasons, StartedAt: p.started,
+		})
 	}
 	return out, nil
 }
 
-func sessionView(x *msv1.Session) (SessionView, error) {
-	id, err := playIDOf(x.GetPlayId())
-	if err != nil {
-		return SessionView{}, err
+func serverFactsOf(f *msv1.Facts, id link.ServerID) *msv1.ServerFacts {
+	for _, sf := range f.GetServers() {
+		if bytes.Equal(sf.GetServerId(), id.Bytes()) {
+			return sf
+		}
 	}
-	streams, err := streamsOf(x.GetStreams())
-	if err != nil {
-		return SessionView{}, err
-	}
-	return SessionView{
-		PlayID: id.String(), User: x.GetUser(), Player: x.GetPlayer(), Product: x.GetProduct(), Path: x.GetServerPath(),
-		Decision: string(streams.Decision()), Video: string(streams.Video), Audio: string(streams.Audio),
-		Subtitles: string(streams.Subtitles), Hardware: x.GetHardware(), Reasons: append([]string{}, x.GetReasons()...),
-		StartedAt: time.UnixMilli(x.GetStartedUnixMs()).UTC(),
-	}, nil
+	return nil
 }
 
 // seenSessions is each Node's servers' sessions as
@@ -96,6 +83,7 @@ func (m *MediaServers) Noted(node role.NodeID, scope string) {
 		return
 	}
 	f, _ := m.cfg.Facts(node)
+	now := time.Now()
 	next := map[string]string{}
 	m.seen.mu.Lock()
 	for _, sf := range f.GetServers() {
@@ -103,12 +91,11 @@ func (m *MediaServers) Noted(node role.NodeID, scope string) {
 		if err != nil {
 			continue
 		}
-		next[u.String()] = digest(sf)
+		live := m.caps().facts(sf, now)
+		next[u.String()] = digest(live)
 		l := looked{node: node, plays: map[link.PlayID]time.Time{}}
-		for _, x := range sf.GetSessions() {
-			if id, err := playIDOf(x.GetPlayId()); err == nil {
-				l.plays[id] = timeOf(x.GetSeenUnixMs())
-			}
+		for _, p := range live {
+			l.plays[p.id] = p.seen
 		}
 		if len(l.plays) > 0 {
 			m.seen.pending[link.ServerID{UUID: u}] = l
@@ -141,19 +128,19 @@ func (m *MediaServers) Noted(node role.NodeID, scope string) {
 // digest is what an Admin sees of a server's sessions: each play's
 // streams, hardware, reasons, tracks and received facts but the bitrate,
 // which Plex moves on every poll.
-func digest(sf *msv1.ServerFacts) string {
+func digest(live []reported) string {
 	var b strings.Builder
-	for _, x := range sf.GetSessions() {
-		b.Write(x.GetPlayId())
-		st := x.GetStreams()
-		fmt.Fprintf(&b, "%s/%s/%s/%t", st.GetVideo(), st.GetAudio(), st.GetSubtitles(), st.GetContainerChanged())
-		if x.GetHardware() {
+	for _, p := range live {
+		b.Write(p.id.Bytes())
+		st := p.streams
+		fmt.Fprintf(&b, "%s/%s/%s/%t", st.Video, st.Audio, st.Subtitles, st.ContainerChanged)
+		if p.hardware {
 			b.WriteString("hw")
 		}
-		b.WriteString(strings.Join(x.GetReasons(), ","))
-		r := x.GetReceived()
-		fmt.Fprintf(&b, "|%s/%s/%d/%s/%d|%s|%s", r.GetContainer(), r.GetVideoCodec(), r.GetHeight(), r.GetAudioCodec(), r.GetChannels(),
-			trackKey(x.GetAudioTrack()), trackKey(x.GetSubtitleTrack()))
+		b.WriteString(strings.Join(p.reasons, ","))
+		r := p.received
+		fmt.Fprintf(&b, "|%s/%s/%d/%s/%d|%s|%s", r.Container, r.VideoCodec, r.Height, r.AudioCodec, r.Channels,
+			trackKey(p.audio), trackKey(p.subtitle))
 		b.WriteByte(0)
 	}
 	return b.String()
@@ -211,12 +198,12 @@ func see(ctx context.Context, q *db.Queries, server link.ServerID, l looked) err
 	return nil
 }
 
-func trackKey(t *msv1.Track) string {
-	switch x := t.GetTrack().(type) {
-	case *msv1.Track_Position:
-		return strconv.Itoa(int(x.Position))
-	case *msv1.Track_External:
-		return x.External.GetCodec() + "/" + x.External.GetLanguage()
+func trackKey(t *link.Track) string {
+	switch {
+	case t == nil:
+		return ""
+	case t.External != nil:
+		return t.External.Codec + "/" + t.External.Language
 	}
-	return ""
+	return strconv.Itoa(t.Position)
 }
