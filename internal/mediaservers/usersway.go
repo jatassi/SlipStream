@@ -68,9 +68,6 @@ func (s service) MakeAccount(ctx context.Context, me identity.Account, id Access
 		return MyAccessRow{}, err
 	}
 	defer release()
-	if s.m.kind(r.server.Kind).About().Access != link.AccessUsers {
-		return MyAccessRow{}, &AccessStateError{Member: r.MemberName, Server: r.server.Name}
-	}
 	if r.State == access.Making {
 		if r, err = s.m.unmadeAgain(ctx, r); err != nil {
 			return MyAccessRow{}, err

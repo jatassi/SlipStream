@@ -8550,9 +8550,9 @@ export type MediaserversAccessChangedOutput = zod.output<typeof MediaserversAcce
 
 export const MediaserversAccessServer = zod.object({
   access: zod
-    .enum(["plex_tv", "users", "users_linked"])
+    .enum(["plex_tv", "users"])
     .describe(
-      "How Members get access: plex_tv through a Plex share, users with a user the Member makes or the Admin links, users_linked with a user the Admin links",
+      "How Members get access: plex_tv through a Plex share, users with a user the Member makes or the Admin links",
     ),
   id: zod.uuid(),
   kind: MediaserversKind,
@@ -8934,7 +8934,7 @@ export type MediaserversMyPlex = zod.input<typeof MediaserversMyPlex>;
 export type MediaserversMyPlexOutput = zod.output<typeof MediaserversMyPlex>;
 
 export const MediaserversMyServer = zod.object({
-  access: zod.enum(["plex_tv", "users", "users_linked"]),
+  access: zod.enum(["plex_tv", "users"]),
   label: zod.string().describe("The kind's product name, such as Jellyfin"),
   name: zod.string(),
 });

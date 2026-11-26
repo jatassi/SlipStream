@@ -8,7 +8,7 @@ import (
 )
 
 // Users is a server's own user accounts, on a kind whose About.Access is
-// users or users_linked. Every call converges: deleting a deleted user and
+// users. Every call converges: deleting a deleted user and
 // disabling a disabled one succeed.
 type Users interface {
 	// CreateUser makes a user named name with a random password made where

@@ -75,9 +75,9 @@ func everyRow() []access.Facts {
 	var out []access.Facts
 	for _, way := range access.Ways() {
 		for _, s := range access.States() {
-			for bits := range 32 {
-				out = append(out, access.Facts{State: s, Way: way, PlexHome: bits&1 != 0, MakesAccounts: bits&2 != 0,
-					PlexInUse: bits&4 != 0, SharesWork: bits&8 != 0, HomeWorks: bits&16 != 0})
+			for bits := range 16 {
+				out = append(out, access.Facts{State: s, Way: way, PlexHome: bits&1 != 0,
+					PlexInUse: bits&2 != 0, SharesWork: bits&4 != 0, HomeWorks: bits&8 != 0})
 			}
 		}
 	}
@@ -100,7 +100,7 @@ func TestActionsFollowTheTable(t *testing.T) {
 	plex := func(s access.State) access.Facts {
 		return access.Facts{State: s, Way: access.WayPlexTV, SharesWork: true, HomeWorks: true}
 	}
-	users := access.Facts{State: access.Offered, Way: access.WayUsers, MakesAccounts: true}
+	users := access.Facts{State: access.Offered, Way: access.WayUsers}
 	for _, c := range []struct {
 		name string
 		f    access.Facts
@@ -115,9 +115,9 @@ func TestActionsFollowTheTable(t *testing.T) {
 		{"a shared row to its Member", plex(access.Shared), access.ByMember, []access.Event{access.Check}},
 		{"a shared row to the Admin", plex(access.Shared), access.ByAdmin, []access.Event{access.Check, access.Remove}},
 		{"an active Plex row", plex(access.Active), access.ByAdmin, []access.Event{access.Remove}},
-		{"an offered row of a kind with linked users only", access.Facts{State: access.Offered, Way: access.WayUsers}, access.ByMember, []access.Event{}},
+		{"an offered Jellyfin row to its Member", users, access.ByMember, []access.Event{access.MakeAccount}},
 		{"an offered Jellyfin row to the Admin", users, access.ByAdmin, []access.Event{access.Link, access.Remove}},
-		{"an account being made", access.Facts{State: access.Making, Way: access.WayUsers, MakesAccounts: true}, access.ByAdmin, []access.Event{}},
+		{"an account being made", access.Facts{State: access.Making, Way: access.WayUsers}, access.ByAdmin, []access.Event{}},
 		{"a removed account", access.Facts{State: access.Removed, Way: access.WayUsers}, access.ByAdmin, []access.Event{access.Offer}},
 		{"a removal that failed", access.Facts{State: access.Removing, Way: access.WayUsers}, access.ByAdmin, []access.Event{access.RetryRemove}},
 	} {
