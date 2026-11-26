@@ -2,9 +2,11 @@ package mediaservers
 
 import (
 	"context"
+	"errors"
 
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/mediaserverlink/link"
+	"github.com/jatassi/slipstream/internal/mediaservers/playback"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/setting"
 	"github.com/jatassi/slipstream/internal/works"
@@ -33,6 +35,12 @@ type Service interface {
 	// before, which is zero for the newest page.
 	Changes(ctx context.Context, id link.ServerID, before link.ChangeID) (Changes, error)
 	CredentialHolders(ctx context.Context, id link.ServerID) ([]HolderView, error)
+	// Playback is the Playback report over the plays the window keeps.
+	Playback(ctx context.Context, id link.ServerID) (playback.Report, error)
+	// Plays lists the server's plays newest first, the page after cursor,
+	// which is zero for the newest page. An empty player lists every
+	// player's.
+	Plays(ctx context.Context, id link.ServerID, player string, cursor link.PlayID) (Plays, error)
 	SignIn(ctx context.Context, d SignInDraft) (SignedIn, error)
 	StartPlexPin(ctx context.Context, forward string) (PlexPin, error)
 	PlexPin(ctx context.Context, id int64) (PlexPinState, error)
@@ -70,6 +78,13 @@ type Service interface {
 	MakeAccount(ctx context.Context, me identity.Account, id AccessID, username string, pw link.Password) (MyAccessRow, error)
 	CheckMine(ctx context.Context, me identity.Account, id AccessID) (MyAccessRow, error)
 }
+
+var (
+	ErrNoSuchPlay = errors.New("no play on this Media Server has this id")
+	// ErrNotYet is an operation the build of S36 (Playback report) hasn't
+	// reached.
+	ErrNotYet = errors.New("this operation isn't built yet")
+)
 
 // Mapping is one root's mapping to save, parsed from the request.
 type Mapping struct {

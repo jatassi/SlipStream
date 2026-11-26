@@ -9037,6 +9037,59 @@ export const MediaserversPinBody = zod.object({
 export type MediaserversPinBody = zod.input<typeof MediaserversPinBody>;
 export type MediaserversPinBodyOutput = zod.output<typeof MediaserversPinBody>;
 
+export const MediaserversReceivedView = zod.object({
+  audioCodec: zod.string().nullable().describe("null when unreported"),
+  bitrate: zod.int().nullable().describe("null when unreported, in bits a second"),
+  channels: zod.int().nullable().describe("null when unreported"),
+  container: zod.string().nullable().describe("null when unreported"),
+  height: zod.int().nullable().describe("null when unreported"),
+  videoCodec: zod.string().nullable().describe("null when unreported"),
+});
+
+export type MediaserversReceivedView = zod.input<typeof MediaserversReceivedView>;
+export type MediaserversReceivedViewOutput = zod.output<typeof MediaserversReceivedView>;
+
+export const MediaserversPlayWorkView = zod.object({
+  label: zod.string(),
+  title: zod.string(),
+  workId: zod.uuid(),
+});
+
+export type MediaserversPlayWorkView = zod.input<typeof MediaserversPlayWorkView>;
+export type MediaserversPlayWorkViewOutput = zod.output<typeof MediaserversPlayWorkView>;
+
+export const MediaserversPlayView = zod.object({
+  audio: zod.enum(["direct", "transcode", "none"]),
+  decision: zod.enum(["direct_play", "direct_stream", "transcode"]),
+  endedAt: zod.iso.datetime({ offset: true }).nullable().describe("null while the play is open"),
+  hardware: zod.boolean(),
+  id: zod.uuid(),
+  lastSeenAt: zod.iso.datetime({ offset: true }),
+  path: zod.string().describe("The file as the server names it"),
+  platform: zod.string(),
+  player: zod.string(),
+  playerKey: zod.string(),
+  product: zod.string(),
+  reasons: zod.array(zod.string()),
+  received: MediaserversReceivedView,
+  startedAt: zod.iso.datetime({ offset: true }),
+  subtitles: zod.enum(["none", "direct", "burned"]),
+  user: zod.string(),
+  video: zod.enum(["direct", "transcode", "none"]),
+  work: MediaserversPlayWorkView.exactOptional().describe("Absent while the play has no snapshot"),
+});
+
+export type MediaserversPlayView = zod.input<typeof MediaserversPlayView>;
+export type MediaserversPlayViewOutput = zod.output<typeof MediaserversPlayView>;
+
+export const MediaserversPlays = zod.object({
+  next: zod.string().exactOptional().describe("The cursor of the next page; absent on the last"),
+  plays: zod.array(MediaserversPlayView).describe("Newest first"),
+});
+
+export type MediaserversPlays = zod.input<typeof MediaserversPlays>;
+export type MediaserversPlaysOutput = zod.output<typeof MediaserversPlays>;
+
 export const MediaserversPlaysChanged = zod.object({
   serverIds: zod.array(zod.uuid()),
 });
@@ -11278,6 +11331,228 @@ export const PlanInputBody = zod.object({
 
 export type PlanInputBody = zod.input<typeof PlanInputBody>;
 export type PlanInputBodyOutput = zod.output<typeof PlanInputBody>;
+
+export const PlaybackBlocked = zod.object({
+  choosable: zod.boolean().describe("A Target can choose this dimension"),
+  dimension: zod.enum([
+    "resolution",
+    "video_codec",
+    "hdr",
+    "audio_codec",
+    "channels",
+    "container",
+    "subtitles",
+    "audio_track",
+    "stream_count",
+    "video_profile",
+    "bit_depth",
+    "frame_rate",
+    "video_shape",
+    "audio_format",
+    "bitrate",
+    "unreadable",
+    "player_error",
+    "unknown",
+  ]),
+  value: zod
+    .string()
+    .describe(
+      "The played file's value in release words; the reason's name for audio_track, video_shape and audio_format; empty where none applies",
+    ),
+});
+
+export type PlaybackBlocked = zod.input<typeof PlaybackBlocked>;
+export type PlaybackBlockedOutput = zod.output<typeof PlaybackBlocked>;
+
+export const PlaybackEvidence = zod.object({
+  contentType: zod.string(),
+  fact: zod.enum([
+    "container",
+    "bitrate",
+    "resolution",
+    "video_codec",
+    "video_profile",
+    "bit_depth",
+    "hdr",
+    "dolby_vision",
+    "audio_codec",
+    "channels",
+    "subtitle_codec",
+    "subtitle_image",
+  ]),
+  playId: zod.uuid(),
+  startedAt: zod.iso.datetime({ offset: true }),
+  title: zod.string(),
+  value: zod.string(),
+  workId: zod.uuid(),
+});
+
+export type PlaybackEvidence = zod.input<typeof PlaybackEvidence>;
+export type PlaybackEvidenceOutput = zod.output<typeof PlaybackEvidence>;
+
+export const PlaybackFactValue = zod.object({
+  fact: zod.enum([
+    "container",
+    "bitrate",
+    "resolution",
+    "video_codec",
+    "video_profile",
+    "bit_depth",
+    "hdr",
+    "dolby_vision",
+    "audio_codec",
+    "channels",
+    "subtitle_codec",
+    "subtitle_image",
+  ]),
+  value: zod.string(),
+});
+
+export type PlaybackFactValue = zod.input<typeof PlaybackFactValue>;
+export type PlaybackFactValueOutput = zod.output<typeof PlaybackFactValue>;
+
+export const PlaybackSuggestion = zod.object({
+  blocked: zod.array(PlaybackBlocked).describe("Values left out because they blocked direct play"),
+  highest: zod.enum(["2160p", "1080p", "720p", "480p"]),
+  name: zod.string(),
+  notAudioCodecs: zod.array(
+    zod.enum(["TrueHD", "DTS-HD MA", "DTS", "DD+", "DD", "AAC", "FLAC", "PCM", "Opus", "MP3"]),
+  ),
+  notChannels: zod.array(zod.enum(["7.1", "5.1", "2.0", "1.0"])),
+  notHdr: zod.array(zod.enum(["DV", "HDR10+", "HDR10", "HLG", "SDR"])),
+  unproven: zod
+    .array(PlaybackBlocked)
+    .describe("Values left out because the player hasn't received them unchanged in the window"),
+  videoCodecs: zod.array(zod.enum(["x264", "x265", "AV1", "VP9", "XviD", "MPEG2"])),
+});
+
+export type PlaybackSuggestion = zod.input<typeof PlaybackSuggestion>;
+export type PlaybackSuggestionOutput = zod.output<typeof PlaybackSuggestion>;
+
+export const PlaybackTargetRef = zod.object({
+  id: zod.uuid(),
+  name: zod.string(),
+});
+
+export type PlaybackTargetRef = zod.input<typeof PlaybackTargetRef>;
+export type PlaybackTargetRefOutput = zod.output<typeof PlaybackTargetRef>;
+
+export const PlaybackVersion = zod.object({
+  fileId: zod.uuid(),
+  label: zod.string(),
+  separateItem: zod
+    .boolean()
+    .describe("The server lists it as its own item, not as a version the player can choose"),
+});
+
+export type PlaybackVersion = zod.input<typeof PlaybackVersion>;
+export type PlaybackVersionOutput = zod.output<typeof PlaybackVersion>;
+
+export const PlaybackWorkLine = zod.object({
+  contentType: zod.string().describe("The Work's Content Type, whose noun the line uses"),
+  fact: PlaybackFactValue.exactOptional().describe(
+    "Absent unless state is not_proven: the first tracked fact not proven",
+  ),
+  itemId: zod.uuid().describe("The snapshot's Item, which Search for one scopes to"),
+  profile: PlaybackTargetRef.exactOptional().describe("Absent unless state is not_in_profile"),
+  state: zod.enum(["no_file", "not_in_profile", "not_listed", "not_proven"]),
+  title: zod.string(),
+  workId: zod.uuid(),
+});
+
+export type PlaybackWorkLine = zod.input<typeof PlaybackWorkLine>;
+export type PlaybackWorkLineOutput = zod.output<typeof PlaybackWorkLine>;
+
+export const PlaybackOutcome = zod.object({
+  evidence: zod
+    .array(PlaybackEvidence)
+    .exactOptional()
+    .describe("Absent unless kind is version, suggest or existing: one per proven value"),
+  kind: zod.enum(["version", "suggest", "existing", "no_target", "unproven"]),
+  missing: PlaybackBlocked.exactOptional().describe(
+    "Absent unless kind is unproven: the first dimension with no proven value",
+  ),
+  plays: zod.int().min(1),
+  suggestion: PlaybackSuggestion.exactOptional().describe("Absent unless kind is suggest"),
+  target: PlaybackTargetRef.exactOptional().describe("Absent unless kind is existing"),
+  version: PlaybackVersion.exactOptional().describe("Absent unless kind is version"),
+  works: zod.array(PlaybackWorkLine).exactOptional().describe("Absent unless kind is existing"),
+});
+
+export type PlaybackOutcome = zod.input<typeof PlaybackOutcome>;
+export type PlaybackOutcomeOutput = zod.output<typeof PlaybackOutcome>;
+
+export const PlaybackGroup = zod.object({
+  cause: zod
+    .array(PlaybackBlocked)
+    .describe(
+      "The dimensions the player's line names: the first no Target fixes, else at most two",
+    ),
+  dimensions: zod.array(PlaybackBlocked).describe("In dimension table order"),
+  outcomes: zod.array(PlaybackOutcome).describe("Largest first"),
+  plays: zod.int().min(1),
+  reasons: zod.array(zod.string()).describe("As the server gave them"),
+  targets: zod
+    .array(PlaybackTargetRef)
+    .describe("The Targets the transcoded files met when they played"),
+});
+
+export type PlaybackGroup = zod.input<typeof PlaybackGroup>;
+export type PlaybackGroupOutput = zod.output<typeof PlaybackGroup>;
+
+export const playbackPlayerDirectPlaysMin = 0;
+
+export const playbackPlayerDirectStreamsMin = 0;
+
+export const playbackPlayerPlaysMin = 0;
+
+export const playbackPlayerTranscodedMin = 0;
+
+export const playbackPlayerUnmatchedMin = 0;
+
+export const PlaybackPlayer = zod.object({
+  directPlays: zod.int().min(playbackPlayerDirectPlaysMin),
+  directStreams: zod.int().min(playbackPlayerDirectStreamsMin),
+  groups: zod.array(PlaybackGroup).describe("Largest first"),
+  key: zod.string(),
+  lastPlayedAt: zod.iso.datetime({ offset: true }),
+  name: zod.string(),
+  platform: zod.string(),
+  plays: zod.int().min(playbackPlayerPlaysMin),
+  product: zod.string(),
+  transcoded: zod.int().min(playbackPlayerTranscodedMin),
+  unmatched: zod.int().min(playbackPlayerUnmatchedMin),
+});
+
+export type PlaybackPlayer = zod.input<typeof PlaybackPlayer>;
+export type PlaybackPlayerOutput = zod.output<typeof PlaybackPlayer>;
+
+export const playbackReportPlaysMin = 0;
+
+export const playbackReportTranscodedMin = 0;
+
+export const playbackReportUnmatchedMin = 0;
+
+export const PlaybackReport = zod.object({
+  players: zod.array(PlaybackPlayer).describe("Worst first"),
+  plays: zod.int().min(playbackReportPlaysMin),
+  plex: zod.boolean().describe("The server is Plex, which gives no reasons"),
+  reachable: zod
+    .boolean()
+    .describe("false while the server's Connect from Node is offline, when nothing is recorded"),
+  since: zod.iso
+    .datetime({ offset: true })
+    .describe("The report covers plays that started at or after this"),
+  transcoded: zod.int().min(playbackReportTranscodedMin),
+  unmatched: zod
+    .int()
+    .min(playbackReportUnmatchedMin)
+    .describe("Transcoded plays with no snapshot"),
+  window: zod.int().min(1).describe("Keep play history for, in seconds"),
+});
+
+export type PlaybackReport = zod.input<typeof PlaybackReport>;
+export type PlaybackReportOutput = zod.output<typeof PlaybackReport>;
 
 export const PlexServersOutputBody = zod.object({
   servers: zod.array(MediaserversPlexServerView),
