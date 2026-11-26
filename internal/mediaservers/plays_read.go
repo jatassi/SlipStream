@@ -46,7 +46,7 @@ func playsPageOf(ctx context.Context, q *db.Queries, id link.ServerID, player st
 	} else if err != nil {
 		return nil, err
 	}
-	page := db.ListPlaysPageParams{ServerID: id, Player: player, BeforeAt: newest, N: playsPage + 1}
+	page := db.ListPlaysPageParams{ServerID: id, BeforeAt: newest, N: playsPage + 1}
 	if !cursor.IsZero() {
 		at, err := q.GetPlayStart(ctx, db.GetPlayStartParams{ServerID: id, ID: cursor})
 		if errors.Is(err, storage.ErrNoRows) {
@@ -56,7 +56,12 @@ func playsPageOf(ctx context.Context, q *db.Queries, id link.ServerID, player st
 		}
 		page.BeforeAt, page.BeforeID = at, cursor
 	}
-	return q.ListPlaysPage(ctx, page)
+	if player == "" {
+		return q.ListPlaysPage(ctx, page)
+	}
+	return q.ListPlayerPlaysPage(ctx, db.ListPlayerPlaysPageParams{
+		ServerID: id, Player: player, BeforeAt: page.BeforeAt, BeforeID: page.BeforeID, N: page.N,
+	})
 }
 
 func playViews(ctx context.Context, r storage.Reader[storage.Library], rows []db.MediaserversPlay) ([]PlayView, error) {

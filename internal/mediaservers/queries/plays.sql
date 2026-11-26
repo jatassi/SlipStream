@@ -96,14 +96,23 @@ WHERE rowid IN (
 UPDATE mediaservers_server SET plays_since = sqlc.arg(cutoff) WHERE plays_since < sqlc.arg(cutoff);
 
 -- name: ListPlaysSince :many
-SELECT * FROM mediaservers_play
+SELECT id, file_id, item_key, player_key, player, platform, product, decision, video, audio, subtitles,
+    reasons, CAST(received AS TEXT) AS received_json, CAST(coalesce(snapshot, '') AS TEXT) AS snapshot_json,
+    started_at, last_seen_at
+FROM mediaservers_play
 WHERE server_id = sqlc.arg(server_id) AND started_at >= sqlc.arg(since)
 ORDER BY started_at, id;
 
 -- name: ListPlaysPage :many
 SELECT * FROM mediaservers_play
 WHERE server_id = sqlc.arg(server_id)
-    AND (CAST(sqlc.arg(player) AS TEXT) = '' OR player_key = sqlc.arg(player))
+    AND (started_at < sqlc.arg(before_at) OR (started_at = sqlc.arg(before_at) AND id < sqlc.arg(before_id)))
+ORDER BY started_at DESC, id DESC
+LIMIT sqlc.arg(n);
+
+-- name: ListPlayerPlaysPage :many
+SELECT * FROM mediaservers_play
+WHERE server_id = sqlc.arg(server_id) AND player_key = sqlc.arg(player)
     AND (started_at < sqlc.arg(before_at) OR (started_at = sqlc.arg(before_at) AND id < sqlc.arg(before_id)))
 ORDER BY started_at DESC, id DESC
 LIMIT sqlc.arg(n);

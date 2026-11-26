@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"runtime"
+	"sync"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/files"
@@ -69,22 +71,57 @@ func (s service) Playback(ctx context.Context, id link.ServerID) (playback.Repor
 	return playback.Compute(in), nil
 }
 
-func playsOf(rows []db.MediaserversPlay) ([]playback.Play, error) {
+// playsOf is rows as plays. Only a transcode is judged, so only a
+// transcode's reasons and received facts are read.
+func playsOf(rows []db.ListPlaysSinceRow) ([]playback.Play, error) {
+	snaps, err := snapshotsByText(rows)
+	if err != nil {
+		return nil, err
+	}
 	out := make([]playback.Play, len(rows))
 	for i, p := range rows {
-		var reasons []string
-		if err := json.Unmarshal([]byte(p.Reasons), &reasons); err != nil {
-			return nil, fmt.Errorf("read a play's reasons: %w", err)
-		}
 		out[i] = playback.Play{
 			ID: p.ID, File: p.FileID, ItemKey: p.ItemKey, PlayerKey: p.PlayerKey, Player: p.Player, Platform: p.Platform,
-			Product: p.Product, User: p.UserName, Decision: p.Decision,
-			Streams: link.Streams{Video: p.Video, Audio: p.Audio, Subtitles: p.Subtitles},
-			Reasons: reasons, Received: p.Received, Snapshot: p.Snapshot,
-			Started: p.StartedAt.Time(), LastSeen: p.LastSeenAt.Time(),
+			Product: p.Product, Decision: p.Decision,
+			Streams:  link.Streams{Video: p.Video, Audio: p.Audio, Subtitles: p.Subtitles},
+			Snapshot: snaps[p.SnapshotJson], Started: p.StartedAt.Time(), LastSeen: p.LastSeenAt.Time(),
+		}
+		if p.Decision != link.DecisionTranscode {
+			continue
+		}
+		if err := json.Unmarshal([]byte(p.Reasons), &out[i].Reasons); err != nil {
+			return nil, fmt.Errorf("read a play's reasons: %w", err)
+		}
+		if err := out[i].Received.Scan(p.ReceivedJson); err != nil {
+			return nil, err
 		}
 	}
 	return out, nil
+}
+
+// snapshotsByText is each snapshot text of rows, read. Plays of one file
+// often share a text, so each is read once, and texts are read concurrently.
+func snapshotsByText(rows []db.ListPlaysSinceRow) (map[string]*playback.Snapshot, error) {
+	out := map[string]*playback.Snapshot{}
+	var texts []string
+	for _, p := range rows {
+		if _, ok := out[p.SnapshotJson]; !ok && p.SnapshotJson != "" {
+			out[p.SnapshotJson] = &playback.Snapshot{}
+			texts = append(texts, p.SnapshotJson)
+		}
+	}
+	n := runtime.GOMAXPROCS(0)
+	errs := make([]error, n)
+	var wg sync.WaitGroup
+	for w := range n {
+		wg.Go(func() {
+			for i := w; i < len(texts) && errs[w] == nil; i += n {
+				errs[w] = out[texts[i]].Scan(texts[i])
+			}
+		})
+	}
+	wg.Wait()
+	return out, errors.Join(errs...)
 }
 
 func itemKeysOf(rows []db.ListIndexedFilesRow) map[files.ID]string {
