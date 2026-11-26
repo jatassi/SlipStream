@@ -131,13 +131,14 @@ func watching(ctx context.Context, q *db.Queries, server link.ServerID, m *msv1.
 // laterSeen is the later of the open play's last look and at, false when
 // the play isn't open.
 func laterSeen(ctx context.Context, q *db.Queries, server link.ServerID, id link.PlayID, at time.Time) (storage.Time, bool, error) {
-	seen, err := q.GetOpenPlay(ctx, db.GetOpenPlayParams{ServerID: server, ID: id})
+	p, err := q.GetOpenPlay(ctx, db.GetOpenPlayParams{ServerID: server, ID: id})
 	switch {
 	case errors.Is(err, storage.ErrNoRows):
 		return storage.Time{}, false, nil
 	case err != nil:
 		return storage.Time{}, false, err
 	}
+	seen := p.LastSeenAt
 	if t := storage.FromTime(at); t.Compare(seen) > 0 {
 		seen = t
 	}

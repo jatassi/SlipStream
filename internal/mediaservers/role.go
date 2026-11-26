@@ -233,7 +233,7 @@ func (m *MediaServers) Run(ctx context.Context) error {
 func (m *MediaServers) endAway(ctx context.Context) time.Time {
 	self := m.cfg.Roster.Self()
 	var next time.Time
-	var ended int64
+	var ended int
 	err := m.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		next, ended = time.Time{}, 0
 		q := db.New(tx)
@@ -254,11 +254,11 @@ func (m *MediaServers) endAway(ctx context.Context) time.Time {
 			case now.Before(due):
 				next = earlier(next, due)
 			default:
-				n, err := q.EndPlaysOn(ctx, node)
+				ids, err := q.EndPlaysOn(ctx, node)
 				if err != nil {
 					return err
 				}
-				ended += n
+				ended += len(ids)
 			}
 		}
 		return nil

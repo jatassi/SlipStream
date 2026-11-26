@@ -10,6 +10,7 @@ import (
 
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/mediaserverlink/link"
+	"github.com/jatassi/slipstream/internal/mediaservers/playback"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/storage"
 )
@@ -96,37 +97,88 @@ func (q *Queries) EndPlayAsSeen(ctx context.Context, arg EndPlayAsSeenParams) er
 	return err
 }
 
-const endPlaysOn = `-- name: EndPlaysOn :execrows
+const endPlaysOn = `-- name: EndPlaysOn :many
 UPDATE mediaservers_play
 SET ended_at = last_seen_at
 WHERE ended_at IS NULL
   AND server_id IN (SELECT id FROM mediaservers_server WHERE reaching_node_id = ?1)
+RETURNING server_id
 `
 
-func (q *Queries) EndPlaysOn(ctx context.Context, nodeID role.NodeID) (int64, error) {
-	result, err := q.db.ExecContext(ctx, endPlaysOn, nodeID)
+func (q *Queries) EndPlaysOn(ctx context.Context, nodeID role.NodeID) ([]link.ServerID, error) {
+	rows, err := q.db.QueryContext(ctx, endPlaysOn, nodeID)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
-	return result.RowsAffected()
+	defer rows.Close()
+	var items []link.ServerID
+	for rows.Next() {
+		var server_id link.ServerID
+		if err := rows.Scan(&server_id); err != nil {
+			return nil, err
+		}
+		items = append(items, server_id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
-const endServerPlays = `-- name: EndServerPlays :execrows
+const endServerPlays = `-- name: EndServerPlays :many
 UPDATE mediaservers_play
 SET ended_at = last_seen_at
 WHERE server_id = ?1 AND ended_at IS NULL
+RETURNING server_id
 `
 
-func (q *Queries) EndServerPlays(ctx context.Context, serverID link.ServerID) (int64, error) {
-	result, err := q.db.ExecContext(ctx, endServerPlays, serverID)
+func (q *Queries) EndServerPlays(ctx context.Context, serverID link.ServerID) ([]link.ServerID, error) {
+	rows, err := q.db.QueryContext(ctx, endServerPlays, serverID)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
-	return result.RowsAffected()
+	defer rows.Close()
+	var items []link.ServerID
+	for rows.Next() {
+		var server_id link.ServerID
+		if err := rows.Scan(&server_id); err != nil {
+			return nil, err
+		}
+		items = append(items, server_id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const filePlay = `-- name: FilePlay :exec
+UPDATE mediaservers_play
+SET file_id = ?1
+WHERE server_id = ?2 AND id = ?3 AND ended_at IS NULL
+`
+
+type FilePlayParams struct {
+	FileID   files.ID
+	ServerID link.ServerID
+	ID       link.PlayID
+}
+
+func (q *Queries) FilePlay(ctx context.Context, arg FilePlayParams) error {
+	_, err := q.db.ExecContext(ctx, filePlay, arg.FileID, arg.ServerID, arg.ID)
+	return err
 }
 
 const getOpenPlay = `-- name: GetOpenPlay :one
-SELECT last_seen_at FROM mediaservers_play
+SELECT last_seen_at, file_id, server_path, path_key, audio_track, subtitle_track,
+    CAST(snapshot IS NOT NULL AS BOOLEAN) AS snapped
+FROM mediaservers_play
 WHERE server_id = ?1 AND id = ?2 AND ended_at IS NULL
 `
 
@@ -135,11 +187,86 @@ type GetOpenPlayParams struct {
 	ID       link.PlayID
 }
 
-func (q *Queries) GetOpenPlay(ctx context.Context, arg GetOpenPlayParams) (storage.Time, error) {
+type GetOpenPlayRow struct {
+	LastSeenAt    storage.Time
+	FileID        files.ID
+	ServerPath    string
+	PathKey       string
+	AudioTrack    *link.Track
+	SubtitleTrack *link.Track
+	Snapped       bool
+}
+
+func (q *Queries) GetOpenPlay(ctx context.Context, arg GetOpenPlayParams) (GetOpenPlayRow, error) {
 	row := q.db.QueryRowContext(ctx, getOpenPlay, arg.ServerID, arg.ID)
-	var last_seen_at storage.Time
-	err := row.Scan(&last_seen_at)
-	return last_seen_at, err
+	var i GetOpenPlayRow
+	err := row.Scan(
+		&i.LastSeenAt,
+		&i.FileID,
+		&i.ServerPath,
+		&i.PathKey,
+		&i.AudioTrack,
+		&i.SubtitleTrack,
+		&i.Snapped,
+	)
+	return i, err
+}
+
+const getPlayStart = `-- name: GetPlayStart :one
+SELECT started_at FROM mediaservers_play
+WHERE server_id = ?1 AND id = ?2
+`
+
+type GetPlayStartParams struct {
+	ServerID link.ServerID
+	ID       link.PlayID
+}
+
+func (q *Queries) GetPlayStart(ctx context.Context, arg GetPlayStartParams) (storage.Time, error) {
+	row := q.db.QueryRowContext(ctx, getPlayStart, arg.ServerID, arg.ID)
+	var started_at storage.Time
+	err := row.Scan(&started_at)
+	return started_at, err
+}
+
+const listIndexedFiles = `-- name: ListIndexedFiles :many
+SELECT file_id, item_key FROM mediaservers_item
+WHERE server_id = ?1
+    AND file_id IN (SELECT unhex(replace(value, '-', '')) FROM json_each(CAST(?2 AS TEXT)))
+ORDER BY file_id
+`
+
+type ListIndexedFilesParams struct {
+	ServerID link.ServerID
+	Files    string
+}
+
+type ListIndexedFilesRow struct {
+	FileID  files.ID
+	ItemKey string
+}
+
+func (q *Queries) ListIndexedFiles(ctx context.Context, arg ListIndexedFilesParams) ([]ListIndexedFilesRow, error) {
+	rows, err := q.db.QueryContext(ctx, listIndexedFiles, arg.ServerID, arg.Files)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListIndexedFilesRow
+	for rows.Next() {
+		var i ListIndexedFilesRow
+		if err := rows.Scan(&i.FileID, &i.ItemKey); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listOpenPlays = `-- name: ListOpenPlays :many
@@ -226,13 +353,239 @@ func (q *Queries) ListPlays(ctx context.Context, serverID link.ServerID) ([]Medi
 	return items, nil
 }
 
-const prunePlays = `-- name: PrunePlays :execrows
-DELETE FROM mediaservers_play
-WHERE ended_at IS NOT NULL AND ended_at < ?1
+const listPlaysPage = `-- name: ListPlaysPage :many
+SELECT server_id, id, session_key, server_path, path_key, item_key, player_key, player, platform, product, user_name, decision, video, audio, subtitles, hardware, reasons, received, audio_track, subtitle_track, file_id, snapshot, started_at, last_seen_at, ended_at FROM mediaservers_play
+WHERE server_id = ?1
+    AND (CAST(?2 AS TEXT) = '' OR player_key = ?2)
+    AND (started_at < ?3 OR (started_at = ?3 AND id < ?4))
+ORDER BY started_at DESC, id DESC
+LIMIT ?5
 `
 
-func (q *Queries) PrunePlays(ctx context.Context, before storage.Time) (int64, error) {
-	result, err := q.db.ExecContext(ctx, prunePlays, before)
+type ListPlaysPageParams struct {
+	ServerID link.ServerID
+	Player   string
+	BeforeAt storage.Time
+	BeforeID link.PlayID
+	N        int64
+}
+
+func (q *Queries) ListPlaysPage(ctx context.Context, arg ListPlaysPageParams) ([]MediaserversPlay, error) {
+	rows, err := q.db.QueryContext(ctx, listPlaysPage,
+		arg.ServerID,
+		arg.Player,
+		arg.BeforeAt,
+		arg.BeforeID,
+		arg.N,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []MediaserversPlay
+	for rows.Next() {
+		var i MediaserversPlay
+		if err := rows.Scan(
+			&i.ServerID,
+			&i.ID,
+			&i.SessionKey,
+			&i.ServerPath,
+			&i.PathKey,
+			&i.ItemKey,
+			&i.PlayerKey,
+			&i.Player,
+			&i.Platform,
+			&i.Product,
+			&i.UserName,
+			&i.Decision,
+			&i.Video,
+			&i.Audio,
+			&i.Subtitles,
+			&i.Hardware,
+			&i.Reasons,
+			&i.Received,
+			&i.AudioTrack,
+			&i.SubtitleTrack,
+			&i.FileID,
+			&i.Snapshot,
+			&i.StartedAt,
+			&i.LastSeenAt,
+			&i.EndedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPlaysSince = `-- name: ListPlaysSince :many
+SELECT server_id, id, session_key, server_path, path_key, item_key, player_key, player, platform, product, user_name, decision, video, audio, subtitles, hardware, reasons, received, audio_track, subtitle_track, file_id, snapshot, started_at, last_seen_at, ended_at FROM mediaservers_play
+WHERE server_id = ?1 AND started_at >= ?2
+ORDER BY started_at, id
+`
+
+type ListPlaysSinceParams struct {
+	ServerID link.ServerID
+	Since    storage.Time
+}
+
+func (q *Queries) ListPlaysSince(ctx context.Context, arg ListPlaysSinceParams) ([]MediaserversPlay, error) {
+	rows, err := q.db.QueryContext(ctx, listPlaysSince, arg.ServerID, arg.Since)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []MediaserversPlay
+	for rows.Next() {
+		var i MediaserversPlay
+		if err := rows.Scan(
+			&i.ServerID,
+			&i.ID,
+			&i.SessionKey,
+			&i.ServerPath,
+			&i.PathKey,
+			&i.ItemKey,
+			&i.PlayerKey,
+			&i.Player,
+			&i.Platform,
+			&i.Product,
+			&i.UserName,
+			&i.Decision,
+			&i.Video,
+			&i.Audio,
+			&i.Subtitles,
+			&i.Hardware,
+			&i.Reasons,
+			&i.Received,
+			&i.AudioTrack,
+			&i.SubtitleTrack,
+			&i.FileID,
+			&i.Snapshot,
+			&i.StartedAt,
+			&i.LastSeenAt,
+			&i.EndedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listSnapshotWorks = `-- name: ListSnapshotWorks :many
+SELECT id, CAST(snapshot ->> '$.work' AS TEXT) AS work FROM mediaservers_play
+WHERE server_id = ?1 AND snapshot IS NOT NULL
+    AND id IN (SELECT unhex(replace(value, '-', '')) FROM json_each(CAST(?2 AS TEXT)))
+ORDER BY id
+`
+
+type ListSnapshotWorksParams struct {
+	ServerID link.ServerID
+	Plays    string
+}
+
+type ListSnapshotWorksRow struct {
+	ID   link.PlayID
+	Work string
+}
+
+func (q *Queries) ListSnapshotWorks(ctx context.Context, arg ListSnapshotWorksParams) ([]ListSnapshotWorksRow, error) {
+	rows, err := q.db.QueryContext(ctx, listSnapshotWorks, arg.ServerID, arg.Plays)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListSnapshotWorksRow
+	for rows.Next() {
+		var i ListSnapshotWorksRow
+		if err := rows.Scan(&i.ID, &i.Work); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listUnfiledAt = `-- name: ListUnfiledAt :many
+SELECT id FROM mediaservers_play
+WHERE server_id = ?1 AND file_id IS NULL AND ended_at IS NULL
+    AND path_key IN (SELECT value FROM json_each(CAST(?2 AS TEXT)))
+ORDER BY id
+`
+
+type ListUnfiledAtParams struct {
+	ServerID link.ServerID
+	PathKeys string
+}
+
+func (q *Queries) ListUnfiledAt(ctx context.Context, arg ListUnfiledAtParams) ([]link.PlayID, error) {
+	rows, err := q.db.QueryContext(ctx, listUnfiledAt, arg.ServerID, arg.PathKeys)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []link.PlayID
+	for rows.Next() {
+		var id link.PlayID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const movePlaysSince = `-- name: MovePlaysSince :exec
+UPDATE mediaservers_server SET plays_since = ?1 WHERE plays_since < ?1
+`
+
+func (q *Queries) MovePlaysSince(ctx context.Context, cutoff storage.Time) error {
+	_, err := q.db.ExecContext(ctx, movePlaysSince, cutoff)
+	return err
+}
+
+const prunePlays = `-- name: PrunePlays :execrows
+DELETE FROM mediaservers_play
+WHERE rowid IN (
+    SELECT p.rowid FROM mediaservers_play AS p
+    WHERE p.ended_at IS NOT NULL AND p.ended_at < ?1
+    ORDER BY p.ended_at
+    LIMIT ?2
+)
+`
+
+type PrunePlaysParams struct {
+	Before storage.Time
+	N      int64
+}
+
+func (q *Queries) PrunePlays(ctx context.Context, arg PrunePlaysParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, prunePlays, arg.Before, arg.N)
 	if err != nil {
 		return 0, err
 	}
@@ -253,6 +606,30 @@ type SeePlayParams struct {
 
 func (q *Queries) SeePlay(ctx context.Context, arg SeePlayParams) error {
 	_, err := q.db.ExecContext(ctx, seePlay, arg.LastSeenAt, arg.ServerID, arg.ID)
+	return err
+}
+
+const setSnapshot = `-- name: SetSnapshot :exec
+UPDATE mediaservers_play
+SET file_id = ?1,
+    snapshot = ?2
+WHERE server_id = ?3 AND id = ?4 AND ended_at IS NULL
+`
+
+type SetSnapshotParams struct {
+	FileID   files.ID
+	Snapshot *playback.Snapshot
+	ServerID link.ServerID
+	ID       link.PlayID
+}
+
+func (q *Queries) SetSnapshot(ctx context.Context, arg SetSnapshotParams) error {
+	_, err := q.db.ExecContext(ctx, setSnapshot,
+		arg.FileID,
+		arg.Snapshot,
+		arg.ServerID,
+		arg.ID,
+	)
 	return err
 }
 
