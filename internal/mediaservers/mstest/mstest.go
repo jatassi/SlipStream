@@ -450,6 +450,26 @@ func (w *World) ShareOnPlexTV(t *testing.T, p Plex, machine, username string) pl
 	return share
 }
 
+// HomeOnPlexTV adds username's Plex account to the Admin's Plex Home, as
+// the Admin does in Plex.
+func (w *World) HomeOnPlexTV(t *testing.T, p Plex, username string) {
+	t.Helper()
+	admin := w.PlexTVToken(t, p, "").Reveal()
+	member, _ := w.PlexTVUser(t, w.PlexTVToken(t, p, username))
+	c := plextv.New(plexTV, plex.Headers{ClientID: "elsewhere", Product: "Plex Web"}, nil, w.net.client())
+	if err := c.InviteHome(t.Context(), admin, plextv.Invitee{Who: plextv.Who{ID: member.ID, UUID: member.UUID}, Username: member.Username, Email: member.Email}); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// UsePlexFacts restarts the Media Servers with f in place of what the
+// recorded Plex run settled.
+func (w *World) UsePlexFacts(t *testing.T, f plextv.Facts) {
+	t.Helper()
+	w.cfg.PlexFacts = f
+	w.Restart(t)
+}
+
 // Shared moves access row id to shared on share, as the Admin's Share on
 // Plex does when the Member's accept fails.
 func (w *World) Shared(t *testing.T, id string, share plextv.ShareID) {

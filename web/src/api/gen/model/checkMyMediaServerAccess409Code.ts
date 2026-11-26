@@ -1,1 +1,1 @@
-export type CheckMyMediaServerAccess409Code = "access_state" | "worker_node";
+export type CheckMyMediaServerAccess409Code = "access_state" | "plex_not_signed_in" | "worker_node";

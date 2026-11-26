@@ -47,27 +47,44 @@ func TestNoMemberSecretLeaves(t *testing.T) {
 }
 
 // TestNoMemberPlexTokenLeaves signs Sam in with Plex while the Plex
-// server waits on the token for its share, and reads the responses, event
-// payloads and log lines: none holds the token.
+// server waits on the token for its share, then, when share is set, has
+// the Admin share it, which accepts with the token: no response, event
+// payload or log line holds the token.
 func TestNoMemberPlexTokenLeaves(t *testing.T) {
-	synctest.Test(t, func(t *testing.T) {
-		r := newMemberRig(t)
-		if status, body := r.offer(t, r.sam.ID, r.server, false); status != http.StatusOK {
-			t.Fatalf("offer = %d %s", status, body)
-		}
-		tap := r.w.Tap(t.Context())
-		pin := r.startMemberPin(t, r.sam)
-		r.plex.ApproveAs(t, pin.AuthURL, "sam")
-		time.Sleep(time.Second)
-		synctest.Wait()
-		_, state := r.o.CallAs(t, http.MethodGet, mine+"/plex/pin/"+jsonInt(pin.ID), "", r.sam.Session)
-		_, rows := r.o.CallAs(t, http.MethodGet, mine, "", r.sam.Session)
-		token := r.w.MemberPinToken(t, r.sam.ID, pin.ID)
-		if _, held := r.w.PlexTVUser(t, token); !held {
-			t.Fatal("plex.tv no longer holds the token the share waits on")
-		}
-		expectNoLeak(t, token.Reveal(), r.rig, tap, []string{state, rows, r.expectOK(t, servers+"/access")})
-	})
+	for _, c := range []struct {
+		name  string
+		share bool
+	}{{"a sign-in", false}, {"a share accepted with the token", true}} {
+		t.Run(c.name, func(t *testing.T) {
+			synctest.Test(t, func(t *testing.T) {
+				r := newMemberRig(t)
+				if status, body := r.offer(t, r.sam.ID, r.server, false); status != http.StatusOK {
+					t.Fatalf("offer = %d %s", status, body)
+				}
+				tap := r.w.Tap(t.Context())
+				pin := r.startMemberPin(t, r.sam)
+				r.plex.ApproveAs(t, pin.AuthURL, "sam")
+				time.Sleep(time.Second)
+				synctest.Wait()
+				_, state := r.o.CallAs(t, http.MethodGet, mine+"/plex/pin/"+jsonInt(pin.ID), "", r.sam.Session)
+				_, rows := r.o.CallAs(t, http.MethodGet, mine, "", r.sam.Session)
+				token := r.w.MemberPinToken(t, r.sam.ID, pin.ID)
+				if _, held := r.w.PlexTVUser(t, token); !held {
+					t.Fatal("plex.tv no longer holds the token the share waits on")
+				}
+				bodies := []string{state, rows}
+				if c.share {
+					row := r.accessOf(t, r.sam.ID).Rows[0].ID
+					status, body := r.o.CallSignedIn(t, http.MethodPost, servers+"/access/"+row+"/share", `{"as":"friend"}`)
+					if status != http.StatusOK || !strings.Contains(body, `"state":"active"`) {
+						t.Fatalf("share = %d %s", status, body)
+					}
+					bodies = append(bodies, body)
+				}
+				expectNoLeak(t, token.Reveal(), r.rig, tap, append(bodies, r.expectOK(t, servers+"/access")))
+			})
+		})
+	}
 }
 
 // expectNoLeak reads bodies, every event tap took, and every log line, at

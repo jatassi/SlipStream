@@ -41,12 +41,7 @@ var (
 	notShownToMembers  = api.NewCode(http.StatusConflict, "not_shown_to_members", "The Media Server isn't shown to Members")
 	plexHomeNotPlex    = api.NewCode(http.StatusUnprocessableEntity, "plex_home_not_plex", "Plex Home is a choice for Plex servers only")
 	noMemberLibraries  = api.NewCode(http.StatusUnprocessableEntity, "no_member_libraries", "Show to Members needs at least one library for Members")
-	notBuilt           = api.NewCode(http.StatusNotImplemented, "not_built_yet", "This part of SlipStream isn't built yet")
 )
-
-// building is the codes of an operation S43 (Member access to Media
-// Servers) adds, which answers not_built_yet until its lane lands.
-func building(codes ...*api.Code) []*api.Code { return append(codes, notBuilt) }
 
 // answer is err as the problem an Admin reads.
 func answer(err error) error {
@@ -130,8 +125,6 @@ func accessAnswer(err error) error {
 		return notShownToMembers.Because(e.Name + " isn't shown to Members. Turn on Show to Members on its page first.")
 	}
 	switch {
-	case errors.Is(err, mediaservers.ErrNotYet):
-		return notBuilt
 	case errors.Is(err, mediaservers.ErrAccessNotFound):
 		return accessNotFound
 	case errors.Is(err, mediaservers.ErrNoMemberLibraries):
