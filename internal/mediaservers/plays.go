@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/mediaserverlink/link"
 	"github.com/jatassi/slipstream/internal/mediaservers/internal/db"
 	msv1 "github.com/jatassi/slipstream/internal/pb/slipstream/mediaserver/v1"
@@ -32,7 +31,7 @@ func (m *MediaServers) startPlay(ctx context.Context, tx *storage.Tx[storage.Lib
 	if err != nil {
 		return err
 	}
-	if err := q.StartPlay(ctx, p.startParams(server, files.ID{})); err != nil {
+	if err := q.StartPlay(ctx, p.startParams(server)); err != nil {
 		return err
 	}
 	m.played.add(byNode(node), server)

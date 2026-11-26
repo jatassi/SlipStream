@@ -3,6 +3,7 @@ package mediaservers
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"slices"
@@ -19,30 +20,50 @@ import (
 )
 
 // Sessions are what the server's reaching Node last saw playing, empty
-// while that Node is away.
+// while that Node is away, each naming the Work its play's snapshot holds.
 func (s service) Sessions(ctx context.Context, id link.ServerID) (Sessions, error) {
-	var reaching role.NodeID
+	now := time.Now()
+	var out Sessions
 	err := s.m.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[storage.Library]) error {
-		cur, err := db.New(r).GetContact(ctx, id)
+		q := db.New(r)
+		cur, err := q.GetContact(ctx, id)
 		if errors.Is(err, storage.ErrNoRows) {
 			return ErrNotFound
+		} else if err != nil {
+			return err
 		}
-		reaching = cur.ReachingNodeID
+		f, ok := s.m.cfg.Facts(cur.ReachingNodeID)
+		live := s.m.caps().facts(serverFactsOf(f, id), now)
+		snapped, err := q.ListSnapshotWorks(ctx, db.ListSnapshotWorksParams{ServerID: id, Plays: playIDsJSON(live)})
+		out = Sessions{Reachable: ok, Sessions: sessionViews(live, snapped)}
 		return err
 	})
-	if err != nil {
-		return Sessions{}, err
+	return out, err
+}
+
+func playIDsJSON(live []reported) string {
+	ids := make([]string, len(live))
+	for i, p := range live {
+		ids[i] = p.id.String()
 	}
-	f, ok := s.m.cfg.Facts(reaching)
-	out := Sessions{Reachable: ok, Sessions: []SessionView{}}
-	for _, p := range s.m.caps().facts(serverFactsOf(f, id), time.Now()) {
-		out.Sessions = append(out.Sessions, SessionView{
-			PlayID: p.id.String(), User: p.user, Player: p.player, Product: p.product, Path: p.path.String(),
+	b, _ := json.Marshal(ids) //nolint:errchkjson // a string slice always marshals
+	return string(b)
+}
+
+func sessionViews(live []reported, snapped []db.ListSnapshotWorksRow) []SessionView {
+	workOf := make(map[link.PlayID]string, len(snapped))
+	for _, w := range snapped {
+		workOf[w.ID] = w.Work
+	}
+	out := make([]SessionView, len(live))
+	for i, p := range live {
+		out[i] = SessionView{
+			PlayID: p.id.String(), User: p.user, Player: p.player, Product: p.product, Path: p.path.String(), WorkID: workOf[p.id],
 			Decision: string(p.streams.Decision()), Video: string(p.streams.Video), Audio: string(p.streams.Audio),
 			Subtitles: string(p.streams.Subtitles), Hardware: p.hardware, Reasons: p.reasons, StartedAt: p.started,
-		})
+		}
 	}
-	return out, nil
+	return out
 }
 
 func serverFactsOf(f *msv1.Facts, id link.ServerID) *msv1.ServerFacts {

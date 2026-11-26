@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/mediaserverlink/link"
 	"github.com/jatassi/slipstream/internal/mediaservers/internal/db"
 	msv1 "github.com/jatassi/slipstream/internal/pb/slipstream/mediaserver/v1"
@@ -187,10 +186,10 @@ func (c caps) trackOf(t *msv1.Track) (*link.Track, error) {
 	return nil, nil
 }
 
-// startParams is the row p starts on server, playing file.
-func (p reported) startParams(server link.ServerID, file files.ID) db.StartPlayParams {
+// startParams is the row p starts on server.
+func (p reported) startParams(server link.ServerID) db.StartPlayParams {
 	return db.StartPlayParams{
-		ServerID: server, ID: p.id, SessionKey: p.sessionKey, FileID: file, ServerPath: p.path.String(),
+		ServerID: server, ID: p.id, SessionKey: p.sessionKey, ServerPath: p.path.String(),
 		PathKey: p.path.Key(), ItemKey: p.itemKey, PlayerKey: p.playerKey, Player: p.player,
 		Platform: p.platform, Product: p.product, UserName: p.user,
 		Decision: p.streams.Decision(), Video: p.streams.Video, Audio: p.streams.Audio, Subtitles: p.streams.Subtitles,
