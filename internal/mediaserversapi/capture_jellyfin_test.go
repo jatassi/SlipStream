@@ -226,19 +226,20 @@ func TestAGroupedVersionIsOneThePlayerCanChoose(t *testing.T) {
 	}
 }
 
-// shelve maps Den's Shelves to the Shelves root and puts each file there
-// in the library as one Work and Item.
+// shelve puts each file on the Shelves root in the library as one Work
+// and Item, then maps Den's Shelves to that root, so the listing the
+// mapping starts finds every file.
 func (c captured) shelve(t *testing.T, fs map[string]mstest.File) {
 	t.Helper()
 	root := c.w.Root(t, "Shelves").ID
-	body := `{"mappings":[{"rootId":"` + root.String() + `","shown":true,"serverFolder":"` + shelves + `"}]}`
-	if status, reply := c.o.Call(t, http.MethodPut, servers+"/"+c.id+"/mappings", body); status != http.StatusOK {
-		t.Fatalf("save the mapping = %d %s", status, reply)
-	}
 	work, item := works.WorkID{UUID: storage.NewUUID()}, works.ItemID{UUID: storage.NewUUID()}
 	for path, f := range fs {
 		f.ID, f.Work, f.Item = c.w.Place(root, mustRel(t, strings.TrimPrefix(path, shelves+"/"))), work, item
 		c.w.File(t, f)
+	}
+	body := `{"mappings":[{"rootId":"` + root.String() + `","shown":true,"serverFolder":"` + shelves + `"}]}`
+	if status, reply := c.o.Call(t, http.MethodPut, servers+"/"+c.id+"/mappings", body); status != http.StatusOK {
+		t.Fatalf("save the mapping = %d %s", status, reply)
 	}
 	synctest.Wait()
 }
