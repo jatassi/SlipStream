@@ -45,8 +45,8 @@ type played struct{ Session, Item string }
 
 // transcoding is the play history's line for p, but its end.
 func (p played) transcoding() string {
-	return `/media/Shelves/Clip.mkv transcode (transcode direct none) ["ContainerNotSupported"] by ada on Living room key fake-player-` +
-		p.Session + " item " + p.Item + ", "
+	return `/media/Shelves/Clip.mkv transcode (transcode direct none) ["ContainerNotSupported"] by ada on Living room key living-room item ` +
+		p.Item + ", "
 }
 
 // play starts Clip on Living room for ada, transcoding for a reason.
@@ -93,7 +93,8 @@ const playing = `{"reachable":true,"sessions":[{"playId":"id1","user":"ada","pla
 
 // TestSessionsShowAPlayUntilItVanishesFromTwoPolls plays Clip on Den: the
 // Admin sees it playing at once and hears of it, and once it stops it
-// stays in the history, ended at the last poll that saw it.
+// stays in the history, ended at the last poll that saw it. The stop's
+// push has Den polled at once, which is the first poll to miss it.
 func TestSessionsShowAPlayUntilItVanishesFromTwoPolls(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		w := newWatched(t)
@@ -106,7 +107,7 @@ func TestSessionsShowAPlayUntilItVanishesFromTwoPolls(t *testing.T) {
 		}
 		wait(every)
 		w.den.Cue(t, "jellyfin-stop", map[string]string{"session": p.Session})
-		wait(every)
+		synctest.Wait()
 		expectPlays(t, w.plays(t), p.transcoding()+"open")
 		wait(every)
 		expectPlays(t, w.plays(t), p.transcoding()+"ended 15s in")

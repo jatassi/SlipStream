@@ -312,8 +312,8 @@ func (s *server) userItems(w http.ResponseWriter, r *http.Request, c caller) {
 // IncludeItemTypes, and on Emby a Path, a file's exact path or the folder
 // an item is in. Emby 4.10 answered one item for a film's folder (online
 // run 2026-11-14); which item it was is unrecorded, and the fake answers
-// the film. Jellyfin has no Path filter and lists alternate versions only
-// in the primary item's MediaSources.
+// the film. Jellyfin has no Path filter and lists alternate versions in
+// the primary item, which alone a listing names.
 func (s *server) listItems(w http.ResponseWriter, r *http.Request, c caller, uid string) {
 	u, ok := s.asUser(c, uid)
 	if !ok {
@@ -427,31 +427,35 @@ func providerIDs(it mediaserver.Item) map[string]string {
 }
 
 func (s *server) renderItem(it mediaserver.Item, uid string) map[string]any {
+	return s.renderAs(it, s.sources(it), uid)
+}
+
+// renderAs is it listing srcs. On Jellyfin the first source is the item
+// it renders as: the primary, or an alternate version's own item.
+func (s *server) renderAs(it mediaserver.Item, srcs []source, uid string) map[string]any {
 	var sources []map[string]any
-	for _, p := range it.Parts {
-		if p.Missing {
-			continue
-		}
-		file := p.File.String()
-		var streams []map[string]any
-		for _, sc := range p.Sidecars {
-			streams = append(streams, map[string]any{
-				"Type": "Subtitle", "Codec": strings.TrimPrefix(filepath.Ext(sc.String()), "."), "IsExternal": true, "Path": sc.String(),
-			})
-		}
-		sources = append(sources, map[string]any{
-			"Protocol": "File", "Id": id("source " + file), "Path": file, "Type": "Default",
-			"Container": strings.TrimPrefix(filepath.Ext(file), "."), "Size": p.Size,
+	key, path := it.Key, ""
+	for _, src := range srcs {
+		file := src.part.File.String()
+		m := map[string]any{
+			"Protocol": "File", "Id": src.id, "Path": file, "Type": "Default",
+			"Container": strings.TrimPrefix(filepath.Ext(file), "."), "Size": src.part.Size,
 			"Name":         strings.TrimSuffix(filepath.Base(filepath.FromSlash(strings.ReplaceAll(file, `\`, "/"))), filepath.Ext(file)),
-			"MediaStreams": nonNil(streams),
-		})
-	}
-	path := ""
-	if len(sources) > 0 {
-		path, _ = sources[0]["Path"].(string)
+			"MediaStreams": nonNil(renderStreams(src.part)),
+		}
+		if s.p.Flavor == Emby {
+			m["ItemId"] = src.item.Key
+		}
+		if path == "" && src.item.Key == it.Key {
+			path = file
+			if s.p.Flavor == Jellyfin {
+				key = src.id
+			}
+		}
+		sources = append(sources, m)
 	}
 	m := map[string]any{
-		"Name": it.Title, "ServerId": s.srv.ID, "Id": it.Key, "Path": path, "Type": itemType(it), "IsFolder": false,
+		"Name": it.Title, "ServerId": s.srv.ID, "Id": key, "Path": path, "Type": itemType(it), "IsFolder": false,
 		"MediaType": "Video", "LocationType": "FileSystem", "VideoType": "VideoFile", "ProviderIds": providerIDs(it),
 		"MediaSources": nonNil(sources), "UserData": s.renderUserData(uid, it), "ImageTags": map[string]any{},
 	}
@@ -477,12 +481,18 @@ func (s *server) userItem(w http.ResponseWriter, r *http.Request, c caller) {
 
 func (s *server) oneItem(w http.ResponseWriter, r *http.Request, c caller, uid string) {
 	u, ok := s.asUser(c, uid)
+	var srcs []source
 	it, found := s.core.Item(r.PathValue("id"))
+	if found {
+		srcs = s.sources(it)
+	} else {
+		it, srcs, found = s.alternate(r.PathValue("id"))
+	}
 	if !ok || !found || !s.sees(u, it.Library) {
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
-	writeJSON(w, s.renderItem(it, u.id))
+	writeJSON(w, s.renderAs(it, srcs, u.id))
 }
 
 func (s *server) getUserData(w http.ResponseWriter, r *http.Request, c caller) {

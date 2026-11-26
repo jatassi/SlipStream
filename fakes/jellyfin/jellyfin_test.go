@@ -10,6 +10,8 @@ import (
 
 	conformance "github.com/jatassi/slipstream/conformance/jellyfin"
 	"github.com/jatassi/slipstream/fakes/fake/faketest"
+	"github.com/jatassi/slipstream/fakes/internal/mediabrowser"
+	"github.com/jatassi/slipstream/fakes/internal/mediaserver"
 	"github.com/jatassi/slipstream/fakes/internal/serverfake"
 	"github.com/jatassi/slipstream/fakes/jellyfin"
 	"github.com/jatassi/slipstream/fakes/scenario"
@@ -91,6 +93,9 @@ func target(t *testing.T, f faketest.Served, settle, bound time.Duration) confor
 		FreshRoot: &conformance.Root{Folder: path(t, "/media/New"), Disk: conformance.DirDisk{Dir: filepath.Join(f.Media, "New")}},
 		Admin:     &conformance.Admin{User: "jackson", Password: "conformance-password"},
 		Play: func(t *testing.T, p conformance.Play) (conformance.Played, func()) {
+			if p.Audio != nil {
+				f.Cue(t, "jellyfin-streams", serverfake.SetStreams{Path: p.Path.String(), Streams: audioTracks(p.Audio.Position)})
+			}
 			played, _ := f.Cue(t, "jellyfin-play", cued(p)).(jellyfin.Played)
 			return conformance.Played{Session: played.Session, Item: played.Item}, func() { f.Cue(t, "jellyfin-stop", jellyfin.Stop{Session: played.Session}) }
 		},
@@ -104,6 +109,15 @@ func cued(p conformance.Play) jellyfin.Play {
 	return jellyfin.Play{
 		Path: p.Path.String(), Version: p.Version.String(), User: "jackson", Player: "Living Room", PlayerKey: p.PlayerKey, Platform: p.Platform,
 		Video: p.Streams.Video, Audio: p.Streams.Audio, Subtitles: p.Streams.Subtitles, ContainerChanged: p.Streams.ContainerChanged,
-		AudioTrack: serverfake.Track(p.Audio), SubtitleTrack: serverfake.Track(p.Subtitle), Reasons: p.Reasons,
+		Received: mediabrowser.ReceivedOf(p.Received), AudioTrack: serverfake.Track(p.Audio), SubtitleTrack: serverfake.Track(p.Subtitle), Reasons: p.Reasons,
 	}
+}
+
+// audioTracks are a file's streams with an audio track at position.
+func audioTracks(position int) []mediaserver.Stream {
+	out := []mediaserver.Stream{{Type: "video", Codec: "h264", Height: 1080}}
+	for range position + 1 {
+		out = append(out, mediaserver.Stream{Type: "audio", Codec: "aac", Channels: 2, Language: "eng"})
+	}
+	return out
 }

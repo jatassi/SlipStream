@@ -114,7 +114,7 @@ func (s *Server) Sessions(ctx context.Context) ([]link.Session, error) {
 
 func (s *Server) kind() (link.Kind, link.Dialed) {
 	k, _ := mediaserverlink.Kinds.Of(link.KindName(s.f.String()))
-	return k, link.Dialed{Address: s.tg.Address, Credential: link.Credential{APIKey: s.tg.Key}, DeviceID: App.DeviceID, HTTP: s.tg.HTTP}
+	return k, link.Dialed{Address: s.tg.Address, Credential: link.Credential{APIKey: s.tg.Key}, DeviceID: App.DeviceID, HTTP: s.tg.HTTP, Log: s.tg.Log}
 }
 
 // Shared is tg as the shared cases take it, with its server and its

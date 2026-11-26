@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -26,10 +27,15 @@ const (
 	keepAliveTimeout = 60 * time.Second
 )
 
-var playMethods = map[link.Decision]string{link.DecisionDirectPlay: "DirectPlay", link.DecisionDirectStream: "Transcode", link.DecisionTranscode: "Transcode"}
-
 // renderSession renders sess, whose User is the id the play cue looked
-// up by name.
+// up by name, as the recorded runs of 2026-11-26 read a session. DeviceId
+// is the player's key, and neither product sends DeviceType. Jellyfin's
+// NowPlayingItem is the version's own item, and Emby's the item the play
+// started from. A direct play reads DirectPlay on Jellyfin and
+// DirectStream on Emby, with no TranscodingInfo; any other play reads
+// Transcode, with each stream's flag, and a burn transcodes the video
+// with SubtitleCodecNotSupported. On Emby an unreported play has no
+// TranscodingInfo (#71).
 func (s *server) renderSession(sess mediaserver.Session) map[string]any {
 	s.mu.Lock()
 	name := ""
@@ -37,20 +43,46 @@ func (s *server) renderSession(sess mediaserver.Session) map[string]any {
 		name = u.name
 	}
 	s.mu.Unlock()
-	item := s.renderItem(sess.Item, sess.User)
-	d := sess.Streams.Decision()
+	item, ps := s.nowPlaying(sess)
 	m := map[string]any{
 		"Id": sess.Key, "UserId": sess.User, "UserName": name, "Client": either(sess.Player.Product, s.p.ProductName+" Web"),
-		"DeviceName": sess.Player.Name, "DeviceId": "fake-player-" + sess.Key, "RemoteEndPoint": "192.168.1.30", "IsActive": true,
-		"NowPlayingItem": item,
-		"PlayState":      map[string]any{"PlayMethod": playMethods[d], "PositionTicks": 0, "MediaSourceId": id("source " + sess.Path.String())},
+		"DeviceName": sess.Player.Name, "DeviceId": sess.Player.Key, "RemoteEndPoint": "192.168.1.30", "IsActive": true,
+		"NowPlayingItem": item, "PlayState": ps,
 	}
-	if d == link.DecisionDirectPlay || (s.p.Flavor == Emby && sess.Unreported) {
+	st := sess.Streams
+	if st.Decision() == link.DecisionDirectPlay {
+		ps["PlayMethod"] = map[Flavor]string{Jellyfin: "DirectPlay", Emby: "DirectStream"}[s.p.Flavor]
 		return m
 	}
+	if s.p.Flavor == Emby && sess.Unreported {
+		return m
+	}
+	m["TranscodingInfo"] = s.transcoding(sess)
+	return m
+}
+
+// transcoding is the TranscodingInfo of sess: each stream's flag, its
+// reasons and what the player receives, in the product's names.
+func (s *server) transcoding(sess mediaserver.Session) map[string]any {
+	st := sess.Streams
+	reasons := nonNilStrings(slices.Clone(sess.Reasons))
+	if st.Subtitles == link.SubtitlesBurned && !slices.Contains(reasons, "SubtitleCodecNotSupported") {
+		reasons = append(reasons, "SubtitleCodecNotSupported")
+	}
 	t := map[string]any{
-		"IsVideoDirect": d == link.DecisionDirectStream, "IsAudioDirect": false, "VideoCodec": "h264", "AudioCodec": "aac",
-		"TranscodeReasons": nonNilStrings(sess.Reasons),
+		"IsVideoDirect": st.Video == link.StreamDirect && st.Subtitles != link.SubtitlesBurned, "IsAudioDirect": st.Audio == link.StreamDirect,
+		"TranscodeReasons": reasons,
+	}
+	rc := sess.Received
+	for k, v := range map[string]any{"Container": rc.Container, "VideoCodec": rc.VideoCodec, "AudioCodec": rc.AudioCodec} {
+		if v != "" {
+			t[k] = v
+		}
+	}
+	for k, v := range map[string]int64{"Height": int64(rc.Height), "Bitrate": rc.Bitrate, "AudioChannels": int64(rc.Channels)} {
+		if v != 0 {
+			t[k] = v
+		}
 	}
 	if sess.Hardware {
 		if s.p.Flavor == Emby {
@@ -61,8 +93,44 @@ func (s *server) renderSession(sess mediaserver.Session) map[string]any {
 	} else if s.p.Flavor == Jellyfin {
 		t["HardwareAccelerationType"] = "none"
 	}
-	m["TranscodingInfo"] = t
-	return m
+	return t
+}
+
+// nowPlaying is the NowPlayingItem and PlayState of sess: the item the
+// play started from when it lists the version, else the version's own
+// item, as a server plays only a file its item lists. Jellyfin's item is
+// the version's own, with its source first, and the chosen streams are
+// read at their Index.
+func (s *server) nowPlaying(sess mediaserver.Session) (item, ps map[string]any) {
+	it := sess.Item
+	srcs := s.sources(it)
+	ps = map[string]any{"PlayMethod": "Transcode", "PositionTicks": 0, "SubtitleStreamIndex": -1}
+	playing := func(src source) bool { return src.part.File.Key() == sess.Version.Key() }
+	i := slices.IndexFunc(srcs, playing)
+	if other, ok := s.core.ItemAt(sess.Version); i < 0 && ok {
+		it, srcs = other, s.sources(other)
+		i = slices.IndexFunc(srcs, playing)
+	}
+	if i < 0 {
+		return s.renderAs(it, srcs, sess.User), ps
+	}
+	v := srcs[i]
+	ps["MediaSourceId"] = v.id
+	if s.p.Flavor == Jellyfin && i > 0 {
+		srcs = append([]source{v}, append(srcs[:i:i], srcs[i+1:]...)...)
+	}
+	for k, t := range map[string]struct {
+		typ string
+		n   *int
+	}{"AudioStreamIndex": {"audio", sess.AudioTrack}, "SubtitleStreamIndex": {"subtitle", sess.SubtitleTrack}} {
+		if t.n == nil {
+			continue
+		}
+		if at, ok := streamIndex(v.part, t.typ, *t.n); ok {
+			ps[k] = at
+		}
+	}
+	return s.renderAs(it, srcs, sess.User), ps
 }
 
 func nonNilStrings(v []string) []string {

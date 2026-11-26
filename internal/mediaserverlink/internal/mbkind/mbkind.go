@@ -231,8 +231,9 @@ func (c *conn) signIn(ctx context.Context, user, password string) (link.Credenti
 }
 
 // Watch polls GET /Sessions every every, and holds the server's socket
-// beside: its Sessions messages list the sessions, and a LibraryChanged
-// names the items it changed.
+// beside: its Sessions messages ask for a poll at once, so every session
+// read and version lookup runs on the poll, and a LibraryChanged names
+// the items it changed.
 func (c *conn) Watch(ctx context.Context, every time.Duration, seen func(link.Seen)) error {
 	if _, err := c.same(ctx); err != nil {
 		return problem(ctx, err)
@@ -247,61 +248,21 @@ func (c *conn) poll(ctx context.Context) link.Seen {
 		s.Problem = &p
 		return s
 	}
-	s.Sessions, s.Transcoding = c.sessions(all)
+	s.Sessions, s.Pending, s.Transcoding = c.sessions(ctx, all)
 	return s
 }
 
-func (c *conn) socket(ctx context.Context, opened func(), push func(link.Seen), _ func()) error {
+func (c *conn) socket(ctx context.Context, opened func(), push func(link.Seen), poll func()) error {
 	return c.c.Socket(ctx, c.d.Timings.SessionsPush, opened, func(m jellyfin.Message) {
-		s := link.Seen{At: time.Now()}
 		switch m.MessageType {
 		case jellyfin.MessageSessions:
-			all, err := m.Sessions()
-			if err != nil {
-				return
-			}
-			s.Sessions, s.Transcoding = c.sessions(all)
+			poll()
 		case jellyfin.MessageLibraryChanged:
 			var lc jellyfin.LibraryChanged
 			if err := json.Unmarshal(m.Data, &lc); err != nil {
 				return
 			}
-			s.Items = slices.Concat(lc.ItemsAdded, lc.ItemsUpdated, lc.ItemsRemoved)
-		default:
-			return
+			push(link.Seen{At: time.Now(), Items: slices.Concat(lc.ItemsAdded, lc.ItemsUpdated, lc.ItemsRemoved)})
 		}
-		push(s)
 	})
-}
-
-// sessions are the sessions that play an item, capped, and whether any
-// session re-encodes its video, counted before the cap.
-func (c *conn) sessions(all []jellyfin.Session) ([]link.Session, bool) {
-	var out []link.Session
-	transcoding := false
-	for _, s := range all {
-		if s.NowPlayingItem == nil {
-			continue
-		}
-		ls := link.Session{Key: s.ID, Item: s.NowPlayingItem.ID, PlayerKey: s.DeviceID, User: s.UserName, Player: s.DeviceName, Product: s.Client,
-			Streams: link.Streams{Video: link.StreamDirect, Audio: link.StreamDirect, Subtitles: link.SubtitlesNone}}
-		if ti := s.TranscodingInfo; ti != nil && s.PlayState != nil && s.PlayState.PlayMethod == jellyfin.Transcode {
-			ls.Streams.ContainerChanged, ls.Reasons = true, slices.Clone(ti.TranscodeReasons)
-			if !ti.IsVideoDirect {
-				ls.Streams.Video = link.StreamTranscode
-			}
-			ls.Hardware = ti.VideoEncoderIsHardware || (ti.HardwareAccelerationType != "" && ti.HardwareAccelerationType != "none")
-		}
-		transcoding = transcoding || ls.Streams.Video == link.StreamTranscode
-		p, err := link.ParsePath(s.NowPlayingItem.Path)
-		if err != nil || len(out) == c.d.Timings.SessionCap {
-			continue
-		}
-		ls.Version = link.Version{Path: p}
-		if s.PlayState != nil {
-			ls.VersionID = s.PlayState.MediaSourceID
-		}
-		out = append(out, ls)
-	}
-	return out, transcoding
 }
