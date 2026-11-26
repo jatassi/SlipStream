@@ -26,7 +26,8 @@ import (
 // page.
 type MediaWorld struct {
 	Front func(node, kind string) string
-	Cue   func(ctx context.Context, name string, args any) error
+	// Cue decodes the cue's result into out unless out is nil.
+	Cue func(ctx context.Context, name string, args, out any) error
 }
 
 var versions = map[string][]string{"plex": plex.Versions, "jellyfin": jellyfin.Versions, "emby": emby.Versions}
@@ -75,6 +76,9 @@ func addMediaServer(ctx context.Context, c *http.Client, s scenario.Scenario, cl
 	body := nodeapi.NewMediaServer{Kind: p.Kind, Name: p.Name, Address: w.Front(p.Node, p.Kind), ReachingNodeID: reaching}
 	if p.RunsOn != "" {
 		body.RunsOnNodeID = claims.Members[slices.IndexFunc(s.Nodes, func(n scenario.Node) bool { return n.Name == p.RunsOn })].ID
+	}
+	if p.Kind != "plex" && len(p.Plays) > 0 {
+		body.BrowserAddress = body.Address
 	}
 	if !p.NoFallback && p.Node != controllerNode {
 		body.FallbackAddress = w.Front(controllerNode, p.Kind)
@@ -137,7 +141,7 @@ func approve(ctx context.Context, w MediaWorld, authURL, account string) error {
 	if err != nil {
 		return fmt.Errorf("the Plex sign-in page %s: %w", authURL, err)
 	}
-	return w.Cue(ctx, plextv.Approve.Name, map[string]string{"code": q.Get("code"), "account": account})
+	return w.Cue(ctx, plextv.Approve.Name, map[string]string{"code": q.Get("code"), "account": account}, nil)
 }
 
 func saveMappings(ctx context.Context, c *http.Client, s scenario.Scenario, claims Claims, controller, id string, p serverfake.Played, roots []nodeapi.Root, mediaDir string) error {

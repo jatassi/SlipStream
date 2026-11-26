@@ -143,7 +143,7 @@ func shelfSeries() *TVDB {
 
 func TestLoadRefusesANameOutsideTheCatalog(t *testing.T) {
 	_, err := Load("office")
-	if want := "scenario office is not in the catalog (auto-search, busy-feed, catalog-sites, cgnat-home, dead-controller, external-clients, external-kinds, fault-loop, first-run, five-indexers-one-late, full-backups-folder, gone-with-rss, hold, home, hostile-worker, imports, indexers, limited-tracker, low-space-warning, low-space, magnets, manual-search, media-servers, moves, movies, music, offline-destination, pack-beats-singles, packs, ported-sites, remote-cgnat, remote-double-nat, remote-ipv6, remote-mappable, remote-open, remote-own-proxy, remote-single-machine, remote-vpn, repair, restore-in-place-after-grab, scale, seedbox-nas, seeding-routing, seeding, series-files-scale, series-scale, series, serving, showcase, single-machine, sizes, subtitles, targets, torrents)"; err == nil || err.Error() != want {
+	if want := "scenario office is not in the catalog (auto-search, busy-feed, catalog-sites, cgnat-home, dead-controller, external-clients, external-kinds, fault-loop, first-run, five-indexers-one-late, full-backups-folder, gone-with-rss, hold, home, hostile-worker, imports, indexers, limited-tracker, low-space-warning, low-space, magnets, manual-search, media-servers, moves, movies, music, offline-destination, pack-beats-singles, packs, playback, ported-sites, remote-cgnat, remote-double-nat, remote-ipv6, remote-mappable, remote-open, remote-own-proxy, remote-single-machine, remote-vpn, repair, restore-in-place-after-grab, scale, seedbox-nas, seeding-routing, seeding, series-files-scale, series-scale, series, serving, showcase, single-machine, sizes, subtitles, targets, torrents)"; err == nil || err.Error() != want {
 		t.Fatalf("err = %v, want %s", err, want)
 	}
 }
@@ -387,6 +387,35 @@ func TestParseRefuses(t *testing.T) {
 				"admin: {email: a@example.test, display_name: A, pin: \"1234\"}\n" +
 				"library: {roots: [{content_type: movie, folder: movies}, {content_type: series, folder: tv}]}\n",
 			"scenario x: media server P puts roots of movie and series in library Mixed; a library holds one Content Type",
+		},
+		{
+			"media server plays",
+			"seed: x\nnodes:\n  - name: home\n    setup: controller\n    media_servers:\n" +
+				"      - kind: plex\n        name: P\n        unlisted: [movies/B/b.mkv]\n        plays:\n" +
+				"          - {player: {name: TV, key: tv}, user: u, file: movies/A/a.mkv, version: movies/A/b.mkv, video: direct, audio: direct, subtitles: none}\n" +
+				"          - {player: {name: TV, key: \"\"}, user: u, file: films/c.mkv, video: copy, audio: direct, subtitles: shown, count: 51}\n" +
+				"          - {player: {name: TV, key: tv}, user: u, file: movies/A/a.mkv, video: direct, audio: direct, subtitles: none, reasons: [VideoCodecNotSupported], hardware: true}\n" +
+				"      - kind: jellyfin\n        name: J\n        plays:\n" +
+				"          - {player: {name: TV, key: tv}, user: u, file: movies/A/a.mkv, version: movies/A/b.mkv, video: direct, audio: direct, subtitles: none}\n" +
+				"          - {player: {name: TV, key: tv}, user: u, file: movies/A/a.mkv, version: movies/C/c.mkv, video: transcode, audio: direct, subtitles: burned, received: {height: 720}, count: 50}\n" +
+				"          - {player: {name: TV, key: tv}, user: u, file: movies/A/a.mkv, version: shelf/d.mkv, video: transcode, audio: transcode, subtitles: none, count: 50}\n" +
+				"admin: {email: a@example.test, display_name: A, pin: \"1234\"}\n" +
+				"library:\n  roots: [{content_type: movie, folder: movies}]\n  folders:\n" +
+				"    - folder: movies\n      files:\n" +
+				"        - {path: A/a.mkv, video: {width: 64, height: 64, seconds: 1, hdr: sdr}}\n" +
+				"        - {path: C/c.mkv, video: {width: 64, height: 64, seconds: 1, hdr: sdr}}\n" +
+				"    - folder: shelf\n      files: [{path: d.mkv, video: {width: 64, height: 64, seconds: 1, hdr: sdr}}]\n",
+			"scenario x: media server P leaves out movies/B/b.mkv, which no library folder holds\n" +
+				"scenario x: media server P play of movies/A/a.mkv names a version, which only Jellyfin and Emby take\n" +
+				"scenario x: media server P play of films/c.mkv names a file no library folder holds\n" +
+				"scenario x: media server P play of films/c.mkv names no player key\n" +
+				`scenario x: media server P play of films/c.mkv plays video "copy", audio "direct" and subtitles "shown"; video and audio are direct, transcode or none, subtitles none, direct or burned` + "\n" +
+				"scenario x: media server P play of films/c.mkv plays 51 times; it plays 1 to 50\n" +
+				"scenario x: media server P play of movies/A/a.mkv gives reasons, hardware or received facts, but no stream transcodes\n" +
+				"scenario x: media server J play of movies/A/a.mkv names version movies/A/b.mkv, which no library folder holds\n" +
+				"scenario x: media server J play of movies/A/a.mkv names version movies/C/c.mkv, which isn't in its folder\n" +
+				"scenario x: media server J play of movies/A/a.mkv names version shelf/d.mkv, which isn't in its folder\n" +
+				"scenario x: media server J plays 101 sessions at once; one look keeps 100",
 		},
 		{
 			"member access",

@@ -1,0 +1,238 @@
+# yaml-language-server: $schema=../scenario.schema.json
+description: >-
+  One Controller reaching Living room Jellyfin, Den Emby and Office Plex,
+  which hold its movies and tv roots, and a Playback report with every
+  outcome. Once the servers list the Works, the world plays every entry
+  at once through the fakes, waits until each is seen on a later look, and
+  stops them. On Jellyfin, Living Room TV direct plays Heat's 1080p SDR
+  version and transcodes its 2160p Dolby Vision 8.1 file on HDR, so the
+  report suggests playing the 1080p version. Bedroom TV direct plays a
+  1080p HDR10 file and transcodes The Quiet Orchard's 2160p Dolby Vision
+  file, which has no other version, so the report suggests a 1080p HDR10
+  Target. Den TV direct plays only 1080p x264 SDR AAC 2.0 and transcodes
+  four Works on HDR, which the Target 1080p SDR AAC would avoid: Ember
+  Lane has no file meeting it, The Tin Signal's Profile lacks it, Glass
+  Harbor's file meeting it is one Jellyfin doesn't list yet, and Paper
+  Moon's has a higher bitrate than Den TV has played. Kitchen iPad has no
+  direct play, so its transcode on video codec is unproven, and it plays a
+  file from shelf, a folder no root names. Hallway Stick burns Saltmarsh
+  Radio's subtitles, which no Target fixes. On Emby, which lists each
+  file as its own item, Lounge TV plays Heat as Living Room TV does. On
+  Plex, Office PC transcodes Copper Kettle's video, receiving what the
+  file holds, and Plex gives no reasons.
+seed: playback
+admin:
+  email: ada@example.test
+  display_name: Ada Okafor
+  pin: "2468"
+nodes:
+  - name: home
+    setup: controller
+    roles: [storage, converting, metadata, media-server-link]
+    media_servers:
+      - kind: jellyfin
+        name: Living room Jellyfin
+        unlisted: ["movies/Glass Harbor (2019) {tmdb-9000303}/Glass.Harbor.2019.1080p.WEB-DL.H264-FKW.mkv"]
+        plays:
+          - player: {name: Living Room TV, key: living-room-tv, platform: Android TV, product: Jellyfin Android TV}
+            user: admin
+            file: "movies/Heat (1995) {tmdb-9000301}/Heat.1995.2160p.WEB-DL.DV.H265-FKW.mkv"
+            version: "movies/Heat (1995) {tmdb-9000301}/Heat.1995.1080p.WEB-DL.H264-FKW.mkv"
+            video: direct
+            audio: direct
+            subtitles: none
+            count: 2
+          - player: {name: Living Room TV, key: living-room-tv, platform: Android TV, product: Jellyfin Android TV}
+            user: admin
+            file: "movies/Heat (1995) {tmdb-9000301}/Heat.1995.2160p.WEB-DL.DV.H265-FKW.mkv"
+            video: transcode
+            audio: direct
+            subtitles: none
+            reasons: [VideoRangeTypeNotSupported]
+            count: 2
+          - player: {name: Bedroom TV, key: bedroom-tv, platform: webOS, product: Jellyfin webOS}
+            user: admin
+            file: "movies/Lanterns at Low Tide (2016) {tmdb-9000101}/Lanterns.at.Low.Tide.2016.1080p.WEB-DL.HDR.H265-FKW.mkv"
+            video: direct
+            audio: direct
+            subtitles: none
+            count: 2
+          - player: {name: Bedroom TV, key: bedroom-tv, platform: webOS, product: Jellyfin webOS}
+            user: admin
+            file: "movies/The Quiet Orchard (2021) {tmdb-9000001}/The.Quiet.Orchard.2021.2160p.WEB-DL.DV.H265-FKW.mkv"
+            video: transcode
+            audio: direct
+            subtitles: none
+            reasons: [VideoRangeTypeNotSupported]
+          - player: &den {name: Den TV, key: den-tv, platform: Roku, product: Jellyfin Roku}
+            user: admin
+            file: "movies/Copper Kettle (2012) {tmdb-9000105}/Copper.Kettle.2012.1080p.WEB-DL.H264-FKW.mkv"
+            video: direct
+            audio: direct
+            subtitles: none
+            count: 2
+          - player: *den
+            user: admin
+            file: "movies/Ember Lane (2017) {tmdb-9000302}/Ember.Lane.2017.1080p.WEB-DL.HDR.H265-FKW.mkv"
+            video: transcode
+            audio: direct
+            subtitles: none
+            reasons: [VideoRangeTypeNotSupported]
+          - player: *den
+            user: admin
+            file: "tv/The Tin Signal [tvdbid-9100201]/Season 01/The Tin Signal - S01E01.mkv"
+            video: transcode
+            audio: direct
+            subtitles: none
+            reasons: [VideoRangeTypeNotSupported]
+          - player: *den
+            user: admin
+            file: "movies/Glass Harbor (2019) {tmdb-9000303}/Glass.Harbor.2019.1080p.WEB-DL.HDR.H265-FKW.mkv"
+            video: transcode
+            audio: direct
+            subtitles: none
+            reasons: [VideoRangeTypeNotSupported]
+          - player: *den
+            user: admin
+            file: "movies/Paper Moon (2020) {tmdb-9000304}/Paper.Moon.2020.1080p.WEB-DL.HDR.H265-FKW.mkv"
+            video: transcode
+            audio: direct
+            subtitles: none
+            reasons: [VideoRangeTypeNotSupported]
+          - player: &kitchen {name: Kitchen iPad, key: kitchen-ipad, platform: iOS, product: Swiftfin}
+            user: admin
+            file: "movies/Lanterns at Low Tide (2016) {tmdb-9000101}/Lanterns.at.Low.Tide.2016.1080p.WEB-DL.HDR.H265-FKW.mkv"
+            video: transcode
+            audio: direct
+            subtitles: none
+            reasons: [VideoCodecNotSupported]
+          - player: *kitchen
+            user: admin
+            file: "shelf/Grandma's 80th Birthday (2019).mkv"
+            video: transcode
+            audio: direct
+            subtitles: none
+            reasons: [VideoCodecNotSupported]
+          - player: {name: Hallway Stick, key: hallway-stick, platform: Android, product: Jellyfin Android}
+            user: admin
+            file: "movies/Saltmarsh Radio (2018) {tmdb-9000102}/Saltmarsh.Radio.2018.1080p.WEB-DL.H264-FKW.mkv"
+            video: transcode
+            audio: direct
+            subtitles: burned
+            subtitle_track: 0
+      - kind: emby
+        name: Den Emby
+        plays:
+          - player: &lounge {name: Lounge TV, key: lounge-tv, platform: Samsung Tizen, product: Emby for Samsung}
+            user: admin
+            file: "movies/Heat (1995) {tmdb-9000301}/Heat.1995.1080p.WEB-DL.H264-FKW.mkv"
+            video: direct
+            audio: direct
+            subtitles: none
+            count: 2
+          - player: *lounge
+            user: admin
+            file: "movies/Heat (1995) {tmdb-9000301}/Heat.1995.2160p.WEB-DL.DV.H265-FKW.mkv"
+            video: transcode
+            audio: direct
+            subtitles: none
+            reasons: [VideoRangeTypeNotSupported]
+            count: 2
+      - kind: plex
+        name: Office Plex
+        plays:
+          - player: {name: Office PC, key: office-pc, platform: Windows, product: Plex for Windows}
+            user: plex-admin
+            file: "movies/Copper Kettle (2012) {tmdb-9000105}/Copper.Kettle.2012.1080p.WEB-DL.H264-FKW.mkv"
+            video: transcode
+            audio: direct
+            subtitles: none
+            received: {container: mkv, video_codec: h264, height: 1080, audio_codec: aac, channels: 2}
+timings:
+  node:
+    stop_deadline: 15s
+tmdb:
+  movies:
+    - {id: 9000001, imdb_id: tt9000001, title: The Quiet Orchard, released: 2021-04-16, runtime: 104m}
+    - {id: 9000101, imdb_id: tt9000101, title: Lanterns at Low Tide, released: 2016-09-09, runtime: 118m}
+    - {id: 9000102, imdb_id: tt9000102, title: Saltmarsh Radio, released: 2018-05-25, runtime: 97m}
+    - {id: 9000105, imdb_id: tt9000105, title: Copper Kettle, released: 2012-02-03, runtime: 88m}
+    - {id: 9000301, imdb_id: tt9000301, title: Heat, released: 1995-12-15, runtime: 170m}
+    - {id: 9000302, imdb_id: tt9000302, title: Ember Lane, released: 2017-03-10, runtime: 101m}
+    - {id: 9000303, imdb_id: tt9000303, title: Glass Harbor, released: 2019-08-23, runtime: 112m}
+    - {id: 9000304, imdb_id: tt9000304, title: Paper Moon, released: 2020-11-06, runtime: 95m}
+tvdb:
+  series:
+    - id: 9100201
+      name: The Tin Signal
+      status: continuing
+      seasons:
+        - number: 1
+          episodes:
+            - {id: 9120101, number: 1, name: Static, aired: 2019-01-07}
+library:
+  storage_levels: {warn_below: 0B, error_below: 0B}
+  automatic_search: {backlog_search: false, rss_sync: false}
+  roots: [{content_type: movie, folder: movies}, {content_type: series, folder: tv}]
+  targets:
+    - name: 1080p SDR AAC
+      tiers: [[bluray-1080p, webdl-1080p, webrip-1080p, hdtv-1080p], [bluray-720p, webdl-720p, webrip-720p, hdtv-720p]]
+      cutoff: webdl-1080p
+      filters:
+        - {attribute: video_codec, mode: only, values: [x264]}
+        - {attribute: hdr, mode: not, values: [DV, HDR10+, HDR10, HLG]}
+        - {attribute: audio_codec, mode: not, values: [TrueHD, DTS-HD MA, DTS, DD+, DD, FLAC, PCM, Opus, MP3]}
+        - {attribute: channels, mode: not, values: ["7.1", "5.1"]}
+  profiles:
+    - {name: Films, content_type: movie, targets: [1080p SDR AAC], default: true}
+    - {name: Episodes, content_type: series, targets: [1080p], default: true}
+  folders:
+    - folder: movies
+      files:
+        - path: Heat (1995) {tmdb-9000301}/Heat.1995.2160p.WEB-DL.DV.H265-FKW.mkv
+          video: {width: 3840, height: 2160, seconds: 1, hdr: dv8}
+          audio: [{codec: truehd, channels: 6, language: eng, default: true}]
+        - path: Heat (1995) {tmdb-9000301}/Heat.1995.1080p.WEB-DL.H264-FKW.mkv
+          video: {width: 1920, height: 1080, seconds: 1, hdr: sdr}
+          audio: [{codec: aac, channels: 2, language: eng, default: true}]
+        - path: The Quiet Orchard (2021) {tmdb-9000001}/The.Quiet.Orchard.2021.2160p.WEB-DL.DV.H265-FKW.mkv
+          video: {width: 3840, height: 2160, seconds: 1, hdr: dv8}
+          audio: [{codec: aac, channels: 2, language: eng, default: true}]
+        - path: Lanterns at Low Tide (2016) {tmdb-9000101}/Lanterns.at.Low.Tide.2016.1080p.WEB-DL.HDR.H265-FKW.mkv
+          video: {width: 1920, height: 1080, seconds: 1, hdr: hdr10}
+          audio: [{codec: aac, channels: 2, language: eng, default: true}]
+        - path: Copper Kettle (2012) {tmdb-9000105}/Copper.Kettle.2012.1080p.WEB-DL.H264-FKW.mkv
+          video: {width: 1920, height: 1080, seconds: 1, hdr: sdr}
+          audio: [{codec: aac, channels: 2, language: eng, default: true}]
+        - path: Ember Lane (2017) {tmdb-9000302}/Ember.Lane.2017.1080p.WEB-DL.HDR.H265-FKW.mkv
+          video: {width: 1920, height: 1080, seconds: 1, hdr: hdr10}
+          audio: [{codec: aac, channels: 2, language: eng, default: true}]
+        - path: Glass Harbor (2019) {tmdb-9000303}/Glass.Harbor.2019.1080p.WEB-DL.HDR.H265-FKW.mkv
+          video: {width: 1920, height: 1080, seconds: 1, hdr: hdr10}
+          audio: [{codec: aac, channels: 2, language: eng, default: true}]
+        - path: Glass Harbor (2019) {tmdb-9000303}/Glass.Harbor.2019.1080p.WEB-DL.H264-FKW.mkv
+          video: {width: 1920, height: 1080, seconds: 1, hdr: sdr}
+          audio: [{codec: aac, channels: 2, language: eng, default: true}]
+        - path: Paper Moon (2020) {tmdb-9000304}/Paper.Moon.2020.1080p.WEB-DL.HDR.H265-FKW.mkv
+          video: {width: 1920, height: 1080, seconds: 1, hdr: hdr10}
+          audio: [{codec: aac, channels: 2, language: eng, default: true}]
+        # A second audio track gives it a higher bitrate than Copper Kettle, the only file Den TV direct plays.
+        - path: Paper Moon (2020) {tmdb-9000304}/Paper.Moon.2020.1080p.WEB-DL.H264-FKW.mkv
+          video: {width: 1920, height: 1080, seconds: 1, hdr: sdr}
+          audio:
+            - {codec: aac, channels: 2, language: eng, default: true}
+            - {codec: aac, channels: 2, language: fre}
+        - path: Saltmarsh Radio (2018) {tmdb-9000102}/Saltmarsh.Radio.2018.1080p.WEB-DL.H264-FKW.mkv
+          video: {width: 1920, height: 1080, seconds: 1, hdr: sdr}
+          audio: [{codec: aac, channels: 2, language: eng, default: true}]
+          subtitles: [{language: eng}]
+    - folder: tv
+      files:
+        - path: The Tin Signal [tvdbid-9100201]/Season 01/The Tin Signal - S01E01.mkv
+          video: {width: 1920, height: 1080, seconds: 1, hdr: hdr10}
+          audio: [{codec: aac, channels: 2, language: eng, default: true}]
+    - folder: shelf
+      files:
+        - path: Grandma's 80th Birthday (2019).mkv
+          video: {width: 1280, height: 720, seconds: 1, hdr: sdr}
+          audio: [{codec: aac, channels: 2, language: eng, default: true}]
