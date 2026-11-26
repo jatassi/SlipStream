@@ -281,12 +281,12 @@ func (m *MediaServers) endAway(ctx context.Context) time.Time {
 	})
 	if err != nil {
 		if ctx.Err() == nil {
-			m.cfg.Log.Error("couldn't end the plays on Connect from Nodes offline too long", "err", err.Error())
+			m.cfg.Log.Error("couldn't end the plays of Media Servers whose Connect from Node is offline longer than Mark unhealthy after", "err", err.Error())
 		}
 		return time.Time{}
 	}
 	if len(ended) > 0 {
-		m.cfg.Log.Info("ended the plays on Connect from Nodes offline longer than the Mark unhealthy after setting", "plays", len(ended))
+		m.cfg.Log.Info("ended the plays of Media Servers whose Connect from Node is offline longer than Mark unhealthy after", "plays", len(ended))
 	}
 	m.playsEnded(ctx, ended)
 	return next

@@ -9039,7 +9039,7 @@ export type MediaserversPinBodyOutput = zod.output<typeof MediaserversPinBody>;
 
 export const MediaserversReceivedView = zod.object({
   audioCodec: zod.string().nullable().describe("null when unreported"),
-  bitrate: zod.int().nullable().describe("null when unreported, in bits a second"),
+  bitrate: zod.int().nullable().describe("Bits a second; null when unreported"),
   channels: zod.int().nullable().describe("null when unreported"),
   container: zod.string().nullable().describe("null when unreported"),
   height: zod.int().nullable().describe("null when unreported"),
@@ -11442,7 +11442,9 @@ export const PlaybackVersion = zod.object({
   label: zod.string(),
   separateItem: zod
     .boolean()
-    .describe("The server lists it as its own item, not as a version the player can choose"),
+    .describe(
+      "The server lists the file as a separate item, which the player can't choose as a version",
+    ),
 });
 
 export type PlaybackVersion = zod.input<typeof PlaybackVersion>;

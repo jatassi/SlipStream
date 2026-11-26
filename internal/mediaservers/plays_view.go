@@ -40,7 +40,7 @@ type ReceivedView struct {
 	Container  api.Nullable[string] `json:"container" doc:"null when unreported"`
 	VideoCodec api.Nullable[string] `json:"videoCodec" doc:"null when unreported"`
 	Height     api.Nullable[int]    `json:"height" doc:"null when unreported"`
-	Bitrate    api.Nullable[int64]  `json:"bitrate" doc:"null when unreported, in bits a second"`
+	Bitrate    api.Nullable[int64]  `json:"bitrate" doc:"Bits a second; null when unreported"`
 	AudioCodec api.Nullable[string] `json:"audioCodec" doc:"null when unreported"`
 	Channels   api.Nullable[int]    `json:"channels" doc:"null when unreported"`
 }

@@ -18,7 +18,7 @@ const plays = { one: "play", many: "plays" };
 function windowWords(report: Report, clock: Clock): string {
   const full = clock.now.getTime() - report.window * 1000;
   return new Date(report.since).getTime() > full
-    ? whenWords(report.since, "since", clock)
+    ? whenWords(report.since, "sinceDay", clock)
     : `in the last ${durationWords(report.window)}`;
 }
 
@@ -34,7 +34,7 @@ export function PlaybackTab({ server }: { server: Server }) {
   const types = useListContentTypesSuspense().data.contentTypes;
   const clock = useClock();
   const window = windowWords(report, clock);
-  const since = whenWords(report.since, "since", clock);
+  const since = whenWords(report.since, "sinceDay", clock);
   const node = server.reachingNode.name;
   return (
     <div className="flex flex-col gap-4">

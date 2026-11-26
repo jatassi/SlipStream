@@ -4715,7 +4715,7 @@ export const getGetMediaServerPlaybackUrl = (id: string) => {
 };
 
 /**
- * @summary Get a Media Server's Playback report: why each player transcoded the files it played, and which file or Target would avoid it
+ * @summary Get a Media Server's Playback report: why the server transcoded each player's plays, and which file or Target would avoid it
  */
 export const getMediaServerPlayback = async (
   id: string,
@@ -4843,7 +4843,7 @@ export function useGetMediaServerPlaybackSuspense<
   queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 /**
- * @summary Get a Media Server's Playback report: why each player transcoded the files it played, and which file or Target would avoid it
+ * @summary Get a Media Server's Playback report: why the server transcoded each player's plays, and which file or Target would avoid it
  */
 
 export function useGetMediaServerPlaybackSuspense<

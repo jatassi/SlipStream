@@ -181,7 +181,7 @@ func (c *conn) version(ctx context.Context, user, item, source string) (link.Ver
 	case err != nil:
 		return link.Version{}, err
 	case !found:
-		return link.Version{}, fmt.Errorf("item %s is gone", item)
+		return link.Version{}, fmt.Errorf("the server has no item %s", item)
 	}
 	i := slices.IndexFunc(it.MediaSources, func(m jellyfin.MediaSource) bool { return m.ID == source })
 	if i < 0 {

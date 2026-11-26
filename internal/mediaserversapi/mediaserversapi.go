@@ -631,7 +631,7 @@ func Routes(r *api.Router, servers Servers) {
 	}, h.changes)
 	api.Register(o, api.Admin, api.Op{
 		ID: "getMediaServerPlayback", Method: http.MethodGet, Path: base + "/{id}/playback", Status: http.StatusOK,
-		Summary: "Get a Media Server's Playback report: why each player transcoded the files it played, and which file or Target would avoid it",
+		Summary: "Get a Media Server's Playback report: why the server transcoded each player's plays, and which file or Target would avoid it",
 		Errors:  []*api.Code{serverNotFound},
 	}, h.playback)
 	api.Register(o, api.Admin, api.Op{

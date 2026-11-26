@@ -1,43 +1,22 @@
-// oxlint-disable import/max-dependencies -- the report, its Manual search and the server page each have their own fixtures
 import { HttpResponse, type RequestHandler, http } from "msw";
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import type { PlaybackGroup, PlaybackPlayer, PlaybackReport } from "../../api/gen/model";
-import { getListContentTypesMockHandler } from "../../api/gen/query/works/works.msw";
-import { cinema } from "../../test/library";
 import { filmPlan } from "../../test/manual";
 import { manualEntry } from "../../test/manual-entry";
-import { mediaServersWorld } from "../../test/media-server-writes";
 import { denJellyfin, livingRoomPlex } from "../../test/media-servers";
 import {
   denReport,
   emptyReport,
   offlineReport,
   olderPlaysPage,
-  playbackHandlers,
   playsPage,
-  plexReport,
 } from "../../test/playback";
-import { renderApp } from "../../test/render-app";
-
-const servers = [denJellyfin, livingRoomPlex];
+import { openPlayback } from "../../test/playback-page";
 
 function open(server = denJellyfin, report?: PlaybackReport, extra: RequestHandler[] = []) {
-  const reports = {
-    [denJellyfin.id]: denReport,
-    [livingRoomPlex.id]: plexReport,
-    ...(report && { [server.id]: report }),
-  };
-  renderApp({
-    path: `/settings/media-servers/${server.id}/playback`,
-    handlers: [
-      ...extra,
-      ...playbackHandlers(reports),
-      getListContentTypesMockHandler({ contentTypes: [cinema] }),
-      ...mediaServersWorld(servers).handlers,
-    ],
-  });
+  openPlayback(server, report, extra);
   return page.getByRole("list", { name: `Players on ${server.name}` });
 }
 
@@ -102,7 +81,7 @@ const reportLines: {
   {
     name: "the lead names the largest group's cause and version, and counts the rest",
     lines: [
-      /^9 of 15 plays on Living Room TV were transcoded because the player can't show Dolby Vision or show HDR10\. The Bluray-1080p version .+ Choose it .+ Living Room TV\. 2 more plays on Living Room TV/u,
+      /^9 of 15 plays on Living Room TV were transcoded because the player can't show Dolby Vision or HDR10\. The Bluray-1080p version .+ Choose it .+ Living Room TV\. 2 more plays on Living Room TV/u,
       /^None of Bedroom iPad's 2 plays were transcoded\.$/u,
     ],
   },

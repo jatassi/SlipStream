@@ -11,8 +11,8 @@ import { Data } from "../../ui/data";
 import { Details } from "../../ui/details";
 import { Fact, Facts } from "../../ui/facts";
 import { RelativeTime } from "../../ui/relative-time";
-import { type LeadContext, LeadLine, causeWords, leadOf, workLine } from "./lead-line";
-import { factWords, hdrWord } from "./playback-words";
+import { type LeadContext, LeadLine, leadOf, workLine } from "./lead-line";
+import { causeWords, factWords, hdrWord } from "./playback-words";
 import { PlaysDialog } from "./plays-dialog";
 
 const plays = { one: "play", many: "plays" };

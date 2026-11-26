@@ -34,7 +34,7 @@ export function SessionRow({ server, session }: { server: Server; session: Sessi
       title={fileName(session.path)}
       meta={
         <>
-          {`${session.user} on ${session.player} · ${session.product} · Started `}
+          {`${[`${session.user} on ${session.player}`, session.product, "Started"].filter(Boolean).join(" · ")} `}
           <PlainTime at={session.startedAt} form="age" />
         </>
       }

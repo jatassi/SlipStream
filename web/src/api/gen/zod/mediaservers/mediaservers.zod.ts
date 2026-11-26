@@ -314,7 +314,7 @@ export const SaveMediaServerMappingsBody = MediaserversMappingsBody;
 export const SaveMediaServerMappingsResponse = MappingsOutputBody;
 
 /**
- * @summary Get a Media Server's Playback report: why each player transcoded the files it played, and which file or Target would avoid it
+ * @summary Get a Media Server's Playback report: why the server transcoded each player's plays, and which file or Target would avoid it
  */
 export const GetMediaServerPlaybackParams = zod.object({
   id: zod.uuid(),
