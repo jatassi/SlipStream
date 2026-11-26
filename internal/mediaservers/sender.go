@@ -464,7 +464,7 @@ func (m *MediaServers) drive(ctx context.Context, s sending, j link.Job) (time.T
 // step with no attempt counted, not before the call's deadline. more is a
 // Job going on at once, whose rows stay taken.
 func (m *MediaServers) record(ctx context.Context, s sending, j link.Job, out link.Advanced, callErr error, start time.Time, more bool) error {
-	return m.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+	err := m.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		q := db.New(tx)
 		rows, err := q.GetChanges(ctx, jobIDs(j))
 		if err != nil {
@@ -491,6 +491,8 @@ func (m *MediaServers) record(ctx context.Context, s sending, j link.Job, out li
 		}
 		return q.SetSendsOK(ctx, db.SetSendsOKParams{ID: s.id, At: storage.FromTime(st.now)})
 	})
+	m.playsCommitted(ctx, bySender(s.id), err)
+	return err
 }
 
 // stepped is one step's answer as record writes it on each row.

@@ -70,7 +70,7 @@ func (s service) OpenIn(ctx context.Context, work works.WorkID) ([]OpenIn, error
 		return nil, err
 	}
 	for id, ps := range asked {
-		if s.m.lookups.ask(id, work, ps, time.Now()) {
+		if s.m.lookups.ask(id, ps, time.Now(), work) {
 			s.m.senders.wake(id)
 		}
 	}
@@ -163,9 +163,9 @@ func topOf(ctx context.Context, q *db.Queries, server link.ServerID, paths []lin
 	return "", nil
 }
 
-// lookups are the paths Open in asked each server's sender to look up,
-// with the Works waiting on each, and the paths a lookup found no item
-// at, until missedWait passes.
+// lookups are the paths Open in and plays asked each server's sender to
+// look up, with the Works waiting on each, and the paths a lookup found
+// no item at, until missedWait passes.
 type lookups struct {
 	mu     sync.Mutex
 	asked  map[link.ServerID]map[string]lookup
@@ -181,9 +181,9 @@ func newLookups() *lookups {
 	return &lookups{asked: map[link.ServerID]map[string]lookup{}, missed: map[link.ServerID]map[string]time.Time{}}
 }
 
-// ask has server look up ps for work, and reports whether a path is newly
-// asked.
-func (l *lookups) ask(server link.ServerID, work works.WorkID, ps []link.ServerPath, now time.Time) bool {
+// ask has server look up ps for each of ws, none for a play's late file,
+// and reports whether a path is newly asked.
+func (l *lookups) ask(server link.ServerID, ps []link.ServerPath, now time.Time, ws ...works.WorkID) bool {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	if l.asked[server] == nil {
@@ -202,8 +202,10 @@ func (l *lookups) ask(server link.ServerID, work works.WorkID, ps []link.ServerP
 		a, ok := l.asked[server][k]
 		fresh = fresh || !ok
 		a.path = p
-		if !slices.Contains(a.works, work) {
-			a.works = append(a.works, work)
+		for _, w := range ws {
+			if !slices.Contains(a.works, w) {
+				a.works = append(a.works, w)
+			}
 		}
 		l.asked[server][k] = a
 	}

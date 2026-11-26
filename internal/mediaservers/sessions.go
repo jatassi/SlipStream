@@ -148,7 +148,7 @@ func digest(live []reported) string {
 
 // writeSeen moves each open play's last look to the one its reaching
 // Node's facts last gave, so a play the Controller ends without a report
-// ends there.
+// ends there, and tries again each snapshot one lacks.
 func (m *MediaServers) writeSeen(ctx context.Context) {
 	m.seen.mu.Lock()
 	pending := m.seen.pending
@@ -158,22 +158,23 @@ func (m *MediaServers) writeSeen(ctx context.Context) {
 		return
 	}
 	err := m.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
-		q := db.New(tx)
 		for server, l := range pending {
-			if err := see(ctx, q, server, l); err != nil {
+			if err := m.see(ctx, tx, server, l); err != nil {
 				return err
 			}
 		}
 		return nil
 	})
+	m.playsCommitted(ctx, bySeen(), err)
 	if err != nil && ctx.Err() == nil {
 		m.cfg.Log.Error("record when Media Server plays were last seen", "err", err.Error())
 	}
 }
 
 // see moves the last look of server's open plays to l's, while l's Node
-// still reaches server.
-func see(ctx context.Context, q *db.Queries, server link.ServerID, l looked) error {
+// still reaches server, and refiles each.
+func (m *MediaServers) see(ctx context.Context, tx *storage.Tx[storage.Library], server link.ServerID, l looked) error {
+	q := db.New(tx)
 	cur, err := q.GetContact(ctx, server)
 	switch {
 	case errors.Is(err, storage.ErrNoRows):
@@ -193,6 +194,13 @@ func see(ctx context.Context, q *db.Queries, server link.ServerID, l looked) err
 		}
 		if err := q.SeePlay(ctx, db.SeePlayParams{ServerID: server, ID: id, LastSeenAt: seen}); err != nil {
 			return err
+		}
+		filed, err := m.refile(ctx, tx, server, id)
+		if err != nil {
+			return err
+		}
+		if filed {
+			m.played.add(bySeen(), server)
 		}
 	}
 	return nil
