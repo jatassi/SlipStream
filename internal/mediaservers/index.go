@@ -2,6 +2,7 @@ package mediaservers
 
 import (
 	"context"
+	"encoding/json"
 	"slices"
 	"time"
 
@@ -98,7 +99,7 @@ func earliest(a, b time.Time) time.Time {
 // indexed writes an index Job's answer: what it learned, and the
 // listing's next page, or its end, which forgets every entry of the
 // library the listing didn't see. It names the Works whose Open in links
-// the answer found.
+// the answer found, and the server when it filed a play.
 func (m *MediaServers) indexed(ctx context.Context, s sending, out link.Advanced) error {
 	now := time.Now()
 	err := m.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
@@ -118,6 +119,7 @@ func (m *MediaServers) indexed(ctx context.Context, s sending, out link.Advanced
 		}
 		return q.EndListing(ctx, db.EndListingParams{ServerID: s.id, LibraryKey: w.Library, ListedAt: storage.FromTime(now)})
 	})
+	m.playsCommitted(ctx, bySender(s.id), err)
 	if err != nil {
 		return err
 	}
@@ -170,13 +172,15 @@ func (m *MediaServers) filesAt(ctx context.Context, tx *storage.Tx[storage.Libra
 }
 
 // learn writes es in the server's path index, each entry naming the
-// library file whose bytes sit at its path. A gone entry is forgotten.
+// library file whose bytes sit at its path, then refiles the open plays
+// with no file at the paths that lead to one. A gone entry is forgotten.
 func (m *MediaServers) learn(ctx context.Context, tx *storage.Tx[storage.Library], s sending, es []link.IndexEntry, now time.Time) error {
 	fs, err := m.filesAt(ctx, tx, s.mappings, es)
 	if err != nil {
 		return err
 	}
 	q := db.New(tx)
+	var filed []string
 	for i, e := range es {
 		if e.Gone {
 			if err := q.DeleteItem(ctx, db.DeleteItemParams{ServerID: s.id, PathKey: e.Path.Key()}); err != nil {
@@ -190,6 +194,26 @@ func (m *MediaServers) learn(ctx context.Context, tx *storage.Tx[storage.Library
 		})
 		if err != nil {
 			return err
+		}
+		if !fs[i].IsZero() {
+			filed = append(filed, e.Path.Key())
+		}
+	}
+	if len(filed) == 0 {
+		return nil
+	}
+	keys, _ := json.Marshal(filed) //nolint:errchkjson // a string slice always marshals
+	open, err := q.ListUnfiledAt(ctx, db.ListUnfiledAtParams{ServerID: s.id, PathKeys: string(keys)})
+	if err != nil {
+		return err
+	}
+	for _, id := range open {
+		ok, err := m.refile(ctx, tx, s.id, id)
+		if err != nil {
+			return err
+		}
+		if ok {
+			m.played.add(bySender(s.id), s.id)
 		}
 	}
 	return nil

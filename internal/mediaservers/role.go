@@ -38,6 +38,9 @@ type MediaServers struct {
 	// contacted is the servers whose contact each Node's reports changed,
 	// published once they commit.
 	contacted pendingServers
+	// played is the servers whose plays each Write changed, published once
+	// it commits.
+	played pendingServers
 	// unconfirmed is the servers a re-home unconfirmed, published at the
 	// next roots.changed.
 	unconfirmed unconfirmed
@@ -142,7 +145,7 @@ type Roster interface {
 }
 
 func New(cfg Config) *MediaServers {
-	return &MediaServers{cfg: cfg, seen: newSeenSessions(), senders: newSenders(), lookups: newLookups(), contacted: pendingServers{byNode: map[role.NodeID][]string{}}, memberPins: newMemberPins()}
+	return &MediaServers{cfg: cfg, seen: newSeenSessions(), senders: newSenders(), lookups: newLookups(), contacted: newPendingServers(), played: newPendingServers(), memberPins: newMemberPins()}
 }
 
 // Owner keeps Media Server link on every Node that a server names as its
@@ -246,9 +249,9 @@ func (m *MediaServers) Run(ctx context.Context) error {
 func (m *MediaServers) endAway(ctx context.Context) time.Time {
 	self := m.cfg.Roster.Self()
 	var next time.Time
-	var ended int
+	var ended []link.ServerID
 	err := m.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
-		next, ended = time.Time{}, 0
+		next, ended = time.Time{}, nil
 		q := db.New(tx)
 		row, err := q.GetSettings(ctx)
 		if err != nil {
@@ -271,7 +274,7 @@ func (m *MediaServers) endAway(ctx context.Context) time.Time {
 				if err != nil {
 					return err
 				}
-				ended += len(ids)
+				ended = append(ended, ids...)
 			}
 		}
 		return nil
@@ -282,9 +285,10 @@ func (m *MediaServers) endAway(ctx context.Context) time.Time {
 		}
 		return time.Time{}
 	}
-	if ended > 0 {
-		m.cfg.Log.Info("ended the plays on Connect from Nodes offline longer than the Mark unhealthy after setting", "plays", ended)
+	if len(ended) > 0 {
+		m.cfg.Log.Info("ended the plays on Connect from Nodes offline longer than the Mark unhealthy after setting", "plays", len(ended))
 	}
+	m.playsEnded(ctx, ended)
 	return next
 }
 
@@ -310,9 +314,9 @@ func earlier(a, b time.Time) time.Time {
 // Controller. A second pass finds none left to move.
 func (m *MediaServers) repoint(ctx context.Context) {
 	self := m.cfg.Roster.Self()
-	var moved []link.ServerID
+	var moved, ended []link.ServerID
 	err := m.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
-		moved = nil
+		moved, ended = nil, nil
 		written, err := nodes.WrittenOffIn(ctx, tx, role.MediaServerLink)
 		if err != nil {
 			return err
@@ -326,11 +330,11 @@ func (m *MediaServers) repoint(ctx context.Context) {
 			if !written[node] {
 				continue
 			}
-			ids, err := repointFrom(ctx, q, node, self)
+			ids, played, err := repointFrom(ctx, q, node, self)
 			if err != nil {
 				return err
 			}
-			moved = append(moved, ids...)
+			moved, ended = append(moved, ids...), append(ended, played...)
 		}
 		return nil
 	})
@@ -345,18 +349,19 @@ func (m *MediaServers) repoint(ctx context.Context) {
 		m.cfg.Touch(self)
 		m.changed(ctx, moved...)
 	}
+	m.playsEnded(ctx, ended)
 }
 
 // repointFrom names self as the reaching Node of node's servers, ends the
-// plays node saw, and answers which servers they are.
-func repointFrom(ctx context.Context, q *db.Queries, node, self role.NodeID) ([]link.ServerID, error) {
-	ids, err := q.ListReachedIDs(ctx, node)
-	if err != nil {
-		return nil, err
+// plays node saw, and answers which servers they are and the server of
+// each play it ended.
+func repointFrom(ctx context.Context, q *db.Queries, node, self role.NodeID) (moved, ended []link.ServerID, err error) {
+	if moved, err = q.ListReachedIDs(ctx, node); err != nil {
+		return nil, nil, err
 	}
-	if _, err := q.EndPlaysOn(ctx, node); err != nil {
-		return nil, err
+	if ended, err = q.EndPlaysOn(ctx, node); err != nil {
+		return nil, nil, err
 	}
 	_, err = q.Repoint(ctx, db.RepointParams{Controller: self, At: storage.Now(), NodeID: node})
-	return ids, err
+	return moved, ended, err
 }

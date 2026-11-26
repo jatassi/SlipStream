@@ -68,6 +68,21 @@ func (w *World) Plays(t *testing.T, server link.ServerID) []string {
 	return out
 }
 
+// PlaysSince is when the Controller started recording server's plays.
+func (w *World) PlaysSince(t *testing.T, server link.ServerID) time.Time {
+	t.Helper()
+	var since storage.Time
+	err := w.Lib.Read(t.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {
+		c, err := db.New(r).GetContact(ctx, server)
+		since = c.PlaysSince
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return since.Time()
+}
+
 func trackWords(t *link.Track) string {
 	switch {
 	case t == nil:

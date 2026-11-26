@@ -7,17 +7,21 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/mediaserverlink/link"
 	"github.com/jatassi/slipstream/internal/mediaservers/internal/db"
 	msv1 "github.com/jatassi/slipstream/internal/pb/slipstream/mediaserver/v1"
+	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
-// startPlay records a play the reaching Node started. Plays upsert by the
-// id that Node minted, so applying a report twice changes nothing, and a
-// report for a play the Controller already ended, or a start for a play
-// it already has, changes nothing either.
-func (m *MediaServers) startPlay(ctx context.Context, q *db.Queries, server link.ServerID, cur db.GetContactRow, s *msv1.PlayStarted) error {
+// startPlay records a play the reaching Node started, with its file and
+// snapshot when the path index names one. Plays upsert by the id that
+// Node minted, so applying a report twice changes nothing, and a report
+// for a play the Controller already ended, or a start for a play it
+// already has, changes nothing either.
+func (m *MediaServers) startPlay(ctx context.Context, tx *storage.Tx[storage.Library], node role.NodeID, server link.ServerID, cur db.GetContactRow, s *msv1.PlayStarted) error {
+	q := db.New(tx)
 	set, err := q.GetSettings(ctx)
 	if err != nil {
 		return err
@@ -28,45 +32,60 @@ func (m *MediaServers) startPlay(ctx context.Context, q *db.Queries, server link
 	if err != nil {
 		return err
 	}
-	file, err := q.FileAtPath(ctx, db.FileAtPathParams{ServerID: server, PathKey: p.path.Key()})
-	if err != nil && !errors.Is(err, storage.ErrNoRows) {
+	if err := q.StartPlay(ctx, p.startParams(server, files.ID{})); err != nil {
 		return err
 	}
-	return q.StartPlay(ctx, p.startParams(server, file))
+	m.played.add(byNode(node), server)
+	_, err = m.refile(ctx, tx, server, p.id)
+	return err
 }
 
-func (m *MediaServers) changePlay(ctx context.Context, q *db.Queries, server link.ServerID, c *msv1.PlayChanged) error {
+func (m *MediaServers) changePlay(ctx context.Context, tx *storage.Tx[storage.Library], node role.NodeID, server link.ServerID, c *msv1.PlayChanged) error {
 	p, err := m.caps().changed(c, time.Now())
 	if err != nil {
 		return err
 	}
+	q := db.New(tx)
 	seen, open, err := laterSeen(ctx, q, server, p.id, p.seen)
 	if err != nil || !open {
 		return err
 	}
-	return q.ChangePlay(ctx, db.ChangePlayParams{
+	err = q.ChangePlay(ctx, db.ChangePlayParams{
 		ServerID: server, ID: p.id, Decision: p.streams.Decision(), Video: p.streams.Video, Audio: p.streams.Audio,
 		Subtitles: p.streams.Subtitles, Hardware: p.hardware, Reasons: reasonsJSON(p.reasons), Received: p.received,
 		AudioTrack: p.audio, SubtitleTrack: p.subtitle, LastSeenAt: seen,
 	})
+	if err != nil {
+		return err
+	}
+	m.played.add(byNode(node), server)
+	_, err = m.refile(ctx, tx, server, p.id)
+	return err
 }
 
-func (m *MediaServers) endPlay(ctx context.Context, q *db.Queries, server link.ServerID, e *msv1.PlayEnded) error {
+// endPlay ends an open play at its last look. The end report is its last
+// try at a snapshot, because an ended row stays as it is.
+func (m *MediaServers) endPlay(ctx context.Context, tx *storage.Tx[storage.Library], node role.NodeID, server link.ServerID, e *msv1.PlayEnded) error {
 	id, err := playIDOf(e.GetPlayId())
 	if err != nil {
 		return err
 	}
+	q := db.New(tx)
 	seen, open, err := laterSeen(ctx, q, server, id, m.caps().at(timeOf(e.GetLastSeenUnixMs()), time.Now()))
 	if err != nil || !open {
 		return err
 	}
+	if _, err := m.refile(ctx, tx, server, id); err != nil {
+		return err
+	}
+	m.played.add(byNode(node), server)
 	return q.EndPlay(ctx, db.EndPlayParams{ServerID: server, ID: id, EndedAt: seen})
 }
 
 // watching ends every open play of server that w doesn't list, at its
 // last look: the plays a holder that stopped left open. The plays it
 // lists were seen at w's time.
-func (m *MediaServers) watching(ctx context.Context, q *db.Queries, server link.ServerID, w *msv1.Watching) error {
+func (m *MediaServers) watching(ctx context.Context, tx *storage.Tx[storage.Library], node role.NodeID, server link.ServerID, w *msv1.Watching) error {
 	listed := map[link.PlayID]bool{}
 	for _, b := range w.GetPlayIds() {
 		id, err := playIDOf(b)
@@ -80,6 +99,7 @@ func (m *MediaServers) watching(ctx context.Context, q *db.Queries, server link.
 		return errors.New("a Watching report has no time")
 	}
 	at = m.caps().at(at, time.Now())
+	q := db.New(tx)
 	open, err := q.ListOpenPlays(ctx, server)
 	if err != nil {
 		return err
@@ -89,6 +109,7 @@ func (m *MediaServers) watching(ctx context.Context, q *db.Queries, server link.
 			if err := q.EndPlayAsSeen(ctx, db.EndPlayAsSeenParams{ServerID: server, ID: id}); err != nil {
 				return err
 			}
+			m.played.add(byNode(node), server)
 			continue
 		}
 		seen, _, err := laterSeen(ctx, q, server, id, at)
@@ -97,6 +118,13 @@ func (m *MediaServers) watching(ctx context.Context, q *db.Queries, server link.
 		}
 		if err := q.SeePlay(ctx, db.SeePlayParams{ServerID: server, ID: id, LastSeenAt: seen}); err != nil {
 			return err
+		}
+		filed, err := m.refile(ctx, tx, server, id)
+		if err != nil {
+			return err
+		}
+		if filed {
+			m.played.add(byNode(node), server)
 		}
 	}
 	return nil
