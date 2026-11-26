@@ -11,7 +11,7 @@ import { Data } from "../../ui/data";
 import { Details } from "../../ui/details";
 import { Fact, Facts } from "../../ui/facts";
 import { RelativeTime } from "../../ui/relative-time";
-import { type LeadContext, LeadLine, leadOf, workLine } from "./lead-line";
+import { type LeadContext, LeadLine, leadOf, need, workLine } from "./lead-line";
 import { causeWords, factWords, hdrWord } from "./playback-words";
 import { PlaysDialog } from "./plays-dialog";
 
@@ -56,13 +56,16 @@ function OutcomeDetail({
         <LeadLine ctx={ctx} parts={leadOf(ctx, player, group, outcome, outcome.plays)} />
       )}
       {works.length > 1 && (
-        <ul className="flex list-disc flex-col gap-1 pl-5">
-          {works.map((work) => (
-            <li key={work.workId}>
-              <LeadLine ctx={ctx} parts={workLine(ctx, work).parts} />
-            </li>
-          ))}
-        </ul>
+        <>
+          <p>{`These need a file for the ${need(outcome.target, "Target").name} Target:`}</p>
+          <ul className="flex list-disc flex-col gap-1 pl-5">
+            {works.map((work) => (
+              <li key={work.workId}>
+                <LeadLine ctx={ctx} parts={workLine(ctx, work).parts} />
+              </li>
+            ))}
+          </ul>
+        </>
       )}
       {suggestion !== undefined && suggestion.blocked.length > 0 && (
         <p>{`Left out because they blocked direct play: ${list.format(suggestion.blocked.map(valueWords))}.`}</p>
