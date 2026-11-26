@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"net/netip"
+	"path"
 	"regexp"
 	"slices"
 	"strconv"
@@ -316,25 +317,52 @@ type tag struct {
 	Tag string `json:"tag"`
 }
 
+// plexID is a Media, Part or Stream id: a number in /library/metadata and
+// a string in a session (recorded run 2026-11-26).
+type plexID struct {
+	n      int
+	quoted bool
+}
+
+func (i plexID) MarshalJSON() ([]byte, error) {
+	if i.quoted {
+		return []byte(`"` + strconv.Itoa(i.n) + `"`), nil
+	}
+	return []byte(strconv.Itoa(i.n)), nil
+}
+
+func (i plexID) quote() plexID { return plexID{i.n, true} }
+
 type stream struct {
-	ID         int    `json:"id"`
-	StreamType int    `json:"streamType"`
-	Codec      string `json:"codec"`
-	Key        string `json:"key"`
+	ID           plexID `json:"id"`
+	StreamType   int    `json:"streamType"`
+	Codec        string `json:"codec"`
+	Key          string `json:"key,omitempty"`
+	Channels     int    `json:"channels,omitempty"`
+	Height       int    `json:"height,omitempty"`
+	LanguageCode string `json:"languageCode,omitempty"`
+	LanguageTag  string `json:"languageTag,omitempty"`
+	Decision     string `json:"decision,omitempty"`
+	Burn         string `json:"burn,omitempty"`
 }
 
 type part struct {
-	ID       int      `json:"id"`
-	Key      string   `json:"key"`
-	File     string   `json:"file"`
-	Size     int64    `json:"size"`
+	ID       plexID   `json:"id"`
+	Key      string   `json:"key,omitempty"`
+	File     string   `json:"file,omitempty"`
+	Size     int64    `json:"size,omitempty"`
 	Decision string   `json:"decision,omitempty"`
+	Selected bool     `json:"selected,omitempty"`
 	Stream   []stream `json:"Stream,omitempty"`
 }
 
 type media struct {
-	ID   int    `json:"id"`
-	Part []part `json:"Part"`
+	ID        plexID `json:"id"`
+	Selected  bool   `json:"selected,omitempty"`
+	Container string `json:"container,omitempty"`
+	Bitrate   int64  `json:"bitrate,omitempty"`
+	Height    int    `json:"height,omitempty"`
+	Part      []part `json:"Part"`
 }
 
 type metadata struct {
@@ -393,13 +421,37 @@ func (s *server) render(it mediaserver.Item) metadata {
 		if p.Missing {
 			continue
 		}
-		pt := part{ID: p.ID, Key: "/library/parts/" + strconv.Itoa(p.ID) + "/file", File: p.File.String(), Size: p.Size}
-		for i := range p.Sidecars {
-			id := p.ID*100 + i + 1
-			sc := p.Sidecars[i].String()
-			pt.Stream = append(pt.Stream, stream{ID: id, StreamType: 3, Codec: sc[strings.LastIndexByte(sc, '.')+1:], Key: "/library/streams/" + strconv.Itoa(id)})
-		}
-		m.Media = append(m.Media, media{ID: p.ID, Part: []part{pt}})
+		pt := part{ID: plexID{n: p.ID}, Key: "/library/parts/" + strconv.Itoa(p.ID) + "/file", File: p.File.String(), Size: p.Size, Stream: streamsOf(p)}
+		m.Media = append(m.Media, media{ID: plexID{n: p.ID}, Part: []part{pt}})
 	}
 	return m
+}
+
+var streamTypes = map[string]int{"video": 1, "audio": 2, "subtitle": 3}
+
+// streamsOf are p's streams: those SetStreams gave, then a subtitle per
+// Sidecar with its key, each id unique to p.
+func streamsOf(p mediaserver.Part) []stream {
+	var out []stream
+	id := func() int { return p.ID*100 + len(out) + 1 }
+	for _, st := range p.Streams {
+		if st.External {
+			continue
+		}
+		out = append(out, stream{
+			ID: plexID{n: id()}, StreamType: streamTypes[st.Type], Codec: st.Codec, Channels: st.Channels, Height: st.Height,
+			LanguageCode: st.Language, LanguageTag: st.Language,
+		})
+	}
+	for _, sc := range p.Sidecars {
+		name := path.Base(strings.ReplaceAll(sc.String(), `\`, "/"))
+		ext := path.Ext(name)
+		n := id()
+		s := stream{ID: plexID{n: n}, StreamType: 3, Codec: strings.TrimPrefix(ext, "."), Key: "/library/streams/" + strconv.Itoa(n)}
+		if lang := strings.TrimPrefix(path.Ext(strings.TrimSuffix(name, ext)), "."); len(lang) == 2 || len(lang) == 3 {
+			s.LanguageCode, s.LanguageTag = lang, lang
+		}
+		out = append(out, s)
+	}
+	return out
 }

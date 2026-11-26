@@ -19,6 +19,7 @@ type User struct {
 type Player struct {
 	Title             string `json:"title"`
 	Product           string `json:"product"`
+	Platform          string `json:"platform"`
 	MachineIdentifier string `json:"machineIdentifier"`
 	State             string `json:"state"`
 }
@@ -27,12 +28,20 @@ type SessionInfo struct {
 	ID string `json:"id"`
 }
 
-// Transcode is a transcode session. VideoDecision is "transcode" when the
-// video is re-encoded and "copy" for a remux. Direct play has none.
+// Transcode is a transcode session. Each decision is "transcode" when
+// the stream is re-encoded and "copy" when it isn't, SubtitleDecision is
+// "burn" for burned subtitles, and Height is absent once the video is
+// re-encoded (recorded run 2026-11-26). Direct play has none.
 type Transcode struct {
 	Key                     string `json:"key"`
 	VideoDecision           string `json:"videoDecision"`
 	AudioDecision           string `json:"audioDecision"`
+	SubtitleDecision        string `json:"subtitleDecision"`
+	Container               string `json:"container"`
+	VideoCodec              string `json:"videoCodec"`
+	AudioCodec              string `json:"audioCodec"`
+	Height                  int    `json:"height"`
+	AudioChannels           int    `json:"audioChannels"`
 	TranscodeHwRequested    bool   `json:"transcodeHwRequested"`
 	TranscodeHwDecoding     string `json:"transcodeHwDecoding"`
 	TranscodeHwEncoding     string `json:"transcodeHwEncoding"`

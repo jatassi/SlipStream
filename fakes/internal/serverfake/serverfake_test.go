@@ -59,3 +59,37 @@ func TestAServerReportsTheScenariosStreamsInItsOwnNames(t *testing.T) {
 		}
 	}
 }
+
+func TestAPlayedFolderNoRootNamesJoinsTheFirstLibraryAndUnlistedFilesAreSkipped(t *testing.T) {
+	s, err := scenario.Load("playback")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for kind, want := range map[string]struct {
+		libraries []string
+		unlisted  []string
+	}{
+		"jellyfin": {
+			[]string{`movie "" [/media/movies /media/shelf]`, `series "" [/media/tv]`},
+			[]string{"/media/movies/Glass Harbor (2019) {tmdb-9000303}/Glass.Harbor.2019.1080p.WEB-DL.H264-FKW.mkv"},
+		},
+		"plex": {[]string{`movie "" [/media/movies]`, `series "" [/media/tv]`}, nil},
+	} {
+		p, _, err := serverfake.Playing(s, kind, []string{"1"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		var libraries, unlisted []string
+		for _, l := range p.Libraries {
+			libraries = append(libraries, fmt.Sprintf("%s %q %v", l.ContentType, l.Name, l.Folders))
+		}
+		for _, f := range p.Streamed {
+			if f.Unlisted {
+				unlisted = append(unlisted, f.Path.String())
+			}
+		}
+		if !slices.Equal(libraries, want.libraries) || !slices.Equal(unlisted, want.unlisted) {
+			t.Errorf("%s plays libraries %q leaving out %q, want %q leaving out %q", kind, libraries, unlisted, want.libraries, want.unlisted)
+		}
+	}
+}

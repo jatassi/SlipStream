@@ -219,3 +219,18 @@ func (s *Server) Restart() {
 	s.task.Running = false
 	s.dropPending()
 }
+
+// Listed is a client reading the sessions list, as a poll does.
+func (s *Server) Listed() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	close(s.looked)
+	s.looked = make(chan struct{})
+}
+
+// NextLook closes at the next Listed.
+func (s *Server) NextLook() <-chan struct{} {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.looked
+}

@@ -25,9 +25,7 @@ func (c *conn) poll(ctx context.Context) link.Seen {
 		s.Problem = &p
 		return s
 	}
-	for _, x := range sessions[:min(len(sessions), c.t.SessionCap)] {
-		s.Sessions = append(s.Sessions, sessionOf(x))
-	}
+	s.Sessions, s.Pending = c.sessions(ctx, sessions)
 	for _, t := range transcodes {
 		s.Transcoding = s.Transcoding || t.VideoDecision == "transcode"
 	}
@@ -47,30 +45,4 @@ func (c *conn) socket(ctx context.Context, opened func(), push func(link.Seen), 
 			push(link.Seen{At: time.Now(), Items: items})
 		}
 	})
-}
-
-// sessionOf is one session. A transcode session puts the streams in a new
-// container, and its videoDecision is transcode for a re-encode. Direct
-// play has no transcode session. Plex gives no transcode reasons.
-func sessionOf(x plex.Session) link.Session {
-	s := link.Session{Key: string(x.SessionKey), Streams: link.Streams{Video: link.StreamDirect, Audio: link.StreamDirect, Subtitles: link.SubtitlesNone}}
-	if x.User != nil {
-		s.User = x.User.Title
-	}
-	if x.Player != nil {
-		s.PlayerKey, s.Player, s.Product = x.Player.MachineIdentifier, x.Player.Title, x.Player.Product
-	}
-	if len(x.Media) == 1 {
-		s.VersionID = string(x.Media[0].ID)
-	}
-	if fs := files(x.Metadata); len(fs) > 0 {
-		s.Version = link.Version{Path: fs[0], Items: []string{string(x.RatingKey)}}
-	}
-	if t := x.Transcode; t != nil {
-		s.Streams.ContainerChanged, s.Hardware = true, t.TranscodeHwFullPipeline || t.TranscodeHwEncoding != ""
-		if t.VideoDecision == "transcode" {
-			s.Streams.Video = link.StreamTranscode
-		}
-	}
-	return s
 }

@@ -2,19 +2,21 @@ package serverfake
 
 import (
 	"context"
+	"slices"
 
 	"github.com/jatassi/slipstream/fakes/fake"
 	"github.com/jatassi/slipstream/fakes/internal/mediaserver"
 	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/internal/mediaserverlink/link"
-	"github.com/jatassi/slipstream/internal/storing"
 )
 
 // Streamed is a file the Scenario lists, as the server names it, and its
-// streams in the product's names.
+// streams in the product's names. Unlisted is a file the server's scans
+// skip.
 type Streamed struct {
-	Path    link.ServerPath
-	Streams []mediaserver.Stream
+	Path     link.ServerPath
+	Streams  []mediaserver.Stream
+	Unlisted bool
 }
 
 // subtitleCodecs are each kind's name for SubRip.
@@ -23,22 +25,21 @@ var subtitleCodecs = map[string]string{"plex": "srt", "jellyfin": "subrip", "emb
 // streamed is every MediaFile in the library folders p holds.
 func streamed(s scenario.Scenario, p Played) ([]Streamed, error) {
 	var out []Streamed
+	folders := unrooted(s, p.MediaServerAt)
 	for _, r := range s.HeldRoots(p.MediaServerAt) {
-		folder, err := link.ParsePath(p.Folder(r.Folder))
-		if err != nil {
-			return nil, err
+		folders = append(folders, r.Folder)
+	}
+	for _, lf := range s.Library.Folders {
+		if !slices.Contains(folders, lf.Folder) {
+			continue
 		}
-		for _, lf := range s.Library.Folders {
-			if lf.Folder != r.Folder {
-				continue
+		for _, m := range lf.Files {
+			path, err := p.Path(lf.Folder + "/" + m.Path)
+			if err != nil {
+				return nil, err
 			}
-			for _, m := range lf.Files {
-				rel, err := storing.ParseRel(m.Path)
-				if err != nil {
-					return nil, err
-				}
-				out = append(out, Streamed{Path: folder.Join(rel), Streams: streamsOf(m, subtitleCodecs[p.Kind])})
-			}
+			file := lf.Folder + "/" + m.Path
+			out = append(out, Streamed{Path: path, Streams: streamsOf(m, subtitleCodecs[p.Kind]), Unlisted: slices.Contains(p.Unlisted, file)})
 		}
 	}
 	return out, nil
@@ -72,12 +73,17 @@ type Skip struct {
 	Paths []string `json:"paths"`
 }
 
-// Streams gives core files' streams and takes the <kind>-streams and
-// <kind>-skip cues.
+// Streams gives core files' streams, leaves the unlisted ones out of its
+// scans and takes the <kind>-streams and <kind>-skip cues.
 func Streams(env fake.Env, kind string, core *mediaserver.Server, files []Streamed) error {
+	var skipped []link.ServerPath
 	for _, f := range files {
 		core.SetStreams(f.Path, f.Streams)
+		if f.Unlisted {
+			skipped = append(skipped, f.Path)
+		}
 	}
+	core.Skip(skipped)
 	if err := fake.OnCue(env, kind+"-streams", func(_ context.Context, a SetStreams) (any, error) {
 		p, err := link.ParsePath(a.Path)
 		if err != nil {
@@ -99,5 +105,18 @@ func Streams(env fake.Env, kind string, core *mediaserver.Server, files []Stream
 		}
 		core.Skip(paths)
 		return map[string]int{"skipped": len(paths)}, nil
+	})
+}
+
+// Looks takes the <kind>-looked cue, which answers once a client next
+// reads core's sessions list: a later look at every session playing now.
+func Looks(env fake.Env, kind string, core *mediaserver.Server) error {
+	return fake.OnCue(env, kind+"-looked", func(ctx context.Context, _ struct{}) (any, error) {
+		select {
+		case <-core.NextLook():
+			return map[string]bool{"looked": true}, nil
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
 	})
 }

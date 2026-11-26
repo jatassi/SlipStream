@@ -4,8 +4,12 @@
 // 2026-11-14): sections with their Locations, partial and section
 // refreshes with refreshing and scannedAt, the item refresh, items with
 // Media[].Part[].file and their Sidecar streams, the 404 HTML body of a
-// gone item, /status/sessions and /transcode/sessions with videoDecision,
-// and the notification socket. A partial refresh takes forward slashes or
+// gone item, /status/sessions and /transcode/sessions, and the
+// notification socket. Sessions copy the recorded run of 2026-11-26 (PMS
+// 1.43.5.11079): every Media of the item with the played one selected,
+// the stream decisions, what the player receives, the chosen streams, the
+// player's machineIdentifier, and a direct play carrying its player's
+// last TranscodeSession. A partial refresh takes forward slashes or
 // backslashes and stores backslashes on Windows. A same-folder rename
 // keeps the ratingKey, a destination-first move carries the play count
 // and collections to a new item, and a source-first refresh with
@@ -24,6 +28,7 @@ import (
 	"net/netip"
 	"net/url"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/jatassi/slipstream/fakes/fake"
@@ -54,7 +59,7 @@ var Fake = fake.Spec{
 	New:       newServer,
 	Endpoints: func(*node.EndpointsBlock, fake.Address) {},
 	Online:    fake.OnlineSuite("plex"),
-	Cues:      []fake.CueSpec{{Name: "plex-play"}, {Name: "plex-stop"}, {Name: "plex-restart"}, {Name: "plex-scan"}, {Name: "plex-streams"}, {Name: "plex-skip"}},
+	Cues:      []fake.CueSpec{{Name: "plex-play"}, {Name: "plex-select"}, {Name: "plex-stop"}, {Name: "plex-restart"}, {Name: "plex-scan"}, {Name: "plex-streams"}, {Name: "plex-skip"}, {Name: "plex-looked"}},
 	Captures:  []fake.CaptureSpec{Refreshes, Items},
 	Entered:   serverfake.Entered(name),
 }
@@ -187,10 +192,16 @@ type server struct {
 	core    *mediaserver.Server
 	http    fake.Server
 	items   *fake.Capture
+
+	mu sync.Mutex
+	// stale is each player's last transcode, unselected the sessions whose
+	// Media none is selected.
+	stale      map[string]*transcode
+	unselected map[string]bool
 }
 
 func serve(env fake.Env, srv *Server) (fake.Server, error) {
-	s := &server{env: env, srv: srv, account: plexaccount.Of(env.Shared)}
+	s := &server{env: env, srv: srv, account: plexaccount.Of(env.Shared), stale: map[string]*transcode{}, unselected: map[string]bool{}}
 	if srv != nil {
 		custom, published := srv.Custom, srv.Published
 		// With no front drawn for its Node, a URL with no port keeps its
@@ -212,6 +223,9 @@ func serve(env fake.Env, srv *Server) (fake.Server, error) {
 		}
 		s.core = core
 		if err := serverfake.Streams(env, name, core, srv.Streamed); err != nil {
+			return nil, err
+		}
+		if err := serverfake.Looks(env, name, core); err != nil {
 			return nil, err
 		}
 		if s.items, err = env.Capture(Items.Name); err != nil {

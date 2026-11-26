@@ -24,6 +24,7 @@ export type Scenario =
   | "packs"
   | "imports"
   | "media-servers"
+  | "playback"
   | "moves"
   | "auto-search"
   | "hold"

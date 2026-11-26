@@ -139,3 +139,11 @@ func checkLanguage(add func(format string, args ...any), at, kind string, i int,
 		add("%s %s %d language: %v", at, kind, i+1, err)
 	}
 }
+
+// holds is whether the library folders hold file, a folder/path.
+func (l Library) holds(file string) bool {
+	folder, rel, _ := strings.Cut(file, "/")
+	return slices.ContainsFunc(l.Folders, func(f LibraryFolder) bool {
+		return f.Folder == folder && slices.ContainsFunc(f.Files, func(m MediaFile) bool { return m.Path == rel })
+	})
+}

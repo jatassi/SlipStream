@@ -150,6 +150,7 @@ func (s *server) sessionList() []map[string]any {
 
 func (s *server) sessions(w http.ResponseWriter, _ *http.Request, _ caller) {
 	writeJSON(w, s.sessionList())
+	s.core.Listed()
 }
 
 // playing is a player's POST /Sessions/Playing. Its PlaySessionId names

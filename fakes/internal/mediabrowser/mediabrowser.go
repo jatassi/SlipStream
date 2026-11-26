@@ -104,7 +104,7 @@ func Captures(name string) (reports, scans, items, users fake.CaptureSpec) {
 func Cues(name string) []fake.CueSpec {
 	return []fake.CueSpec{
 		{Name: name + "-play"}, {Name: name + "-stop"}, {Name: name + "-restart"}, {Name: name + "-scan"}, {Name: name + "-fail-next"},
-		{Name: name + "-streams"}, {Name: name + "-skip"},
+		{Name: name + "-streams"}, {Name: name + "-skip"}, {Name: name + "-looked"},
 	}
 }
 
@@ -176,6 +176,9 @@ func Serve(env fake.Env, p Product, srv *Server) (fake.Server, error) {
 			return nil, err
 		}
 		if err := serverfake.Streams(env, p.Name, s.core, srv.Streamed); err != nil {
+			return nil, err
+		}
+		if err := serverfake.Looks(env, p.Name, s.core); err != nil {
 			return nil, err
 		}
 		s.keys = append(s.keys, srv.Keys...)

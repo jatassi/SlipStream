@@ -265,6 +265,8 @@ type Server struct {
 	batch       *batch
 	task        ScanState
 	subs        map[*Subscription]struct{}
+	// looked closes at the next read of the sessions list.
+	looked chan struct{}
 }
 
 type library struct {
@@ -299,7 +301,7 @@ func New(b Behavior, disk Disk, libs []Library) *Server {
 		items: map[string]*Item{}, shows: map[string]string{},
 		watch: map[watchKey]link.UserData{}, orphans: map[string]map[string]link.UserData{}, collections: map[string][]string{},
 		pending: map[string]*time.Timer{}, subs: map[*Subscription]struct{}{},
-		streams: map[string][]Stream{}, skipped: map[string]bool{},
+		streams: map[string][]Stream{}, skipped: map[string]bool{}, looked: make(chan struct{}),
 	}
 	for _, l := range libs {
 		s.libs = append(s.libs, &library{Library: l, scanned: map[string]bool{}})

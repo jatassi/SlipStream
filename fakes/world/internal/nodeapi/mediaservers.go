@@ -14,6 +14,7 @@ type NewMediaServer struct {
 	Name            string `json:"name"`
 	Address         string `json:"address,omitempty"`
 	FallbackAddress string `json:"fallbackAddress,omitempty"`
+	BrowserAddress  string `json:"browserAddress,omitempty"`
 	ReachingNodeID  string `json:"reachingNodeId"`
 	RunsOnNodeID    string `json:"runsOnNodeId,omitempty"`
 	APIKey          string `json:"apiKey,omitempty"`
