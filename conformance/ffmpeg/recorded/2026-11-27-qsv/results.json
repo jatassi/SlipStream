@@ -1,0 +1,1531 @@
+{
+  "run": "2026-11-27-qsv",
+  "spec": "S44 (Conversion)",
+  "issue": "jatassi/SlipStream#169",
+  "ffmpeg": {
+    "build": "jellyfin-ffmpeg 8.1.3-2 portable win64-clang-gpl",
+    "zip_sha256": "b65dd5011a80b5abec08bd559489cf188217238c8e38b5bf553504c974f5694d"
+  },
+  "dovi_tool": {
+    "version": "2.3.4 x86_64-pc-windows-msvc",
+    "zip_sha256": "0d9733d311dfe49f9dca0c350f7e6d978182673d333c6f07f7365daf9e6c81eb"
+  },
+  "cases": [
+    {
+      "case": "A",
+      "attempt": "v1-reverse-qsv",
+      "input": "hdr10-small.mkv",
+      "predicts": "works; SDR BT.709 limited",
+      "command": "ffmpeg -hide_banner -nostdin -y -init_hw_device \"d3d11va=dx11:,vendor=0x8086\" -init_hw_device qsv=qs@dx11 -init_hw_device opencl=ocl@dx11 -filter_hw_device ocl -hwaccel d3d11va -hwaccel_output_format d3d11 -i hdr10-small.mkv -vf \"hwmap=derive_device=opencl,tonemap_opencl=format=nv12:p=bt709:t=bt709:m=bt709:tonemap=bt2390:peak=100:desat=0,hwmap=derive_device=qsv:reverse=1\" -c:v h264_qsv -preset veryfast -b:v 4M -maxrate 6M -bufsize 8M A-v1-small.mkv",
+      "exit": 0,
+      "wall_s": 1.8,
+      "errors": [],
+      "probe": {
+        "codec": "h264",
+        "profile": "High",
+        "pix_fmt": "yuv420p",
+        "color_range": "tv",
+        "color_primaries": "bt709",
+        "color_transfer": "bt709",
+        "colorspace": "bt709",
+        "stream_side_data": [
+          null
+        ],
+        "first_frame_side_data": [],
+        "duration": 2.0,
+        "streams": 1,
+        "output": "A-v1-small.mkv"
+      },
+      "verdict": "holds"
+    },
+    {
+      "case": "A",
+      "attempt": "v2-via-d3d11",
+      "input": "hdr10-small.mkv",
+      "predicts": "works; SDR BT.709 limited",
+      "command": "ffmpeg -hide_banner -nostdin -y -init_hw_device \"d3d11va=dx11:,vendor=0x8086\" -init_hw_device qsv=qs@dx11 -init_hw_device opencl=ocl@dx11 -filter_hw_device ocl -hwaccel d3d11va -hwaccel_output_format d3d11 -i hdr10-small.mkv -vf \"hwmap=derive_device=opencl,tonemap_opencl=format=nv12:p=bt709:t=bt709:m=bt709:tonemap=bt2390:peak=100:desat=0,hwmap=derive_device=d3d11va:reverse=1,hwmap=derive_device=qsv\" -c:v h264_qsv -preset veryfast -b:v 4M -maxrate 6M -bufsize 8M A-v2-small.mkv",
+      "exit": -40,
+      "wall_s": 0.75,
+      "errors": [
+        "[AVHWFramesContext @ 000002ae17b45a40] The hardware pixel format 'opencl' is not supported by the device type 'D3D11VA'",
+        "[Parsed_hwmap_2 @ 000002ae17795bc0] Failed to initialise target frames context: -40.",
+        "[Parsed_hwmap_2 @ 000002ae17795bc0] Failed to configure output pad on Parsed_hwmap_2",
+        "[vf#0:0 @ 000002ae14592380] Error reinitializing filters!",
+        "[vf#0:0 @ 000002ae14592380] Task finished with error code: -40 (Function not implemented)",
+        "[vost#0:0/h264_qsv @ 000002ae1434f280] [enc:h264_qsv @ 000002ae16b04ec0] Could not open encoder before EOF"
+      ],
+      "probe": null,
+      "verdict": "variant failed; v1 (the brief's first shape) works"
+    },
+    {
+      "case": "A",
+      "attempt": "chain-small",
+      "input": "hdr10-small.mkv",
+      "predicts": "works; SDR BT.709 limited",
+      "command": "ffmpeg -hide_banner -nostdin -y -init_hw_device \"d3d11va=dx11:,vendor=0x8086\" -init_hw_device qsv=qs@dx11 -init_hw_device opencl=ocl@dx11 -filter_hw_device ocl -hwaccel d3d11va -hwaccel_output_format d3d11 -i hdr10-small.mkv -vf \"hwmap=derive_device=opencl,tonemap_opencl=format=nv12:p=bt709:t=bt709:m=bt709:tonemap=bt2390:peak=100:desat=0,hwmap=derive_device=qsv:reverse=1\" -c:v h264_qsv -preset veryfast -b:v 4M -maxrate 6M -bufsize 8M A-small.mkv",
+      "exit": 0,
+      "wall_s": 0.5,
+      "errors": [],
+      "probe": {
+        "codec": "h264",
+        "profile": "High",
+        "pix_fmt": "yuv420p",
+        "color_range": "tv",
+        "color_primaries": "bt709",
+        "color_transfer": "bt709",
+        "colorspace": "bt709",
+        "stream_side_data": [],
+        "first_frame_side_data": [],
+        "duration": 2.0,
+        "streams": 1,
+        "output": "A-small.mkv"
+      },
+      "verdict": "holds"
+    },
+    {
+      "case": "B",
+      "attempt": "hw-apply_dovi-small",
+      "input": "dv5-small.mkv",
+      "predicts": "works; SDR BT.709 limited",
+      "command": "ffmpeg -hide_banner -nostdin -y -init_hw_device \"d3d11va=dx11:,vendor=0x8086\" -init_hw_device qsv=qs@dx11 -init_hw_device opencl=ocl@dx11 -filter_hw_device ocl -hwaccel d3d11va -hwaccel_output_format d3d11 -i dv5-small.mkv -vf \"hwmap=derive_device=opencl,tonemap_opencl=format=nv12:p=bt709:t=bt709:m=bt709:tonemap=bt2390:peak=100:desat=0:apply_dovi=1,hwmap=derive_device=qsv:reverse=1\" -c:v h264_qsv -preset veryfast -b:v 4M -maxrate 6M -bufsize 8M B-hw-small.mkv",
+      "exit": 0,
+      "wall_s": 1.57,
+      "errors": [],
+      "probe": {
+        "codec": "h264",
+        "profile": "High",
+        "pix_fmt": "yuvj420p",
+        "color_range": "pc",
+        "color_primaries": "bt709",
+        "color_transfer": "bt709",
+        "colorspace": "bt709",
+        "stream_side_data": [],
+        "first_frame_side_data": [],
+        "duration": 2.0,
+        "streams": 1,
+        "output": "B-hw-small.mkv"
+      },
+      "verdict": "contradiction: works, but output is full range (pc, yuvj420p), not limited"
+    },
+    {
+      "case": "B",
+      "attempt": "tonemapx-libx264-small",
+      "input": "dv5-small.mkv",
+      "predicts": "works; SDR BT.709 limited",
+      "command": "ffmpeg -hide_banner -nostdin -y -i dv5-small.mkv -vf tonemapx=tonemap=bt2390:desat=0:peak=100:t=bt709:m=bt709:p=bt709:format=yuv420p:apply_dovi=1 -c:v libx264 -preset veryfast -crf 23 B-sw-small.mkv",
+      "exit": 0,
+      "wall_s": 0.08,
+      "errors": [],
+      "probe": {
+        "codec": "h264",
+        "profile": "High",
+        "pix_fmt": "yuvj420p",
+        "color_range": "pc",
+        "color_primaries": "bt709",
+        "color_transfer": "bt709",
+        "colorspace": "bt709",
+        "stream_side_data": [],
+        "first_frame_side_data": [
+          "H.26[45] User Data Unregistered SEI message"
+        ],
+        "duration": 2.0,
+        "streams": 1,
+        "output": "B-sw-small.mkv"
+      },
+      "verdict": "contradiction: works, but output is full range (pc, yuvj420p), not limited"
+    },
+    {
+      "case": "C",
+      "attempt": "hevc_qsv-main10-small",
+      "input": "hdr10-small.mkv",
+      "predicts": "works; HEVC Main 10 HDR10 with mastering display and CLL",
+      "command": "ffmpeg -hide_banner -nostdin -y -init_hw_device \"d3d11va=dx11:,vendor=0x8086\" -init_hw_device qsv=qs@dx11 -init_hw_device opencl=ocl@dx11 -filter_hw_device ocl -hwaccel d3d11va -hwaccel_output_format d3d11 -i hdr10-small.mkv -vf \"hwmap=derive_device=qsv,format=qsv\" -c:v hevc_qsv -profile:v main10 -preset veryfast -b:v 8M -maxrate 12M -bufsize 16M C-small.mkv",
+      "exit": 0,
+      "wall_s": 1.03,
+      "errors": [],
+      "probe": {
+        "codec": "hevc",
+        "profile": "Main 10",
+        "pix_fmt": "yuv420p10le",
+        "color_range": "tv",
+        "color_primaries": "bt2020",
+        "color_transfer": "smpte2084",
+        "colorspace": "bt2020nc",
+        "stream_side_data": [
+          "Content light level metadata",
+          "Mastering display metadata"
+        ],
+        "first_frame_side_data": [
+          "Mastering display metadata",
+          "Content light level metadata"
+        ],
+        "duration": 2.0,
+        "streams": 1,
+        "output": "C-small.mkv"
+      },
+      "verdict": "holds"
+    },
+    {
+      "case": "D",
+      "attempt": "chain-small",
+      "input": "dv8-small.mkv",
+      "predicts": "works; SDR BT.709 limited",
+      "command": "ffmpeg -hide_banner -nostdin -y -init_hw_device \"d3d11va=dx11:,vendor=0x8086\" -init_hw_device qsv=qs@dx11 -init_hw_device opencl=ocl@dx11 -filter_hw_device ocl -hwaccel d3d11va -hwaccel_output_format d3d11 -i dv8-small.mkv -vf \"hwmap=derive_device=opencl,tonemap_opencl=format=nv12:p=bt709:t=bt709:m=bt709:tonemap=bt2390:peak=100:desat=0:apply_dovi=1,hwmap=derive_device=qsv:reverse=1\" -c:v h264_qsv -preset veryfast -b:v 4M -maxrate 6M -bufsize 8M D-small.mkv",
+      "exit": 0,
+      "wall_s": 1.83,
+      "errors": [],
+      "probe": {
+        "codec": "h264",
+        "profile": "High",
+        "pix_fmt": "yuv420p",
+        "color_range": "tv",
+        "color_primaries": "bt709",
+        "color_transfer": "bt709",
+        "colorspace": "bt709",
+        "stream_side_data": [],
+        "first_frame_side_data": [],
+        "duration": 2.0,
+        "streams": 1,
+        "output": "D-small.mkv"
+      },
+      "verdict": "holds"
+    },
+    {
+      "case": "A",
+      "attempt": "chain-big",
+      "input": "hdr10-big.mkv",
+      "predicts": "works; SDR BT.709 limited",
+      "command": "ffmpeg -hide_banner -nostdin -y -init_hw_device \"d3d11va=dx11:,vendor=0x8086\" -init_hw_device qsv=qs@dx11 -init_hw_device opencl=ocl@dx11 -filter_hw_device ocl -hwaccel d3d11va -hwaccel_output_format d3d11 -i hdr10-big.mkv -vf \"hwmap=derive_device=opencl,tonemap_opencl=format=nv12:p=bt709:t=bt709:m=bt709:tonemap=bt2390:peak=100:desat=0,hwmap=derive_device=qsv:reverse=1\" -c:v h264_qsv -preset veryfast -b:v 4M -maxrate 6M -bufsize 8M A-big.mkv",
+      "exit": 0,
+      "wall_s": 6.75,
+      "errors": [],
+      "probe": {
+        "codec": "h264",
+        "profile": "High",
+        "pix_fmt": "yuv420p",
+        "color_range": "tv",
+        "color_primaries": "bt709",
+        "color_transfer": "bt709",
+        "colorspace": "bt709",
+        "stream_side_data": [],
+        "first_frame_side_data": [],
+        "duration": 60.0,
+        "streams": 1,
+        "output": "A-big.mkv"
+      },
+      "verdict": "holds"
+    },
+    {
+      "case": "B",
+      "attempt": "hw-apply_dovi-big",
+      "input": "dv5-big.mkv",
+      "predicts": "works; SDR BT.709 limited",
+      "command": "ffmpeg -hide_banner -nostdin -y -init_hw_device \"d3d11va=dx11:,vendor=0x8086\" -init_hw_device qsv=qs@dx11 -init_hw_device opencl=ocl@dx11 -filter_hw_device ocl -hwaccel d3d11va -hwaccel_output_format d3d11 -i dv5-big.mkv -vf \"hwmap=derive_device=opencl,tonemap_opencl=format=nv12:p=bt709:t=bt709:m=bt709:tonemap=bt2390:peak=100:desat=0:apply_dovi=1,hwmap=derive_device=qsv:reverse=1\" -c:v h264_qsv -preset veryfast -b:v 4M -maxrate 6M -bufsize 8M B-hw-big.mkv",
+      "exit": 0,
+      "wall_s": 8.46,
+      "errors": [],
+      "probe": {
+        "codec": "h264",
+        "profile": "High",
+        "pix_fmt": "yuvj420p",
+        "color_range": "pc",
+        "color_primaries": "bt709",
+        "color_transfer": "bt709",
+        "colorspace": "bt709",
+        "stream_side_data": [],
+        "first_frame_side_data": [],
+        "duration": 60.0,
+        "streams": 1,
+        "output": "B-hw-big.mkv"
+      },
+      "verdict": "contradiction: works, but output is full range (pc, yuvj420p), not limited"
+    },
+    {
+      "case": "B",
+      "attempt": "tonemapx-libx264-big",
+      "input": "dv5-big.mkv",
+      "predicts": "works; SDR BT.709 limited",
+      "command": "ffmpeg -hide_banner -nostdin -y -i dv5-big.mkv -vf tonemapx=tonemap=bt2390:desat=0:peak=100:t=bt709:m=bt709:p=bt709:format=yuv420p:apply_dovi=1 -c:v libx264 -preset veryfast -crf 23 B-sw-big.mkv",
+      "exit": 0,
+      "wall_s": 11.7,
+      "errors": [],
+      "probe": {
+        "codec": "h264",
+        "profile": "High",
+        "pix_fmt": "yuvj420p",
+        "color_range": "pc",
+        "color_primaries": "bt709",
+        "color_transfer": "bt709",
+        "colorspace": "bt709",
+        "stream_side_data": [],
+        "first_frame_side_data": [
+          "H.26[45] User Data Unregistered SEI message"
+        ],
+        "duration": 60.0,
+        "streams": 1,
+        "output": "B-sw-big.mkv"
+      },
+      "verdict": "contradiction: works, but output is full range (pc, yuvj420p), not limited"
+    },
+    {
+      "case": "C",
+      "attempt": "hevc_qsv-main10-big",
+      "input": "hdr10-big.mkv",
+      "predicts": "works; HEVC Main 10 HDR10 with mastering display and CLL",
+      "command": "ffmpeg -hide_banner -nostdin -y -init_hw_device \"d3d11va=dx11:,vendor=0x8086\" -init_hw_device qsv=qs@dx11 -init_hw_device opencl=ocl@dx11 -filter_hw_device ocl -hwaccel d3d11va -hwaccel_output_format d3d11 -i hdr10-big.mkv -vf \"hwmap=derive_device=qsv,format=qsv\" -c:v hevc_qsv -profile:v main10 -preset veryfast -b:v 8M -maxrate 12M -bufsize 16M C-big.mkv",
+      "exit": 0,
+      "wall_s": 9.79,
+      "errors": [],
+      "probe": {
+        "codec": "hevc",
+        "profile": "Main 10",
+        "pix_fmt": "yuv420p10le",
+        "color_range": "tv",
+        "color_primaries": "bt2020",
+        "color_transfer": "smpte2084",
+        "colorspace": "bt2020nc",
+        "stream_side_data": [
+          "Content light level metadata",
+          "Mastering display metadata"
+        ],
+        "first_frame_side_data": [
+          "Mastering display metadata",
+          "Content light level metadata"
+        ],
+        "duration": 60.0,
+        "streams": 1,
+        "output": "C-big.mkv"
+      },
+      "verdict": "holds"
+    },
+    {
+      "case": "D",
+      "attempt": "chain-big",
+      "input": "dv8-big.mkv",
+      "predicts": "works; SDR BT.709 limited",
+      "command": "ffmpeg -hide_banner -nostdin -y -init_hw_device \"d3d11va=dx11:,vendor=0x8086\" -init_hw_device qsv=qs@dx11 -init_hw_device opencl=ocl@dx11 -filter_hw_device ocl -hwaccel d3d11va -hwaccel_output_format d3d11 -i dv8-big.mkv -vf \"hwmap=derive_device=opencl,tonemap_opencl=format=nv12:p=bt709:t=bt709:m=bt709:tonemap=bt2390:peak=100:desat=0:apply_dovi=1,hwmap=derive_device=qsv:reverse=1\" -c:v h264_qsv -preset veryfast -b:v 4M -maxrate 6M -bufsize 8M D-big.mkv",
+      "exit": 0,
+      "wall_s": 9.48,
+      "errors": [],
+      "probe": {
+        "codec": "h264",
+        "profile": "High",
+        "pix_fmt": "yuv420p",
+        "color_range": "tv",
+        "color_primaries": "bt709",
+        "color_transfer": "bt709",
+        "colorspace": "bt709",
+        "stream_side_data": [],
+        "first_frame_side_data": [],
+        "duration": 60.0,
+        "streams": 1,
+        "output": "D-big.mkv"
+      },
+      "verdict": "holds"
+    },
+    {
+      "case": "B",
+      "attempt": "hw-apply_dovi-r_tv-small",
+      "input": "dv5-small.mkv",
+      "predicts": "nearest variant: range pinned to tv",
+      "command": "ffmpeg -hide_banner -nostdin -y -init_hw_device \"d3d11va=dx11:,vendor=0x8086\" -init_hw_device qsv=qs@dx11 -init_hw_device opencl=ocl@dx11 -filter_hw_device ocl -hwaccel d3d11va -hwaccel_output_format d3d11 -i dv5-small.mkv -vf \"hwmap=derive_device=opencl,tonemap_opencl=format=nv12:p=bt709:t=bt709:m=bt709:tonemap=bt2390:peak=100:desat=0:apply_dovi=1:r=tv,hwmap=derive_device=qsv:reverse=1\" -c:v h264_qsv -preset veryfast -b:v 4M -maxrate 6M -bufsize 8M B-hw-tv-small.mkv",
+      "exit": 0,
+      "wall_s": 1.98,
+      "errors": [],
+      "probe": {
+        "codec": "h264",
+        "profile": "High",
+        "pix_fmt": "yuv420p",
+        "color_range": "tv",
+        "color_primaries": "bt709",
+        "color_transfer": "bt709",
+        "colorspace": "bt709",
+        "stream_side_data": [],
+        "first_frame_side_data": [],
+        "duration": 2.0,
+        "streams": 1,
+        "output": "B-hw-tv-small.mkv"
+      },
+      "verdict": "holds"
+    },
+    {
+      "case": "B",
+      "attempt": "tonemapx-r_tv-small",
+      "input": "dv5-small.mkv",
+      "predicts": "nearest variant: range pinned to tv",
+      "command": "ffmpeg -hide_banner -nostdin -y -i dv5-small.mkv -vf tonemapx=tonemap=bt2390:desat=0:peak=100:t=bt709:m=bt709:p=bt709:r=tv:format=yuv420p:apply_dovi=1 -c:v libx264 -preset veryfast -crf 23 B-sw-tv-small.mkv",
+      "exit": 0,
+      "wall_s": 0.07,
+      "errors": [],
+      "probe": {
+        "codec": "h264",
+        "profile": "High",
+        "pix_fmt": "yuv420p",
+        "color_range": "tv",
+        "color_primaries": "bt709",
+        "color_transfer": "bt709",
+        "colorspace": "bt709",
+        "stream_side_data": [],
+        "first_frame_side_data": [
+          "H.26[45] User Data Unregistered SEI message"
+        ],
+        "duration": 2.0,
+        "streams": 1,
+        "output": "B-sw-tv-small.mkv"
+      },
+      "verdict": "holds"
+    },
+    {
+      "case": "B",
+      "attempt": "hw-apply_dovi_0-small",
+      "input": "dv5-small.mkv",
+      "predicts": "control: DV reshaping off, expect tint",
+      "command": "ffmpeg -hide_banner -nostdin -y -init_hw_device \"d3d11va=dx11:,vendor=0x8086\" -init_hw_device qsv=qs@dx11 -init_hw_device opencl=ocl@dx11 -filter_hw_device ocl -hwaccel d3d11va -hwaccel_output_format d3d11 -i dv5-small.mkv -vf \"hwmap=derive_device=opencl,tonemap_opencl=format=nv12:p=bt709:t=bt709:m=bt709:tonemap=bt2390:peak=100:desat=0:apply_dovi=0,hwmap=derive_device=qsv:reverse=1\" -c:v h264_qsv -preset veryfast -b:v 4M -maxrate 6M -bufsize 8M B-hw-nodovi-small.mkv",
+      "exit": -1073740791,
+      "wall_s": 0.95,
+      "errors": [
+        "Assertion ctx->dovi || ctx->colorspace_in == AVCOL_SPC_BT2020_NCL || ctx->colorspace_in == AVCOL_SPC_BT709 failed at libavfilter/vf_tonemap_opencl.c:592"
+      ],
+      "probe": null,
+      "verdict": "control: ffmpeg aborts on an assertion, no output"
+    },
+    {
+      "case": "B",
+      "attempt": "hw-apply_dovi-r_tv-big",
+      "input": "dv5-big.mkv",
+      "predicts": "nearest variant: range pinned to tv",
+      "command": "ffmpeg -hide_banner -nostdin -y -init_hw_device \"d3d11va=dx11:,vendor=0x8086\" -init_hw_device qsv=qs@dx11 -init_hw_device opencl=ocl@dx11 -filter_hw_device ocl -hwaccel d3d11va -hwaccel_output_format d3d11 -i dv5-big.mkv -vf \"hwmap=derive_device=opencl,tonemap_opencl=format=nv12:p=bt709:t=bt709:m=bt709:tonemap=bt2390:peak=100:desat=0:apply_dovi=1:r=tv,hwmap=derive_device=qsv:reverse=1\" -c:v h264_qsv -preset veryfast -b:v 4M -maxrate 6M -bufsize 8M B-hw-tv-big.mkv",
+      "exit": 0,
+      "wall_s": 9.29,
+      "errors": [],
+      "probe": {
+        "codec": "h264",
+        "profile": "High",
+        "pix_fmt": "yuv420p",
+        "color_range": "tv",
+        "color_primaries": "bt709",
+        "color_transfer": "bt709",
+        "colorspace": "bt709",
+        "stream_side_data": [],
+        "first_frame_side_data": [],
+        "duration": 60.0,
+        "streams": 1,
+        "output": "B-hw-tv-big.mkv"
+      },
+      "verdict": "holds"
+    },
+    {
+      "case": "B",
+      "attempt": "tonemapx-r_tv-big",
+      "input": "dv5-big.mkv",
+      "predicts": "nearest variant: range pinned to tv",
+      "command": "ffmpeg -hide_banner -nostdin -y -i dv5-big.mkv -vf tonemapx=tonemap=bt2390:desat=0:peak=100:t=bt709:m=bt709:p=bt709:r=tv:format=yuv420p:apply_dovi=1 -c:v libx264 -preset veryfast -crf 23 B-sw-tv-big.mkv",
+      "exit": 0,
+      "wall_s": 11.49,
+      "errors": [],
+      "probe": {
+        "codec": "h264",
+        "profile": "High",
+        "pix_fmt": "yuv420p",
+        "color_range": "tv",
+        "color_primaries": "bt709",
+        "color_transfer": "bt709",
+        "colorspace": "bt709",
+        "stream_side_data": [],
+        "first_frame_side_data": [
+          "H.26[45] User Data Unregistered SEI message"
+        ],
+        "duration": 60.0,
+        "streams": 1,
+        "output": "B-sw-tv-big.mkv"
+      },
+      "verdict": "holds"
+    },
+    {
+      "case": "B",
+      "attempt": "hw-apply_dovi_0-big",
+      "input": "dv5-big.mkv",
+      "predicts": "control: DV reshaping off, expect tint",
+      "command": "ffmpeg -hide_banner -nostdin -y -init_hw_device \"d3d11va=dx11:,vendor=0x8086\" -init_hw_device qsv=qs@dx11 -init_hw_device opencl=ocl@dx11 -filter_hw_device ocl -hwaccel d3d11va -hwaccel_output_format d3d11 -i dv5-big.mkv -vf \"hwmap=derive_device=opencl,tonemap_opencl=format=nv12:p=bt709:t=bt709:m=bt709:tonemap=bt2390:peak=100:desat=0:apply_dovi=0,hwmap=derive_device=qsv:reverse=1\" -c:v h264_qsv -preset veryfast -b:v 4M -maxrate 6M -bufsize 8M B-hw-nodovi-big.mkv",
+      "exit": -1073740791,
+      "wall_s": 0.88,
+      "errors": [
+        "Assertion ctx->dovi || ctx->colorspace_in == AVCOL_SPC_BT2020_NCL || ctx->colorspace_in == AVCOL_SPC_BT709 failed at libavfilter/vf_tonemap_opencl.c:592"
+      ],
+      "probe": null,
+      "verdict": "control: ffmpeg aborts on an assertion, no output"
+    },
+    {
+      "case": "extra",
+      "attempt": "av1_qsv",
+      "predicts": "not predicted",
+      "command": "ffmpeg -init_hw_device d3d11va=dx11:,vendor=0x8086 -init_hw_device qsv=qs@dx11 -hwaccel d3d11va -hwaccel_output_format d3d11 -i sdr-small.mkv -vf hwmap=derive_device=qsv,format=qsv -c:v av1_qsv -f null -",
+      "exit": -40,
+      "errors": [
+        "[av1_qsv] Current codec type is unsupported"
+      ],
+      "verdict": "av1_qsv is listed by -encoders but the UHD 750 has no AV1 encoder"
+    },
+    {
+      "case": "extra",
+      "attempt": "tonemapx-apply_dovi_0-frame",
+      "predicts": "control",
+      "command": "ffmpeg -ss 10 -i dv5-big.mkv -frames:v 1 -vf tonemapx=tonemap=bt2390:desat=0:peak=100:t=bt709:m=bt709:p=bt709:r=tv:format=yuv420p:apply_dovi=0 out.png",
+      "exit": 0,
+      "verdict": "frame is solid black: tonemapx with DV off cannot read a Profile 5 (ipt-c2) frame"
+    }
+  ],
+  "pictures": {
+    "note": "One PNG per output at 10 s, scaled to 480 wide, compared with testsrc2 at the same frame. PNGs not pushed.",
+    "A-big": "Same bars as testsrc2, slightly desaturated red and blue after BT.2390 to 100 nits. No tint.",
+    "D-big": "Same as A-big. Identity RPU of the recipe, so DV 8.1 and HDR10 tone map alike.",
+    "B-hw-big": "Hues rotated: olive, blue, cyan, maroon, red, magenta for red, green, yellow, blue, magenta, cyan.",
+    "B-sw-big (tonemapx)": "Hues rotated differently: green, blue, green, maroon, red, dark blue. The two DV paths disagree.",
+    "dv5 source read as BT.2020": "Correct testsrc2 bars. The recipe's Profile 5 base layer is plain Y'CbCr, not IPT, so applying the RPU's IPT matrix is expected to rotate hues."
+  },
+  "speed": [
+    {
+      "case": "E",
+      "copies": 1,
+      "wall_s": 6.97,
+      "total_fps": 206.7,
+      "per_copy": [
+        {
+          "copies": 1,
+          "copy": 1,
+          "exit": 0,
+          "frames": 1440,
+          "fps": 222.18,
+          "speed": 9.24
+        }
+      ]
+    },
+    {
+      "case": "E",
+      "copies": 2,
+      "wall_s": 14.0,
+      "total_fps": 205.7,
+      "per_copy": [
+        {
+          "copies": 2,
+          "copy": 1,
+          "exit": 0,
+          "frames": 1440,
+          "fps": 107.4,
+          "speed": 4.47
+        },
+        {
+          "copies": 2,
+          "copy": 2,
+          "exit": 0,
+          "frames": 1440,
+          "fps": 107.16,
+          "speed": 4.46
+        }
+      ]
+    },
+    {
+      "case": "E",
+      "copies": 3,
+      "wall_s": 19.26,
+      "total_fps": 224.3,
+      "per_copy": [
+        {
+          "copies": 3,
+          "copy": 1,
+          "exit": 0,
+          "frames": 1440,
+          "fps": 77.43,
+          "speed": 3.22
+        },
+        {
+          "copies": 3,
+          "copy": 2,
+          "exit": 0,
+          "frames": 1440,
+          "fps": 77.85,
+          "speed": 3.24
+        },
+        {
+          "copies": 3,
+          "copy": 3,
+          "exit": 0,
+          "frames": 1440,
+          "fps": 78.36,
+          "speed": 3.26
+        }
+      ]
+    }
+  ],
+  "pause": [
+    {
+      "case": "F-pause",
+      "command": "ffmpeg -hide_banner -y -nostats -progress pipe:1 -init_hw_device \"d3d11va=dx11:,vendor=0x8086\" -init_hw_device qsv=qs@dx11 -init_hw_device opencl=ocl@dx11 -filter_hw_device ocl -hwaccel d3d11va -hwaccel_output_format d3d11 -i hdr10-big.mkv -vf \"hwmap=derive_device=opencl,tonemap_opencl=format=nv12:p=bt709:t=bt709:m=bt709:tonemap=bt2390:peak=100:desat=0,hwmap=derive_device=qsv:reverse=1\" -c:v h264_qsv -preset veryfast -b:v 4M -maxrate 6M -bufsize 8M F-pause.mkv",
+      "pid": 24036,
+      "exit": 0,
+      "wall_s": 27.8,
+      "paused_s": 20.2,
+      "samples": [
+        {
+          "t_s": 2.5,
+          "phase": "running",
+          "out_time_us": 14791667,
+          "cpu_s": 2.88,
+          "gpu_engines": {
+            "videodecode": 40.0,
+            "legacyoverlay": 0.0,
+            "copy": 0.0,
+            "": 0.0,
+            "3d": 69.2,
+            "videoprocessing": 0.0
+          },
+          "gpu_dedicated_mb": 0.0,
+          "gpu_local_mb": 610.9
+        },
+        {
+          "t_s": 4.5,
+          "phase": "running",
+          "out_time_us": 34333333,
+          "cpu_s": 5.33,
+          "gpu_engines": {
+            "videodecode": 56.8,
+            "legacyoverlay": 0.0,
+            "copy": 0.0,
+            "": 0.0,
+            "3d": 98.3,
+            "videoprocessing": 0.0
+          },
+          "gpu_dedicated_mb": 0.0,
+          "gpu_local_mb": 610.9
+        },
+        {
+          "t_s": 6.5,
+          "phase": "paused",
+          "out_time_us": 39166667,
+          "cpu_s": 5.83,
+          "gpu_engines": {
+            "videodecode": 22.0,
+            "legacyoverlay": 0.0,
+            "copy": 0.0,
+            "": 0.0,
+            "3d": 37.5,
+            "videoprocessing": 0.0
+          },
+          "gpu_dedicated_mb": 0.0,
+          "gpu_local_mb": 610.9
+        },
+        {
+          "t_s": 8.6,
+          "phase": "paused",
+          "out_time_us": 39166667,
+          "cpu_s": 5.83,
+          "gpu_engines": {
+            "videodecode": 0.0,
+            "legacyoverlay": 0.0,
+            "copy": 0.0,
+            "": 0.0,
+            "3d": 0.0,
+            "videoprocessing": 0.0
+          },
+          "gpu_dedicated_mb": 0.0,
+          "gpu_local_mb": 610.9
+        },
+        {
+          "t_s": 10.6,
+          "phase": "paused",
+          "out_time_us": 39166667,
+          "cpu_s": 5.83,
+          "gpu_engines": {
+            "videodecode": 0.0,
+            "legacyoverlay": 0.0,
+            "copy": 0.0,
+            "": 0.0,
+            "3d": 0.0,
+            "videoprocessing": 0.0
+          },
+          "gpu_dedicated_mb": 0.0,
+          "gpu_local_mb": 610.9
+        },
+        {
+          "t_s": 12.6,
+          "phase": "paused",
+          "out_time_us": 39166667,
+          "cpu_s": 5.83,
+          "gpu_engines": {
+            "videodecode": 0.0,
+            "legacyoverlay": 0.0,
+            "copy": 0.0,
+            "": 0.0,
+            "3d": 0.0,
+            "videoprocessing": 0.0
+          },
+          "gpu_dedicated_mb": 0.0,
+          "gpu_local_mb": 610.9
+        },
+        {
+          "t_s": 14.6,
+          "phase": "paused",
+          "out_time_us": 39166667,
+          "cpu_s": 5.83,
+          "gpu_engines": {
+            "videodecode": 0.0,
+            "legacyoverlay": 0.0,
+            "copy": 0.0,
+            "": 0.0,
+            "3d": 0.0,
+            "videoprocessing": 0.0
+          },
+          "gpu_dedicated_mb": 0.0,
+          "gpu_local_mb": 610.9
+        },
+        {
+          "t_s": 16.6,
+          "phase": "paused",
+          "out_time_us": 39166667,
+          "cpu_s": 5.83,
+          "gpu_engines": {
+            "videodecode": 0.0,
+            "legacyoverlay": 0.0,
+            "copy": 0.0,
+            "": 0.0,
+            "3d": 0.0,
+            "videoprocessing": 0.0
+          },
+          "gpu_dedicated_mb": 0.0,
+          "gpu_local_mb": 610.9
+        },
+        {
+          "t_s": 18.6,
+          "phase": "paused",
+          "out_time_us": 39166667,
+          "cpu_s": 5.83,
+          "gpu_engines": {
+            "videodecode": 0.0,
+            "legacyoverlay": 0.0,
+            "copy": 0.0,
+            "": 0.0,
+            "3d": 0.0,
+            "videoprocessing": 0.0
+          },
+          "gpu_dedicated_mb": 0.0,
+          "gpu_local_mb": 610.9
+        },
+        {
+          "t_s": 20.7,
+          "phase": "paused",
+          "out_time_us": 39166667,
+          "cpu_s": 5.86,
+          "gpu_engines": {
+            "videodecode": 0.0,
+            "legacyoverlay": 0.0,
+            "copy": 0.0,
+            "": 0.0,
+            "3d": 0.0,
+            "videoprocessing": 0.0
+          },
+          "gpu_dedicated_mb": 0.0,
+          "gpu_local_mb": 610.9
+        },
+        {
+          "t_s": 22.7,
+          "phase": "paused",
+          "out_time_us": 39166667,
+          "cpu_s": 5.86,
+          "gpu_engines": {
+            "videodecode": 0.0,
+            "legacyoverlay": 0.0,
+            "copy": 0.0,
+            "": 0.0,
+            "3d": 0.0,
+            "videoprocessing": 0.0
+          },
+          "gpu_dedicated_mb": 0.0,
+          "gpu_local_mb": 610.9
+        },
+        {
+          "t_s": 24.7,
+          "phase": "paused",
+          "out_time_us": 39166667,
+          "cpu_s": 5.86,
+          "gpu_engines": {
+            "videodecode": 0.0,
+            "legacyoverlay": 0.0,
+            "copy": 0.0,
+            "": 0.0,
+            "3d": 0.0,
+            "videoprocessing": 0.0
+          },
+          "gpu_dedicated_mb": 0.0,
+          "gpu_local_mb": 610.9
+        },
+        {
+          "t_s": 26.7,
+          "phase": "resumed",
+          "out_time_us": 49791667,
+          "cpu_s": 7.73,
+          "gpu_engines": {
+            "videodecode": 2.9,
+            "legacyoverlay": 0.0,
+            "copy": 0.0,
+            "": 0.0,
+            "3d": 5.2,
+            "videoprocessing": 0.0
+          },
+          "gpu_dedicated_mb": 0.0,
+          "gpu_local_mb": 610.9
+        }
+      ],
+      "probe": {
+        "codec": "h264",
+        "pix_fmt": "yuv420p",
+        "color_range": "tv",
+        "color_transfer": "bt709",
+        "frames": 1440,
+        "duration": 60.0,
+        "streams": 1
+      }
+    },
+    {
+      "case": "G1-pause-during-plex",
+      "command": "ffmpeg -hide_banner -y -nostats -progress pipe:1 -init_hw_device \"d3d11va=dx11:,vendor=0x8086\" -init_hw_device qsv=qs@dx11 -init_hw_device opencl=ocl@dx11 -filter_hw_device ocl -hwaccel d3d11va -hwaccel_output_format d3d11 -i hdr10-big.mkv -vf \"hwmap=derive_device=opencl,tonemap_opencl=format=nv12:p=bt709:t=bt709:m=bt709:tonemap=bt2390:peak=100:desat=0,hwmap=derive_device=qsv:reverse=1\" -c:v h264_qsv -preset veryfast -b:v 4M -maxrate 6M -bufsize 8M G1-pause-during-plex.mkv",
+      "pid": 23980,
+      "exit": 0,
+      "wall_s": 27.2,
+      "paused_s": 20.2,
+      "samples": [
+        {
+          "t_s": 2.4,
+          "phase": "running",
+          "out_time_us": 16333333,
+          "cpu_s": 2.78,
+          "gpu_engines": {
+            "videodecode": 52.4,
+            "": 0.0,
+            "legacyoverlay": 0.0,
+            "videoprocessing": 0.0,
+            "copy": 0.0,
+            "3d": 88.2
+          },
+          "gpu_dedicated_mb": 0.0,
+          "gpu_local_mb": 610.6
+        },
+        {
+          "t_s": 4.4,
+          "phase": "running",
+          "out_time_us": 34916667,
+          "cpu_s": 5.45,
+          "gpu_engines": {
+            "videodecode": 52.6,
+            "": 0.0,
+            "legacyoverlay": 0.0,
+            "videoprocessing": 0.0,
+            "copy": 0.0,
+            "3d": 90.4
+          },
+          "gpu_dedicated_mb": 0.0,
+          "gpu_local_mb": 610.6
+        },
+        {
+          "t_s": 6.4,
+          "phase": "paused",
+          "out_time_us": 39791667,
+          "cpu_s": 6.09,
+          "gpu_engines": {
+            "videodecode": 27.2,
+            "": 0.0,
+            "legacyoverlay": 0.0,
+            "videoprocessing": 0.0,
+            "copy": 0.0,
+            "3d": 46.4
+          },
+          "gpu_dedicated_mb": 0.0,
+          "gpu_local_mb": 610.6
+        },
+        {
+          "t_s": 8.5,
+          "phase": "paused",
+          "out_time_us": 39791667,
+          "cpu_s": 6.09,
+          "gpu_engines": {
+            "videodecode": 0.0,
+            "": 0.0,
+            "legacyoverlay": 0.0,
+            "videoprocessing": 0.0,
+            "copy": 0.0,
+            "3d": 0.0
+          },
+          "gpu_dedicated_mb": 0.0,
+          "gpu_local_mb": 610.6
+        },
+        {
+          "t_s": 10.5,
+          "phase": "paused",
+          "out_time_us": 39791667,
+          "cpu_s": 6.09,
+          "gpu_engines": {
+            "videodecode": 0.0,
+            "": 0.0,
+            "legacyoverlay": 0.0,
+            "videoprocessing": 0.0,
+            "copy": 0.0,
+            "3d": 0.0
+          },
+          "gpu_dedicated_mb": 0.0,
+          "gpu_local_mb": 610.6
+        },
+        {
+          "t_s": 12.5,
+          "phase": "paused",
+          "out_time_us": 39791667,
+          "cpu_s": 6.09,
+          "gpu_engines": {
+            "videodecode": 0.0,
+            "": 0.0,
+            "legacyoverlay": 0.0,
+            "videoprocessing": 0.0,
+            "copy": 0.0,
+            "3d": 0.0
+          },
+          "gpu_dedicated_mb": 0.0,
+          "gpu_local_mb": 610.6
+        },
+        {
+          "t_s": 14.5,
+          "phase": "paused",
+          "out_time_us": 39791667,
+          "cpu_s": 6.11,
+          "gpu_engines": {
+            "videodecode": 0.0,
+            "": 0.0,
+            "legacyoverlay": 0.0,
+            "videoprocessing": 0.0,
+            "copy": 0.0,
+            "3d": 0.0
+          },
+          "gpu_dedicated_mb": 0.0,
+          "gpu_local_mb": 610.6
+        },
+        {
+          "t_s": 16.5,
+          "phase": "paused",
+          "out_time_us": 39791667,
+          "cpu_s": 6.11,
+          "gpu_engines": {
+            "videodecode": 0.0,
+            "": 0.0,
+            "legacyoverlay": 0.0,
+            "videoprocessing": 0.0,
+            "copy": 0.0,
+            "3d": 0.0
+          },
+          "gpu_dedicated_mb": 0.0,
+          "gpu_local_mb": 610.6
+        },
+        {
+          "t_s": 18.6,
+          "phase": "paused",
+          "out_time_us": 39791667,
+          "cpu_s": 6.11,
+          "gpu_engines": {
+            "videodecode": 0.0,
+            "": 0.0,
+            "legacyoverlay": 0.0,
+            "videoprocessing": 0.0,
+            "copy": 0.0,
+            "3d": 0.0
+          },
+          "gpu_dedicated_mb": 0.0,
+          "gpu_local_mb": 610.6
+        },
+        {
+          "t_s": 20.6,
+          "phase": "paused",
+          "out_time_us": 39791667,
+          "cpu_s": 6.12,
+          "gpu_engines": {
+            "videodecode": 0.0,
+            "": 0.0,
+            "legacyoverlay": 0.0,
+            "videoprocessing": 0.0,
+            "copy": 0.0,
+            "3d": 0.0
+          },
+          "gpu_dedicated_mb": 0.0,
+          "gpu_local_mb": 610.6
+        },
+        {
+          "t_s": 22.6,
+          "phase": "paused",
+          "out_time_us": 39791667,
+          "cpu_s": 6.12,
+          "gpu_engines": {
+            "videodecode": 0.0,
+            "": 0.0,
+            "legacyoverlay": 0.0,
+            "videoprocessing": 0.0,
+            "copy": 0.0,
+            "3d": 0.0
+          },
+          "gpu_dedicated_mb": 0.0,
+          "gpu_local_mb": 610.6
+        },
+        {
+          "t_s": 24.6,
+          "phase": "paused",
+          "out_time_us": 39791667,
+          "cpu_s": 6.14,
+          "gpu_engines": {
+            "videodecode": 0.0,
+            "": 0.0,
+            "legacyoverlay": 0.0,
+            "videoprocessing": 0.0,
+            "copy": 0.0,
+            "3d": 0.0
+          },
+          "gpu_dedicated_mb": 0.0,
+          "gpu_local_mb": 610.6
+        },
+        {
+          "t_s": 26.6,
+          "phase": "resumed",
+          "out_time_us": 54583333,
+          "cpu_s": 8.66,
+          "gpu_engines": {
+            "videodecode": 53.7,
+            "": 0.0,
+            "legacyoverlay": 0.0,
+            "videoprocessing": 0.0,
+            "copy": 0.0,
+            "3d": 94.1
+          },
+          "gpu_dedicated_mb": 0.0,
+          "gpu_local_mb": 638.2
+        }
+      ],
+      "probe": {
+        "codec": "h264",
+        "pix_fmt": "yuv420p",
+        "color_range": "tv",
+        "color_transfer": "bt709",
+        "frames": 1440,
+        "duration": 60.0,
+        "streams": 1
+      }
+    },
+    {
+      "case": "G2-round1",
+      "command": "ffmpeg -hide_banner -y -nostats -progress pipe:1 -init_hw_device \"d3d11va=dx11:,vendor=0x8086\" -init_hw_device qsv=qs@dx11 -init_hw_device opencl=ocl@dx11 -filter_hw_device ocl -hwaccel d3d11va -hwaccel_output_format d3d11 -i hdr10-big.mkv -vf \"hwmap=derive_device=opencl,tonemap_opencl=format=nv12:p=bt709:t=bt709:m=bt709:tonemap=bt2390:peak=100:desat=0,hwmap=derive_device=qsv:reverse=1\" -c:v h264_qsv -preset veryfast -b:v 4M -maxrate 6M -bufsize 8M G2-round1.mkv",
+      "pid": 22264,
+      "exit": 0,
+      "wall_s": 63.6,
+      "paused_s": 56.5,
+      "samples": [
+        {
+          "t_s": 2.4,
+          "phase": "running",
+          "out_time_us": 17208333,
+          "cpu_s": 2.88,
+          "gpu_engines": {
+            "3d": 89.0,
+            "copy": 0.0,
+            "legacyoverlay": 0.0,
+            "videoprocessing": 0.0,
+            "": 0.0,
+            "videodecode": 51.5
+          },
+          "gpu_dedicated_mb": 0.0,
+          "gpu_local_mb": 595.4
+        },
+        {
+          "t_s": 4.4,
+          "phase": "running",
+          "out_time_us": 34500000,
+          "cpu_s": 5.36,
+          "gpu_engines": {
+            "3d": 79.5,
+            "copy": 0.0,
+            "legacyoverlay": 0.0,
+            "videoprocessing": 0.0,
+            "": 0.0,
+            "videodecode": 45.5
+          },
+          "gpu_dedicated_mb": 0.0,
+          "gpu_local_mb": 613.9
+        },
+        {
+          "t_s": 6.5,
+          "phase": "paused",
+          "out_time_us": 39375000,
+          "cpu_s": 6.0,
+          "gpu_engines": {
+            "3d": 44.5,
+            "copy": 0.0,
+            "legacyoverlay": 0.0,
+            "videoprocessing": 0.0,
+            "": 0.0,
+            "videodecode": 25.9
+          },
+          "gpu_dedicated_mb": 0.0,
+          "gpu_local_mb": 613.9
+        },
+        {
+          "t_s": 8.5,
+          "phase": "paused",
+          "out_time_us": 39375000,
+          "cpu_s": 6.0,
+          "gpu_engines": {
+            "3d": 0.0,
+            "copy": 0.0,
+            "legacyoverlay": 0.0,
+            "videoprocessing": 0.0,
+            "": 0.0,
+            "videodecode": 0.0
+          },
+          "gpu_dedicated_mb": 0.0,
+          "gpu_local_mb": 613.9
+        },
+        {
+          "t_s": 10.5,
+          "phase": "paused",
+          "out_time_us": 39375000,
+          "cpu_s": 6.0,
+          "gpu_engines": {
+            "3d": 0.0,
+            "copy": 0.0,
+            "legacyoverlay": 0.0,
+            "videoprocessing": 0.0,
+            "": 0.0,
+            "videodecode": 0.0
+          },
+          "gpu_dedicated_mb": 0.0,
+          "gpu_local_mb": 613.9
+        },
+        {
+          "t_s": 12.5,
+          "phase": "paused",
+          "out_time_us": 39375000,
+          "cpu_s": 6.0,
+          "gpu_engines": {
+            "3d": 0.0,
+            "copy": 0.0,
+            "legacyoverlay": 0.0,
+            "videoprocessing": 0.0,
+            "": 0.0,
+            "videodecode": 0.0
+          },
+          "gpu_dedicated_mb": 0.0,
+          "gpu_local_mb": 613.9
+        },
+        {
+          "t_s": 14.5,
+          "phase": "paused",
+          "out_time_us": 39375000,
+          "cpu_s": 6.0,
+          "gpu_engines": {
+            "3d": 0.0,
+            "copy": 0.0,
+            "legacyoverlay": 0.0,
+            "videoprocessing": 0.0,
+            "": 0.0,
+            "videodecode": 0.0
+          },
+          "gpu_dedicated_mb": 0.0,
+          "gpu_local_mb": 613.9
+        },
+        {
+          "t_s": 16.5,
+          "phase": "paused",
+          "out_time_us": 39375000,
+          "cpu_s": 6.03,
+          "gpu_engines": {
+            "3d": 0.0,
+            "copy": 0.0,
+            "legacyoverlay": 0.0,
+            "videoprocessing": 0.0,
+            "": 0.0,
+            "videodecode": 0.0
+          },
+          "gpu_dedicated_mb": 0.0,
+          "gpu_local_mb": 613.9
+        },
+        {
+          "t_s": 18.6,
+          "phase": "paused",
+          "out_time_us": 39375000,
+          "cpu_s": 6.03,
+          "gpu_engines": {
+            "3d": 0.0,
+            "copy": 0.0,
+            "legacyoverlay": 0.0,
+            "videoprocessing": 0.0,
+            "": 0.0,
+            "videodecode": 0.0
+          },
+          "gpu_dedicated_mb": 0.0,
+          "gpu_local_mb": 613.9
+        },
+        {
+          "t_s": 20.6,
+          "phase": "paused",
+          "out_time_us": 39375000,
+          "cpu_s": 6.08,
+          "gpu_engines": {
+            "3d": 0.0,
+            "copy": 0.0,
+            "legacyoverlay": 0.0,
+            "videoprocessing": 0.0,
+            "": 0.0,
+            "videodecode": 0.0
+          },
+          "gpu_dedicated_mb": 0.0,
+          "gpu_local_mb": 613.9
+        },
+        {
+          "t_s": 22.6,
+          "phase": "paused",
+          "out_time_us": 39375000,
+          "cpu_s": 6.14,
+          "gpu_engines": {
+            "3d": 0.0,
+            "copy": 0.0,
+            "legacyoverlay": 0.0,
+            "videoprocessing": 0.0,
+            "": 0.0,
+            "videodecode": 0.0
+          },
+          "gpu_dedicated_mb": 0.0,
+          "gpu_local_mb": 613.9
+        },
+        {
+          "t_s": 24.6,
+          "phase": "paused",
+          "out_time_us": 39375000,
+          "cpu_s": 6.14,
+          "gpu_engines": {
+            "3d": 0.0,
+            "copy": 0.0,
+            "legacyoverlay": 0.0,
+            "videoprocessing": 0.0,
+            "": 0.0,
+            "videodecode": 0.0
+          },
+          "gpu_dedicated_mb": 0.0,
+          "gpu_local_mb": 613.9
+        },
+        {
+          "t_s": 26.6,
+          "phase": "paused",
+          "out_time_us": 39375000,
+          "cpu_s": 6.14,
+          "gpu_engines": {
+            "3d": 0.0,
+            "copy": 0.0,
+            "legacyoverlay": 0.0,
+            "videoprocessing": 0.0,
+            "": 0.0,
+            "videodecode": 0.0
+          },
+          "gpu_dedicated_mb": 0.0,
+          "gpu_local_mb": 613.9
+        },
+        {
+          "t_s": 28.7,
+          "phase": "paused",
+          "out_time_us": 39375000,
+          "cpu_s": 6.14,
+          "gpu_engines": {
+            "3d": 0.0,
+            "copy": 0.0,
+            "legacyoverlay": 0.0,
+            "videoprocessing": 0.0,
+            "": 0.0,
+            "videodecode": 0.0
+          },
+          "gpu_dedicated_mb": 0.0,
+          "gpu_local_mb": 613.9
+        },
+        {
+          "t_s": 30.7,
+          "phase": "paused",
+          "out_time_us": 39375000,
+          "cpu_s": 6.14,
+          "gpu_engines": {
+            "3d": 0.0,
+            "copy": 0.0,
+            "legacyoverlay": 0.0,
+            "videoprocessing": 0.0,
+            "": 0.0,
+            "videodecode": 0.0
+          },
+          "gpu_dedicated_mb": 0.0,
+          "gpu_local_mb": 613.9
+        },
+        {
+          "t_s": 32.7,
+          "phase": "paused",
+          "out_time_us": 39375000,
+          "cpu_s": 6.14,
+          "gpu_engines": {
+            "3d": 0.0,
+            "copy": 0.0,
+            "legacyoverlay": 0.0,
+            "videoprocessing": 0.0,
+            "": 0.0,
+            "videodecode": 0.0
+          },
+          "gpu_dedicated_mb": 0.0,
+          "gpu_local_mb": 613.9
+        },
+        {
+          "t_s": 34.7,
+          "phase": "paused",
+          "out_time_us": 39375000,
+          "cpu_s": 6.14,
+          "gpu_engines": {
+            "3d": 0.0,
+            "copy": 0.0,
+            "legacyoverlay": 0.0,
+            "videoprocessing": 0.0,
+            "": 0.0,
+            "videodecode": 0.0
+          },
+          "gpu_dedicated_mb": 0.0,
+          "gpu_local_mb": 613.9
+        },
+        {
+          "t_s": 36.7,
+          "phase": "paused",
+          "out_time_us": 39375000,
+          "cpu_s": 6.16,
+          "gpu_engines": {
+            "3d": 0.0,
+            "copy": 0.0,
+            "legacyoverlay": 0.0,
+            "videoprocessing": 0.0,
+            "": 0.0,
+            "videodecode": 0.0
+          },
+          "gpu_dedicated_mb": 0.0,
+          "gpu_local_mb": 613.9
+        },
+        {
+          "t_s": 38.7,
+          "phase": "paused",
+          "out_time_us": 39375000,
+          "cpu_s": 6.16,
+          "gpu_engines": {
+            "3d": 0.0,
+            "copy": 0.0,
+            "legacyoverlay": 0.0,
+            "videoprocessing": 0.0,
+            "": 0.0,
+            "videodecode": 0.0
+          },
+          "gpu_dedicated_mb": 0.0,
+          "gpu_local_mb": 613.9
+        },
+        {
+          "t_s": 40.8,
+          "phase": "paused",
+          "out_time_us": 39375000,
+          "cpu_s": 6.16,
+          "gpu_engines": {
+            "3d": 0.0,
+            "copy": 0.0,
+            "legacyoverlay": 0.0,
+            "videoprocessing": 0.0,
+            "": 0.0,
+            "videodecode": 0.0
+          },
+          "gpu_dedicated_mb": 0.0,
+          "gpu_local_mb": 613.9
+        },
+        {
+          "t_s": 42.8,
+          "phase": "paused",
+          "out_time_us": 39375000,
+          "cpu_s": 6.16,
+          "gpu_engines": {
+            "3d": 0.0,
+            "copy": 0.0,
+            "legacyoverlay": 0.0,
+            "videoprocessing": 0.0,
+            "": 0.0,
+            "videodecode": 0.0
+          },
+          "gpu_dedicated_mb": 0.0,
+          "gpu_local_mb": 613.9
+        },
+        {
+          "t_s": 44.8,
+          "phase": "paused",
+          "out_time_us": 39375000,
+          "cpu_s": 6.16,
+          "gpu_engines": {
+            "3d": 0.0,
+            "copy": 0.0,
+            "legacyoverlay": 0.0,
+            "videoprocessing": 0.0,
+            "": 0.0,
+            "videodecode": 0.0
+          },
+          "gpu_dedicated_mb": 0.0,
+          "gpu_local_mb": 613.9
+        },
+        {
+          "t_s": 46.8,
+          "phase": "paused",
+          "out_time_us": 39375000,
+          "cpu_s": 6.16,
+          "gpu_engines": {
+            "3d": 0.0,
+            "copy": 0.0,
+            "legacyoverlay": 0.0,
+            "videoprocessing": 0.0,
+            "": 0.0,
+            "videodecode": 0.0
+          },
+          "gpu_dedicated_mb": 0.0,
+          "gpu_local_mb": 613.9
+        },
+        {
+          "t_s": 48.8,
+          "phase": "paused",
+          "out_time_us": 39375000,
+          "cpu_s": 6.16,
+          "gpu_engines": {
+            "3d": 0.0,
+            "copy": 0.0,
+            "legacyoverlay": 0.0,
+            "videoprocessing": 0.0,
+            "": 0.0,
+            "videodecode": 0.0
+          },
+          "gpu_dedicated_mb": 0.0,
+          "gpu_local_mb": 613.9
+        },
+        {
+          "t_s": 50.8,
+          "phase": "paused",
+          "out_time_us": 39375000,
+          "cpu_s": 6.16,
+          "gpu_engines": {
+            "3d": 0.0,
+            "copy": 0.0,
+            "legacyoverlay": 0.0,
+            "videoprocessing": 0.0,
+            "": 0.0,
+            "videodecode": 0.0
+          },
+          "gpu_dedicated_mb": 0.0,
+          "gpu_local_mb": 613.9
+        },
+        {
+          "t_s": 52.8,
+          "phase": "paused",
+          "out_time_us": 39375000,
+          "cpu_s": 6.16,
+          "gpu_engines": {
+            "3d": 0.0,
+            "copy": 0.0,
+            "legacyoverlay": 0.0,
+            "videoprocessing": 0.0,
+            "": 0.0,
+            "videodecode": 0.0
+          },
+          "gpu_dedicated_mb": 0.0,
+          "gpu_local_mb": 613.9
+        },
+        {
+          "t_s": 54.9,
+          "phase": "paused",
+          "out_time_us": 39375000,
+          "cpu_s": 6.16,
+          "gpu_engines": {
+            "3d": 0.0,
+            "copy": 0.0,
+            "legacyoverlay": 0.0,
+            "videoprocessing": 0.0,
+            "": 0.0,
+            "videodecode": 0.0
+          },
+          "gpu_dedicated_mb": 0.0,
+          "gpu_local_mb": 613.9
+        },
+        {
+          "t_s": 56.9,
+          "phase": "paused",
+          "out_time_us": 39375000,
+          "cpu_s": 6.16,
+          "gpu_engines": {
+            "3d": 0.0,
+            "copy": 0.0,
+            "legacyoverlay": 0.0,
+            "videoprocessing": 0.0,
+            "": 0.0,
+            "videodecode": 0.0
+          },
+          "gpu_dedicated_mb": 0.0,
+          "gpu_local_mb": 613.9
+        },
+        {
+          "t_s": 58.9,
+          "phase": "paused",
+          "out_time_us": 39375000,
+          "cpu_s": 6.16,
+          "gpu_engines": {
+            "3d": 0.0,
+            "copy": 0.0,
+            "legacyoverlay": 0.0,
+            "videoprocessing": 0.0,
+            "": 0.0,
+            "videodecode": 0.0
+          },
+          "gpu_dedicated_mb": 0.0,
+          "gpu_local_mb": 613.9
+        },
+        {
+          "t_s": 60.9,
+          "phase": "paused",
+          "out_time_us": 39375000,
+          "cpu_s": 6.16,
+          "gpu_engines": {
+            "3d": 0.0,
+            "copy": 0.0,
+            "legacyoverlay": 0.0,
+            "videoprocessing": 0.0,
+            "": 0.0,
+            "videodecode": 0.0
+          },
+          "gpu_dedicated_mb": 0.0,
+          "gpu_local_mb": 613.9
+        },
+        {
+          "t_s": 62.9,
+          "phase": "resumed",
+          "out_time_us": 54125000,
+          "cpu_s": 8.25,
+          "gpu_engines": {
+            "3d": 65.7,
+            "copy": 0.0,
+            "legacyoverlay": 0.0,
+            "videoprocessing": 0.0,
+            "": 0.0,
+            "videodecode": 37.0
+          },
+          "gpu_dedicated_mb": 0.0,
+          "gpu_local_mb": 613.9
+        }
+      ],
+      "probe": {
+        "codec": "h264",
+        "pix_fmt": "yuv420p",
+        "color_range": "tv",
+        "color_transfer": "bt709",
+        "frames": 1440,
+        "duration": 60.0,
+        "streams": 1
+      }
+    }
+  ]
+}
