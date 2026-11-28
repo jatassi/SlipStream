@@ -12,7 +12,7 @@ import (
 )
 
 // Service is ConvertingService on this Node, mounted in both halves.
-func Service(p Proofs, _ func() string) convertingv1connect.ConvertingServiceHandler {
+func Service(p Proofs) convertingv1connect.ConvertingServiceHandler {
 	return service{proofs: p}
 }
 

@@ -34,7 +34,7 @@ func TestTheServiceTestsOnlyAShapeSettingsHoldAndAClassWithAClip(t *testing.T) {
 		{"a class with no clip", &cv1.TestRequest{Shape: sdr, Class: "vc1"}, false},
 	} {
 		p := &keyProofs{}
-		res, err := Service(p, nil).Test(t.Context(), c.req)
+		res, err := Service(p).Test(t.Context(), c.req)
 		if !c.asked {
 			if connect.CodeOf(err) != connect.CodeInvalidArgument || len(p.asked) > 0 {
 				t.Errorf("%s: %v after %d tests, want invalid_argument before any", c.name, err, len(p.asked))

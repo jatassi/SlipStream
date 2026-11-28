@@ -40,12 +40,15 @@ type Timings struct {
 	LengthTolerance Tolerance     `yaml:"length_tolerance"`
 	// SpeedWeight is how far one run moves its proof's speed toward its own.
 	SpeedWeight float64 `yaml:"speed_weight"`
+	// Signature is how often the Node reads its ffmpeg signature for a
+	// change, which runs the base test again.
+	Signature time.Duration `yaml:"signature"`
 }
 
 func DefaultTimings() Timings {
 	return Timings{
 		Trial: time.Minute, Stall: 2 * time.Minute, Progress: 2 * time.Second, KillGrace: 5 * time.Second,
-		LengthTolerance: Tolerance{Floor: time.Second, Share: 0.005}, SpeedWeight: 0.3,
+		LengthTolerance: Tolerance{Floor: time.Second, Share: 0.005}, SpeedWeight: 0.3, Signature: time.Minute,
 	}
 }
 

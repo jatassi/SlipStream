@@ -15,9 +15,6 @@ var Base = encode.Key{
 	Class: encode.ClassH264x8,
 }
 
-// signatureEvery is how often Warm reads the signature for a change.
-const signatureEvery = time.Minute
-
 // probe is the base test's last answer.
 type probe struct {
 	mu       sync.Mutex
@@ -41,7 +38,7 @@ func (p *realProofs) Runs() (role.Fit, role.ProbeReason) {
 }
 
 func (p *realProofs) Warm(ctx context.Context, changed func()) error {
-	tick := time.NewTicker(signatureEvery)
+	tick := time.NewTicker(p.cfg.Timings.Signature)
 	defer tick.Stop()
 	var last Signature
 	for first := true; ; first = false {
