@@ -32,9 +32,9 @@ func (p *realProofs) Runs() (role.Fit, role.ProbeReason) {
 	p.probe.mu.Lock()
 	defer p.probe.mu.Unlock()
 	if !p.probe.answered {
-		return role.Weak, ""
+		return role.Weak, role.FFmpegTesting
 	}
-	return p.probe.fit, ""
+	return p.probe.fit, map[role.Fit]role.ProbeReason{role.Weak: role.NoGPU, role.Fails: role.FFmpegFails}[p.probe.fit]
 }
 
 func (p *realProofs) Warm(ctx context.Context, changed func()) error {

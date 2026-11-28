@@ -35,7 +35,7 @@ func (m *Made) Probe(ctx context.Context, path string) (media.Record, error) {
 	if ok {
 		return r, nil
 	}
-	return m.base.Probe(ctx, path) //nolint:wrapcheck // the wrapped prober's own error
+	return m.base.Probe(ctx, path)
 }
 
 // Converting is node.Env.Converting over m: Succeeds registering what it

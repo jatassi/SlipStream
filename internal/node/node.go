@@ -721,7 +721,7 @@ func Run(ctx context.Context, env Env) error {
 }
 
 func serve(ctx context.Context, env Env, front func(n *Node, exit <-chan struct{})) error {
-	tools, err := bundledTools(slices.DeleteFunc(slices.Clone(env.Environ), func(kv string) bool { return strings.HasPrefix(kv, "SLIPSTREAM_") }))
+	tools, err := bundledTools(env.Environ)
 	if err != nil {
 		_, _ = fmt.Fprintln(env.Stderr, err)
 		return err
