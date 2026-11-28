@@ -18,7 +18,9 @@ const sizes = process.argv
 let failed = 0;
 for (const size of sizes.length > 0 ? sizes : FIXTURE_SIZES) {
   const fixture = fixtureOf(size);
-  const drawing = drawingOf(landingOf(fixture.topology, fixture.board, new Set(), fixtureClock));
+  const drawing = drawingOf(
+    landingOf(fixture.topology, fixture.board, new Set(), new Map(), fixtureClock),
+  );
   const { P } = drawing.stage;
   const R = recorderFor(P);
   drawing.links.forEach(({ item }, index) => {
