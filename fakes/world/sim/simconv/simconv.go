@@ -4,10 +4,13 @@ package simconv
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -16,6 +19,7 @@ import (
 	"github.com/jatassi/slipstream/internal/converting"
 	"github.com/jatassi/slipstream/internal/encode"
 	"github.com/jatassi/slipstream/internal/media"
+	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/role"
 )
 
@@ -79,10 +83,11 @@ func (m *Made) Converting(converting.RealConfig) (converting.Converter, converti
 	return Succeeds{Made: m}, ProcessorOnly{}
 }
 
-// Succeeds writes a placeholder at the output, ffmpeg's last argument,
-// registers its record under the name the output is renamed to, and exits
-// 0 at once. The record is the input's with the streams the arguments map
-// and the codec they encode.
+// Succeeds writes a placeholder of its own bytes at the output, ffmpeg's
+// last argument, registers its record under the name the output is
+// renamed to and under those bytes, so a copy reads as it, and exits 0 at
+// once. The record is the input's with the streams the arguments map,
+// and the codec, frame size, tone map and video bitrate they encode.
 type Succeeds struct{ Made *Made }
 
 func (s Succeeds) Start(ctx context.Context, args []string) (converting.Run, error) {
@@ -91,11 +96,15 @@ func (s Succeeds) Start(ctx context.Context, args []string) (converting.Run, err
 	if err != nil {
 		return nil, fmt.Errorf("probe the input: %w", err)
 	}
-	if err := os.WriteFile(out, []byte("converted"), 0o600); err != nil {
+	name := strings.TrimSuffix(filepath.Base(out), ".part")
+	sum := sha256.Sum256([]byte(name))
+	body := hex.EncodeToString(sum[:])
+	if err := os.WriteFile(out, []byte(body), 0o600); err != nil {
 		return nil, fmt.Errorf("write the output: %w", err)
 	}
+	r := made(src, args)
 	s.Made.mu.Lock()
-	s.Made.of[strings.TrimSuffix(filepath.Base(out), ".part")] = made(src, args)
+	s.Made.of[name], s.Made.bytes[body[:headLen]] = r, r
 	s.Made.mu.Unlock()
 	progress := make(chan converting.Progress)
 	close(progress)
@@ -115,10 +124,31 @@ func made(src media.Record, args []string) media.Record {
 			out.Subtitles = append(out.Subtitles, src.Subtitles[n])
 		case a == "-c:v" && args[i+1] != "copy":
 			out.Codec = codecOf(args[i+1])
+		case a == "-vf":
+			filtered(&out, args[i+1])
+		case a == "-b:v":
+			kbps, _ := strconv.Atoi(strings.TrimSuffix(args[i+1], "k"))
+			out.Bitrate = int64(kbps) * 1000
 		}
 	}
 	return out
 }
+
+// filtered applies a -vf chain's scale and tone map to out.
+func filtered(out *media.Record, chain string) {
+	if m := scaled.FindStringSubmatch(chain); m != nil {
+		out.Width, _ = strconv.Atoi(m[1])
+		out.Height, _ = strconv.Atoi(m[2])
+	}
+	switch {
+	case strings.Contains(chain, ":t=bt709:"):
+		out.HDR, out.DolbyVision, out.BitDepth = []release.HDR{"SDR"}, nil, 8
+	case strings.Contains(chain, ":t=smpte2084:"):
+		out.HDR, out.DolbyVision = []release.HDR{"HDR10"}, nil
+	}
+}
+
+var scaled = regexp.MustCompile(`scale=w=(\d+):h=(\d+)`)
 
 // codecOf is the codec an ffmpeg encoder writes, as ffprobe names it.
 func codecOf(encoder string) string {
