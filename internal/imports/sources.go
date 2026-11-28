@@ -37,7 +37,8 @@ const (
 )
 
 var sourceRules = map[Source]sourceRule{
-	FromGrab:   {download: true, probe: onImportNode, announce: loud},
-	FromFolder: {picked: true, probe: onImportNode, announce: loud},
-	FromRoot:   {landsInPlace: true, probe: carried, announce: none},
+	FromGrab:       {download: true, probe: onImportNode, announce: loud},
+	FromFolder:     {picked: true, probe: onImportNode, announce: loud},
+	FromRoot:       {landsInPlace: true, probe: carried, announce: none},
+	FromConversion: {landsInPlace: true, probe: carried, announce: none},
 }

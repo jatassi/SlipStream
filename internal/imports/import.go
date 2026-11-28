@@ -24,6 +24,9 @@ const (
 	FromGrab   Source = "grab"
 	FromRoot   Source = "root"
 	FromFolder Source = "folder"
+	// FromConversion is a made file a Conversion hands over, already
+	// matched and probed.
+	FromConversion Source = "conversion"
 )
 
 // Import is files from one source into one Work: a finished download, a
