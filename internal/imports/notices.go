@@ -97,7 +97,7 @@ func Entries() []entry.Entry { return []entry.Entry{importedRow, upgradedRow, sc
 // in-place adoption both come through one. Neither does an Import that
 // failed, or that its Work's delete ended.
 func (im *Imports) announce(ctx context.Context, tx *storage.Tx[file], imp Import) error {
-	if imp.Source == FromRoot || !imp.atRest() || imp.endedByDelete() {
+	if sourceRules[imp.Source].announce == none || !imp.atRest() || imp.endedByDelete() {
 		return nil
 	}
 	q := db.New(tx)

@@ -39,7 +39,7 @@ func (im *Imports) hold(ctx context.Context, imp Import, f File, at StepAt) {
 
 // sourceOf is where f's bytes are on imp's Node.
 func (f *File) sourceOf(imp Import) storing.Source {
-	if imp.Source == FromGrab {
+	if sourceRules[imp.Source].download {
 		return storing.Payload{InfoHash: *imp.InfoHash, FileIndex: *f.SourceIndex}
 	}
 	return storing.NodePath{Abs: f.Path}
@@ -64,7 +64,7 @@ func (im *Imports) place(ctx context.Context, imp Import, f File) error {
 			return err
 		}
 	}
-	if imp.Source == FromRoot {
+	if sourceRules[imp.Source].landsInPlace {
 		var seen storing.Seen
 		if f.Seen != nil {
 			seen = *f.Seen

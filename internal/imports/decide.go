@@ -63,11 +63,11 @@ func outcomeOf(i int, v files.Verdict, vs []files.Verdict, anyFills bool, c outc
 	switch {
 	case v.EditionGone:
 		return waits(Reason{Code: EditionNotWanted, Edition: c.cut(i)})
-	case len(v.Meets) == 0 && (c.source == FromFolder || len(vs) == 1 && !c.othersFill):
+	case len(v.Meets) == 0 && (sourceRules[c.source].picked || len(vs) == 1 && !c.othersFill):
 		return waits(Reason{Code: MeetsNothing, Targets: targetsOf(reasonTargets(v))})
 	case len(v.Meets) == 0:
 		return outcome{To: LeftOut, Reason: &Reason{Code: MeetsNothing, Targets: targetsOf(reasonTargets(v))}}
-	case len(v.Fills) > 0 && c.source == FromFolder && !c.confirmed(i):
+	case len(v.Fills) > 0 && sourceRules[c.source].picked && !c.confirmed(i):
 		return outcome{To: Waiting, Reason: &Reason{Code: Confirm, Targets: targetsOf(v.Fills)}, Fills: fillsOf(v.Fills, c.forced(i))}
 	case len(v.Fills) > 0 && c.sends:
 		return outcome{To: Sending, Fills: fillsOf(v.Fills, c.forced(i))}
@@ -75,7 +75,7 @@ func outcomeOf(i int, v files.Verdict, vs []files.Verdict, anyFills bool, c outc
 		return outcome{To: Placing, Fills: fillsOf(v.Fills, c.forced(i))}
 	case lostToSiblings(v):
 		return outcome{To: LeftOut, Reason: &Reason{Code: SiblingBetter}}
-	case anyFills && c.source != FromFolder:
+	case anyFills && !sourceRules[c.source].picked:
 		return outcome{To: NotBetter, Reason: &Reason{Code: KeptBetter}}
 	}
 	return waits(Reason{Code: NotAnUpgrade, Targets: targetsOf(v.Meets)})

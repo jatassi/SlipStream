@@ -40,7 +40,7 @@ func groupOf(f File) string { return strconv.Itoa(f.Position) }
 
 // sentOf is what the Transfer reads for f on im's Node.
 func sentOf(im Import, f File) source.Ref {
-	if im.Source == FromGrab {
+	if sourceRules[im.Source].download {
 		return source.Torrent{Hash: *im.InfoHash, File: *f.SourceIndex}
 	}
 	return source.Path{Abs: f.Path}
