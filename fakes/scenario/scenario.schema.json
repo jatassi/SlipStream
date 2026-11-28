@@ -1041,6 +1041,71 @@
           "additionalProperties": false,
           "type": "object"
         },
+        "converting": {
+          "properties": {
+            "trial": {
+              "type": "string",
+              "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+            },
+            "stall": {
+              "type": "string",
+              "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+            },
+            "progress": {
+              "type": "string",
+              "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+            },
+            "kill_grace": {
+              "type": "string",
+              "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+            },
+            "length_tolerance": {
+              "properties": {
+                "floor": {
+                  "type": "string",
+                  "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+                },
+                "share": {
+                  "type": "number"
+                }
+              },
+              "additionalProperties": false,
+              "type": "object"
+            },
+            "speed_weight": {
+              "type": "number"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object"
+        },
+        "conversions": {
+          "properties": {
+            "drain_batch": {
+              "type": "integer"
+            },
+            "pass": {
+              "type": "string",
+              "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+            },
+            "horizon": {
+              "type": "string",
+              "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+            },
+            "assumed_rate": {
+              "type": "integer"
+            },
+            "tests_at_once": {
+              "type": "integer"
+            },
+            "landing": {
+              "type": "string",
+              "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object"
+        },
         "formats": {
           "properties": {
             "match": {

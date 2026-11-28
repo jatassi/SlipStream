@@ -26,6 +26,9 @@ func Open(ctx context.Context, cfg Config) (*Files, error) {
 	if cfg.Moves == nil {
 		cfg.Moves = NoMoves{}
 	}
+	if cfg.Conversions == nil {
+		cfg.Conversions = NoConversions{}
+	}
 	if cfg.Queue == nil {
 		cfg.Queue = searches.None{}
 	}

@@ -14,6 +14,8 @@ import (
 	"github.com/jatassi/slipstream/internal/api"
 	"github.com/jatassi/slipstream/internal/backups"
 	"github.com/jatassi/slipstream/internal/contenttype"
+	"github.com/jatassi/slipstream/internal/conversions"
+	"github.com/jatassi/slipstream/internal/converting"
 	"github.com/jatassi/slipstream/internal/downloading"
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/formats"
@@ -63,17 +65,18 @@ import (
 type Config struct {
 	Seed string `yaml:"seed"`
 	// Name is sent once, at Pair. The Controller's row owns it after.
-	Name      string            `yaml:"name"`
-	Torrent   engine.Settings   `yaml:"torrent"`
-	HTTP      api.Settings      `yaml:"http"`
-	Link      link.Settings     `yaml:"link"`
-	Join      pairing.Settings  `yaml:"join"`
-	Log       logs.Settings     `yaml:"log"`
-	Storage   storing.Settings  `yaml:"storage"`
-	Backups   backups.Settings  `yaml:"backups"`
-	Network   netmodel.Settings `yaml:"network"`
-	Endpoints EndpointsBlock    `yaml:"endpoints"`
-	Timings   TimingsBlock      `yaml:"timings"`
+	Name       string              `yaml:"name"`
+	Torrent    engine.Settings     `yaml:"torrent"`
+	HTTP       api.Settings        `yaml:"http"`
+	Link       link.Settings       `yaml:"link"`
+	Join       pairing.Settings    `yaml:"join"`
+	Log        logs.Settings       `yaml:"log"`
+	Storage    storing.Settings    `yaml:"storage"`
+	Backups    backups.Settings    `yaml:"backups"`
+	Converting converting.Settings `yaml:"converting"`
+	Network    netmodel.Settings   `yaml:"network"`
+	Endpoints  EndpointsBlock      `yaml:"endpoints"`
+	Timings    TimingsBlock        `yaml:"timings"`
 }
 
 type EndpointsBlock struct {
@@ -174,6 +177,8 @@ type TimingsBlock struct {
 	Grabs         grabs.Timings          `yaml:"grabs"`
 	Files         files.Timings          `yaml:"files"`
 	Moves         moves.Timings          `yaml:"moves"`
+	Converting    converting.Timings     `yaml:"converting"`
+	Conversions   conversions.Timings    `yaml:"conversions"`
 	Formats       formats.Timings        `yaml:"formats"`
 	Downloading   downloading.Timings    `yaml:"downloading"`
 	Media         media.Timings          `yaml:"media"`
@@ -217,12 +222,13 @@ func Defaults(types contenttype.Set, kind install.Kind) Config {
 	http := api.DefaultSettings()
 	http.PortsToTry = kind.PortsToTry()
 	return Config{
-		Name:    name,
-		Torrent: engine.DefaultSettings(),
-		HTTP:    http,
-		Log:     logs.DefaultSettings(),
-		Storage: storing.DefaultSettings(),
-		Backups: backups.DefaultSettings(),
+		Name:       name,
+		Torrent:    engine.DefaultSettings(),
+		HTTP:       http,
+		Log:        logs.DefaultSettings(),
+		Storage:    storing.DefaultSettings(),
+		Backups:    backups.DefaultSettings(),
+		Converting: converting.DefaultSettings(),
 		Endpoints: EndpointsBlock{
 			TMDB:         tmdb.DefaultEndpoints(),
 			TVDB:         tvdb.DefaultEndpoints(),
@@ -269,6 +275,8 @@ func Defaults(types contenttype.Set, kind install.Kind) Config {
 			Grabs:         grabs.DefaultTimings(),
 			Files:         files.DefaultTimings(),
 			Moves:         moves.DefaultTimings(),
+			Converting:    converting.DefaultTimings(),
+			Conversions:   conversions.DefaultTimings(),
 			Formats:       formats.DefaultTimings(),
 			Downloading:   downloading.DefaultTimings(),
 			Media:         media.DefaultTimings(),

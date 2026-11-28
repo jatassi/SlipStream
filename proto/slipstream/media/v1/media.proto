@@ -23,7 +23,15 @@ message ProbeRequest {
     Payload payload = 3;
     // path is absolute.
     string path = 4;
+    Library library = 5;
   }
+}
+
+// Library is a file in one of this Node's library roots, by the root and
+// its path inside it, which this Node resolves under its own folders.
+message Library {
+  bytes root_id = 1;
+  string rel = 2;
 }
 
 // Payload is file file_index of a torrent this Node finished.

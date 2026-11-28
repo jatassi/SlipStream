@@ -31,6 +31,7 @@ type ProbeRequest struct {
 	//
 	//	*ProbeRequest_Payload
 	//	*ProbeRequest_Path
+	//	*ProbeRequest_Library
 	Source        isProbeRequest_Source `protobuf_oneof:"source"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -91,6 +92,15 @@ func (x *ProbeRequest) GetPath() string {
 	return ""
 }
 
+func (x *ProbeRequest) GetLibrary() *Library {
+	if x != nil {
+		if x, ok := x.Source.(*ProbeRequest_Library); ok {
+			return x.Library
+		}
+	}
+	return nil
+}
+
 type isProbeRequest_Source interface {
 	isProbeRequest_Source()
 }
@@ -104,9 +114,69 @@ type ProbeRequest_Path struct {
 	Path string `protobuf:"bytes,4,opt,name=path,proto3,oneof"`
 }
 
+type ProbeRequest_Library struct {
+	Library *Library `protobuf:"bytes,5,opt,name=library,proto3,oneof"`
+}
+
 func (*ProbeRequest_Payload) isProbeRequest_Source() {}
 
 func (*ProbeRequest_Path) isProbeRequest_Source() {}
+
+func (*ProbeRequest_Library) isProbeRequest_Source() {}
+
+// Library is a file in one of this Node's library roots, by the root and
+// its path inside it, which this Node resolves under its own folders.
+type Library struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	RootId        []byte                 `protobuf:"bytes,1,opt,name=root_id,json=rootId,proto3" json:"root_id,omitempty"`
+	Rel           string                 `protobuf:"bytes,2,opt,name=rel,proto3" json:"rel,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Library) Reset() {
+	*x = Library{}
+	mi := &file_slipstream_media_v1_media_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Library) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Library) ProtoMessage() {}
+
+func (x *Library) ProtoReflect() protoreflect.Message {
+	mi := &file_slipstream_media_v1_media_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Library.ProtoReflect.Descriptor instead.
+func (*Library) Descriptor() ([]byte, []int) {
+	return file_slipstream_media_v1_media_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *Library) GetRootId() []byte {
+	if x != nil {
+		return x.RootId
+	}
+	return nil
+}
+
+func (x *Library) GetRel() string {
+	if x != nil {
+		return x.Rel
+	}
+	return ""
+}
 
 // Payload is file file_index of a torrent this Node finished.
 type Payload struct {
@@ -119,7 +189,7 @@ type Payload struct {
 
 func (x *Payload) Reset() {
 	*x = Payload{}
-	mi := &file_slipstream_media_v1_media_proto_msgTypes[1]
+	mi := &file_slipstream_media_v1_media_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -131,7 +201,7 @@ func (x *Payload) String() string {
 func (*Payload) ProtoMessage() {}
 
 func (x *Payload) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_media_v1_media_proto_msgTypes[1]
+	mi := &file_slipstream_media_v1_media_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -144,7 +214,7 @@ func (x *Payload) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Payload.ProtoReflect.Descriptor instead.
 func (*Payload) Descriptor() ([]byte, []int) {
-	return file_slipstream_media_v1_media_proto_rawDescGZIP(), []int{1}
+	return file_slipstream_media_v1_media_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *Payload) GetInfoHash() []byte {
@@ -171,7 +241,7 @@ type ProbeResponse struct {
 
 func (x *ProbeResponse) Reset() {
 	*x = ProbeResponse{}
-	mi := &file_slipstream_media_v1_media_proto_msgTypes[2]
+	mi := &file_slipstream_media_v1_media_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -183,7 +253,7 @@ func (x *ProbeResponse) String() string {
 func (*ProbeResponse) ProtoMessage() {}
 
 func (x *ProbeResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_media_v1_media_proto_msgTypes[2]
+	mi := &file_slipstream_media_v1_media_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -196,7 +266,7 @@ func (x *ProbeResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ProbeResponse.ProtoReflect.Descriptor instead.
 func (*ProbeResponse) Descriptor() ([]byte, []int) {
-	return file_slipstream_media_v1_media_proto_rawDescGZIP(), []int{2}
+	return file_slipstream_media_v1_media_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *ProbeResponse) GetRecord() []byte {
@@ -217,7 +287,7 @@ type Unprobed struct {
 
 func (x *Unprobed) Reset() {
 	*x = Unprobed{}
-	mi := &file_slipstream_media_v1_media_proto_msgTypes[3]
+	mi := &file_slipstream_media_v1_media_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -229,7 +299,7 @@ func (x *Unprobed) String() string {
 func (*Unprobed) ProtoMessage() {}
 
 func (x *Unprobed) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_media_v1_media_proto_msgTypes[3]
+	mi := &file_slipstream_media_v1_media_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -242,7 +312,7 @@ func (x *Unprobed) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Unprobed.ProtoReflect.Descriptor instead.
 func (*Unprobed) Descriptor() ([]byte, []int) {
-	return file_slipstream_media_v1_media_proto_rawDescGZIP(), []int{3}
+	return file_slipstream_media_v1_media_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *Unprobed) GetLine() string {
@@ -261,7 +331,7 @@ type TimedOut struct {
 
 func (x *TimedOut) Reset() {
 	*x = TimedOut{}
-	mi := &file_slipstream_media_v1_media_proto_msgTypes[4]
+	mi := &file_slipstream_media_v1_media_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -273,7 +343,7 @@ func (x *TimedOut) String() string {
 func (*TimedOut) ProtoMessage() {}
 
 func (x *TimedOut) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_media_v1_media_proto_msgTypes[4]
+	mi := &file_slipstream_media_v1_media_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -286,7 +356,7 @@ func (x *TimedOut) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TimedOut.ProtoReflect.Descriptor instead.
 func (*TimedOut) Descriptor() ([]byte, []int) {
-	return file_slipstream_media_v1_media_proto_rawDescGZIP(), []int{4}
+	return file_slipstream_media_v1_media_proto_rawDescGZIP(), []int{5}
 }
 
 // Outside details a path outside the Node's library roots and download
@@ -300,7 +370,7 @@ type Outside struct {
 
 func (x *Outside) Reset() {
 	*x = Outside{}
-	mi := &file_slipstream_media_v1_media_proto_msgTypes[5]
+	mi := &file_slipstream_media_v1_media_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -312,7 +382,7 @@ func (x *Outside) String() string {
 func (*Outside) ProtoMessage() {}
 
 func (x *Outside) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_media_v1_media_proto_msgTypes[5]
+	mi := &file_slipstream_media_v1_media_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -325,7 +395,7 @@ func (x *Outside) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Outside.ProtoReflect.Descriptor instead.
 func (*Outside) Descriptor() ([]byte, []int) {
-	return file_slipstream_media_v1_media_proto_rawDescGZIP(), []int{5}
+	return file_slipstream_media_v1_media_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *Outside) GetPath() string {
@@ -339,11 +409,15 @@ var File_slipstream_media_v1_media_proto protoreflect.FileDescriptor
 
 const file_slipstream_media_v1_media_proto_rawDesc = "" +
 	"\n" +
-	"\x1fslipstream/media/v1/media.proto\x12\x13slipstream.media.v1\x1a slipstream/node/v1/options.proto\"t\n" +
+	"\x1fslipstream/media/v1/media.proto\x12\x13slipstream.media.v1\x1a slipstream/node/v1/options.proto\"\xae\x01\n" +
 	"\fProbeRequest\x128\n" +
 	"\apayload\x18\x03 \x01(\v2\x1c.slipstream.media.v1.PayloadH\x00R\apayload\x12\x14\n" +
-	"\x04path\x18\x04 \x01(\tH\x00R\x04pathB\b\n" +
-	"\x06sourceJ\x04\b\x01\x10\x02J\x04\b\x02\x10\x03\"E\n" +
+	"\x04path\x18\x04 \x01(\tH\x00R\x04path\x128\n" +
+	"\alibrary\x18\x05 \x01(\v2\x1c.slipstream.media.v1.LibraryH\x00R\alibraryB\b\n" +
+	"\x06sourceJ\x04\b\x01\x10\x02J\x04\b\x02\x10\x03\"4\n" +
+	"\aLibrary\x12\x17\n" +
+	"\aroot_id\x18\x01 \x01(\fR\x06rootId\x12\x10\n" +
+	"\x03rel\x18\x02 \x01(\tR\x03rel\"E\n" +
 	"\aPayload\x12\x1b\n" +
 	"\tinfo_hash\x18\x01 \x01(\fR\binfoHash\x12\x1d\n" +
 	"\n" +
@@ -373,24 +447,26 @@ func file_slipstream_media_v1_media_proto_rawDescGZIP() []byte {
 	return file_slipstream_media_v1_media_proto_rawDescData
 }
 
-var file_slipstream_media_v1_media_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
+var file_slipstream_media_v1_media_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
 var file_slipstream_media_v1_media_proto_goTypes = []any{
 	(*ProbeRequest)(nil),  // 0: slipstream.media.v1.ProbeRequest
-	(*Payload)(nil),       // 1: slipstream.media.v1.Payload
-	(*ProbeResponse)(nil), // 2: slipstream.media.v1.ProbeResponse
-	(*Unprobed)(nil),      // 3: slipstream.media.v1.Unprobed
-	(*TimedOut)(nil),      // 4: slipstream.media.v1.TimedOut
-	(*Outside)(nil),       // 5: slipstream.media.v1.Outside
+	(*Library)(nil),       // 1: slipstream.media.v1.Library
+	(*Payload)(nil),       // 2: slipstream.media.v1.Payload
+	(*ProbeResponse)(nil), // 3: slipstream.media.v1.ProbeResponse
+	(*Unprobed)(nil),      // 4: slipstream.media.v1.Unprobed
+	(*TimedOut)(nil),      // 5: slipstream.media.v1.TimedOut
+	(*Outside)(nil),       // 6: slipstream.media.v1.Outside
 }
 var file_slipstream_media_v1_media_proto_depIdxs = []int32{
-	1, // 0: slipstream.media.v1.ProbeRequest.payload:type_name -> slipstream.media.v1.Payload
-	0, // 1: slipstream.media.v1.MediaService.Probe:input_type -> slipstream.media.v1.ProbeRequest
-	2, // 2: slipstream.media.v1.MediaService.Probe:output_type -> slipstream.media.v1.ProbeResponse
-	2, // [2:3] is the sub-list for method output_type
-	1, // [1:2] is the sub-list for method input_type
-	1, // [1:1] is the sub-list for extension type_name
-	1, // [1:1] is the sub-list for extension extendee
-	0, // [0:1] is the sub-list for field type_name
+	2, // 0: slipstream.media.v1.ProbeRequest.payload:type_name -> slipstream.media.v1.Payload
+	1, // 1: slipstream.media.v1.ProbeRequest.library:type_name -> slipstream.media.v1.Library
+	0, // 2: slipstream.media.v1.MediaService.Probe:input_type -> slipstream.media.v1.ProbeRequest
+	3, // 3: slipstream.media.v1.MediaService.Probe:output_type -> slipstream.media.v1.ProbeResponse
+	3, // [3:4] is the sub-list for method output_type
+	2, // [2:3] is the sub-list for method input_type
+	2, // [2:2] is the sub-list for extension type_name
+	2, // [2:2] is the sub-list for extension extendee
+	0, // [0:2] is the sub-list for field type_name
 }
 
 func init() { file_slipstream_media_v1_media_proto_init() }
@@ -401,6 +477,7 @@ func file_slipstream_media_v1_media_proto_init() {
 	file_slipstream_media_v1_media_proto_msgTypes[0].OneofWrappers = []any{
 		(*ProbeRequest_Payload)(nil),
 		(*ProbeRequest_Path)(nil),
+		(*ProbeRequest_Library)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
@@ -408,7 +485,7 @@ func file_slipstream_media_v1_media_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_slipstream_media_v1_media_proto_rawDesc), len(file_slipstream_media_v1_media_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   6,
+			NumMessages:   7,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
