@@ -49,9 +49,10 @@ export function useTargetSave(
     impact.save(changeOf(target, draft, works, count, onSaved));
 
   const offer = async (draft: TargetDraft, fromSave: boolean) => {
-    const { remake } = (await updateTarget(target.id, bodyOf(draft), { preview: true })).impact;
+    const { impact: previewed } = await updateTarget(target.id, bodyOf(draft), { preview: true });
+    const { remake } = previewed;
     if (fromSave && remake.older === 0) {
-      await commit(draft, [], 0);
+      await impact.saveFrom(changeOf(target, draft, [], 0, onSaved), previewed);
       return;
     }
     setRemaking({
