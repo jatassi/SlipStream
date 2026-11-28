@@ -1,0 +1,29 @@
+eo: h264 (H264 / 0x34363248), yuv420p(tv, progressive), 320x240 [SAR 1:1 DAR 4:3], q=2-31, 24 fps, 1k tbn
+    Metadata:
+      encoder         : Lavc62.28.103 libx264
+      DURATION        : 00:00:01.000000000
+    Side data:
+      CPB properties: bitrate max/min/avg: 0/0/0 buffer size: 0 vbv_delay: N/A
+[out#0/matroska @ 0x55650d1e5600] Error writing trailer: No space left on device
+[out#0/matroska @ 0x55650d1e5600] Error closing file: No space left on device
+[out#0/matroska @ 0x55650d1e5600] video:34KiB audio:0KiB subtitle:0KiB other streams:0KiB global headers:0KiB muxing overhead: 2.326583%
+frame=   24 fps=0.0 q=-1.0 Lsize=      35KiB time=00:00:00.91 bitrate= 310.9kbits/s speed=27.8x elapsed=0:00:00.03    
+[libx264 @ 0x55650d1e5c00] frame I:1     Avg QP:21.89  size:  4361
+[libx264 @ 0x55650d1e5c00] frame P:8     Avg QP:26.75  size:  1742
+[libx264 @ 0x55650d1e5c00] frame B:15    Avg QP:31.81  size:  1056
+[libx264 @ 0x55650d1e5c00] consecutive B-frames:  8.3% 25.0%  0.0% 66.7%
+[libx264 @ 0x55650d1e5c00] mb I  I16..4: 24.3% 50.0% 25.7%
+[libx264 @ 0x55650d1e5c00] mb P  I16..4:  2.3%  4.1%  1.7%  P16..4: 18.0%  9.0%  4.8%  0.0%  0.0%    skip:60.1%
+[libx264 @ 0x55650d1e5c00] mb B  I16..4:  0.2%  0.1%  0.1%  B16..8: 18.8%  7.7%  1.9%  direct: 3.0%  skip:68.4%  L0:45.7% L1:47.9% BI: 6.4%
+[libx264 @ 0x55650d1e5c00] 8x8 transform intra:49.7% inter:36.2%
+[libx264 @ 0x55650d1e5c00] coded y,uvDC,uvAC intra: 15.2% 35.8% 31.4% inter: 5.4% 14.7% 11.1%
+[libx264 @ 0x55650d1e5c00] i16 v,h,dc,p: 73% 23%  4%  0%
+[libx264 @ 0x55650d1e5c00] i8 v,h,dc,ddl,ddr,vr,hd,vl,hu: 24% 14% 60%  0%  0%  0%  0%  0%  0%
+[libx264 @ 0x55650d1e5c00] i4 v,h,dc,ddl,ddr,vr,hd,vl,hu: 44% 26% 19%  1%  1%  1%  4%  2%  1%
+[libx264 @ 0x55650d1e5c00] i8c dc,h,v,p: 50% 17% 32%  1%
+[libx264 @ 0x55650d1e5c00] Weighted P-Frames: Y:0.0% UV:0.0%
+[libx264 @ 0x55650d1e5c00] ref P L0: 67.5%  6.2% 14.9% 11.4%
+[libx264 @ 0x55650d1e5c00] ref B L0: 76.3% 19.0%  4.7%
+[libx264 @ 0x55650d1e5c00] ref B L1: 94.2%  5.8%
+[libx264 @ 0x55650d1e5c00] kb/s:273.12
+Conversion failed!

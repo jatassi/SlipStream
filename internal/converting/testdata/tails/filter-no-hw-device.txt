@@ -1,0 +1,22 @@
+Input #0, matroska,webm, from 'src.mkv':
+  Metadata:
+    ENCODER         : Lavf62.12.103
+  Duration: 00:00:01.00, start: 0.000000, bitrate: 295 kb/s
+  Stream #0:0: Video: h264 (High), yuv420p(tv, progressive), 320x240 [SAR 1:1 DAR 4:3], 24 fps, 24 tbr, 1k tbn
+    Metadata:
+      ENCODER         : Lavc62.28.103 libx264
+      DURATION        : 00:00:01.000000000
+Stream mapping:
+  Stream #0:0 -> #0:0 (h264 (native) -> h264 (libx264))
+Press [q] to stop, [?] for help
+[hwupload @ 0x7f7a40001c40] A hardware device reference is required to upload frames to.
+[Parsed_hwupload_0 @ 0x7f7a40001b40] Query format failed for 'Parsed_hwupload_0': Invalid argument
+[vf#0:0 @ 0x55d2cf6509c0] Error reinitializing filters!
+[vf#0:0 @ 0x55d2cf6509c0] Task finished with error code: -22 (Invalid argument)
+[vf#0:0 @ 0x55d2cf6509c0] Terminating thread with return code -22 (Invalid argument)
+[vost#0:0/libx264 @ 0x55d2cf645980] [enc:libx264 @ 0x55d2cf61de00] Could not open encoder before EOF
+[vost#0:0/libx264 @ 0x55d2cf645980] Task finished with error code: -22 (Invalid argument)
+[vost#0:0/libx264 @ 0x55d2cf645980] Terminating thread with return code -22 (Invalid argument)
+[out#0/matroska @ 0x55d2cf645600] Nothing was written into output file, because at least one of its streams received no packets.
+frame=    0 fps=0.0 q=0.0 Lsize=       0KiB time=N/A bitrate=N/A speed=N/A elapsed=0:00:00.00    
+Conversion failed!
