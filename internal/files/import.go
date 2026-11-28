@@ -81,7 +81,8 @@ func (f *Files) Vacant(ctx context.Context, root roots.ID, from, to string) erro
 // its bytes sit, which names it until it has a name. SourceName is its name
 // in its download, extension included, the name it keeps with renaming
 // off. Force is the cells it takes whatever it ranks, as an Admin forced
-// them, when it meets their Targets.
+// them, when it meets their Targets. Derived is a made file's provenance,
+// nil for any other.
 type Candidate struct {
 	Key         int
 	Items       []works.ItemID
@@ -94,6 +95,7 @@ type Candidate struct {
 	SourceName  string
 	Holding     string
 	Force       []CellKey
+	Derived     *Derived
 }
 
 // Batch is a Work's candidates, of one Import, zero for none, judged
@@ -150,14 +152,13 @@ func (f *Files) Judge(ctx context.Context, r storage.Reader[file], b Batch) ([]V
 // none, and PlacedBy how they got there: link, clone, copy, transfer, move,
 // in_place or converted. A candidate whose Holding is already its name
 // lands with no move. Arrival is why its Work's Conversions converge once
-// it lands, and Derived a made file's provenance, nil for any other.
+// it lands.
 type Landing struct {
 	Batch    Batch
 	Seen     storing.Seen
 	Grab     storage.UUID
 	PlacedBy string
 	Arrival  Arrival
-	Derived  *Derived
 }
 
 // Landed is a landed file, named, and the cells it fills.
@@ -197,7 +198,7 @@ func (f *Files) Import(ctx context.Context, tx *storage.Tx[file], l Landing) (La
 	case err != nil:
 		return Landed{}, err
 	}
-	j, err := f.judge(ctx, tx, l.Batch, importing, func(g *File) { g.Seen, g.GrabID, g.Derived = &l.Seen, l.Grab, l.Derived })
+	j, err := f.judge(ctx, tx, l.Batch, importing, func(g *File) { g.Seen, g.GrabID = &l.Seen, l.Grab })
 	if err != nil {
 		return Landed{}, err
 	}
@@ -294,7 +295,7 @@ func (f *Files) judge(ctx context.Context, r storage.Reader[file], b Batch, how 
 		}
 		j.fresh[i] = File{
 			ID: ID{UUID: storage.NewUUID()}, WorkID: b.Work, Items: items, Cut: c.Cut, RootID: b.Root, Path: c.Holding, Size: c.Size, Media: c.Media,
-			Quality: c.Quality, ReleaseName: c.ReleaseName, Title: c.Title, SourceName: c.SourceName,
+			Quality: c.Quality, ReleaseName: c.ReleaseName, Title: c.Title, SourceName: c.SourceName, Derived: c.Derived,
 		}
 		if landing != nil {
 			landing(&j.fresh[i])

@@ -19,6 +19,7 @@ import (
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/setting"
 	"github.com/jatassi/slipstream/internal/storage"
+	"github.com/jatassi/slipstream/internal/storing"
 	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/works"
 )
@@ -118,6 +119,7 @@ func (m made) add(t *testing.T, tree works.Tree, item int, p string, q release.Q
 		var err error
 		out, err = files.Add(ctx, tx, files.File{
 			WorkID: tree.ID, Items: []works.ItemID{tree.Items[item].ID}, Cut: release.Standard, RootID: m.root.ID, Path: p, Size: 1024, Quality: q, Derived: derived,
+			Seen: &storing.Seen{Modified: today, ID: storing.FileID{Volume: volume, File: p}},
 		}, fills)
 		return err
 	})
@@ -126,6 +128,9 @@ func (m made) add(t *testing.T, tree works.Tree, item int, p string, q release.Q
 	}
 	return out
 }
+
+// volume is the volume every file add records.
+const volume = "vol-1"
 
 func (m made) version() int { return m.mobile.Conversion.Version }
 
@@ -154,9 +159,9 @@ func TestAMadeFileLandsInEveryTargetItMeetsUnderItsKeptNameWithItsProvenance(t *
 	var landed files.Landed
 	err = m.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		c := holdingOf(tree, 0, holding, 4, media.Record{Video: media.Video{Width: 1920, Height: 800}}, release.Bluray1080p)
-		c.SourceName = kept
+		c.SourceName, c.Derived = kept, &provenance
 		landed, err = svc.Import(ctx, tx, files.Landing{
-			Batch: files.Batch{Work: tree.ID, Root: m.root.ID, Import: conversion, Candidates: []files.Candidate{c}}, PlacedBy: "converted", Arrival: files.ArrivalMade, Derived: &provenance,
+			Batch: files.Batch{Work: tree.ID, Root: m.root.ID, Import: conversion, Candidates: []files.Candidate{c}}, PlacedBy: "converted", Arrival: files.ArrivalMade,
 		})
 		return err
 	})
@@ -404,7 +409,32 @@ func TestAMadeFromCellIsSourcedThroughTheFileItsSourceCellsMadeFileWasMadeFrom(t
 	if !slices.Equal(rows, want) {
 		t.Fatalf("Sourced = %+v, want %+v: Tiny is made from the UHD file Mobile's made file came from", rows, want)
 	}
-	if located.Root != m.root.ID || located.Node != m.root.Node || located.Rel.String() != source.Path || located.Name != "uhd.mkv" {
+	if located.Root != m.root.ID || located.Node != m.root.Node || located.Rel.String() != source.Path || located.Name != "uhd.mkv" || located.Volume != volume {
 		t.Fatalf("Located = %+v, want the UHD file in its root on its Node", located)
+	}
+}
+
+func TestAMadeCandidateIsJudgedAsMade(t *testing.T) {
+	for _, c := range []struct {
+		sourcing targets.Sourcing
+		fills    bool
+	}{
+		{targets.DownloadThenDerive, false},
+		{targets.Derive, true},
+	} {
+		t.Run(string(c.sourcing), func(t *testing.T) {
+			m := newMade(t)
+			p := m.madeProfile(t, "Movies", c.sourcing)
+			tree := m.work(t, "w1", true, &p)
+			source := m.add(t, tree, 0, "Shelf w1/uhd.mkv", release.WEBDL2160p, nil, m.uhd.ID)
+			m.add(t, tree, 0, "Shelf w1/web.mkv", release.WEBDL1080p, nil, m.mobile.ID)
+			made := holdingOf(tree, 0, files.HoldingOf(storage.NewUUID(), ".mkv"), 4, media.Record{}, release.Bluray1080p)
+			made.Derived = &files.Derived{From: source.ID, Target: m.mobile.ID, Version: m.version()}
+
+			v := m.judge(t, m.files(files.NoGrabs{}), tree.ID, made)
+			if fills := slices.Contains(targetsOf(v.Fills), m.mobile.ID); fills != c.fills {
+				t.Fatalf("a made Bluray against a downloaded WEB-DL at Mobile fills it: %t, want %t", fills, c.fills)
+			}
+		})
 	}
 }

@@ -1,5 +1,7 @@
 package imports
 
+import "github.com/jatassi/slipstream/internal/files"
+
 // sourceRule is what an Import's Source decides about it.
 type sourceRule struct {
 	// download: its files are a Grab's torrent payload, its faults and a
@@ -17,6 +19,8 @@ type sourceRule struct {
 	landsInPlace bool
 	probe        probeAt
 	announce     announcing
+	// arrival is why a landed file's Work has its Conversions converge.
+	arrival files.Arrival
 }
 
 // probeAt is where a file's media record comes from.
@@ -37,8 +41,8 @@ const (
 )
 
 var sourceRules = map[Source]sourceRule{
-	FromGrab:       {download: true, probe: onImportNode, announce: loud},
-	FromFolder:     {picked: true, probe: onImportNode, announce: loud},
-	FromRoot:       {landsInPlace: true, probe: carried, announce: none},
-	FromConversion: {landsInPlace: true, probe: carried, announce: none},
+	FromGrab:       {download: true, probe: onImportNode, announce: loud, arrival: files.ArrivalNew},
+	FromFolder:     {picked: true, probe: onImportNode, announce: loud, arrival: files.ArrivalNew},
+	FromRoot:       {landsInPlace: true, probe: carried, announce: none, arrival: files.ArrivalAdopted},
+	FromConversion: {landsInPlace: true, probe: carried, announce: none, arrival: files.ArrivalMade},
 }

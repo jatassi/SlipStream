@@ -96,7 +96,7 @@ func TestACellsSourcingDecidesWhetherItIsSearched(t *testing.T) {
 func TestAMadeFromCellReadsItsConversionAndAMadeFileNeverMeetsADownloadedOrMadeCell(t *testing.T) {
 	waiting := files.ConversionCell{ID: storage.NewUUID(), Unfinished: true}
 	due := files.ConversionCell{ID: storage.NewUUID(), Unfinished: true, Due: true}
-	failed := files.ConversionCell{ID: storage.NewUUID(), Unfinished: true, Failed: true, Due: true, Code: "encoder_failed"}
+	failed := files.ConversionCell{ID: storage.NewUUID(), Unfinished: true, Failed: true, Due: true, Code: "encoder_failed", Class: "run"}
 	for _, c := range []struct {
 		name     string
 		sourcing targets.Sourcing
@@ -159,8 +159,8 @@ func checkNeeds(t *testing.T, needs []files.Need, kinds []files.NeedKind, failed
 	got := make([]files.NeedKind, len(needs))
 	for i, n := range needs {
 		got[i] = n.Kind
-		if n.Kind == files.NeedConversionFailed && (n.Conversion != failed.ID || n.Code != failed.Code || n.Target != target) {
-			t.Fatalf("the failed Conversion's need is %+v, want its Conversion, fault and Target", n)
+		if n.Kind == files.NeedConversionFailed && (n.Conversion != failed.ID || n.Code != failed.Code || n.Class != failed.Class || n.Target != target) {
+			t.Fatalf("the failed Conversion's need is %+v, want its Conversion, fault, class and Target", n)
 		}
 	}
 	if !slices.Equal(got, kinds) {

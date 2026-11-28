@@ -261,7 +261,7 @@ func (im *Imports) land(ctx context.Context, imp Import, f File, seen storing.Se
 		}
 		landed, err := im.cfg.Files.Import(ctx, tx, files.Landing{
 			Batch: files.Batch{Work: cur.Work, Root: g.Dest.Root, Import: cur.ID.UUID, Candidates: cands},
-			Seen:  seen, Grab: cur.Grab.UUID, PlacedBy: string(by),
+			Seen:  seen, Grab: cur.Grab.UUID, PlacedBy: string(by), Arrival: sourceRules[cur.Source].arrival,
 		})
 		var refused *files.Refused
 		switch {

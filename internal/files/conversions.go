@@ -59,8 +59,8 @@ func (NoConversions) Remakes(context.Context, *storage.Tx[file], targets.TargetI
 }
 
 // ConversionCell is a made-from cell's Conversion: Due once its download
-// wait has passed. Node is where it is placed, nil while it is not, and
-// Code a failed one's fault.
+// wait has passed. Node is where it is placed, nil while it is not, Code a
+// failed one's fault and Class that fault's class, run or source.
 type ConversionCell struct {
 	ID                 storage.UUID
 	Unfinished, Failed bool
@@ -69,6 +69,7 @@ type ConversionCell struct {
 	Node               *role.NodeID
 	NodeName           string
 	Code               string
+	Class              string
 }
 
 func (v ConversionCell) Converting() bool { return v.Unfinished && !v.Failed && v.Due }
