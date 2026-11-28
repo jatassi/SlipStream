@@ -18,7 +18,8 @@ type Need struct {
 	Items   []works.ItemID
 	Edition targets.Edition
 	// Target is the first failed Target of a NeedFailed, in Profile order,
-	// and Waiting the Targets of its Items and Edition still missing.
+	// or a NeedConversionFailed's Target, and Waiting the Targets of its
+	// Items and Edition still missing.
 	Target  targets.TargetID
 	Waiting []targets.TargetID
 	// Upgrades is every upgradable Target of a NeedUpgrade's Items and
@@ -66,6 +67,7 @@ const (
 // of each. Each counted Item and Edition gives one entry from its wanted
 // cells: a failure, which its still missing Targets wait on, else its
 // upgrades and, when its latest search found nothing, its missing cells.
+// Each of its cells whose Conversion failed gives one more.
 // Each Grab that waits on an Admin for a counted Item gives one,
 // and a rootless Work with a wanted cell one more. An Item that doesn't
 // count gives none. Entries sort by kind, then Edition, then tree order,
@@ -89,6 +91,7 @@ func needs(items []works.Item, cells []Cell, grabs map[CellKey]GrabCell, rooted 
 			wanted = wanted || c.Wanted()
 		}
 		out = append(out, wantedNeeds(group, grabs)...)
+		out = append(out, conversionNeeds(group)...)
 	}
 	if !rooted && wanted {
 		out = append(out, Need{Kind: NeedNoRoot})
@@ -134,6 +137,21 @@ func wantedNeeds(group []Cell, grabs map[CellKey]GrabCell) []Need {
 	}
 	if notFound != nil {
 		out = append(out, Need{Kind: NeedNotFound, Items: at, Edition: head.Edition, Group: notFound.Group})
+	}
+	return out
+}
+
+// conversionNeeds is an entry for each cell of group whose Conversion
+// failed.
+func conversionNeeds(group []Cell) []Need {
+	var out []Need
+	for _, c := range group {
+		if c.State == Failed && c.Conversion != nil {
+			out = append(out, Need{
+				Kind: NeedConversionFailed, Items: []works.ItemID{c.Item.ID}, Edition: c.Edition, Target: c.Target.ID,
+				Conversion: c.Conversion.ID, Code: c.Conversion.Code,
+			})
+		}
 	}
 	return out
 }
@@ -189,7 +207,7 @@ func runs(items []works.Item, ns []Need) []Need {
 func same(a, b Need) bool {
 	failuresOfAnyGrabJoin := a.Kind == NeedFailed
 	return a.Kind == b.Kind && a.Edition == b.Edition && a.Target == b.Target && (failuresOfAnyGrabJoin || a.Grab == b.Grab) &&
-		a.Code == b.Code && a.FailedAt == b.FailedAt && a.Group == b.Group && slices.Equal(a.Waiting, b.Waiting) && slices.Equal(a.Upgrades, b.Upgrades)
+		a.Code == b.Code && a.Conversion == b.Conversion && a.FailedAt == b.FailedAt && a.Group == b.Group && slices.Equal(a.Waiting, b.Waiting) && slices.Equal(a.Upgrades, b.Upgrades)
 }
 
 func (c Cell) key() CellKey { return CellKey{Item: c.Item.ID, Edition: c.Edition, Target: c.Target.ID} }

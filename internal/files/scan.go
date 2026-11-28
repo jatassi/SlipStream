@@ -66,7 +66,8 @@ type Scanned struct {
 // as gone or live as it was, else its transition is dropped. A found
 // file, or a move's new path, that a row, a move or a doomed file names
 // now is dropped too. A Work no longer in Root is ErrRootChanged. The
-// Media Servers are told each change the Write records.
+// Media Servers are told each change the Write records, and the Work's
+// Conversions converge after it commits.
 func (f *Files) Scan(ctx context.Context, tx *storage.Tx[file], s Scan) (Scanned, error) {
 	root, err := roots.OfWork(ctx, tx, s.Work)
 	switch {
@@ -127,6 +128,9 @@ func (f *Files) Scan(ctx context.Context, tx *storage.Tx[file], s Scan) (Scanned
 		return Scanned{}, err
 	}
 	if err := f.apply(ctx, tx, p, nil); err != nil {
+		return Scanned{}, err
+	}
+	if err := f.cfg.Conversions.Queue(ctx, tx, Ask{Work: s.Work, Why: ArrivalAdopted, Since: sc.now.Time()}); err != nil {
 		return Scanned{}, err
 	}
 	return Scanned{Changed: true, Dropped: sc.dropped}, f.tell(ctx, tx, sc.went)

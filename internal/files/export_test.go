@@ -4,10 +4,20 @@ import (
 	"context"
 
 	"github.com/jatassi/slipstream/internal/storage"
+	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
 var SearchesOf = searchesOf
+
+// downloaded is the Goals of a Profile that downloads each of ts.
+func downloaded(ts ...targets.Target) targets.Goals {
+	g := targets.Goals{Targets: ts}
+	for _, t := range ts {
+		g.Profile.Entries = append(g.Profile.Entries, targets.Entry{Target: t.ID, Sourcing: targets.Download})
+	}
+	return g
+}
 
 // ScoresFromScratch is the score of each cell of work that refill fills
 // in r when no file fills any cell yet.

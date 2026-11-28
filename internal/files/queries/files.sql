@@ -1,10 +1,12 @@
 -- name: InsertFile :exec
 INSERT INTO files_file (id, work_id, cut, root_id, path, size, probe, grab_id, quality, label, extra,
-    release_name, title_read, modified_at, node_file_id, node_volume_id, probed_at, source_name)
+    release_name, title_read, modified_at, node_file_id, node_volume_id, probed_at, source_name,
+    derived, derived_from_file_id, derived_target_id, conversion_version)
 VALUES (sqlc.arg(id), sqlc.arg(work_id), sqlc.arg(cut), sqlc.arg(root_id), sqlc.arg(path),
     sqlc.arg(size), sqlc.arg(probe), sqlc.arg(grab_id), sqlc.arg(quality), sqlc.arg(label), sqlc.arg(extra),
     sqlc.arg(release_name), sqlc.arg(title_read), sqlc.arg(modified_at), sqlc.arg(node_file_id), sqlc.arg(node_volume_id),
-    sqlc.arg(probed_at), sqlc.narg(source_name));
+    sqlc.arg(probed_at), sqlc.narg(source_name),
+    sqlc.arg(derived), sqlc.arg(derived_from_file_id), sqlc.arg(derived_target_id), sqlc.narg(conversion_version));
 
 -- name: InsertFileItem :exec
 INSERT INTO files_file_item (file_id, item_id, position) VALUES (sqlc.arg(file_id), sqlc.arg(item_id), sqlc.arg(position));
@@ -56,10 +58,10 @@ SELECT id, work_id, release_name FROM files_file WHERE work_id IN (sqlc.slice(wo
 SELECT * FROM files_file ORDER BY rowid;
 
 -- name: ListBriefFilesOfWorks :many
-SELECT id, work_id, cut, root_id, size, quality, extra, gone_at FROM files_file WHERE work_id IN (sqlc.slice(work_ids)) ORDER BY work_id;
+SELECT id, work_id, cut, root_id, size, quality, extra, gone_at, derived, derived_from_file_id, derived_target_id, conversion_version FROM files_file WHERE work_id IN (sqlc.slice(work_ids)) ORDER BY work_id;
 
 -- name: ListEveryBriefFile :many
-SELECT id, work_id, cut, root_id, size, quality, extra, gone_at FROM files_file ORDER BY rowid;
+SELECT id, work_id, cut, root_id, size, quality, extra, gone_at, derived, derived_from_file_id, derived_target_id, conversion_version FROM files_file ORDER BY rowid;
 
 -- name: ListUnreadFiles :many
 SELECT id, work_id, grab_id, path FROM files_file WHERE title_read IS NULL ORDER BY id;
@@ -299,7 +301,7 @@ WHERE import_id IN (sqlc.slice(import_ids)) ORDER BY import_id, at, id;
 -- name: ListTalliesSince :many
 SELECT import_id, CAST(min(json_array_length(replaced) > 0) AS INTEGER) AS upgraded FROM files_imported
 WHERE import_id IN (SELECT DISTINCT i.import_id FROM files_imported i INDEXED BY files_imported_at
-    WHERE i.at >= sqlc.arg(since) AND i.import_id IS NOT NULL)
+    WHERE i.at >= sqlc.arg(since) AND i.import_id IS NOT NULL AND i.placed_by <> 'converted')
 GROUP BY import_id ORDER BY import_id;
 
 -- name: PlacesOf :many

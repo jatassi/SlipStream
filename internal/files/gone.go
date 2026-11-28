@@ -166,7 +166,7 @@ func LeftIn(ctx context.Context, r storage.Reader[file], ws []works.WorkID) ([]F
 	return out, nil
 }
 
-// ErrNoFile is a Forget naming an id no file has.
+// ErrNoFile is an id no file has, or for Located no live file.
 var ErrNoFile = errors.New("no file has that id")
 
 // NotGoneError is a Forget naming files a scan hasn't found gone: the

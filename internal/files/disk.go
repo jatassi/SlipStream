@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"maps"
 	"path"
 	"slices"
 	"strings"
@@ -626,8 +627,9 @@ func (f *Files) removeHeld(ctx context.Context, root roots.ID, e held) error {
 }
 
 // claims is what the held folders may keep: every live file's id and
-// every path an unfinished import claims in holding, with the .part a
-// copy to it writes first, and every live Transfer's id in staging.
+// every path an unfinished import or Conversion claims in holding, with
+// the .part a copy or ffmpeg writes first, and every live Transfer's id in
+// staging.
 type claims struct {
 	holding, staging map[storage.UUID]bool
 	paths            map[roots.ID]map[string]bool
@@ -664,17 +666,11 @@ func (f *Files) claimed(ctx context.Context, rs []roots.ID) (claims, error) {
 		if err != nil {
 			return err
 		}
-		if c.paths == nil {
-			c.paths = map[roots.ID]map[string]bool{}
+		writing, err := f.cfg.Conversions.Holding(ctx, r)
+		if err != nil {
+			return err
 		}
-		for root, rels := range reserved {
-			if c.paths[root] == nil {
-				c.paths[root] = map[string]bool{}
-			}
-			for _, rel := range rels {
-				c.paths[root][rel.String()] = true
-			}
-		}
+		c.paths = merged(c.paths, writing, reserved)
 		live, err := f.cfg.Transfers(ctx, r)
 		for id := range live {
 			c.staging[id.UUID] = true
@@ -682,6 +678,29 @@ func (f *Files) claimed(ctx context.Context, rs []roots.ID) (claims, error) {
 		return err
 	})
 	return c, err
+}
+
+// merged is paths with every name of writing and every path of reserved,
+// by root.
+func merged(paths, writing map[roots.ID]map[string]bool, reserved map[roots.ID][]storing.Rel) map[roots.ID]map[string]bool {
+	if paths == nil {
+		paths = map[roots.ID]map[string]bool{}
+	}
+	at := func(root roots.ID) map[string]bool {
+		if paths[root] == nil {
+			paths[root] = map[string]bool{}
+		}
+		return paths[root]
+	}
+	for root, names := range writing {
+		maps.Copy(at(root), names)
+	}
+	for root, rels := range reserved {
+		for _, rel := range rels {
+			at(root)[rel.String()] = true
+		}
+	}
+	return paths
 }
 
 // holds reports whether a live file's bytes are recorded at p in root.

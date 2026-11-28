@@ -38,7 +38,7 @@ func reasonOf(c Cell) (Reason, bool) {
 		return ReasonGone, true
 	case c.State == Failed || c.Search.Stopped:
 		return ReasonFailed, true
-	case c.State == Missing:
+	case c.State == Missing || c.State == Converting && c.File == nil:
 		return ReasonMissing, true
 	}
 	return ReasonUpgrade, true

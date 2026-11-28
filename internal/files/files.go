@@ -80,6 +80,9 @@ type File struct {
 	// SourceName is its name, extension included, in its download or
 	// where a scan found it, "" when unknown. It never changes.
 	SourceName string
+	// Derived is a made file's provenance, nil for a downloaded or scanned
+	// file.
+	Derived *Derived
 }
 
 // Gone reports whether a scan found f's bytes absent from its root.
@@ -95,6 +98,7 @@ func (f File) Kept() bool { return f.Extra > 0 && !f.Gone() }
 func (f File) Facts() release.Facts {
 	facts := f.Title.Facts.WithProbe(f.Media.Probed())
 	facts.Quality, facts.Cut, facts.Size = release.Known(f.Quality), f.Cut, release.Known(f.Size)
+	facts.Derived = f.Derived != nil
 	return facts
 }
 
@@ -110,7 +114,18 @@ func fileOf(row db.FilesFile) File {
 	if row.SourceName != nil {
 		f.SourceName = *row.SourceName
 	}
+	if row.Derived {
+		f.Derived = derivedOf(row.DerivedFromFileID, row.DerivedTargetID, row.ConversionVersion)
+	}
 	return f
+}
+
+func derivedOf(from ID, target targets.TargetID, version *int64) *Derived {
+	d := &Derived{From: from, Target: target}
+	if version != nil {
+		d.Version = int(*version)
+	}
+	return d
 }
 
 // seenOf is what a row records of a file's bytes, nil while nothing read
@@ -208,11 +223,15 @@ func insertFile(ctx context.Context, q *db.Queries, f File) error {
 	if f.SourceName != "" {
 		source = &f.SourceName
 	}
-	err := q.InsertFile(ctx, db.InsertFileParams{
+	row := db.InsertFileParams{
 		ID: f.ID, WorkID: f.WorkID, Cut: f.Cut, RootID: f.RootID, Path: f.Path, Size: f.Size, Probe: f.Media,
 		GrabID: f.GrabID, Quality: f.Quality, Label: f.Label, Extra: f.Extra, ReleaseName: f.ReleaseName, TitleRead: db.Reading{Read: f.Title},
 		ModifiedAt: modified, NodeFileID: file, NodeVolumeID: volume, ProbedAt: f.ProbedAt, SourceName: source,
-	})
+	}
+	if d := f.Derived; d != nil {
+		row.Derived, row.DerivedFromFileID, row.DerivedTargetID, row.ConversionVersion = true, d.From, d.Target, new(int64(d.Version))
+	}
+	err := q.InsertFile(ctx, row)
 	if err != nil {
 		return err
 	}
@@ -255,7 +274,8 @@ type CellKey struct {
 // Cell is one Edition at one Target of one Item, in the State computed on
 // read. File is set when a file fills the cell and Score is its score at
 // the Target: Met once the file's quality is at or past the Target's
-// cutoff and Score at or above its upgrade-until. Short of that, a
+// cutoff and Score at or above its upgrade-until, unless it is a made file
+// in a "Downloaded, or made from" cell. Short of that, a
 // Downloading or Failed cell keeps the file its Grab would replace, and
 // is Upgradable with no such Grab. Grab is the Grab a Downloading or
 // Failed cell reads from, or a Met cell's Grab in flight. Doing is what
@@ -339,9 +359,28 @@ type Fill struct {
 }
 
 // Wanted is whether a search should try to fill the cell: a missing,
-// failed or upgradable cell of a counted, released Item.
+// failed or upgradable cell of a counted, released Item. A "Made from"
+// cell is never searched, and a "Downloaded, or made from" cell is
+// searched while it converts too.
 func (c Cell) Wanted() bool {
-	return c.Item.Counts() && c.Released && (c.State == Missing || c.State == Failed || c.State == Upgradable)
+	if !c.Item.Counts() || !c.Released {
+		return false
+	}
+	searched := c.State == Missing || c.State == Failed || c.State == Upgradable
+	switch c.Sourcing {
+	case targets.Download:
+		return searched
+	case targets.DownloadThenDerive:
+		return searched || c.State == Converting
+	}
+	return false
+}
+
+// awaitsDownload reports whether c is a "Downloaded, or made from" cell
+// that a made file fills: it never reads Met, so it stays searched until
+// a download fills it.
+func (c Cell) awaitsDownload() bool {
+	return c.Sourcing == targets.DownloadThenDerive && c.File != nil && c.File.Derived != nil
 }
 
 // Searchable is whether automatic search may fill the cell: wanted, not

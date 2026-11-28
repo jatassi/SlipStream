@@ -147,14 +147,17 @@ func (f *Files) Judge(ctx context.Context, r storage.Reader[file], b Batch) ([]V
 
 // Landing is a Batch of one candidate to land: Seen is what placing its
 // bytes at Holding read of them, Grab the Grab that brought it, zero for
-// none, and PlacedBy how they got there: link, clone, copy, transfer, move
-// or in_place. A candidate whose Holding is already its name lands with no
-// move.
+// none, and PlacedBy how they got there: link, clone, copy, transfer, move,
+// in_place or converted. A candidate whose Holding is already its name
+// lands with no move. Arrival is why its Work's Conversions converge once
+// it lands, and Derived a made file's provenance, nil for any other.
 type Landing struct {
 	Batch    Batch
 	Seen     storing.Seen
 	Grab     storage.UUID
 	PlacedBy string
+	Arrival  Arrival
+	Derived  *Derived
 }
 
 // Landed is a landed file, named, and the cells it fills.
@@ -181,8 +184,9 @@ func (e *Refused) Error() string {
 // fills, with forced_at on each cell it takes by Force, the files it
 // dooms (the one delete that never asks, ADR 0002), the renames it causes,
 // the move from Holding to its name and a files_imported row with a
-// snapshot of each file it replaced. The disk queue does the IO once tx
-// commits; the caller pokes it. A file whose bytes already sit at its name
+// snapshot of each file it replaced. Unless a Conversion made it, the
+// Work's Conversions converge after tx commits. The disk queue does the IO
+// once tx commits; the caller pokes it. A file whose bytes already sit at its name
 // is added for the Media Servers here. A Work no longer in the Batch's
 // Root is ErrRootChanged, and a file its judge refuses *Refused.
 func (f *Files) Import(ctx context.Context, tx *storage.Tx[file], l Landing) (Landed, error) {
@@ -193,7 +197,7 @@ func (f *Files) Import(ctx context.Context, tx *storage.Tx[file], l Landing) (La
 	case err != nil:
 		return Landed{}, err
 	}
-	j, err := f.judge(ctx, tx, l.Batch, importing, func(g *File) { g.Seen, g.GrabID = &l.Seen, l.Grab })
+	j, err := f.judge(ctx, tx, l.Batch, importing, func(g *File) { g.Seen, g.GrabID, g.Derived = &l.Seen, l.Grab, l.Derived })
 	if err != nil {
 		return Landed{}, err
 	}
@@ -218,6 +222,11 @@ func (f *Files) Import(ctx context.Context, tx *storage.Tx[file], l Landing) (La
 	}
 	if inPlace {
 		if err := f.tell(ctx, tx, []fact{{file: g.ID, root: g.RootID, to: g.Path}}); err != nil {
+			return Landed{}, err
+		}
+	}
+	if l.Arrival != ArrivalMade {
+		if err := f.cfg.Conversions.Queue(ctx, tx, Ask{Work: l.Batch.Work, Why: l.Arrival, Since: storage.Now().Time()}); err != nil {
 			return Landed{}, err
 		}
 	}
@@ -668,8 +677,9 @@ func queueMove(ctx context.Context, q *db.Queries, g File, to string) error {
 // doom removes d from the library and queues its bytes' removal from
 // wherever they sit: its path, or where its move had taken them. A
 // doomed move keeps its origin, where a Media Server still lists d.
-// Subtitles hears that d leaves, for by or for nothing, while its row is
-// still there.
+// Subtitles and Conversions hear that d leaves, for by or for nothing,
+// while its row is still there, and its Work's Conversions converge after
+// tx commits.
 func (f *Files) doom(ctx context.Context, tx *storage.Tx[file], q *db.Queries, d File, by ID) error {
 	var moving, origin *string
 	at, err := q.GetMove(ctx, d.ID)
@@ -683,6 +693,12 @@ func (f *Files) doom(ctx context.Context, tx *storage.Tx[file], q *db.Queries, d
 		return err
 	}
 	if err := f.cfg.Subtitles.Leaving(ctx, tx, d, by); err != nil {
+		return err
+	}
+	if err := f.cfg.Conversions.Leaving(ctx, tx, d, by); err != nil {
+		return err
+	}
+	if err := f.cfg.Conversions.Queue(ctx, tx, Ask{Work: d.WorkID, Why: ArrivalChanged, Since: storage.Now().Time()}); err != nil {
 		return err
 	}
 	return q.DeleteFile(ctx, d.ID)

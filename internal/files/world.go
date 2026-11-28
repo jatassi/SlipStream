@@ -30,9 +30,11 @@ type world struct {
 	// scoring is what the files match of the formats goals score.
 	scoring *scoring
 	grabs   map[CellKey]GrabCell
-	search  map[CellKey]SearchFact
-	lost    map[roots.ID]bool
-	timing  map[works.ItemID]targets.Timing
+	// converting is the Conversion behind each made-from cell.
+	converting map[CellKey]ConversionCell
+	search     map[CellKey]SearchFact
+	lost       map[roots.ID]bool
+	timing     map[works.ItemID]targets.Timing
 	// seen is each Item's sighted cuts and its files' cuts; cuts is every
 	// cut, which names files.
 	seen  map[works.ItemID][]release.CutKey
@@ -131,6 +133,10 @@ func (f *Files) worlds(ctx context.Context, r storage.Reader[file], trees []work
 	if err != nil {
 		return nil, err
 	}
+	converting, err := f.cfg.Conversions.Cells(ctx, r, among)
+	if err != nil {
+		return nil, err
+	}
 	lost, err := roots.LostIn(ctx, r)
 	if err != nil {
 		return nil, err
@@ -144,7 +150,7 @@ func (f *Files) worlds(ctx context.Context, r storage.Reader[file], trees []work
 	for i, t := range trees {
 		out[i] = world{
 			tree: t, goals: goals[t.ID], root: homes[t.ID], scoring: newScoring(catalog, goals[t.ID], originals[t.ID]),
-			grabs: grabs, search: search, lost: lost, timing: timing, seen: seen, cuts: known, today: today,
+			grabs: grabs, converting: converting, search: search, lost: lost, timing: timing, seen: seen, cuts: known, today: today,
 		}
 	}
 	if err := shelve(ctx, db.New(r), out, among, read, seen); err != nil {
@@ -224,8 +230,8 @@ func wholeFiles(ctx context.Context, q *db.Queries, among works.Among[works.Work
 	return out, err
 }
 
-// briefFiles reads only what cells and a Rollup read of each file: not its
-// path, media record, stamps, Grab or label.
+// briefFiles reads only what cells and a Rollup read of each file, its
+// provenance included: not its path, media record, stamps, Grab or label.
 func briefFiles(ctx context.Context, q *db.Queries, among works.Among[works.WorkID]) ([]File, error) {
 	rows, err := works.Read(among, func() ([]db.ListEveryBriefFileRow, error) { return q.ListEveryBriefFile(ctx) }, func(ids []works.WorkID) ([]db.ListEveryBriefFileRow, error) {
 		rows, err := q.ListBriefFilesOfWorks(ctx, ids)
@@ -238,6 +244,9 @@ func briefFiles(ctx context.Context, q *db.Queries, among works.Among[works.Work
 	out := make([]File, len(rows))
 	for i, row := range rows {
 		out[i] = File{ID: row.ID, WorkID: row.WorkID, Cut: row.Cut, RootID: row.RootID, Size: row.Size, Quality: row.Quality, Extra: row.Extra, GoneAt: row.GoneAt}
+		if row.Derived {
+			out[i].Derived = derivedOf(row.DerivedFromFileID, row.DerivedTargetID, row.ConversionVersion)
+		}
 	}
 	return out, err
 }
@@ -315,7 +324,8 @@ func (w world) byID() map[ID]*File {
 
 // cells crosses each Item with each Edition it wants, in list order, and
 // the Profile's Targets in order. A cell filled with a final file is met.
-// Else a Grab in flight makes it downloading and a failed one failed,
+// Else a Grab in flight makes it downloading, a due Conversion converting
+// and a failed Grab, or a "Made from" cell's failed Conversion, failed,
 // keeping the file it would replace. Else a filled cell is upgradable, an
 // empty one unreleased until the Item is out, else missing. A file in a
 // lost root leaves its cell empty. A cut not seen for the Item makes no
@@ -336,34 +346,40 @@ func appendCells(out []Cell, w world) []Cell {
 		timing := w.timing[it.ID]
 		released := timing.ReleasedBy(w.today)
 		for _, e := range targets.Wanted(w.goals.Editions, w.seen[it.ID]) {
-			for _, t := range w.goals.Targets {
+			for i, t := range w.goals.Targets {
 				key := CellKey{Item: it.ID, Edition: e, Target: t.ID}
-				c := Cell{Item: it, Edition: e, Target: t, State: Missing, Timing: timing, Released: released}
+				row := w.goals.Profile.Entries[i]
+				c := Cell{Item: it, Edition: e, Target: t, State: Missing, Timing: timing, Released: released, Sourcing: row.Sourcing, From: row.From}
 				if fill, ok := w.fills[key]; ok && !w.lost[files[fill.File].RootID] {
 					c.File, c.Score = files[fill.File], fill.Score
 				}
 				c.Gone = c.File == nil && slices.ContainsFunc(goneOf[it.ID], func(g *File) bool { return wouldFill(c, *g) })
 				c.Search = w.searchOf(key)
-				out = append(out, stated(c, w.grabs[key]))
+				out = append(out, stated(c, w.grabs[key], w.converting[key]))
 			}
 		}
 	}
 	return out
 }
 
-// stated is c in the state its file and g, the Grab it reads from, give
-// it. A Met cell keeps the Grab in flight for it, if any.
-func stated(c Cell, g GrabCell) Cell {
+// stated is c in the state its file, g, the Grab it reads from, and v,
+// its Conversion, give it. A Met cell keeps the Grab in flight for it, if
+// any. A Conversion still in its download wait leaves its cell as it is.
+func stated(c Cell, g GrabCell, v ConversionCell) Cell {
 	switch {
-	case c.File != nil && final(c.Target, *c.File, c.Score):
+	case c.File != nil && final(c.Target, *c.File, c.Score) && !c.awaitsDownload():
 		c.State = Met
 		if g.InFlight() {
 			c.Grab, c.Doing = g.Grab, g.Doing
 		}
 	case g.InFlight():
 		c.State, c.Grab, c.Doing = Downloading, g.Grab, g.Doing
+	case v.Converting():
+		c.State, c.Conversion = Converting, &v
 	case g.State == GrabFailed:
 		c.State, c.Grab = Failed, g.Grab
+	case v.Failed && c.Sourcing == targets.Derive:
+		c.State, c.Conversion = Failed, &v
 	case c.File != nil:
 		c.State = Upgradable
 	case !c.Released:

@@ -11,7 +11,9 @@ import (
 // tie the incumbent keeps the cell, then the oldest file. A fresh file
 // forcing the cell takes it whatever it ranks. A forced fill keeps its file
 // unless the best file is one arriving now, from another Import. Each fill
-// holds its file's score at the Target. It reads w.fills only to find
+// holds its file's score at the Target. In a "Downloaded, or made from"
+// cell a made file loses to any download that meets the Target, whatever
+// they rank. It reads w.fills only to find
 // incumbents, so refilling its own answer changes nothing. Size never
 // decides a fill: a file past a size range still meets the Target.
 func refill(w world) map[CellKey]Fill {
@@ -26,9 +28,10 @@ func refill(w world) map[CellKey]Fill {
 	out := map[CellKey]Fill{}
 	for _, it := range w.tree.Items {
 		for _, e := range targets.Wanted(w.goals.Editions, w.seen[it.ID]) {
-			for _, t := range w.goals.Targets {
+			for i, t := range w.goals.Targets {
 				key := CellKey{Item: it.ID, Edition: e, Target: t.ID}
-				if fill, ok := w.fillOf(t, key, of[it.ID]); ok {
+				downloadFirst := w.goals.Profile.Entries[i].Sourcing == targets.DownloadThenDerive
+				if fill, ok := w.fillOf(t, key, of[it.ID], downloadFirst); ok {
 					out[key] = fill
 				}
 			}
@@ -39,7 +42,7 @@ func refill(w world) map[CellKey]Fill {
 
 // fillOf is the fill of key's cell of t among files, oldest first, false
 // when none meets t.
-func (w world) fillOf(t targets.Target, key CellKey, files []File) (Fill, bool) {
+func (w world) fillOf(t targets.Target, key CellKey, files []File, downloadFirst bool) (Fill, bool) {
 	incumbent := w.fills[key]
 	var best, forcing, held *File
 	for i := range files {
@@ -57,7 +60,7 @@ func (w world) fillOf(t targets.Target, key CellKey, files []File) (Fill, bool) 
 			best = f
 			continue
 		}
-		if c := w.scoring.compare(t, *f, *best); c > 0 || c == 0 && f.ID == incumbent.File {
+		if w.beats(t, *f, *best, incumbent.File, downloadFirst) {
 			best = f
 		}
 	}
@@ -70,6 +73,17 @@ func (w world) fillOf(t targets.Target, key CellKey, files []File) (Fill, bool) 
 		return Fill{File: best.ID, Score: w.scoring.score(t, *best)}, true
 	}
 	return Fill{}, false
+}
+
+// beats reports whether f takes a cell of t from best, with incumbent
+// keeping it on a tie and, with downloadFirst, a download beating a made
+// file.
+func (w world) beats(t targets.Target, f, best File, incumbent ID, downloadFirst bool) bool {
+	if downloadFirst && (f.Derived == nil) != (best.Derived == nil) {
+		return f.Derived == nil
+	}
+	c := w.scoring.compare(t, f, best)
+	return c > 0 || c == 0 && f.ID == incumbent
 }
 
 // challenges reports whether best, the best file at a cell whose forced
