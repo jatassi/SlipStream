@@ -72,6 +72,9 @@ const (
 	Size            Kind = "SizeSpecification"
 	ReleaseType     Kind = "ReleaseTypeSpecification"
 	Year            Kind = "YearSpecification"
+	// Derived is SlipStream's own kind, which no upstream app has: a file
+	// a Conversion made.
+	Derived Kind = "DerivedSpecification"
 )
 
 // KindInfo is one kind as the editor offers it: its name in words, its
@@ -96,13 +99,18 @@ func (e *PatternError) Error() string {
 	return fmt.Sprintf("the pattern of condition %s doesn't compile: %s", quoted(e.Name), e.Reason)
 }
 
-// KindError is a pasted condition of a kind no Custom Format has.
+// KindError is a condition of a kind no Custom Format has, or, with
+// Dialect set, a kind that dialect's formats don't have.
 type KindError struct {
-	Name string
-	Kind string
+	Name    string
+	Kind    string
+	Dialect Dialect
 }
 
 func (e *KindError) Error() string {
+	if e.Dialect != "" {
+		return fmt.Sprintf("condition %s has the kind %s, which %s Custom Formats don't have", quoted(e.Name), e.Kind, appWords[e.Dialect])
+	}
 	return fmt.Sprintf("condition %s has the kind %s, which isn't a Custom Format condition kind", quoted(e.Name), e.Kind)
 }
 

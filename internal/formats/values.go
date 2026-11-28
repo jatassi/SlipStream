@@ -25,11 +25,15 @@ type Offered struct {
 
 // KindsIn lists the kinds d offers, in upstream's order, each with the
 // values its value field takes there. A kind only the other app has is
-// left out of Radarr's and Sonarr's.
+// left out of Radarr's and Sonarr's, and Derived is left out of a dialect
+// without it.
 func KindsIn(d Dialect) []Offered {
 	var out []Offered
 	for _, k := range kinds {
 		if app, only := appOnly[k.Kind]; only && d != SlipStream && app != d {
+			continue
+		}
+		if k.Kind == Derived && !dialects[d].derived {
 			continue
 		}
 		out = append(out, Offered{KindInfo: k.KindInfo, Values: valuesIn(d, k.Kind)})

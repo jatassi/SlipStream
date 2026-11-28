@@ -131,6 +131,8 @@ test("Delete moves a Profile's Works to the one picked, through the Impact", asy
       newlyWanted: 1,
       downloading: 0,
       subtitles: noImpact.subtitles,
+      made: noImpact.made,
+      remake: noImpact.remake,
     }),
     { profile: other },
   );

@@ -103,7 +103,7 @@ func TestActivityCountsTheGrabsNeitherImportedNorFailed(t *testing.T) {
 		shellapi.Routes(r, shell{grabs.New(grabs.Config{Library: lib}), roster, downloadclients.New(downloadclients.Config{Library: lib}), watch, imports.New(imports.Config{Library: lib, Transfers: transfers.New(transfers.ControllerConfig{Library: lib})}), reconciling.New(reconciling.Config{Library: lib})})
 	})
 
-	s.Expect(t, http.MethodGet, "/api/v1/counts", "", http.StatusOK, `{"activity":0,"downloads":{"done":0,"wanted":0,"allPaused":false},"alerts":{"nodes":null,"health":null,"tasks":null},"pendingImports":0,"reconciling":null}`)
+	s.Expect(t, http.MethodGet, "/api/v1/counts", "", http.StatusOK, `{"activity":0,"downloads":{"done":0,"wanted":0,"allPaused":false},"alerts":{"nodes":null,"health":null,"tasks":null,"conversions":null},"pendingImports":0,"reconciling":null}`)
 	home, torrent := roster.Self(), storage.NewUUID()
 	err = lib.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		if _, err := tx.ExecContext(ctx, `INSERT INTO downloadclients_torrent (id, node_id, info_hash, metainfo, name, size, private, trackers,
@@ -121,7 +121,7 @@ func TestActivityCountsTheGrabsNeitherImportedNorFailed(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s.Expect(t, http.MethodGet, "/api/v1/counts", "", http.StatusOK, `{"activity":6,"downloads":{"done":0,"wanted":4096,"allPaused":false},"alerts":{"nodes":null,"health":null,"tasks":null},"pendingImports":0,"reconciling":null}`)
+	s.Expect(t, http.MethodGet, "/api/v1/counts", "", http.StatusOK, `{"activity":6,"downloads":{"done":0,"wanted":4096,"allPaused":false},"alerts":{"nodes":null,"health":null,"tasks":null,"conversions":null},"pendingImports":0,"reconciling":null}`)
 }
 
 var quietLibrary = health.Category{
@@ -217,7 +217,7 @@ func TestTheAlertsCarryHealthsWorstLevels(t *testing.T) {
 	s := ownertest.Serve(t, lib, func(r *api.Router) {
 		shellapi.Routes(r, shell{grabs.New(grabs.Config{Library: lib}), roster, downloadclients.New(downloadclients.Config{Library: lib}), watch, imports.New(imports.Config{Library: lib, Transfers: transfers.New(transfers.ControllerConfig{Library: lib})}), reconciling.New(reconciling.Config{Library: lib})})
 	})
-	s.Expect(t, http.MethodGet, "/api/v1/counts", "", http.StatusOK, `{"activity":0,"downloads":{"done":0,"wanted":0,"allPaused":false},"alerts":{"nodes":null,"health":"warn","tasks":"warn"},"pendingImports":0,"reconciling":null}`)
+	s.Expect(t, http.MethodGet, "/api/v1/counts", "", http.StatusOK, `{"activity":0,"downloads":{"done":0,"wanted":0,"allPaused":false},"alerts":{"nodes":null,"health":"warn","tasks":"warn","conversions":null},"pendingImports":0,"reconciling":null}`)
 }
 
 func TestPendingImportsCountsTheImportsWithAFileWaitingForTheAdmin(t *testing.T) {
@@ -259,5 +259,5 @@ func TestPendingImportsCountsTheImportsWithAFileWaitingForTheAdmin(t *testing.T)
 	s := ownertest.Serve(t, lib, func(r *api.Router) {
 		shellapi.Routes(r, shell{grabs.New(grabs.Config{Library: lib}), roster, downloadclients.New(downloadclients.Config{Library: lib}), openHealth(t, lib, roster), imports.New(imports.Config{Library: lib, Transfers: transfers.New(transfers.ControllerConfig{Library: lib})}), reconciling.New(reconciling.Config{Library: lib})})
 	})
-	s.Expect(t, http.MethodGet, "/api/v1/counts", "", http.StatusOK, `{"activity":0,"downloads":{"done":0,"wanted":0,"allPaused":false},"alerts":{"nodes":null,"health":null,"tasks":null},"pendingImports":2,"reconciling":null}`)
+	s.Expect(t, http.MethodGet, "/api/v1/counts", "", http.StatusOK, `{"activity":0,"downloads":{"done":0,"wanted":0,"allPaused":false},"alerts":{"nodes":null,"health":null,"tasks":null,"conversions":null},"pendingImports":2,"reconciling":null}`)
 }

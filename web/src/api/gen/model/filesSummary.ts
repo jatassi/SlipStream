@@ -11,6 +11,6 @@ export interface FilesSummary {
    * @minimum 0
    */
   items: number;
-  /** Its monitored Items' first status in the order failed, missing, downloading, upgradable, unreleased, met; null while none has a Target */
+  /** Its monitored Items' first status in the order failed, missing, downloading, converting, upgradable, unreleased, met; null while none has a Target */
   status: FilesState | null;
 }

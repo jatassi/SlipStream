@@ -57,7 +57,7 @@ func fileOf(f files.File) LibraryFile {
 type cell struct{}
 
 func (cell) Variants() (discriminator string, variants []any) {
-	return "state", []any{unreleasedCell{}, missingCell{}, downloadingCell{}, failedCell{}, upgradableCell{}, metCell{}}
+	return "state", []any{unreleasedCell{}, missingCell{}, downloadingCell{}, convertingCell{}, failedCell{}, upgradableCell{}, metCell{}}
 }
 
 // CellBase is exported so the document carries the fields each cell embeds.
@@ -107,11 +107,49 @@ type heldCell struct {
 	Until  *time.Time     `json:"until" doc:"When the Import delay ends, for a download that waits for it; null otherwise"`
 }
 
+type convertingCell struct {
+	CellBase
+	State        string                    `json:"state" enum:"converting" doc:"An unfinished Conversion makes its file, and it would otherwise be missing or upgradable"`
+	ConversionID string                    `json:"conversionId" format:"uuid"`
+	Stage        string                    `json:"stage" enum:"queued,copying,ready,running,paused,checking,returning,landing"`
+	Node         api.Nullable[cellNode]    `json:"node" doc:"The Node it is placed on; null until it is placed"`
+	File         api.Nullable[LibraryFile] `json:"file" doc:"The file the made file would replace; null when it replaces none"`
+}
+
+type cellNode struct {
+	ID   string `json:"id" format:"uuid"`
+	Name string `json:"name"`
+}
+
 type failedCell struct {
 	CellBase
-	State  string                    `json:"state" enum:"failed"`
-	GrabID string                    `json:"grabId" format:"uuid" doc:"The Grab that failed"`
-	File   api.Nullable[LibraryFile] `json:"file" doc:"The file the Grab would have replaced; null when it replaced none"`
+	State string                    `json:"state" enum:"failed"`
+	Cause api.OneOf[failure]        `json:"cause" doc:"The Grab or the Conversion that failed"`
+	File  api.Nullable[LibraryFile] `json:"file" doc:"The file the Grab or the Conversion would have replaced; null when it replaced none"`
+}
+
+type failure struct{}
+
+func (failure) Variants() (discriminator string, variants []any) {
+	return "kind", []any{grabFailure{}, conversionFailure{}}
+}
+
+type grabFailure struct {
+	Kind   string `json:"kind" enum:"grab"`
+	GrabID string `json:"grabId" format:"uuid"`
+}
+
+type conversionFailure struct {
+	Kind         string `json:"kind" enum:"conversion"`
+	ConversionID string `json:"conversionId" format:"uuid"`
+	Code         string `json:"code" doc:"The fault, such as encoder_failed"`
+}
+
+func failureOf(c files.Cell) api.OneOf[failure] {
+	if v := c.Conversion; v != nil {
+		return api.NewOneOf[failure](conversionFailure{Kind: "conversion", ConversionID: v.ID.String(), Code: v.Code})
+	}
+	return api.NewOneOf[failure](grabFailure{Kind: "grab", GrabID: c.Grab.String()})
 }
 
 type upgradableCell struct {
@@ -147,8 +185,14 @@ func variantOf(c files.Cell) api.OneOf[cell] {
 			d.Step, d.From = api.Some(api.NewEnum[step](string(c.Doing.Step))), new(c.Doing.From)
 		}
 		return api.NewOneOf[cell](d)
+	case files.Converting:
+		v := convertingCell{CellBase: base, State: state, ConversionID: c.Conversion.ID.String(), Stage: c.Conversion.Stage, File: replaced(c)}
+		if n := c.Conversion.Node; n != nil {
+			v.Node = api.Some(cellNode{ID: n.String(), Name: c.Conversion.NodeName})
+		}
+		return api.NewOneOf[cell](v)
 	case files.Failed:
-		return api.NewOneOf[cell](failedCell{base, state, c.Grab.String(), replaced(c)})
+		return api.NewOneOf[cell](failedCell{base, state, failureOf(c), replaced(c)})
 	case files.Upgradable:
 		return api.NewOneOf[cell](upgradableCell{CellBase: base, State: state, File: fileOf(*c.File)})
 	case files.Met:
@@ -184,7 +228,7 @@ type cellsInput struct {
 
 type itemStatus struct {
 	ItemID   string                        `json:"itemId" format:"uuid"`
-	Status   api.Nullable[api.Enum[State]] `json:"status" doc:"Its first state in the order failed, missing, downloading, upgradable, unreleased, met, across its Targets; null for an Item with no Target"`
+	Status   api.Nullable[api.Enum[State]] `json:"status" doc:"Its first state in the order failed, missing, downloading, converting, upgradable, unreleased, met, across its Targets; null for an Item with no Target"`
 	Released bool                          `json:"released" doc:"Its availability date is today or earlier"`
 }
 

@@ -53,18 +53,19 @@ type profileRef struct {
 }
 
 type target struct {
-	ID        string       `json:"id" format:"uuid"`
-	Name      string       `json:"name"`
-	Tiers     [][]string   `json:"tiers" nullable:"false" doc:"Quality keys, best tier first; a tier's qualities rank as equal"`
-	Cutoff    string       `json:"cutoff" doc:"The first quality of the tier at which a file is final"`
-	Filters   []filter     `json:"filters" nullable:"false" doc:"Every attribute that isn't Any, in attribute order"`
-	Sizes     []size       `json:"sizes" nullable:"false" doc:"Every accepted quality's size, in tier order"`
-	Scores    scores       `json:"scores"`
-	Propers   string       `json:"propers" enum:"prefer_and_upgrade,prefer_no_upgrade,dont_prefer" doc:"prefer_and_upgrade ranks propers and repacks higher and has one replace a file of its Quality even past the cutoff. prefer_no_upgrade only ranks them higher. dont_prefer leaves them to the scores"`
-	Hold      int          `json:"holdSeconds" minimum:"0" maximum:"604800" doc:"How long an automatic grab waits after a Release's publish time for a better one, in whole minutes. 0 grabs at once"`
-	Profiles  []profileRef `json:"profiles" nullable:"false" doc:"The Profiles holding it, by name"`
-	Contains  []string     `json:"contains" nullable:"false" format:"uuid" doc:"The other Targets every file of which also meets this one"`
-	CreatedAt time.Time    `json:"createdAt"`
+	ID         string                       `json:"id" format:"uuid"`
+	Name       string                       `json:"name"`
+	Tiers      [][]string                   `json:"tiers" nullable:"false" doc:"Quality keys, best tier first; a tier's qualities rank as equal"`
+	Cutoff     string                       `json:"cutoff" doc:"The first quality of the tier at which a file is final"`
+	Filters    []filter                     `json:"filters" nullable:"false" doc:"Every attribute that isn't Any, in attribute order"`
+	Sizes      []size                       `json:"sizes" nullable:"false" doc:"Every accepted quality's size, in tier order"`
+	Scores     scores                       `json:"scores"`
+	Propers    string                       `json:"propers" enum:"prefer_and_upgrade,prefer_no_upgrade,dont_prefer" doc:"prefer_and_upgrade ranks propers and repacks higher and has one replace a file of its Quality even past the cutoff. prefer_no_upgrade only ranks them higher. dont_prefer leaves them to the scores"`
+	Hold       int                          `json:"holdSeconds" minimum:"0" maximum:"604800" doc:"How long an automatic grab waits after a Release's publish time for a better one, in whole minutes. 0 grabs at once"`
+	Profiles   []profileRef                 `json:"profiles" nullable:"false" doc:"The Profiles holding it, by name"`
+	Contains   []string                     `json:"contains" nullable:"false" format:"uuid" doc:"The other Targets every file of which also meets this one"`
+	Conversion api.Nullable[conversionView] `json:"conversion" doc:"Its Conversion settings, which make its files from another Target's; null while it has none"`
+	CreatedAt  time.Time                    `json:"createdAt"`
 }
 
 func targetOf(t targets.Target) target {
@@ -100,19 +101,27 @@ func targetOf(t targets.Target) target {
 }
 
 type newTarget struct {
-	Name    string     `json:"name" minLength:"1" maxLength:"100"`
-	Tiers   [][]string `json:"tiers" nullable:"false" minItems:"1" doc:"Quality keys, best tier first; a tier's qualities rank as equal"`
-	Cutoff  string     `json:"cutoff" enum:"sdtv,dvd,webrip-480p,hdtv-720p,webrip-720p,webdl-720p,bluray-720p,hdtv-1080p,webrip-1080p,webdl-1080p,bluray-1080p,remux-1080p,hdtv-2160p,webrip-2160p,webdl-2160p,bluray-2160p,remux-2160p,cam" doc:"Any quality of the tier at which a file is final"`
-	Filters []filter   `json:"filters,omitempty" doc:"An attribute left out is Any"`
-	Sizes   []size     `json:"sizes,omitempty" doc:"An accepted quality left out takes its floor and no maximum"`
-	Scores  newScores  `json:"scores,omitempty" doc:"Left out, every score is 0 and the increment is 1"`
-	Propers string     `json:"propers,omitempty" enum:"prefer_and_upgrade,prefer_no_upgrade,dont_prefer" default:"prefer_and_upgrade" doc:"prefer_and_upgrade ranks propers and repacks higher and has one replace a file of its Quality even past the cutoff. prefer_no_upgrade only ranks them higher. dont_prefer leaves them to the scores"`
-	Hold    int        `json:"holdSeconds,omitempty" minimum:"0" maximum:"604800" multipleOf:"60" doc:"How long an automatic grab waits after a Release's publish time for a better one, in whole minutes; left out, 0 grabs at once. Changing only the Hold changes no Work"`
+	Name       string          `json:"name" minLength:"1" maxLength:"100"`
+	Tiers      [][]string      `json:"tiers" nullable:"false" minItems:"1" doc:"Quality keys, best tier first; a tier's qualities rank as equal"`
+	Cutoff     string          `json:"cutoff" enum:"sdtv,dvd,webrip-480p,hdtv-720p,webrip-720p,webdl-720p,bluray-720p,hdtv-1080p,webrip-1080p,webdl-1080p,bluray-1080p,remux-1080p,hdtv-2160p,webrip-2160p,webdl-2160p,bluray-2160p,remux-2160p,cam" doc:"Any quality of the tier at which a file is final"`
+	Filters    []filter        `json:"filters,omitempty" doc:"An attribute left out is Any"`
+	Sizes      []size          `json:"sizes,omitempty" doc:"An accepted quality left out takes its floor and no maximum"`
+	Scores     newScores       `json:"scores,omitempty" doc:"Left out, every score is 0 and the increment is 1"`
+	Propers    string          `json:"propers,omitempty" enum:"prefer_and_upgrade,prefer_no_upgrade,dont_prefer" default:"prefer_and_upgrade" doc:"prefer_and_upgrade ranks propers and repacks higher and has one replace a file of its Quality even past the cutoff. prefer_no_upgrade only ranks them higher. dont_prefer leaves them to the scores"`
+	Hold       int             `json:"holdSeconds,omitempty" minimum:"0" maximum:"604800" multipleOf:"60" doc:"How long an automatic grab waits after a Release's publish time for a better one, in whole minutes; left out, 0 grabs at once. Changing only the Hold changes no Work"`
+	Conversion *conversionSpec `json:"conversion,omitempty" doc:"Its Conversion settings; null or left out for none"`
+	Remake     []string        `json:"remake,omitempty" format:"uuid" doc:"A replace only: the Works whose files the Target's older Conversion settings made, to make again"`
 }
 
 // specOf parses a Target's body. Checks the document can't state answer
 // invalid at the field they name.
 func specOf(in newTarget) (targets.Spec, error) {
+	if err := conversionRequested("conversion", in.Conversion != nil); err != nil {
+		return targets.Spec{}, err
+	}
+	if err := conversionRequested("remake", len(in.Remake) > 0); err != nil {
+		return targets.Spec{}, err
+	}
 	s := targets.Spec{Name: in.Name, Sizes: map[release.Quality]targets.Size{}}
 	var bad []api.FieldError
 	field := func(location, message string) {

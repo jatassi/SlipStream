@@ -5,10 +5,14 @@ import type { RequestHandlerOptions } from "msw";
 
 import type {
   FilesCellList,
+  FilesConversionFailedNeed,
+  FilesConversionFailure,
+  FilesConvertingCell,
   FilesDownloadingCell,
   FilesFailedCell,
   FilesFailedNeed,
   FilesFileList,
+  FilesGrabFailure,
   FilesMetCell,
   FilesMissingCell,
   FilesNoRootNeed,
@@ -202,11 +206,12 @@ export const getGetWorkCellsResponseFilesDownloadingCellMock = (
   ...overrideResponse,
 });
 
-export const getGetWorkCellsResponseFilesFailedCellMock = (
-  overrideResponse: Partial<FilesFailedCell> = {},
-): FilesFailedCell => ({
+export const getGetWorkCellsResponseFilesConvertingCellMock = (
+  overrideResponse: Partial<FilesConvertingCell> = {},
+): FilesConvertingCell => ({
   ...{
     candidates: faker.number.int({ min: 0 }),
+    conversionId: faker.string.uuid(),
     edition: faker.string.alpha({ length: { min: 10, max: 20 } }),
     file: faker.helpers.arrayElement([
       {
@@ -238,7 +243,92 @@ export const getGetWorkCellsResponseFilesFailedCellMock = (
       null,
     ]),
     gone: faker.datatype.boolean(),
-    grabId: faker.string.uuid(),
+    itemId: faker.string.uuid(),
+    node: faker.helpers.arrayElement([
+      { id: faker.string.uuid(), name: faker.string.alpha({ length: { min: 10, max: 20 } }) },
+      null,
+    ]),
+    stage: faker.helpers.arrayElement([
+      "queued",
+      "copying",
+      "ready",
+      "running",
+      "paused",
+      "checking",
+      "returning",
+      "landing",
+    ] as const),
+    state: faker.helpers.arrayElement(["converting"] as const),
+    stopped: faker.datatype.boolean(),
+    targetId: faker.string.uuid(),
+    targetName: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    waitUntil: faker.helpers.arrayElement([
+      faker.date.past().toISOString().slice(0, 19) + "Z",
+      null,
+    ]),
+    wanted: faker.datatype.boolean(),
+  },
+  ...overrideResponse,
+});
+
+export const getGetWorkCellsResponseFilesGrabFailureMock = (
+  overrideResponse: Partial<FilesGrabFailure> = {},
+): FilesGrabFailure => ({
+  ...{ grabId: faker.string.uuid(), kind: faker.helpers.arrayElement(["grab"] as const) },
+  ...overrideResponse,
+});
+
+export const getGetWorkCellsResponseFilesConversionFailureMock = (
+  overrideResponse: Partial<FilesConversionFailure> = {},
+): FilesConversionFailure => ({
+  ...{
+    code: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    conversionId: faker.string.uuid(),
+    kind: faker.helpers.arrayElement(["conversion"] as const),
+  },
+  ...overrideResponse,
+});
+
+export const getGetWorkCellsResponseFilesFailedCellMock = (
+  overrideResponse: Partial<FilesFailedCell> = {},
+): FilesFailedCell => ({
+  ...{
+    candidates: faker.number.int({ min: 0 }),
+    cause: faker.helpers.arrayElement([
+      { ...getGetWorkCellsResponseFilesGrabFailureMock() },
+      { ...getGetWorkCellsResponseFilesConversionFailureMock() },
+    ]),
+    edition: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    file: faker.helpers.arrayElement([
+      {
+        id: faker.string.uuid(),
+        path: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        probe: { height: faker.number.int({ min: 0 }), width: faker.number.int({ min: 0 }) },
+        quality: faker.helpers.arrayElement([
+          "sdtv",
+          "dvd",
+          "webrip-480p",
+          "hdtv-720p",
+          "webrip-720p",
+          "webdl-720p",
+          "bluray-720p",
+          "hdtv-1080p",
+          "webrip-1080p",
+          "webdl-1080p",
+          "bluray-1080p",
+          "remux-1080p",
+          "hdtv-2160p",
+          "webrip-2160p",
+          "webdl-2160p",
+          "bluray-2160p",
+          "remux-2160p",
+          "cam",
+        ] as const),
+        size: faker.number.int({ min: 0 }),
+      },
+      null,
+    ]),
+    gone: faker.datatype.boolean(),
     itemId: faker.string.uuid(),
     state: faker.helpers.arrayElement(["failed"] as const),
     stopped: faker.datatype.boolean(),
@@ -384,6 +474,23 @@ export const getGetWorkCellsResponseFilesFailedNeedMock = (
   ...overrideResponse,
 });
 
+export const getGetWorkCellsResponseFilesConversionFailedNeedMock = (
+  overrideResponse: Partial<FilesConversionFailedNeed> = {},
+): FilesConversionFailedNeed => ({
+  ...{
+    class: faker.helpers.arrayElement(["run", "source"] as const),
+    code: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    conversionId: faker.string.uuid(),
+    edition: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    itemIds: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+      () => faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ),
+    kind: faker.helpers.arrayElement(["conversion_failed"] as const),
+    targetId: faker.string.uuid(),
+  },
+  ...overrideResponse,
+});
+
 export const getGetWorkCellsResponseFilesUpgradeNeedMock = (
   overrideResponse: Partial<FilesUpgradeNeed> = {},
 ): FilesUpgradeNeed => ({
@@ -468,6 +575,7 @@ export const getGetWorkCellsResponseMock = (
       { ...getGetWorkCellsResponseFilesUnreleasedCellMock() },
       { ...getGetWorkCellsResponseFilesMissingCellMock() },
       { ...getGetWorkCellsResponseFilesDownloadingCellMock() },
+      { ...getGetWorkCellsResponseFilesConvertingCellMock() },
       { ...getGetWorkCellsResponseFilesFailedCellMock() },
       { ...getGetWorkCellsResponseFilesUpgradableCellMock() },
       { ...getGetWorkCellsResponseFilesMetCellMock() },
@@ -481,6 +589,7 @@ export const getGetWorkCellsResponseMock = (
         "failed",
         "missing",
         "downloading",
+        "converting",
         "upgradable",
         "unreleased",
         "met",
@@ -491,6 +600,7 @@ export const getGetWorkCellsResponseMock = (
   levels: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
     () => ({
       cells: {
+        ...(faker.datatype.boolean() ? { converting: faker.number.int({ min: 1 }) } : {}),
         ...(faker.datatype.boolean() ? { downloading: faker.number.int({ min: 1 }) } : {}),
         ...(faker.datatype.boolean() ? { failed: faker.number.int({ min: 1 }) } : {}),
         ...(faker.datatype.boolean() ? { met: faker.number.int({ min: 1 }) } : {}),
@@ -499,6 +609,7 @@ export const getGetWorkCellsResponseMock = (
         ...(faker.datatype.boolean() ? { upgradable: faker.number.int({ min: 1 }) } : {}),
       },
       itemStatus: {
+        ...(faker.datatype.boolean() ? { converting: faker.number.int({ min: 1 }) } : {}),
         ...(faker.datatype.boolean() ? { downloading: faker.number.int({ min: 1 }) } : {}),
         ...(faker.datatype.boolean() ? { failed: faker.number.int({ min: 1 }) } : {}),
         ...(faker.datatype.boolean() ? { met: faker.number.int({ min: 1 }) } : {}),
@@ -509,6 +620,7 @@ export const getGetWorkCellsResponseMock = (
       items: faker.number.int({ min: 0 }),
       levelId: faker.string.uuid(),
       withdrawn: {
+        ...(faker.datatype.boolean() ? { converting: faker.number.int({ min: 1 }) } : {}),
         ...(faker.datatype.boolean() ? { downloading: faker.number.int({ min: 1 }) } : {}),
         ...(faker.datatype.boolean() ? { failed: faker.number.int({ min: 1 }) } : {}),
         ...(faker.datatype.boolean() ? { met: faker.number.int({ min: 1 }) } : {}),
@@ -521,6 +633,7 @@ export const getGetWorkCellsResponseMock = (
   needsYou: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
     faker.helpers.arrayElement([
       { ...getGetWorkCellsResponseFilesFailedNeedMock() },
+      { ...getGetWorkCellsResponseFilesConversionFailedNeedMock() },
       { ...getGetWorkCellsResponseFilesUpgradeNeedMock() },
       { ...getGetWorkCellsResponseFilesNotFoundNeedMock() },
       { ...getGetWorkCellsResponseFilesWaitingNeedMock() },
@@ -529,6 +642,7 @@ export const getGetWorkCellsResponseMock = (
   ),
   summary: {
     cells: {
+      ...(faker.datatype.boolean() ? { converting: faker.number.int({ min: 1 }) } : {}),
       ...(faker.datatype.boolean() ? { downloading: faker.number.int({ min: 1 }) } : {}),
       ...(faker.datatype.boolean() ? { failed: faker.number.int({ min: 1 }) } : {}),
       ...(faker.datatype.boolean() ? { met: faker.number.int({ min: 1 }) } : {}),
@@ -537,6 +651,7 @@ export const getGetWorkCellsResponseMock = (
       ...(faker.datatype.boolean() ? { upgradable: faker.number.int({ min: 1 }) } : {}),
     },
     itemStatus: {
+      ...(faker.datatype.boolean() ? { converting: faker.number.int({ min: 1 }) } : {}),
       ...(faker.datatype.boolean() ? { downloading: faker.number.int({ min: 1 }) } : {}),
       ...(faker.datatype.boolean() ? { failed: faker.number.int({ min: 1 }) } : {}),
       ...(faker.datatype.boolean() ? { met: faker.number.int({ min: 1 }) } : {}),
@@ -550,6 +665,7 @@ export const getGetWorkCellsResponseMock = (
         "failed",
         "missing",
         "downloading",
+        "converting",
         "upgradable",
         "unreleased",
         "met",

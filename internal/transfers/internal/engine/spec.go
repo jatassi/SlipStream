@@ -12,6 +12,7 @@ import (
 	"github.com/jatassi/slipstream/internal/link"
 	tv1 "github.com/jatassi/slipstream/internal/pb/slipstream/transfer/v1"
 	"github.com/jatassi/slipstream/internal/storage"
+	"github.com/jatassi/slipstream/internal/storing"
 	"github.com/jatassi/slipstream/internal/transfers/source"
 )
 
@@ -24,12 +25,14 @@ type spec struct {
 	addrs link.Addresses
 	route tv1.Route
 	// root and place are the receiver's destination, backup is the
-	// Backup folder and name it renames its one file to, or download is
-	// the download folder it stages in.
+	// Backup folder and name it renames its one file to, download is the
+	// download folder it stages in, or scratch is the name under the
+	// scratch folder it renames its one file to.
 	root     storage.UUID
 	place    int64
 	backup   *tv1.BackupPlace
 	download *Download
+	scratch  storing.Rel
 	files    []file
 }
 
@@ -45,7 +48,7 @@ type file struct {
 // list is the Controller catching up on files already reported.
 func (s spec) sameRun(o spec) bool {
 	return s.id == o.id && s.side == o.side && s.peer == o.peer && s.addrs == o.addrs && s.root == o.root && s.place == o.place &&
-		proto.Equal(s.backup, o.backup) && sameDownload(s.download, o.download)
+		s.scratch == o.scratch && proto.Equal(s.backup, o.backup) && sameDownload(s.download, o.download)
 }
 
 // receivesDropped reports whether s receives a file live doesn't list: a
@@ -96,6 +99,9 @@ func parseActive(a *tv1.Active) (spec, error) {
 	if s.backup != nil && len(s.files) > 1 {
 		return spec{}, fmt.Errorf("transfer %s: a Backup of %d files", s.id, len(s.files))
 	}
+	if s.scratch != (storing.Rel{}) && len(s.files) > 1 {
+		return spec{}, fmt.Errorf("transfer %s: a scratch file of %d files", s.id, len(s.files))
+	}
 	return s, nil
 }
 
@@ -118,6 +124,12 @@ func (s spec) receiving(d *tv1.Destination) (spec, error) {
 			return spec{}, fmt.Errorf("transfer %s: %w", s.id, err)
 		}
 		s.download, s.place = &d, backupPlace
+	case *tv1.Destination_Scratch:
+		var err error
+		if s.scratch, err = storing.ParseRel(k.Scratch); err != nil {
+			return spec{}, fmt.Errorf("transfer %s: scratch name: %w", s.id, err)
+		}
+		s.place = backupPlace
 	default:
 		return spec{}, fmt.Errorf("transfer %s: no destination", s.id)
 	}
@@ -162,6 +174,8 @@ func parseSource(s *tv1.Source) (source.Ref, error) {
 			return nil, errors.New("a library source with no root or path")
 		}
 		return source.Library{Root: [16]byte(r.Library.GetRoot()), Rel: r.Library.GetRel()}, nil
+	case *tv1.Source_Scratch:
+		return source.Scratch{Name: r.Scratch}, nil
 	}
 	return nil, errors.New("a source of no kind this build reads")
 }

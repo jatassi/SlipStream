@@ -1,3 +1,4 @@
+import type { FilesConvertingCell } from "./filesConvertingCell.ts";
 import type { FilesDownloadingCell } from "./filesDownloadingCell.ts";
 import type { FilesFailedCell } from "./filesFailedCell.ts";
 import type { FilesMetCell } from "./filesMetCell.ts";
@@ -9,6 +10,7 @@ export type FilesCell =
   | FilesUnreleasedCell
   | FilesMissingCell
   | FilesDownloadingCell
+  | FilesConvertingCell
   | FilesFailedCell
   | FilesUpgradableCell
   | FilesMetCell;

@@ -310,6 +310,7 @@ func (n *Node) startController(ctx context.Context) error {
 	transferring = transfers.Def.Serve(copies.Derive, copies.Apply)
 	servers := mediaservers.New(mediaservers.Config{
 		Library: lib.db,
+		Touched: func() {},
 		Sealer:  lib.sealer,
 		Roster:  openedRoster{&side},
 		Kinds:   mediaserverlink.Kinds,

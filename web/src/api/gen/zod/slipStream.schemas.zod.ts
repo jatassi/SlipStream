@@ -533,7 +533,7 @@ export const SettingFolderField = zod.object({
     .boolean()
     .describe("The saved value differs from the running one until the Node restarts"),
   purpose: zod
-    .enum(["downloads", "backups"])
+    .enum(["downloads", "backups", "converting"])
     .describe("The rules the Node judges the folder by, as checkFolder names them"),
   running: zod.string(),
   source: zod.enum(["database", "default", "config.yaml", ".env", "env"]),
@@ -828,6 +828,7 @@ export const FilesState = zod.enum([
   "failed",
   "missing",
   "downloading",
+  "converting",
   "upgradable",
   "unreleased",
   "met",
@@ -921,14 +922,23 @@ export const CancelInputBody = zod.object({
 export type CancelInputBody = zod.input<typeof CancelInputBody>;
 export type CancelInputBodyOutput = zod.output<typeof CancelInputBody>;
 
+export const canceledOutputBodyCanceledMin = 0;
+
+export const CanceledOutputBody = zod.object({
+  canceled: zod.int().min(canceledOutputBodyCanceledMin),
+});
+
+export type CanceledOutputBody = zod.input<typeof CanceledOutputBody>;
+export type CanceledOutputBodyOutput = zod.output<typeof CanceledOutputBody>;
+
 export const checkFolderInputBodyPathMax = 4096;
 
 export const CheckFolderInputBody = zod.object({
   path: zod.string().min(1).max(checkFolderInputBodyPathMax),
   purpose: zod
-    .enum(["root", "downloads", "import", "backups"])
+    .enum(["root", "downloads", "import", "backups", "converting"])
     .describe(
-      "root: a library root's rules, on a Storage Node; downloads: a downloads folder's, writable, on no network share and apart from every root on the Node; import: a folder to import from, inside one of the Node's library roots or download folders; backups: a folder for Backups, writable and apart from every root and downloads folder on the Node",
+      "root: a library root's rules, on a Storage Node; downloads: a downloads folder's, writable, on no network share and apart from every root on the Node; import: a folder to import from, inside one of the Node's library roots or download folders; backups: a folder for Backups, writable and apart from every root and downloads folder on the Node; converting: a Node's scratch folder for Conversions, writable and apart from every root, downloads folder and the Backups folder on the Node",
     ),
   rootId: zod
     .uuid()
@@ -1020,6 +1030,452 @@ export const ConnectionsOutputBody = zod.object({
 
 export type ConnectionsOutputBody = zod.input<typeof ConnectionsOutputBody>;
 export type ConnectionsOutputBodyOutput = zod.output<typeof ConnectionsOutputBody>;
+
+export const ConversionsAttempt = zod.object({
+  code: zod.string().describe("The fault, empty when none"),
+  endedAt: zod.iso.datetime({ offset: true }).nullable().describe("null while the attempt runs"),
+  n: zod.int().min(1),
+  node: zod.string().describe("The Node's name"),
+  outcome: zod
+    .enum(["failed", "stalled", "disk_full", "put_back"])
+    .exactOptional()
+    .describe("Absent while the attempt runs"),
+  startedAt: zod.iso.datetime({ offset: true }),
+});
+
+export type ConversionsAttempt = zod.input<typeof ConversionsAttempt>;
+export type ConversionsAttemptOutput = zod.output<typeof ConversionsAttempt>;
+
+export const ConversionsChanged = zod.object({
+  conversionIds: zod.array(zod.string()),
+  groupIds: zod.array(zod.string()),
+  workIds: zod.array(zod.string()),
+});
+
+export type ConversionsChanged = zod.input<typeof ConversionsChanged>;
+export type ConversionsChangedOutput = zod.output<typeof ConversionsChanged>;
+
+export const conversionsConversionGroupBytesMin = 0;
+
+export const conversionsConversionGroupSecondsMin = 0;
+
+export const ConversionsConversionGroup = zod.object({
+  bytes: zod.int().min(conversionsConversionGroupBytesMin).describe("Their forecast output size"),
+  count: zod.int().min(1),
+  finish: zod.iso.datetime({ offset: true }).nullable().describe("null with no forecast"),
+  groupKind: zod.enum(["backfill", "season"]),
+  id: zod.string(),
+  kind: zod.enum(["group"]),
+  label: zod.string().describe("Such as Backfill of 720p mobile, or The Office season 2"),
+  nodes: zod.array(zod.string()).describe("The Nodes they are forecast to run on"),
+  seconds: zod.int().min(conversionsConversionGroupSecondsMin).describe("Their forecast run time"),
+  start: zod.iso.datetime({ offset: true }).nullable().describe("null with no forecast"),
+});
+
+export type ConversionsConversionGroup = zod.input<typeof ConversionsConversionGroup>;
+export type ConversionsConversionGroupOutput = zod.output<typeof ConversionsConversionGroup>;
+
+export const ConversionsFailure = zod.object({
+  class: zod
+    .enum(["run", "source"])
+    .describe(
+      "run: it failed on every Node it may try; source: its source file can't be converted as its settings ask",
+    ),
+  code: zod.string().describe("The fault, such as encoder_failed"),
+  detail: zod.string().describe("ffmpeg's last lines, for Details"),
+  nodes: zod.array(zod.string()).describe("The Nodes its counted attempts failed on"),
+});
+
+export type ConversionsFailure = zod.input<typeof ConversionsFailure>;
+export type ConversionsFailureOutput = zod.output<typeof ConversionsFailure>;
+
+export const ConversionsItem = zod.object({
+  id: zod.uuid(),
+  label: zod.string().describe("Such as S01E04"),
+});
+
+export type ConversionsItem = zod.input<typeof ConversionsItem>;
+export type ConversionsItemOutput = zod.output<typeof ConversionsItem>;
+
+export const ConversionsNamed = zod.object({
+  id: zod.uuid(),
+  name: zod.string(),
+});
+
+export type ConversionsNamed = zod.input<typeof ConversionsNamed>;
+export type ConversionsNamedOutput = zod.output<typeof ConversionsNamed>;
+
+export const conversionsProgressPercentMin = 0;
+export const conversionsProgressPercentMax = 100;
+
+export const conversionsProgressSecondsLeftMin = 0;
+
+export const conversionsProgressSpeedMin = 0;
+
+export const ConversionsProgress = zod.object({
+  percent: zod.number().min(conversionsProgressPercentMin).max(conversionsProgressPercentMax),
+  secondsLeft: zod.int().min(conversionsProgressSecondsLeftMin),
+  speed: zod.number().min(conversionsProgressSpeedMin).describe("Times real time"),
+});
+
+export type ConversionsProgress = zod.input<typeof ConversionsProgress>;
+export type ConversionsProgressOutput = zod.output<typeof ConversionsProgress>;
+
+export const ConversionsSource = zod.object({
+  fileId: zod.uuid().nullable().describe("null once the source file is gone"),
+  name: zod.string().describe("The source file's name"),
+  target: zod.string().describe("The name of the Target the source file fills"),
+});
+
+export type ConversionsSource = zod.input<typeof ConversionsSource>;
+export type ConversionsSourceOutput = zod.output<typeof ConversionsSource>;
+
+export const ConversionsTarget = zod.object({
+  id: zod.uuid().nullable().describe("null once the Target is deleted"),
+  name: zod.string(),
+});
+
+export type ConversionsTarget = zod.input<typeof ConversionsTarget>;
+export type ConversionsTargetOutput = zod.output<typeof ConversionsTarget>;
+
+export const conversionsWaitFreeMin = 0;
+
+export const conversionsWaitNeedMin = 0;
+
+export const ConversionsWait = zod.object({
+  cause: zod
+    .enum([
+      "no_role",
+      "lapsed",
+      "runs_elsewhere",
+      "pinned_elsewhere",
+      "failed_here",
+      "untested",
+      "test_failed",
+      "retesting",
+      "proof_lost",
+      "processor_off",
+      "none_online",
+      "no_holder",
+    ])
+    .exactOptional()
+    .describe("For no_node: why the Node closest to running it can't"),
+  code: zod
+    .enum([
+      "in_line",
+      "hours",
+      "room",
+      "copying",
+      "away",
+      "download",
+      "testing",
+      "transcode",
+      "no_node",
+      "no_source",
+    ])
+    .describe("Why it hasn't started"),
+  free: zod
+    .int()
+    .min(conversionsWaitFreeMin)
+    .exactOptional()
+    .describe("For room: the bytes free on the Node"),
+  need: zod
+    .int()
+    .min(conversionsWaitNeedMin)
+    .exactOptional()
+    .describe("For room: the bytes it needs"),
+  node: ConversionsNamed.exactOptional().describe("The Node its words name, when one"),
+  place: zod.int().min(1).exactOptional().describe("For in_line: its place in line, from 1"),
+  servers: zod
+    .array(zod.string())
+    .nullish()
+    .describe("For transcode: the Media Servers transcoding on its Node"),
+  sourceTarget: zod.string().exactOptional().describe("For download: the Target it is made from"),
+  until: zod.iso
+    .datetime({ offset: true })
+    .exactOptional()
+    .describe("For hours and download: when the wait ends"),
+});
+
+export type ConversionsWait = zod.input<typeof ConversionsWait>;
+export type ConversionsWaitOutput = zod.output<typeof ConversionsWait>;
+
+export const ConversionsWork = zod.object({
+  id: zod.uuid(),
+  title: zod.string(),
+  type: zod.string().describe("The Work's Content Type"),
+});
+
+export type ConversionsWork = zod.input<typeof ConversionsWork>;
+export type ConversionsWorkOutput = zod.output<typeof ConversionsWork>;
+
+export const ConversionsConversionRow = zod.object({
+  attempts: zod.array(ConversionsAttempt).describe("Oldest first"),
+  failure: zod
+    .union([ConversionsFailure, zod.null()])
+    .describe("Why it failed; null unless it failed"),
+  finish: zod.iso
+    .datetime({ offset: true })
+    .nullable()
+    .describe("When it is forecast to finish; null with no forecast"),
+  id: zod.uuid(),
+  items: zod.array(ConversionsItem).describe("In tree order"),
+  kind: zod.enum(["conversion"]),
+  lane: zod.enum(["moved_up", "new", "upgrade", "backfill"]),
+  node: zod
+    .union([ConversionsNamed, zod.null()])
+    .describe("The Node it is placed on; null until it is placed"),
+  pausedBy: zod
+    .array(zod.string())
+    .nullable()
+    .describe("The Media Servers whose transcodes pause it; null while it isn't paused"),
+  progress: zod
+    .union([ConversionsProgress, zod.null()])
+    .describe("While it runs; conversions.live keeps it current. null otherwise"),
+  source: ConversionsSource,
+  stage: zod.enum([
+    "queued",
+    "copying",
+    "ready",
+    "running",
+    "paused",
+    "checking",
+    "returning",
+    "landing",
+    "done",
+    "failed",
+    "canceled",
+  ]),
+  start: zod.iso
+    .datetime({ offset: true })
+    .nullable()
+    .describe("When it is forecast to start; null once it has, or with no forecast"),
+  target: ConversionsTarget.describe("The Target it makes a file for"),
+  wait: zod
+    .union([ConversionsWait, zod.null()])
+    .describe("Why it hasn't started; null once it has"),
+  work: ConversionsWork,
+});
+
+export type ConversionsConversionRow = zod.input<typeof ConversionsConversionRow>;
+export type ConversionsConversionRowOutput = zod.output<typeof ConversionsConversionRow>;
+
+export const conversionsCountsConvertingMin = 0;
+
+export const conversionsCountsFailedMin = 0;
+
+export const conversionsCountsPausedMin = 0;
+
+export const conversionsCountsWaitingMin = 0;
+
+export const ConversionsCounts = zod.object({
+  clearsAt: zod.iso
+    .datetime({ offset: true })
+    .nullable()
+    .describe(
+      "When the last unfinished Conversion is forecast to finish; null when none is forecast",
+    ),
+  converting: zod.int().min(conversionsCountsConvertingMin),
+  failed: zod.int().min(conversionsCountsFailedMin),
+  paused: zod.int().min(conversionsCountsPausedMin),
+  waiting: zod.int().min(conversionsCountsWaitingMin),
+});
+
+export type ConversionsCounts = zod.input<typeof ConversionsCounts>;
+export type ConversionsCountsOutput = zod.output<typeof ConversionsCounts>;
+
+export const ConversionsUpNext = zod.discriminatedUnion("kind", [
+  ConversionsConversionRow,
+  ConversionsConversionGroup,
+]);
+
+export type ConversionsUpNext = zod.input<typeof ConversionsUpNext>;
+export type ConversionsUpNextOutput = zod.output<typeof ConversionsUpNext>;
+
+export const ConversionsLaneRows = zod.object({
+  lane: zod.enum(["moved_up", "new", "upgrade", "backfill"]),
+  rows: zod.array(ConversionsUpNext).describe("In run order"),
+});
+
+export type ConversionsLaneRows = zod.input<typeof ConversionsLaneRows>;
+export type ConversionsLaneRowsOutput = zod.output<typeof ConversionsLaneRows>;
+
+export const ConversionsConversionList = zod.object({
+  attention: zod.array(ConversionsConversionRow).describe("Failed Conversions, newest first"),
+  converting: zod.array(ConversionsConversionRow).describe("Running and paused Conversions"),
+  counts: ConversionsCounts,
+  cursor: zod.string().nullable().describe("Pages Up next; null on its last page"),
+  next: zod.array(ConversionsLaneRows).describe("Up next, one entry per lane in run order"),
+});
+
+export type ConversionsConversionList = zod.input<typeof ConversionsConversionList>;
+export type ConversionsConversionListOutput = zod.output<typeof ConversionsConversionList>;
+
+export const ConversionsGroupPage = zod.object({
+  cursor: zod.string().nullable().describe("null on the last page"),
+  rows: zod.array(ConversionsConversionRow).describe("In run order"),
+});
+
+export type ConversionsGroupPage = zod.input<typeof ConversionsGroupPage>;
+export type ConversionsGroupPageOutput = zod.output<typeof ConversionsGroupPage>;
+
+export const ConversionsHours = zod.object({
+  on: zod.boolean().describe("Whether the Node converts only inside the window"),
+  window: SettingTimes,
+});
+
+export type ConversionsHours = zod.input<typeof ConversionsHours>;
+export type ConversionsHoursOutput = zod.output<typeof ConversionsHours>;
+
+export const ConversionsLiveNode = zod.object({
+  id: zod.string(),
+  running: zod.int(),
+});
+
+export type ConversionsLiveNode = zod.input<typeof ConversionsLiveNode>;
+export type ConversionsLiveNodeOutput = zod.output<typeof ConversionsLiveNode>;
+
+export const ConversionsLiveRow = zod.object({
+  id: zod.string(),
+  paused: zod.boolean(),
+  percent: zod.number(),
+  secondsLeft: zod.int(),
+  speed: zod.number(),
+});
+
+export type ConversionsLiveRow = zod.input<typeof ConversionsLiveRow>;
+export type ConversionsLiveRowOutput = zod.output<typeof ConversionsLiveRow>;
+
+export const ConversionsLiveSample = zod.object({
+  nodes: zod.array(ConversionsLiveNode),
+  rows: zod.array(ConversionsLiveRow),
+});
+
+export type ConversionsLiveSample = zod.input<typeof ConversionsLiveSample>;
+export type ConversionsLiveSampleOutput = zod.output<typeof ConversionsLiveSample>;
+
+export const ConversionsShape = zod.object({
+  codec: zod.enum(["h264", "hevc", "av1"]),
+  curve: zod.enum(["bt2390", "hable", "mobius", "reinhard"]),
+  depth: zod.union([zod.literal(8), zod.literal(10)]),
+  keepDolbyVision: zod.boolean(),
+  range: zod.enum(["sdr", "hdr10", "source"]),
+});
+
+export type ConversionsShape = zod.input<typeof ConversionsShape>;
+export type ConversionsShapeOutput = zod.output<typeof ConversionsShape>;
+
+export const conversionsProofSpeedMin = 0;
+
+export const ConversionsProof = zod.object({
+  api: zod
+    .union([
+      zod.literal("qsv"),
+      zod.literal("vaapi"),
+      zod.literal("cuda"),
+      zod.literal("videotoolbox"),
+      zod.literal(null),
+    ])
+    .nullable()
+    .describe("null for the processor"),
+  class: zod.enum([
+    "h264_8",
+    "hevc_8",
+    "hevc_10",
+    "av1_8",
+    "av1_10",
+    "hdr10",
+    "hlg",
+    "dv5",
+    "dv81",
+    "decode_sdr",
+    "decode_hdr10",
+  ]),
+  device: zod.string().describe("Such as Intel UHD Graphics 770"),
+  error: zod.string().describe("ffmpeg's last lines, for Details; empty unless it failed"),
+  failedAt: zod.iso.datetime({ offset: true }).nullable().describe("null unless it failed"),
+  lostAt: zod.iso
+    .datetime({ offset: true })
+    .nullable()
+    .describe("When a driver change lost it; null otherwise"),
+  path: zod.enum(["hardware", "hardware_opencl", "processor"]),
+  pauses: zod.boolean().describe("Whether a pause stops its progress"),
+  provenAt: zod.iso.datetime({ offset: true }).nullable().describe("null unless it passed"),
+  shape: ConversionsShape,
+  speed: zod.number().min(conversionsProofSpeedMin).describe("Times real time at 1080p"),
+});
+
+export type ConversionsProof = zod.input<typeof ConversionsProof>;
+export type ConversionsProofOutput = zod.output<typeof ConversionsProof>;
+
+export const conversionsVolumeFreeMin = 0;
+
+export const conversionsVolumeTotalMin = 0;
+
+export const ConversionsVolume = zod.object({
+  free: zod.int().min(conversionsVolumeFreeMin),
+  total: zod.int().min(conversionsVolumeTotalMin),
+});
+
+export type ConversionsVolume = zod.input<typeof ConversionsVolume>;
+export type ConversionsVolumeOutput = zod.output<typeof ConversionsVolume>;
+
+export const ConversionsSentence = zod.object({
+  api: zod
+    .union([
+      zod.literal("qsv"),
+      zod.literal("vaapi"),
+      zod.literal("cuda"),
+      zod.literal("videotoolbox"),
+      zod.literal(null),
+    ])
+    .nullable()
+    .describe("The hardware it converts with; null with none"),
+  none: zod.boolean().describe("Whether it can convert nothing"),
+  processor: zod.boolean().describe("Whether it converts with its processor"),
+});
+
+export type ConversionsSentence = zod.input<typeof ConversionsSentence>;
+export type ConversionsSentenceOutput = zod.output<typeof ConversionsSentence>;
+
+export const conversionsNodeConvertingRunningMin = 0;
+
+export const ConversionsNodeConverting = zod.object({
+  atOnce: zod.int().min(1),
+  atOnceDefault: zod.int().min(1),
+  hours: ConversionsHours,
+  override: zod
+    .boolean()
+    .describe(
+      "Whether a Target's Run on names this Node while it can't run that Target's Conversions",
+    ),
+  processor: zod.boolean().describe("Use the processor when no GPU can"),
+  proofs: zod.array(ConversionsProof),
+  running: zod.int().min(conversionsNodeConvertingRunningMin),
+  scratch: zod
+    .union([ConversionsVolume, zod.null()])
+    .describe("The scratch folder's volume; null while unknown"),
+  sentence: ConversionsSentence,
+});
+
+export type ConversionsNodeConverting = zod.input<typeof ConversionsNodeConverting>;
+export type ConversionsNodeConvertingOutput = zod.output<typeof ConversionsNodeConverting>;
+
+export const conversionsNodeSettingsAtOnceMax = 16;
+
+export const ConversionsNodeSettings = zod.object({
+  atOnce: zod
+    .int()
+    .min(1)
+    .max(conversionsNodeSettingsAtOnceMax)
+    .nullable()
+    .describe("null for the default"),
+  hours: ConversionsHours,
+  processor: zod.boolean(),
+});
+
+export type ConversionsNodeSettings = zod.input<typeof ConversionsNodeSettings>;
+export type ConversionsNodeSettingsOutput = zod.output<typeof ConversionsNodeSettings>;
 
 export const DialInputBody = zod.object({
   nodeAddress: zod.string().describe("The SLN1 text the waiting Node printed"),
@@ -2535,6 +2991,7 @@ export const NotificationsEvent = zod.object({
     "health",
     "backups",
     "moves",
+    "conversions",
     "system",
   ]),
   id: zod.string(),
@@ -2775,6 +3232,100 @@ export const FilesDownloadingCell = zod.object({
 export type FilesDownloadingCell = zod.input<typeof FilesDownloadingCell>;
 export type FilesDownloadingCellOutput = zod.output<typeof FilesDownloadingCell>;
 
+export const FilesCellNode = zod.object({
+  id: zod.uuid(),
+  name: zod.string(),
+});
+
+export type FilesCellNode = zod.input<typeof FilesCellNode>;
+export type FilesCellNodeOutput = zod.output<typeof FilesCellNode>;
+
+export const filesConvertingCellCandidatesMin = 0;
+
+export const FilesConvertingCell = zod.object({
+  candidates: zod
+    .int()
+    .min(filesConvertingCellCandidatesMin)
+    .describe("How many Releases it is waiting on; 0 while it waits for none"),
+  conversionId: zod.uuid(),
+  edition: zod
+    .string()
+    .describe("any under any cut, else the key of the cut this Item needs at this Target"),
+  file: zod
+    .union([FilesLibraryFile, zod.null()])
+    .describe("The file the made file would replace; null when it replaces none"),
+  gone: zod
+    .boolean()
+    .describe(
+      "It has no file because its library file is gone from its root. Only a search an Admin starts searches for it",
+    ),
+  itemId: zod.uuid(),
+  node: zod
+    .union([FilesCellNode, zod.null()])
+    .describe("The Node it is placed on; null until it is placed"),
+  stage: zod.enum([
+    "queued",
+    "copying",
+    "ready",
+    "running",
+    "paused",
+    "checking",
+    "returning",
+    "landing",
+  ]),
+  state: zod
+    .enum(["converting"])
+    .describe(
+      "An unfinished Conversion makes its file, and it would otherwise be missing or upgradable",
+    ),
+  stopped: zod
+    .boolean()
+    .describe(
+      "Failed Grabs stopped SlipStream searching it again at once. Backlog search still searches it",
+    ),
+  targetId: zod.uuid(),
+  targetName: zod.string(),
+  waitUntil: zod.iso
+    .datetime({ offset: true })
+    .nullable()
+    .describe(
+      "When SlipStream grabs the best Release found for it, unless a better one arrives; null while it waits for none",
+    ),
+  wanted: zod
+    .boolean()
+    .describe(
+      "Missing, failed or upgradable with no Grab in flight, and its Item monitored, listed and released",
+    ),
+});
+
+export type FilesConvertingCell = zod.input<typeof FilesConvertingCell>;
+export type FilesConvertingCellOutput = zod.output<typeof FilesConvertingCell>;
+
+export const FilesGrabFailure = zod.object({
+  grabId: zod.uuid(),
+  kind: zod.enum(["grab"]),
+});
+
+export type FilesGrabFailure = zod.input<typeof FilesGrabFailure>;
+export type FilesGrabFailureOutput = zod.output<typeof FilesGrabFailure>;
+
+export const FilesConversionFailure = zod.object({
+  code: zod.string().describe("The fault, such as encoder_failed"),
+  conversionId: zod.uuid(),
+  kind: zod.enum(["conversion"]),
+});
+
+export type FilesConversionFailure = zod.input<typeof FilesConversionFailure>;
+export type FilesConversionFailureOutput = zod.output<typeof FilesConversionFailure>;
+
+export const FilesFailure = zod.discriminatedUnion("kind", [
+  FilesGrabFailure,
+  FilesConversionFailure,
+]);
+
+export type FilesFailure = zod.input<typeof FilesFailure>;
+export type FilesFailureOutput = zod.output<typeof FilesFailure>;
+
 export const filesFailedCellCandidatesMin = 0;
 
 export const FilesFailedCell = zod.object({
@@ -2782,18 +3333,20 @@ export const FilesFailedCell = zod.object({
     .int()
     .min(filesFailedCellCandidatesMin)
     .describe("How many Releases it is waiting on; 0 while it waits for none"),
+  cause: FilesFailure.describe("The Grab or the Conversion that failed"),
   edition: zod
     .string()
     .describe("any under any cut, else the key of the cut this Item needs at this Target"),
   file: zod
     .union([FilesLibraryFile, zod.null()])
-    .describe("The file the Grab would have replaced; null when it replaced none"),
+    .describe(
+      "The file the Grab or the Conversion would have replaced; null when it replaced none",
+    ),
   gone: zod
     .boolean()
     .describe(
       "It has no file because its library file is gone from its root. Only a search an Admin starts searches for it",
     ),
-  grabId: zod.uuid().describe("The Grab that failed"),
   itemId: zod.uuid(),
   state: zod.enum(["failed"]),
   stopped: zod
@@ -2925,6 +3478,7 @@ export const FilesCell = zod.discriminatedUnion("state", [
   FilesUnreleasedCell,
   FilesMissingCell,
   FilesDownloadingCell,
+  FilesConvertingCell,
   FilesFailedCell,
   FilesUpgradableCell,
   FilesMetCell,
@@ -2939,7 +3493,7 @@ export const FilesItemStatus = zod.object({
   status: zod
     .union([FilesState, zod.null()])
     .describe(
-      "Its first state in the order failed, missing, downloading, upgradable, unreleased, met, across its Targets; null for an Item with no Target",
+      "Its first state in the order failed, missing, downloading, converting, upgradable, unreleased, met, across its Targets; null for an Item with no Target",
     ),
 });
 
@@ -2947,6 +3501,7 @@ export type FilesItemStatus = zod.input<typeof FilesItemStatus>;
 export type FilesItemStatusOutput = zod.output<typeof FilesItemStatus>;
 
 export const FilesStateCounts = zod.object({
+  converting: zod.int().min(1).exactOptional(),
   downloading: zod.int().min(1).exactOptional(),
   failed: zod.int().min(1).exactOptional(),
   met: zod.int().min(1).exactOptional(),
@@ -2995,6 +3550,25 @@ export const FilesFailedNeed = zod.object({
 
 export type FilesFailedNeed = zod.input<typeof FilesFailedNeed>;
 export type FilesFailedNeedOutput = zod.output<typeof FilesFailedNeed>;
+
+export const FilesConversionFailedNeed = zod.object({
+  class: zod
+    .enum(["run", "source"])
+    .describe(
+      "run: it failed on every Node it may try; source: its source file can't be converted",
+    ),
+  code: zod.string().describe("The fault, such as encoder_failed"),
+  conversionId: zod.uuid(),
+  edition: zod
+    .string()
+    .describe("any under any cut, else the key of the cut these Items need at this Target"),
+  itemIds: zod.array(zod.string()).describe("A run of Items in tree order whose entries match"),
+  kind: zod.enum(["conversion_failed"]),
+  targetId: zod.uuid().describe("The Target whose made file failed"),
+});
+
+export type FilesConversionFailedNeed = zod.input<typeof FilesConversionFailedNeed>;
+export type FilesConversionFailedNeedOutput = zod.output<typeof FilesConversionFailedNeed>;
 
 export const FilesUpgradeNeed = zod.object({
   edition: zod.string().describe("any under any cut, else the key of the cut these Items need"),
@@ -3100,6 +3674,7 @@ export type FilesNoRootNeedOutput = zod.output<typeof FilesNoRootNeed>;
 
 export const FilesNeed = zod.discriminatedUnion("kind", [
   FilesFailedNeed,
+  FilesConversionFailedNeed,
   FilesUpgradeNeed,
   FilesNotFoundNeed,
   FilesWaitingNeed,
@@ -3125,7 +3700,7 @@ export const FilesSummary = zod.object({
   status: zod
     .union([FilesState, zod.null()])
     .describe(
-      "Its monitored Items' first status in the order failed, missing, downloading, upgradable, unreleased, met; null while none has a Target",
+      "Its monitored Items' first status in the order failed, missing, downloading, converting, upgradable, unreleased, met; null while none has a Target",
     ),
 });
 
@@ -3704,6 +4279,66 @@ export const FormatsExplained = zod.object({
 export type FormatsExplained = zod.input<typeof FormatsExplained>;
 export type FormatsExplainedOutput = zod.output<typeof FormatsExplained>;
 
+export const targetsMadeRowBytesMin = 0;
+
+export const targetsMadeRowFilesMin = 0;
+
+export const targetsMadeRowSecondsMin = 0;
+
+export const TargetsMadeRow = zod.object({
+  addedAt: zod.iso.datetime({ offset: true }),
+  bytes: zod.int().min(targetsMadeRowBytesMin),
+  files: zod.int().min(targetsMadeRowFilesMin),
+  seconds: zod.int().min(targetsMadeRowSecondsMin),
+  title: zod.string(),
+  workId: zod.uuid(),
+});
+
+export type TargetsMadeRow = zod.input<typeof TargetsMadeRow>;
+export type TargetsMadeRowOutput = zod.output<typeof TargetsMadeRow>;
+
+export const targetsMadeImpactBytesMin = 0;
+
+export const targetsMadeImpactFilesMin = 0;
+
+export const targetsMadeImpactMatchingMin = 0;
+
+export const targetsMadeImpactSecondsMin = 0;
+
+export const targetsMadeImpactWorksMin = 0;
+
+export const TargetsMadeImpact = zod.object({
+  bytes: zod.int().min(targetsMadeImpactBytesMin).describe("About how much they take on disk"),
+  files: zod.int().min(targetsMadeImpactFilesMin).describe("Files the save has SlipStream make"),
+  matching: zod
+    .int()
+    .min(targetsMadeImpactMatchingMin)
+    .describe(
+      "The Works the backfill's rest moves to a Profile that matches without the made-from Target",
+    ),
+  nodes: zod.array(zod.string()).describe("The Nodes forecast to make them"),
+  rows: zod.array(TargetsMadeRow),
+  seconds: zod.int().min(targetsMadeImpactSecondsMin).describe("About how long they take to make"),
+  unconvertible: zod.array(zod.uuid()).describe("The Works no Node can convert today"),
+  works: zod.int().min(targetsMadeImpactWorksMin),
+});
+
+export type TargetsMadeImpact = zod.input<typeof TargetsMadeImpact>;
+export type TargetsMadeImpactOutput = zod.output<typeof TargetsMadeImpact>;
+
+export const targetsRemakeImpactOlderMin = 0;
+
+export const TargetsRemakeImpact = zod.object({
+  older: zod
+    .int()
+    .min(targetsRemakeImpactOlderMin)
+    .describe("Made files the Target's older settings made"),
+  rows: zod.array(TargetsMadeRow),
+});
+
+export type TargetsRemakeImpact = zod.input<typeof TargetsRemakeImpact>;
+export type TargetsRemakeImpactOutput = zod.output<typeof TargetsRemakeImpact>;
+
 export const TargetsRenamedFile = zod.object({
   fileId: zod.uuid(),
   from: zod.string().describe("The file's path in its root now"),
@@ -3805,6 +4440,9 @@ export const TargetsImpact = zod.object({
     .describe(
       "Downloads in progress that are no longer needed. Each waits in Pending imports once it finishes",
     ),
+  made: TargetsMadeImpact.describe(
+    "The files a change of a Profile's made-from Targets has SlipStream make",
+  ),
   newlyWanted: zod
     .int()
     .min(targetsImpactNewlyWantedMin)
@@ -3813,6 +4451,7 @@ export const TargetsImpact = zod.object({
     .int()
     .min(targetsImpactOwnListMin)
     .describe("Works that keep their own Edition list through a change to their Profile's"),
+  remake: TargetsRemakeImpact.describe("The made files a Target's older Conversion settings made"),
   renamed: zod
     .int()
     .min(targetsImpactRenamedMin)
@@ -6071,7 +6710,16 @@ export type HistoryKind = zod.input<typeof HistoryKind>;
 export type HistoryKindOutput = zod.output<typeof HistoryKind>;
 
 export const HistoryGroup = zod.object({
-  group: zod.enum(["grabs", "imports", "library", "subtitles", "health", "backups", "moves"]),
+  group: zod.enum([
+    "grabs",
+    "imports",
+    "library",
+    "subtitles",
+    "health",
+    "backups",
+    "moves",
+    "conversions",
+  ]),
   kinds: zod.array(HistoryKind),
   label: zod.string(),
 });
@@ -6132,7 +6780,16 @@ export type HistoryWorkSummaryOutput = zod.output<typeof HistoryWorkSummary>;
 
 export const HistoryListEntry = zod.object({
   at: zod.iso.datetime({ offset: true }).describe("When it was captured"),
-  group: zod.enum(["grabs", "imports", "library", "subtitles", "health", "backups", "moves"]),
+  group: zod.enum([
+    "grabs",
+    "imports",
+    "library",
+    "subtitles",
+    "health",
+    "backups",
+    "moves",
+    "conversions",
+  ]),
   id: zod.int(),
   kind: zod.string().describe("A kind GET /history/kinds lists"),
   links: HistoryLinks,
@@ -9018,6 +9675,10 @@ export const MediaserversPatchBody = zod.object({
       "Show to Members. Turning it on the first time picks the libraries behind the shown Path mappings, unless memberLibraries names others",
     ),
   name: zod.string().min(1).max(mediaserversPatchBodyNameMax).exactOptional(),
+  pausesConversions: zod
+    .boolean()
+    .exactOptional()
+    .describe("Pause Conversions on the Node it runs on while it transcodes video"),
   reachingNodeId: zod.uuid().exactOptional(),
   runsOnNodeId: zod.string().nullish().describe("A Node id; null when the server runs on no Node"),
 });
@@ -9257,6 +9918,9 @@ export const MediaserversServerView = zod.object({
     .boolean()
     .describe("Show to Members: whether Members may be offered access to the server"),
   name: zod.string(),
+  pausesConversions: zod
+    .boolean()
+    .describe("Whether Conversions on the Node it runs on pause while it transcodes video"),
   plexPass: zod
     .boolean()
     .exactOptional()
@@ -9555,6 +10219,16 @@ export const MoveFilesInputBody = zod.object({
 
 export type MoveFilesInputBody = zod.input<typeof MoveFilesInputBody>;
 export type MoveFilesInputBodyOutput = zod.output<typeof MoveFilesInputBody>;
+
+export const MoveInputBody = zod.object({
+  after: zod
+    .string()
+    .nullable()
+    .describe("The Conversion it goes right after, in its lane; null for the head of Moved up"),
+});
+
+export type MoveInputBody = zod.input<typeof MoveInputBody>;
+export type MoveInputBodyOutput = zod.output<typeof MoveInputBody>;
 
 export const movesBatchRowTotalMin = 0;
 
@@ -10195,7 +10869,7 @@ export type NodesAssignmentOutput = zod.output<typeof NodesAssignment>;
 export const NodesProbe = zod.object({
   at: zod.iso.datetime({ offset: true }),
   fit: zod.enum(["fits", "weak", "fails"]),
-  probe: zod.enum(["engine-starts", "data-writable", "listener-up"]),
+  probe: zod.enum(["engine-starts", "data-writable", "listener-up", "ffmpeg-runs"]),
   reason: zod
     .enum([
       "engine_not_listening",
@@ -10203,6 +10877,9 @@ export const NodesProbe = zod.object({
       "downloads_on_network_share",
       "data_not_writable",
       "http_not_listening",
+      "ffmpeg_fails",
+      "no_gpu",
+      "ffmpeg_testing",
     ])
     .exactOptional()
     .describe("Why it is weak or fails; absent when it fits"),
@@ -10913,7 +11590,7 @@ export const NodesRoleEntry = zod.object({
   label: zod.string(),
   pinned: zod.boolean().describe("The Controller holds it whatever the Admin ticks"),
   probe: zod
-    .enum(["engine-starts", "data-writable", "listener-up"])
+    .enum(["engine-starts", "data-writable", "listener-up", "ffmpeg-runs"])
     .exactOptional()
     .describe("The probe a Node runs before it is given the Role; absent for none"),
   role: zod.enum([
@@ -12883,6 +13560,12 @@ export type ShareAccessInputBody = zod.input<typeof ShareAccessInputBody>;
 export type ShareAccessInputBodyOutput = zod.output<typeof ShareAccessInputBody>;
 
 export const ShellAlerts = zod.object({
+  conversions: zod
+    .union([zod.literal("warn"), zod.literal("fail"), zod.literal(null)])
+    .nullable()
+    .describe(
+      "fail while a Conversion failed and waits for an Admin, warn while no Node can convert one; null otherwise",
+    ),
   health: zod
     .union([zod.literal("warn"), zod.literal("fail"), zod.literal(null)])
     .nullable()
@@ -13501,7 +14184,7 @@ export type SystemBuildOutput = zod.output<typeof SystemBuild>;
 
 export const SystemConfigSection = zod.object({
   fields: zod.array(SettingField),
-  id: zod.enum(["web", "log", "torrent", "backups"]),
+  id: zod.enum(["web", "log", "torrent", "backups", "converting"]),
 });
 
 export type SystemConfigSection = zod.input<typeof SystemConfigSection>;
@@ -13638,12 +14321,163 @@ export const TargetsAnyCut = zod.object({
 export type TargetsAnyCut = zod.input<typeof TargetsAnyCut>;
 export type TargetsAnyCutOutput = zod.output<typeof TargetsAnyCut>;
 
+export const targetsBackfillRestNewNameMax = 100;
+
+export const TargetsBackfillRest = zod.object({
+  newName: zod
+    .string()
+    .max(targetsBackfillRestNewNameMax)
+    .exactOptional()
+    .describe(
+      "The name of a new Profile, the old one without the made-from Target, that the rest move to",
+    ),
+  profileId: zod.uuid().exactOptional().describe("An existing Profile the rest move to"),
+});
+
+export type TargetsBackfillRest = zod.input<typeof TargetsBackfillRest>;
+export type TargetsBackfillRestOutput = zod.output<typeof TargetsBackfillRest>;
+
+export const TargetsBackfill = zod.object({
+  convert: zod.array(zod.uuid()).describe("The Works to convert"),
+  default: zod.uuid().describe("The Profile new Works take"),
+  rest: TargetsBackfillRest.describe("Where the other Works go"),
+});
+
+export type TargetsBackfill = zod.input<typeof TargetsBackfill>;
+export type TargetsBackfillOutput = zod.output<typeof TargetsBackfill>;
+
+export const TargetsNamed = zod.object({
+  id: zod.uuid(),
+  name: zod.string(),
+});
+
+export type TargetsNamed = zod.input<typeof TargetsNamed>;
+export type TargetsNamedOutput = zod.output<typeof TargetsNamed>;
+
+export const TargetsCause = zod.object({
+  class: zod
+    .enum([
+      "h264_8",
+      "hevc_8",
+      "hevc_10",
+      "av1_8",
+      "av1_10",
+      "hdr10",
+      "hlg",
+      "dv5",
+      "dv81",
+      "decode_sdr",
+      "decode_hdr10",
+    ])
+    .describe("The source class it covers"),
+  count: zod.int().min(1).describe("The Conversions waiting on it"),
+  node: zod
+    .union([TargetsNamed, zod.null()])
+    .describe("The Node its sentence names; null when none"),
+  notifiedAt: zod.iso.datetime({ offset: true }).describe("When the Admin was notified"),
+  shape: zod.string().describe("The settings shape it covers, such as h264.8.sdr.bt2390"),
+  why: zod.enum([
+    "no_role",
+    "lapsed",
+    "runs_elsewhere",
+    "pinned_elsewhere",
+    "failed_here",
+    "untested",
+    "test_failed",
+    "retesting",
+    "proof_lost",
+    "processor_off",
+    "none_online",
+    "no_holder",
+  ]),
+});
+
+export type TargetsCause = zod.input<typeof TargetsCause>;
+export type TargetsCauseOutput = zod.output<typeof TargetsCause>;
+
 export const TargetsChanged = zod.object({
   workIds: zod.array(zod.string()),
 });
 
 export type TargetsChanged = zod.input<typeof TargetsChanged>;
 export type TargetsChangedOutput = zod.output<typeof TargetsChanged>;
+
+export const targetsConversionSpecKbpsMin = 100;
+export const targetsConversionSpecKbpsMax = 200000;
+
+export const TargetsConversionSpec = zod.object({
+  audio: zod.enum(["copy", "stereo_aac", "ac3_51_and_stereo_aac"]),
+  codec: zod.enum(["h264", "hevc", "av1"]),
+  container: zod.enum(["mkv", "mp4"]),
+  curve: zod
+    .enum(["bt2390", "hable", "mobius", "reinhard"])
+    .describe("The tone mapping curve from HDR to SDR"),
+  depth: zod.union([zod.literal(8), zod.literal(10)]),
+  dropCommentary: zod.boolean(),
+  kbps: zod
+    .int()
+    .min(targetsConversionSpecKbpsMin)
+    .max(targetsConversionSpecKbpsMax)
+    .describe("The video bitrate at maxHeight"),
+  keepDolbyVision: zod.boolean(),
+  maxHeight: zod
+    .union([zod.literal(2160), zod.literal(1080), zod.literal(720), zod.literal(480)])
+    .describe("The largest output height. A wider picture fits the 16:9 box of that height"),
+  range: zod
+    .enum(["sdr", "hdr10", "source"])
+    .describe("source keeps the source's range, with HDR10+ written as HDR10"),
+  runOnNodeId: zod
+    .uuid()
+    .nullable()
+    .describe("The one Node its Conversions run on; null for any Node that can"),
+});
+
+export type TargetsConversionSpec = zod.input<typeof TargetsConversionSpec>;
+export type TargetsConversionSpecOutput = zod.output<typeof TargetsConversionSpec>;
+
+export const targetsConversionViewDefaultKbpsMin = 100;
+
+export const targetsConversionViewKbpsMin = 100;
+export const targetsConversionViewKbpsMax = 200000;
+
+export const targetsConversionViewOlderMin = 0;
+
+export const TargetsConversionView = zod.object({
+  audio: zod.enum(["copy", "stereo_aac", "ac3_51_and_stereo_aac"]),
+  causes: zod.array(TargetsCause).describe("Why no Node can convert some of its Conversions"),
+  codec: zod.enum(["h264", "hevc", "av1"]),
+  container: zod.enum(["mkv", "mp4"]),
+  curve: zod
+    .enum(["bt2390", "hable", "mobius", "reinhard"])
+    .describe("The tone mapping curve from HDR to SDR"),
+  defaultKbps: zod
+    .int()
+    .min(targetsConversionViewDefaultKbpsMin)
+    .describe("The bitrate a new setting starts at"),
+  depth: zod.union([zod.literal(8), zod.literal(10)]),
+  dropCommentary: zod.boolean(),
+  kbps: zod
+    .int()
+    .min(targetsConversionViewKbpsMin)
+    .max(targetsConversionViewKbpsMax)
+    .describe("The video bitrate at maxHeight"),
+  keepDolbyVision: zod.boolean(),
+  maxHeight: zod
+    .union([zod.literal(2160), zod.literal(1080), zod.literal(720), zod.literal(480)])
+    .describe("The largest output height. A wider picture fits the 16:9 box of that height"),
+  older: zod
+    .int()
+    .min(targetsConversionViewOlderMin)
+    .describe("Made files the Target's older settings made"),
+  range: zod
+    .enum(["sdr", "hdr10", "source"])
+    .describe("source keeps the source's range, with HDR10+ written as HDR10"),
+  runOnNodeId: zod.uuid().nullable().describe("null for any Node that can"),
+  version: zod.int().min(1).describe("Rises with each change of the settings, not of Run on"),
+});
+
+export type TargetsConversionView = zod.input<typeof TargetsConversionView>;
+export type TargetsConversionViewOutput = zod.output<typeof TargetsConversionView>;
 
 export const targetsCutContentTypeRegExp = new RegExp("^[a-z][a-z0-9]{1,15}$");
 
@@ -13704,8 +14538,29 @@ export const TargetsEditions = zod.discriminatedUnion("kind", [TargetsAnyCut, Ta
 export type TargetsEditions = zod.input<typeof TargetsEditions>;
 export type TargetsEditionsOutput = zod.output<typeof TargetsEditions>;
 
+export const targetsEntryGraceSecondsMin = 3600;
+export const targetsEntryGraceSecondsMax = 7776000;
+
 export const TargetsEntry = zod.object({
-  sourcing: zod.enum(["download"]).describe("How the Target gets its file"),
+  fromTargetId: zod
+    .uuid()
+    .exactOptional()
+    .describe(
+      "For derive and download_then_derive: the Target above it whose file it is made from",
+    ),
+  graceSeconds: zod
+    .int()
+    .min(targetsEntryGraceSecondsMin)
+    .max(targetsEntryGraceSecondsMax)
+    .exactOptional()
+    .describe(
+      "For download_then_derive: how long SlipStream searches for a download before it makes the file",
+    ),
+  sourcing: zod
+    .enum(["download", "derive", "download_then_derive"])
+    .describe(
+      "How the Target gets its file: download, made from another Target's file (derive), or downloaded, or made from another Target's file after a wait (download_then_derive)",
+    ),
   targetId: zod.uuid(),
 });
 
@@ -13781,6 +14636,9 @@ export const targetsNewProfileContentTypeRegExp = new RegExp("^[a-z][a-z0-9]{1,1
 export const targetsNewProfileNameMax = 100;
 
 export const TargetsNewProfile = zod.object({
+  backfill: TargetsBackfill.exactOptional().describe(
+    "A replace that adds a made-from Target only: which Works to convert, where the rest go, and the default for new Works",
+  ),
   contentType: zod.string().regex(targetsNewProfileContentTypeRegExp),
   editions: TargetsEditions,
   languages: zod
@@ -13862,6 +14720,9 @@ export const targetsNewTargetNameMax = 100;
 export const targetsNewTargetPropersDefault = `prefer_and_upgrade`;
 
 export const TargetsNewTarget = zod.object({
+  conversion: TargetsConversionSpec.exactOptional().describe(
+    "Its Conversion settings; null or left out for none",
+  ),
   cutoff: zod
     .enum([
       "sdtv",
@@ -13901,6 +14762,12 @@ export const TargetsNewTarget = zod.object({
     .describe(
       "prefer_and_upgrade ranks propers and repacks higher and has one replace a file of its Quality even past the cutoff. prefer_no_upgrade only ranks them higher. dont_prefer leaves them to the scores",
     ),
+  remake: zod
+    .array(zod.uuid())
+    .nullish()
+    .describe(
+      "A replace only: the Works whose files the Target's older Conversion settings made, to make again",
+    ),
   scores: TargetsNewScores.exactOptional().describe(
     "Left out, every score is 0 and the increment is 1",
   ),
@@ -13938,6 +14805,21 @@ export const TargetsPreset = zod.object({
 
 export type TargetsPreset = zod.input<typeof TargetsPreset>;
 export type TargetsPresetOutput = zod.output<typeof TargetsPreset>;
+
+export const TargetsProblem = zod.object({
+  code: zod.enum([
+    "codec_filtered",
+    "range_from_sdr",
+    "outside_size",
+    "container_audio",
+    "quality_unranked",
+  ]),
+  facts: zod.record(zod.string(), zod.string()).describe("What its words name, by key"),
+  field: zod.string().describe("The Conversion setting it is about, such as codec"),
+});
+
+export type TargetsProblem = zod.input<typeof TargetsProblem>;
+export type TargetsProblemOutput = zod.output<typeof TargetsProblem>;
 
 export const targetsProfileContentTypeRegExp = new RegExp("^[a-z][a-z0-9]{1,15}$");
 export const targetsProfileWorksMin = 0;
@@ -14090,6 +14972,11 @@ export const TargetsTarget = zod.object({
   contains: zod
     .array(zod.uuid())
     .describe("The other Targets every file of which also meets this one"),
+  conversion: zod
+    .union([TargetsConversionView, zod.null()])
+    .describe(
+      "Its Conversion settings, which make its files from another Target's; null while it has none",
+    ),
   createdAt: zod.iso.datetime({ offset: true }),
   cutoff: zod.string().describe("The first quality of the tier at which a file is final"),
   filters: zod.array(TargetsFilter).describe("Every attribute that isn't Any, in attribute order"),
@@ -15008,9 +15895,9 @@ export const TransfersDestination = zod.object({
     .exactOptional()
     .describe("The folder on its Node, for backup and backups_folder"),
   kind: zod
-    .enum(["root", "backup", "backups_folder", "download_folder"])
+    .enum(["root", "backup", "backups_folder", "download_folder", "scratch"])
     .describe(
-      "root is a library root, backup a Backup destination, backups_folder the Controller's Backups folder, and download_folder a Download Client's folder",
+      "root is a library root, backup a Backup destination, backups_folder the Controller's Backups folder, download_folder a Download Client's folder, and scratch a Node's scratch folder for Conversions",
     ),
   nodeId: zod.uuid().describe("The Node that holds it now"),
   nodeName: zod.string(),
@@ -15146,9 +16033,9 @@ export const TransfersTransfer = zod.object({
   job: zod.string().describe("The id of the job that asked for it, such as its Grab's"),
   jobName: zod.string().describe("The job's name, such as a Work's title and year"),
   purpose: zod
-    .enum(["import", "backup", "move"])
+    .enum(["import", "backup", "move", "conversion"])
     .describe(
-      "The kind of job that asked for it. backup copies a Backup to a Backup destination, or back to the Controller, and move copies a library file or a torrent's payload to another Node",
+      "The kind of job that asked for it. backup copies a Backup to a Backup destination, or back to the Controller, move copies a library file or a torrent's payload to another Node, and conversion copies a Conversion's source to the Node that converts it, or its made file back to its root",
     ),
   rate: zod
     .int()
@@ -16371,6 +17258,22 @@ export const LiveEventBackupsChanged = zod.object({
 export type LiveEventBackupsChanged = zod.input<typeof LiveEventBackupsChanged>;
 export type LiveEventBackupsChangedOutput = zod.output<typeof LiveEventBackupsChanged>;
 
+export const LiveEventConversionsChanged = zod.object({
+  event: zod.enum(["conversions.changed"]),
+  data: ConversionsChanged,
+});
+
+export type LiveEventConversionsChanged = zod.input<typeof LiveEventConversionsChanged>;
+export type LiveEventConversionsChangedOutput = zod.output<typeof LiveEventConversionsChanged>;
+
+export const LiveEventConversionsLive = zod.object({
+  event: zod.enum(["conversions.live"]),
+  data: ConversionsLiveSample,
+});
+
+export type LiveEventConversionsLive = zod.input<typeof LiveEventConversionsLive>;
+export type LiveEventConversionsLiveOutput = zod.output<typeof LiveEventConversionsLive>;
+
 export const LiveEventDownloadClientsChanged = zod.object({
   event: zod.enum(["download-clients.changed"]),
   data: DownloadclientsClientsChanged,
@@ -16907,6 +17810,8 @@ export type LiveEventWorksTypeChangedOutput = zod.output<typeof LiveEventWorksTy
 
 export const LiveEvent = zod.discriminatedUnion("event", [
   LiveEventBackupsChanged,
+  LiveEventConversionsChanged,
+  LiveEventConversionsLive,
   LiveEventDownloadClientsChanged,
   LiveEventFilesChanged,
   LiveEventFilesMoved,

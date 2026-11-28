@@ -44,6 +44,8 @@ export interface MediaserversServerView {
   /** Show to Members: whether Members may be offered access to the server */
   membersSee: boolean;
   name: string;
+  /** Whether Conversions on the Node it runs on pause while it transcodes video */
+  pausesConversions: boolean;
   /** Plex only: whether the signed-in account has Plex Pass */
   plexPass?: boolean;
   /** The Node that sends changes and watches sessions */

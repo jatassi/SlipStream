@@ -139,7 +139,7 @@ func TestGetWorkCellsAnswersEachCellAndItsFile(t *testing.T) {
 	}
 	code, body = s.Call(t, http.MethodGet, "/api/v1/works/"+tree.ID.String()+"/cells", "")
 	want = `{"itemId":"` + scarf + `","edition":"any","targetId":"` + hd.ID.String() + `","targetName":"HD","wanted":false,"gone":false,"stopped":false,"waitUntil":null,"candidates":0,"state":"downloading","grabId":"` + upgrade.String() + `",` + file + `,"step":null,"from":null,"until":null},` +
-		`{"itemId":"` + scarf + `","edition":"any","targetId":"` + uhd.ID.String() + `","targetName":"2160p","wanted":true,"gone":false,"stopped":false,"waitUntil":null,"candidates":0,"state":"failed","grabId":"` + failed.String() + `","file":null},`
+		`{"itemId":"` + scarf + `","edition":"any","targetId":"` + uhd.ID.String() + `","targetName":"2160p","wanted":true,"gone":false,"stopped":false,"waitUntil":null,"candidates":0,"state":"failed","cause":{"kind":"grab","grabId":"` + failed.String() + `"},"file":null},`
 	if code != http.StatusOK || !strings.Contains(body, want) {
 		t.Fatalf("getWorkCells with an upgrade in flight and a failed Grab = %d\n%s\nwant it to hold\n%s", code, body, want)
 	}

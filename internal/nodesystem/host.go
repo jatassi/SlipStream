@@ -63,10 +63,11 @@ var (
 type SectionID string
 
 const (
-	Web     SectionID = "web"
-	Log     SectionID = "log"
-	Torrent SectionID = "torrent"
-	Backups SectionID = "backups"
+	Web        SectionID = "web"
+	Log        SectionID = "log"
+	Torrent    SectionID = "torrent"
+	Backups    SectionID = "backups"
+	Converting SectionID = "converting"
 )
 
 // Config is a Node's settings as the Nodes sections show them: each field

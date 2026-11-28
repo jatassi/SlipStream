@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/targets"
@@ -58,12 +59,16 @@ func (NoConversions) Remakes(context.Context, *storage.Tx[file], targets.TargetI
 }
 
 // ConversionCell is a made-from cell's Conversion: Due once its download
-// wait has passed.
+// wait has passed. Node is where it is placed, nil while it is not, and
+// Code a failed one's fault.
 type ConversionCell struct {
 	ID                 storage.UUID
 	Unfinished, Failed bool
 	Due                bool
 	Stage              string
+	Node               *role.NodeID
+	NodeName           string
+	Code               string
 }
 
 func (v ConversionCell) Converting() bool { return v.Unfinished && !v.Failed && v.Due }

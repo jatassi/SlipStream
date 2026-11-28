@@ -199,6 +199,8 @@ type Target struct {
 	// Hold is how long an automatic grab waits after a Release's publish
 	// time for a better one.
 	Hold time.Duration
+	// Conversion is its Conversion settings, nil when it has none.
+	Conversion *Conversion
 	// Profiles is every Profile holding the Target, by name, and Contains
 	// every other Target it contains. Both are read only.
 	Profiles  []ProfileRef
@@ -213,17 +215,18 @@ type ProfileRef struct {
 
 // Spec is a Target as an Admin writes it: tiers of qualities, a cutoff
 // naming a quality of the cutoff tier, sizes by quality, scores, the
-// propers setting and the Hold. An accepted quality Sizes leaves out takes
-// its Floor.
+// propers setting, the Hold and the Conversion settings, whose Version
+// the save sets. An accepted quality Sizes leaves out takes its Floor.
 type Spec struct {
-	Name    string
-	Tiers   [][]release.Quality
-	Cutoff  release.Quality
-	Filters Filters
-	Sizes   map[release.Quality]Size
-	Scores  Scores
-	Propers Propers
-	Hold    time.Duration
+	Name       string
+	Tiers      [][]release.Quality
+	Cutoff     release.Quality
+	Filters    Filters
+	Sizes      map[release.Quality]Size
+	Scores     Scores
+	Propers    Propers
+	Hold       time.Duration
+	Conversion *Conversion
 }
 
 // MaxHold is the longest Hold.
@@ -297,7 +300,7 @@ func NewTarget(s Spec) (Target, error) {
 	if s.Scores.Increment < 1 {
 		return Target{}, ErrBadIncrement
 	}
-	if err := checkHold(s.Hold); err != nil {
+	if err := checkHoldAndConversion(s); err != nil {
 		return Target{}, err
 	}
 	scores := s.Scores
@@ -307,7 +310,7 @@ func NewTarget(s Spec) (Target, error) {
 			scores.Formats[id] = n
 		}
 	}
-	return Target{Name: s.Name, Tiers: tiers, Cutoff: cutoff, Filters: s.Filters, Scores: scores, Propers: s.Propers, Hold: s.Hold}, nil
+	return Target{Name: s.Name, Tiers: tiers, Cutoff: cutoff, Filters: s.Filters, Scores: scores, Propers: s.Propers, Hold: s.Hold, Conversion: s.Conversion}, nil
 }
 
 // layTiers lays qualities out as tiers at their floors, with the index of
@@ -344,7 +347,7 @@ func layTiers(qualities [][]release.Quality, cutoff release.Quality) ([]Tier, in
 
 // Spec is t as an Admin writes it, every size named.
 func (t Target) Spec() Spec {
-	s := Spec{Name: t.Name, Filters: t.Filters, Cutoff: t.Tiers[t.Cutoff][0].Quality, Sizes: map[release.Quality]Size{}, Scores: t.Scores, Propers: t.Propers, Hold: t.Hold}
+	s := Spec{Name: t.Name, Filters: t.Filters, Cutoff: t.Tiers[t.Cutoff][0].Quality, Sizes: map[release.Quality]Size{}, Scores: t.Scores, Propers: t.Propers, Hold: t.Hold, Conversion: t.Conversion}
 	s.Scores.Formats = maps.Clone(t.Scores.Formats)
 	for _, tier := range t.Tiers {
 		var qs []release.Quality

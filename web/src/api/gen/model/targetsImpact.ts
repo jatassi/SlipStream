@@ -1,3 +1,5 @@
+import type { TargetsMadeImpact } from "./targetsMadeImpact.ts";
+import type { TargetsRemakeImpact } from "./targetsRemakeImpact.ts";
 import type { TargetsSubtitles } from "./targetsSubtitles.ts";
 import type { TargetsUnwantedFiles } from "./targetsUnwantedFiles.ts";
 import type { TargetsWorkRenames } from "./targetsWorkRenames.ts";
@@ -8,6 +10,8 @@ export interface TargetsImpact {
    * @minimum 0
    */
   downloading: number;
+  /** The files a change of a Profile's made-from Targets has SlipStream make */
+  made: TargetsMadeImpact;
   /**
    * How many more files SlipStream will look for
    * @minimum 0
@@ -18,6 +22,8 @@ export interface TargetsImpact {
    * @minimum 0
    */
   ownList: number;
+  /** The made files a Target's older Conversion settings made */
+  remake: TargetsRemakeImpact;
   /**
    * Files whose path changes, Kept files included
    * @minimum 0

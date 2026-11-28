@@ -2,6 +2,11 @@ import type { UpdateTargetUnwanted } from "./updateTargetUnwanted.ts";
 
 export type UpdateTargetParams = {
   /**
+   * The remade file count the Admin confirmed from the preview: a save that would remake more is refused with impact_changed
+   * @minimum 0
+   */
+  confirmRemake?: number;
+  /**
    * Return the change's Impact and save nothing
    */
   preview?: boolean;

@@ -138,9 +138,15 @@ func (n *Narrow) Moves(rd release.Read) map[TargetID]int {
 }
 
 // Touches reads in r, before c applies, what c may change. It refuses an
-// UpdateProfile whose Wanted Languages its Content Type can't take.
+// UpdateProfile or SplitProfile whose Wanted Languages its Content Type
+// can't take.
 func (t *Targets) Touches(ctx context.Context, r storage.Reader[file], c Change) (Touched, error) {
-	if u, ok := c.(UpdateProfile); ok {
+	switch u := c.(type) {
+	case UpdateProfile:
+		if err := t.checkLanguages(u.Spec.ContentType, u.Spec.Languages); err != nil {
+			return Touched{}, err
+		}
+	case SplitProfile:
 		if err := t.checkLanguages(u.Spec.ContentType, u.Spec.Languages); err != nil {
 			return Touched{}, err
 		}
@@ -182,6 +188,7 @@ func (c UpdateTarget) touches(ctx context.Context, q *db.Queries, tm formats.Tim
 	before, after := was.Scores.Formats, next.Scores.Formats
 	was.Scores.Formats, next.Scores.Formats = nil, nil
 	was.Hold, next.Hold = 0, 0
+	was.Conversion, next.Conversion = nil, nil
 	if !reflect.DeepEqual(was, next) {
 		return Touched{Works: ws}, nil
 	}
@@ -248,6 +255,9 @@ func (c UpdateTarget) apply(ctx context.Context, q *db.Queries, _ Cuts) error {
 	if err != nil {
 		return err
 	}
+	if err := writeConversion(ctx, q, t.ID, t.Conversion); err != nil {
+		return err
+	}
 	if err := q.DeleteQualities(ctx, t.ID); err != nil {
 		return err
 	}
@@ -272,7 +282,7 @@ func (c UpdateProfile) touches(ctx context.Context, q *db.Queries, _ formats.Tim
 		return Touched{}, err
 	}
 	sameEntries := slices.EqualFunc(entries, c.Spec.Entries, func(row db.TargetsProfileTarget, e Entry) bool {
-		return row.TargetID == e.Target && row.Sourcing == e.Sourcing
+		return entryOf(row).equal(e)
 	})
 	sameEditions := p.Editions.Equal(c.Spec.Editions)
 	if sameEntries && sameEditions {
@@ -304,6 +314,9 @@ func (c UpdateProfile) apply(ctx context.Context, q *db.Queries, known Cuts) err
 		return err
 	case taken:
 		return ErrProfileNameTaken
+	}
+	if sourceBelow(c.Spec.Entries) {
+		return &SourceInUseError{Profiles: []string{p.Name}}
 	}
 	if err := checkEntries(ctx, q, c.Spec.Entries); err != nil {
 		return err

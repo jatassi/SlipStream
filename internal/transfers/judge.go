@@ -128,9 +128,9 @@ func (j *judgment) intent(s snapshot, node role.NodeID) *tv1.Intent {
 }
 
 // dest is where a Transfer's files go now, as judge reads it. root is
-// nil for the two Backup kinds and a download folder, which have no root
-// State and no space step: a full disk fails a Backup's copy at the
-// receiver, and makes a download folder's wait.
+// nil for the two Backup kinds, a download folder and a scratch file,
+// which have no root State and no space step: a full disk fails a
+// Backup's copy at the receiver, and makes the others' wait.
 type dest struct {
 	node  role.NodeID
 	place int64
@@ -148,6 +148,8 @@ func (s snapshot) dest(t Transfer) dest {
 	case BackupsFolder:
 		return dest{node: d.Node, place: backupPlace}
 	case DownloadFolder:
+		return dest{node: d.Node, place: backupPlace}
+	case Scratch:
 		return dest{node: d.Node, place: backupPlace}
 	}
 	panic("transfers: a destination of no known kind")
@@ -170,6 +172,8 @@ func (d dest) wire(t Transfer) *tv1.Destination {
 			w.ClientId = dd.Client[:]
 		}
 		return &tv1.Destination{Kind: &tv1.Destination_DownloadFolder{DownloadFolder: w}}
+	case Scratch:
+		return &tv1.Destination{Kind: &tv1.Destination_Scratch{Scratch: dd.Name}}
 	}
 	panic("transfers: a destination of no known kind")
 }
@@ -341,7 +345,9 @@ func (j *judgment) hold(l *line) {
 // other waits behind it. One whose receiver reported a step-aside wait
 // goes to the back, so alone on its pair it stays active and its receiver
 // retries. A Low one goes behind every Normal one until it has waited
-// LowWait, unless its receiver already runs it: nothing is preempted.
+// LowWait, unless its receiver already runs it. Only a purpose that
+// yields is preempted: it goes behind every Normal one even while its
+// receiver runs it.
 func (j *judgment) run(s snapshot, l *line) {
 	if s.paused {
 		j.hold(l)
@@ -351,7 +357,7 @@ func (j *judgment) run(s snapshot, l *line) {
 		switch {
 		case c.aside != nil:
 			return 2
-		case s.waitsLow(c):
+		case s.yields(c, l), s.waitsLow(c):
 			return 1
 		}
 		return 0
@@ -393,6 +399,12 @@ func (j *judgment) run(s snapshot, l *line) {
 		v.State, v.Wait = Waiting, &Wait{Kind: Connecting, Node: c.t.Source}
 	}
 	j.activate(s, c, route)
+}
+
+// yields is whether c's purpose yields and a Normal Transfer waits on its
+// pair.
+func (s snapshot) yields(c candidate, l *line) bool {
+	return s.purposes[c.t.Purpose].Yields && slices.ContainsFunc(l.cands, func(o candidate) bool { return o.t.Priority == Normal })
 }
 
 // waitsLow is whether c is a Low Transfer that still waits behind Normal
@@ -498,6 +510,8 @@ func sourceOf(ref source.Ref) *tv1.Source {
 		return &tv1.Source{Ref: &tv1.Source_Backup{Backup: &tv1.BackupPlace{Folder: r.Folder, Name: r.Name}}}
 	case source.Library:
 		return &tv1.Source{Ref: &tv1.Source_Library{Library: &tv1.LibrarySource{Root: r.Root[:], Rel: r.Rel}}}
+	case source.Scratch:
+		return &tv1.Source{Ref: &tv1.Source_Scratch{Scratch: r.Name}}
 	}
 	panic("transfers: a source of no known kind")
 }

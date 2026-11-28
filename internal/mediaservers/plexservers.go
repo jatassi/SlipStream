@@ -312,7 +312,7 @@ func (m *MediaServers) repick(ctx context.Context, row db.MediaserversServer, sr
 		return db.New(tx).UpdateServer(ctx, db.UpdateServerParams{
 			ID: next.ID, Name: next.Name, Address: next.Address, FallbackAddress: next.FallbackAddress, BrowserAddress: next.BrowserAddress,
 			Identity: next.Identity, Version: next.Version, MonitorDelayMs: next.MonitorDelayMs, ReachingNodeID: next.ReachingNodeID,
-			RunsOnNodeID: next.RunsOnNodeID, SecretsSealed: next.SecretsSealed, SettingsVersion: next.SettingsVersion, Fallback: next.Fallback,
+			RunsOnNodeID: next.RunsOnNodeID, PausesConversions: next.PausesConversions, SecretsSealed: next.SecretsSealed, SettingsVersion: next.SettingsVersion, Fallback: next.Fallback,
 			CheckedAt: next.CheckedAt, At: storage.Now(),
 		})
 	})

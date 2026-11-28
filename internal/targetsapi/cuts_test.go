@@ -118,7 +118,7 @@ func TestRenamingACutPreviewsThenRenamesItsFiles(t *testing.T) {
 	rename := `{"name":"Fan Favorite","aliases":["Fan Edit"]}`
 	code, body := s.Call(t, http.MethodPut, "/api/v1/cuts/fan-edit?preview=true", rename)
 	want := fill(`{"works":1,"ownList":0,"unwanted":{"files":0,"bytes":0},"renamed":1,"renames":[{"workId":"@work","title":"The Attic","files":[`+
-		`{"fileId":"@file","from":"The Attic/The Attic - Scarf - 1080p.mkv","to":"The Attic/The Attic - Scarf - {edition-Fan Favorite} 1080p.mkv"}]}],"newlyWanted":0,"downloading":0,"subtitles":{"gained":[],"dropped":[],"days":0}}`, ids)
+		`{"fileId":"@file","from":"The Attic/The Attic - Scarf - 1080p.mkv","to":"The Attic/The Attic - Scarf - {edition-Fan Favorite} 1080p.mkv"}]}],"newlyWanted":0,"downloading":0,"subtitles":{"gained":[],"dropped":[],"days":0},"made":{"files":0,"works":0,"seconds":0,"bytes":0,"nodes":[],"unconvertible":[],"matching":0,"rows":[]},"remake":{"older":0,"rows":[]}}`, ids)
 	if got := impactOf(t, "previewing the rename", code, body); got != want {
 		t.Fatalf("previewing the rename = %s, want %s", got, want)
 	}

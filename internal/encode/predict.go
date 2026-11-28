@@ -123,7 +123,7 @@ func audioOut(m media.Record, s Settings, selected []int) []media.Audio {
 }
 
 // Predict is the made file's title facts before it exists: the source's,
-// with the resolution, codec, range and audio s writes, and the Remux,
+// marked Derived, with the resolution, codec, range and audio s writes, and the Remux,
 // BR-DISK and Raw-HD modifiers cleared unless the video is copied. Its
 // size is Bytes. A made file has no release name.
 func Predict(src release.Read, m media.Record, s Settings) release.Read {
@@ -157,5 +157,6 @@ func rewrite(src release.Read, out media.Record, copied bool) release.Read {
 	if mod, ok := f.Modifier.Get(); ok && !copied && slices.Contains(reencodedAway, mod) {
 		f.Modifier = release.Fact[release.Modifier]{}
 	}
+	f.Derived = true
 	return release.Read{Name: src.Name, Facts: f.WithProbe(out.Probed())}
 }

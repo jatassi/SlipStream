@@ -251,7 +251,7 @@ func searchesOf(c targets.Change) (searches.Trigger, bool) {
 		return searches.Profile, true
 	case targets.SetWants:
 		return searches.Editions, true
-	case targets.UpdateTarget, targets.UpdateProfile, targets.UpdateCut, targets.UpdateFormat, targets.DeleteFormat, targets.AddFormats:
+	case targets.UpdateTarget, targets.UpdateProfile, targets.SplitProfile, targets.UpdateCut, targets.UpdateFormat, targets.DeleteFormat, targets.AddFormats:
 		return searches.Retarget, true
 	case targets.SetHold:
 		return "", false

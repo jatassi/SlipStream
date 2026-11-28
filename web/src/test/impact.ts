@@ -12,6 +12,17 @@ export const noImpact: TargetsImpact = {
   newlyWanted: 0,
   downloading: 0,
   subtitles: { gained: [], dropped: [], days: 0 },
+  made: {
+    files: 0,
+    works: 0,
+    seconds: 0,
+    bytes: 0,
+    nodes: [],
+    unconvertible: [],
+    matching: 0,
+    rows: [],
+  },
+  remake: { older: 0, rows: [] },
 };
 
 export type Sent = { readonly query: Record<string, string>; readonly body: unknown };

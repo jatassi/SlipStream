@@ -38,6 +38,8 @@ type snapshot struct {
 	// paused holds every Transfer while the library is Reconciling.
 	lowWait time.Duration
 	paused  bool
+	// purposes: registered before Run.
+	purposes map[PurposeKind]Purpose
 	// ends: the Board's Changed.
 	ends map[role.NodeID]End
 	// facts and fullAt: the Facts hook, Noted.
@@ -57,7 +59,7 @@ type sourceAt struct {
 // take reads a snapshot: the library from rd, the rest from memory and
 // board.
 func (t *Transfers) take(ctx context.Context, rd storage.Reader[storage.Library], board Board) (snapshot, error) {
-	s := snapshot{now: time.Now(), routeRetry: t.cfg.Timings.RouteRetry}
+	s := snapshot{now: time.Now(), routeRetry: t.cfg.Timings.RouteRetry, purposes: t.purposes}
 	if err := t.records(ctx, rd, &s); err != nil {
 		return snapshot{}, err
 	}

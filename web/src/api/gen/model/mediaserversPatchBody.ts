@@ -39,6 +39,8 @@ export interface MediaserversPatchBody {
    * @maxLength 100
    */
   name?: string;
+  /** Pause Conversions on the Node it runs on while it transcodes video */
+  pausesConversions?: boolean;
   reachingNodeId?: string;
   /**
    * A Node id; null when the server runs on no Node

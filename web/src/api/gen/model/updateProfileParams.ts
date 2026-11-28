@@ -7,6 +7,11 @@ export type UpdateProfileParams = {
    */
   confirmSubtitles?: number;
   /**
+   * The made file count the Admin confirmed from the preview: a save that would make more is refused with impact_changed
+   * @minimum 0
+   */
+  confirmMade?: number;
+  /**
    * Return the change's Impact and save nothing
    */
   preview?: boolean;

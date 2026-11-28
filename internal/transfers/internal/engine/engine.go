@@ -101,9 +101,11 @@ type Config struct {
 	Sources   Opener
 	Roots     Stager
 	Downloads DownloadStager
-	Timings   Timings
-	Hooks     Hooks
-	Log       *slog.Logger
+	// Scratch is this Node's scratch folder now, clean.
+	Scratch func() string
+	Timings Timings
+	Hooks   Hooks
+	Log     *slog.Logger
 }
 
 // Engine follows one Node's transfers intent.

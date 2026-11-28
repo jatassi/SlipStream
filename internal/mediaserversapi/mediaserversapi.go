@@ -44,16 +44,17 @@ type draftBody struct {
 type addInput struct{ Body draftBody }
 
 type patchBody struct {
-	Name            *string                       `json:"name,omitempty" minLength:"1" maxLength:"100"`
-	Address         *string                       `json:"address,omitempty" minLength:"1" maxLength:"2048"`
-	FallbackAddress api.Patch[string]             `json:"fallbackAddress,omitempty" doc:"null to use address"`
-	BrowserAddress  api.Patch[string]             `json:"browserAddress,omitempty" doc:"null to hide the Open in button"`
-	ReachingNodeID  *string                       `json:"reachingNodeId,omitempty" format:"uuid"`
-	RunsOnNodeID    api.Patch[string]             `json:"runsOnNodeId,omitempty" doc:"A Node id; null when the server runs on no Node"`
-	APIKey          *string                       `json:"apiKey,omitempty" minLength:"1" maxLength:"1024" doc:"Jellyfin and Emby. Write-only. A key from signInToMediaServer keeps the server's saved deviceId, since the key isn't tied to a device"`
-	MembersSee      *bool                         `json:"membersSee,omitempty" doc:"Show to Members. Turning it on the first time picks the libraries behind the shown Path mappings, unless memberLibraries names others"`
-	MemberLibraries *[]mediaservers.LibraryChoice `json:"memberLibraries,omitempty" maxItems:"1000" doc:"The Libraries for Members, from listMediaServerLibraries; never empty while membersSee is on"`
-	MemberAddress   api.Patch[string]             `json:"memberAddress,omitempty" doc:"Jellyfin and Emby: the address How to watch gives Members; null to give none"`
+	Name              *string                       `json:"name,omitempty" minLength:"1" maxLength:"100"`
+	Address           *string                       `json:"address,omitempty" minLength:"1" maxLength:"2048"`
+	FallbackAddress   api.Patch[string]             `json:"fallbackAddress,omitempty" doc:"null to use address"`
+	BrowserAddress    api.Patch[string]             `json:"browserAddress,omitempty" doc:"null to hide the Open in button"`
+	ReachingNodeID    *string                       `json:"reachingNodeId,omitempty" format:"uuid"`
+	RunsOnNodeID      api.Patch[string]             `json:"runsOnNodeId,omitempty" doc:"A Node id; null when the server runs on no Node"`
+	APIKey            *string                       `json:"apiKey,omitempty" minLength:"1" maxLength:"1024" doc:"Jellyfin and Emby. Write-only. A key from signInToMediaServer keeps the server's saved deviceId, since the key isn't tied to a device"`
+	MembersSee        *bool                         `json:"membersSee,omitempty" doc:"Show to Members. Turning it on the first time picks the libraries behind the shown Path mappings, unless memberLibraries names others"`
+	MemberLibraries   *[]mediaservers.LibraryChoice `json:"memberLibraries,omitempty" maxItems:"1000" doc:"The Libraries for Members, from listMediaServerLibraries; never empty while membersSee is on"`
+	MemberAddress     api.Patch[string]             `json:"memberAddress,omitempty" doc:"Jellyfin and Emby: the address How to watch gives Members; null to give none"`
+	PausesConversions *bool                         `json:"pausesConversions,omitempty" doc:"Pause Conversions on the Node it runs on while it transcodes video"`
 }
 
 type updateInput struct {
@@ -209,6 +210,7 @@ func (b patchBody) patch() (mediaservers.Patch, error) {
 		Name: b.Name, Address: b.Address, APIKey: b.APIKey,
 		FallbackAddress: setOf(b.FallbackAddress), BrowserAddress: setOf(b.BrowserAddress),
 		MembersSee: b.MembersSee, MemberLibraries: b.MemberLibraries, MemberAddress: setOf(b.MemberAddress),
+		PausesConversions: b.PausesConversions,
 	}
 	if b.ReachingNodeID != nil {
 		n, err := nodeID(*b.ReachingNodeID)

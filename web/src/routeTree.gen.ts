@@ -41,6 +41,7 @@ import { Route as AppAccountsIndexRouteImport } from "./routes/_app/accounts/ind
 import { Route as AppAccountsAccountIdRouteImport } from "./routes/_app/accounts/$accountId";
 import { Route as AppActivityIndexRouteImport } from "./routes/_app/activity/index";
 import { Route as AppActivityBlocklistRouteImport } from "./routes/_app/activity/blocklist";
+import { Route as AppActivityConversionsRouteImport } from "./routes/_app/activity/conversions";
 import { Route as AppActivityHistoryRouteImport } from "./routes/_app/activity/history";
 import { Route as AppActivityTorrentsRouteImport } from "./routes/_app/activity/torrents";
 import { Route as AppLibraryIndexRouteImport } from "./routes/_app/library/index";
@@ -66,6 +67,7 @@ import { Route as AppLibraryPendingImportIdRouteImport } from "./routes/_app/lib
 import { Route as AppLibraryWantedContentTypeRouteImport } from "./routes/_app/library/wanted_.$contentType";
 import { Route as AppNodesNodeIdIndexRouteImport } from "./routes/_app/nodes/$nodeId/index";
 import { Route as AppNodesNodeIdBackupsRouteImport } from "./routes/_app/nodes/$nodeId/backups";
+import { Route as AppNodesNodeIdConvertingRouteImport } from "./routes/_app/nodes/$nodeId/converting";
 import { Route as AppNodesNodeIdLogSettingsRouteImport } from "./routes/_app/nodes/$nodeId/log-settings";
 import { Route as AppNodesNodeIdLogsRouteImport } from "./routes/_app/nodes/$nodeId/logs";
 import { Route as AppNodesNodeIdMediaServersRouteImport } from "./routes/_app/nodes/$nodeId/media-servers";
@@ -261,6 +263,11 @@ const AppActivityBlocklistRoute = AppActivityBlocklistRouteImport.update({
   path: "/blocklist",
   getParentRoute: () => AppActivityRouteRoute,
 } as any);
+const AppActivityConversionsRoute = AppActivityConversionsRouteImport.update({
+  id: "/conversions",
+  path: "/conversions",
+  getParentRoute: () => AppActivityRouteRoute,
+} as any);
 const AppActivityHistoryRoute = AppActivityHistoryRouteImport.update({
   id: "/history",
   path: "/history",
@@ -390,6 +397,12 @@ const AppNodesNodeIdBackupsRoute = AppNodesNodeIdBackupsRouteImport.update({
   path: "/backups",
   getParentRoute: () => AppNodesNodeIdRouteRoute,
 } as any);
+const AppNodesNodeIdConvertingRoute =
+  AppNodesNodeIdConvertingRouteImport.update({
+    id: "/converting",
+    path: "/converting",
+    getParentRoute: () => AppNodesNodeIdRouteRoute,
+  } as any);
 const AppNodesNodeIdLogSettingsRoute =
   AppNodesNodeIdLogSettingsRouteImport.update({
     id: "/log-settings",
@@ -623,6 +636,7 @@ export interface FileRoutesByFullPath {
   "/nodes/$nodeId": typeof AppNodesNodeIdRouteRouteWithChildren;
   "/accounts/$accountId": typeof AppAccountsAccountIdRoute;
   "/activity/blocklist": typeof AppActivityBlocklistRoute;
+  "/activity/conversions": typeof AppActivityConversionsRoute;
   "/activity/history": typeof AppActivityHistoryRoute;
   "/activity/torrents": typeof AppActivityTorrentsRouteWithChildren;
   "/library/$contentType": typeof AppLibraryContentTypeRoute;
@@ -650,6 +664,7 @@ export interface FileRoutesByFullPath {
   "/library/pending/$importId": typeof AppLibraryPendingImportIdRoute;
   "/library/wanted/$contentType": typeof AppLibraryWantedContentTypeRoute;
   "/nodes/$nodeId/backups": typeof AppNodesNodeIdBackupsRoute;
+  "/nodes/$nodeId/converting": typeof AppNodesNodeIdConvertingRoute;
   "/nodes/$nodeId/log-settings": typeof AppNodesNodeIdLogSettingsRoute;
   "/nodes/$nodeId/logs": typeof AppNodesNodeIdLogsRoute;
   "/nodes/$nodeId/media-servers": typeof AppNodesNodeIdMediaServersRoute;
@@ -709,6 +724,7 @@ export interface FileRoutesByTo {
   "/portal": typeof PortalIndexRoute;
   "/accounts/$accountId": typeof AppAccountsAccountIdRoute;
   "/activity/blocklist": typeof AppActivityBlocklistRoute;
+  "/activity/conversions": typeof AppActivityConversionsRoute;
   "/activity/history": typeof AppActivityHistoryRoute;
   "/activity/torrents": typeof AppActivityTorrentsRouteWithChildren;
   "/library/$contentType": typeof AppLibraryContentTypeRoute;
@@ -735,6 +751,7 @@ export interface FileRoutesByTo {
   "/library/pending/$importId": typeof AppLibraryPendingImportIdRoute;
   "/library/wanted/$contentType": typeof AppLibraryWantedContentTypeRoute;
   "/nodes/$nodeId/backups": typeof AppNodesNodeIdBackupsRoute;
+  "/nodes/$nodeId/converting": typeof AppNodesNodeIdConvertingRoute;
   "/nodes/$nodeId/log-settings": typeof AppNodesNodeIdLogSettingsRoute;
   "/nodes/$nodeId/logs": typeof AppNodesNodeIdLogsRoute;
   "/nodes/$nodeId/media-servers": typeof AppNodesNodeIdMediaServersRoute;
@@ -801,6 +818,7 @@ export interface FileRoutesById {
   "/_app/nodes/$nodeId": typeof AppNodesNodeIdRouteRouteWithChildren;
   "/_app/accounts/$accountId": typeof AppAccountsAccountIdRoute;
   "/_app/activity/blocklist": typeof AppActivityBlocklistRoute;
+  "/_app/activity/conversions": typeof AppActivityConversionsRoute;
   "/_app/activity/history": typeof AppActivityHistoryRoute;
   "/_app/activity/torrents": typeof AppActivityTorrentsRouteWithChildren;
   "/_app/library/$contentType": typeof AppLibraryContentTypeRoute;
@@ -828,6 +846,7 @@ export interface FileRoutesById {
   "/_app/library/pending_/$importId": typeof AppLibraryPendingImportIdRoute;
   "/_app/library/wanted_/$contentType": typeof AppLibraryWantedContentTypeRoute;
   "/_app/nodes/$nodeId/backups": typeof AppNodesNodeIdBackupsRoute;
+  "/_app/nodes/$nodeId/converting": typeof AppNodesNodeIdConvertingRoute;
   "/_app/nodes/$nodeId/log-settings": typeof AppNodesNodeIdLogSettingsRoute;
   "/_app/nodes/$nodeId/logs": typeof AppNodesNodeIdLogsRoute;
   "/_app/nodes/$nodeId/media-servers": typeof AppNodesNodeIdMediaServersRoute;
@@ -896,6 +915,7 @@ export interface FileRouteTypes {
     | "/nodes/$nodeId"
     | "/accounts/$accountId"
     | "/activity/blocklist"
+    | "/activity/conversions"
     | "/activity/history"
     | "/activity/torrents"
     | "/library/$contentType"
@@ -923,6 +943,7 @@ export interface FileRouteTypes {
     | "/library/pending/$importId"
     | "/library/wanted/$contentType"
     | "/nodes/$nodeId/backups"
+    | "/nodes/$nodeId/converting"
     | "/nodes/$nodeId/log-settings"
     | "/nodes/$nodeId/logs"
     | "/nodes/$nodeId/media-servers"
@@ -982,6 +1003,7 @@ export interface FileRouteTypes {
     | "/portal"
     | "/accounts/$accountId"
     | "/activity/blocklist"
+    | "/activity/conversions"
     | "/activity/history"
     | "/activity/torrents"
     | "/library/$contentType"
@@ -1008,6 +1030,7 @@ export interface FileRouteTypes {
     | "/library/pending/$importId"
     | "/library/wanted/$contentType"
     | "/nodes/$nodeId/backups"
+    | "/nodes/$nodeId/converting"
     | "/nodes/$nodeId/log-settings"
     | "/nodes/$nodeId/logs"
     | "/nodes/$nodeId/media-servers"
@@ -1073,6 +1096,7 @@ export interface FileRouteTypes {
     | "/_app/nodes/$nodeId"
     | "/_app/accounts/$accountId"
     | "/_app/activity/blocklist"
+    | "/_app/activity/conversions"
     | "/_app/activity/history"
     | "/_app/activity/torrents"
     | "/_app/library/$contentType"
@@ -1100,6 +1124,7 @@ export interface FileRouteTypes {
     | "/_app/library/pending_/$importId"
     | "/_app/library/wanted_/$contentType"
     | "/_app/nodes/$nodeId/backups"
+    | "/_app/nodes/$nodeId/converting"
     | "/_app/nodes/$nodeId/log-settings"
     | "/_app/nodes/$nodeId/logs"
     | "/_app/nodes/$nodeId/media-servers"
@@ -1379,6 +1404,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof AppActivityBlocklistRouteImport;
       parentRoute: typeof AppActivityRouteRoute;
     };
+    "/_app/activity/conversions": {
+      id: "/_app/activity/conversions";
+      path: "/conversions";
+      fullPath: "/activity/conversions";
+      preLoaderRoute: typeof AppActivityConversionsRouteImport;
+      parentRoute: typeof AppActivityRouteRoute;
+    };
     "/_app/activity/history": {
       id: "/_app/activity/history";
       path: "/history";
@@ -1552,6 +1584,13 @@ declare module "@tanstack/react-router" {
       path: "/backups";
       fullPath: "/nodes/$nodeId/backups";
       preLoaderRoute: typeof AppNodesNodeIdBackupsRouteImport;
+      parentRoute: typeof AppNodesNodeIdRouteRoute;
+    };
+    "/_app/nodes/$nodeId/converting": {
+      id: "/_app/nodes/$nodeId/converting";
+      path: "/converting";
+      fullPath: "/nodes/$nodeId/converting";
+      preLoaderRoute: typeof AppNodesNodeIdConvertingRouteImport;
       parentRoute: typeof AppNodesNodeIdRouteRoute;
     };
     "/_app/nodes/$nodeId/log-settings": {
@@ -1815,6 +1854,7 @@ const AppActivityTorrentsRouteWithChildren =
 
 interface AppActivityRouteRouteChildren {
   AppActivityBlocklistRoute: typeof AppActivityBlocklistRoute;
+  AppActivityConversionsRoute: typeof AppActivityConversionsRoute;
   AppActivityHistoryRoute: typeof AppActivityHistoryRoute;
   AppActivityTorrentsRoute: typeof AppActivityTorrentsRouteWithChildren;
   AppActivityIndexRoute: typeof AppActivityIndexRoute;
@@ -1822,6 +1862,7 @@ interface AppActivityRouteRouteChildren {
 
 const AppActivityRouteRouteChildren: AppActivityRouteRouteChildren = {
   AppActivityBlocklistRoute: AppActivityBlocklistRoute,
+  AppActivityConversionsRoute: AppActivityConversionsRoute,
   AppActivityHistoryRoute: AppActivityHistoryRoute,
   AppActivityTorrentsRoute: AppActivityTorrentsRouteWithChildren,
   AppActivityIndexRoute: AppActivityIndexRoute,
@@ -1858,6 +1899,7 @@ const AppLibraryRouteRouteWithChildren = AppLibraryRouteRoute._addFileChildren(
 
 interface AppNodesNodeIdRouteRouteChildren {
   AppNodesNodeIdBackupsRoute: typeof AppNodesNodeIdBackupsRoute;
+  AppNodesNodeIdConvertingRoute: typeof AppNodesNodeIdConvertingRoute;
   AppNodesNodeIdLogSettingsRoute: typeof AppNodesNodeIdLogSettingsRoute;
   AppNodesNodeIdLogsRoute: typeof AppNodesNodeIdLogsRoute;
   AppNodesNodeIdMediaServersRoute: typeof AppNodesNodeIdMediaServersRoute;
@@ -1872,6 +1914,7 @@ interface AppNodesNodeIdRouteRouteChildren {
 
 const AppNodesNodeIdRouteRouteChildren: AppNodesNodeIdRouteRouteChildren = {
   AppNodesNodeIdBackupsRoute: AppNodesNodeIdBackupsRoute,
+  AppNodesNodeIdConvertingRoute: AppNodesNodeIdConvertingRoute,
   AppNodesNodeIdLogSettingsRoute: AppNodesNodeIdLogSettingsRoute,
   AppNodesNodeIdLogsRoute: AppNodesNodeIdLogsRoute,
   AppNodesNodeIdMediaServersRoute: AppNodesNodeIdMediaServersRoute,

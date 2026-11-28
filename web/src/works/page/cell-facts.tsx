@@ -130,7 +130,8 @@ function StateFacts({ cell, grabs }: { cell: FilesCell; grabs: readonly GrabsGra
       );
     }
     case "failed": {
-      const grab = grabs.find(({ id }) => id === cell.grabId);
+      const { cause } = cell;
+      const grab = cause.kind === "grab" ? grabs.find(({ id }) => id === cause.grabId) : undefined;
       return (
         <>
           {grab !== undefined && isFailed(grab) && (
@@ -140,6 +141,7 @@ function StateFacts({ cell, grabs }: { cell: FilesCell; grabs: readonly GrabsGra
         </>
       );
     }
+    case "converting":
     case "missing":
     case "unreleased":
       return null;

@@ -53,7 +53,7 @@ test("on the rail the Nodes icon's name says the alert", async () => {
 
 test("the Health row sits between Nodes and Accounts, and its alert and the Tasks row's follow health.changed", async () => {
   const server = liveServer();
-  let alerts: ShellAlerts = { nodes: null, health: null, tasks: null };
+  let alerts: ShellAlerts = { nodes: null, health: null, tasks: null, conversions: null };
   renderApp({
     path: "/library",
     handlers: [
@@ -80,7 +80,7 @@ test("the Health row sits between Nodes and Accounts, and its alert and the Task
     "Accounts",
   ]);
 
-  alerts = { nodes: null, health: "fail", tasks: "warn" };
+  alerts = { nodes: null, health: "fail", tasks: "warn", conversions: null };
   server.clients[0]?.send({ event: "health.changed", data: { categories: ["scheduled-tasks"] } });
   await expect.element(health).toHaveTextContent("Health failed");
   await expect.element(tasks).toHaveTextContent("Tasks needs attention");

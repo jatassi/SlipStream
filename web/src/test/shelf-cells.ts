@@ -36,7 +36,11 @@ function cellOf(item: WorksItem, state: FilesState, edition: string): FilesCell 
     const grabId = item.id.replace(/^.{8}/u, "96ab0000");
     return state === "downloading"
       ? { ...base, state, grabId, file: null, step: null, from: null, until: null }
-      : { ...base, state, grabId, file: null };
+      : { ...base, state, cause: { kind: "grab", grabId }, file: null };
+  }
+  if (state === "converting") {
+    const conversionId = item.id.replace(/^.{8}/u, "c0de0000");
+    return { ...base, state, conversionId, stage: "running", node: null, file: null };
   }
   return { ...base, state };
 }

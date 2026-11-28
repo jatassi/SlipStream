@@ -94,8 +94,45 @@ export const getPasteCustomFormatsResponseMock = (
   ),
   impact: {
     downloading: faker.number.int({ min: 0 }),
+    made: {
+      bytes: faker.number.int({ min: 0 }),
+      files: faker.number.int({ min: 0 }),
+      matching: faker.number.int({ min: 0 }),
+      nodes: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => faker.string.alpha({ length: { min: 10, max: 20 } }),
+      ),
+      rows: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => ({
+          addedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+          bytes: faker.number.int({ min: 0 }),
+          files: faker.number.int({ min: 0 }),
+          seconds: faker.number.int({ min: 0 }),
+          title: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          workId: faker.string.uuid(),
+        }),
+      ),
+      seconds: faker.number.int({ min: 0 }),
+      unconvertible: Array.from(
+        { length: faker.number.int({ min: 1, max: 10 }) },
+        (_, i) => i + 1,
+      ).map(() => faker.string.uuid()),
+      works: faker.number.int({ min: 0 }),
+    },
     newlyWanted: faker.number.int({ min: 0 }),
     ownList: faker.number.int({ min: 0 }),
+    remake: {
+      older: faker.number.int({ min: 0 }),
+      rows: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => ({
+          addedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+          bytes: faker.number.int({ min: 0 }),
+          files: faker.number.int({ min: 0 }),
+          seconds: faker.number.int({ min: 0 }),
+          title: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          workId: faker.string.uuid(),
+        }),
+      ),
+    },
     renamed: faker.number.int({ min: 0 }),
     renames: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
       () => ({
@@ -174,8 +211,45 @@ export const getDeleteCustomFormatResponseMock = (
 ): FormatsFormatDeletion => ({
   impact: {
     downloading: faker.number.int({ min: 0 }),
+    made: {
+      bytes: faker.number.int({ min: 0 }),
+      files: faker.number.int({ min: 0 }),
+      matching: faker.number.int({ min: 0 }),
+      nodes: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => faker.string.alpha({ length: { min: 10, max: 20 } }),
+      ),
+      rows: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => ({
+          addedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+          bytes: faker.number.int({ min: 0 }),
+          files: faker.number.int({ min: 0 }),
+          seconds: faker.number.int({ min: 0 }),
+          title: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          workId: faker.string.uuid(),
+        }),
+      ),
+      seconds: faker.number.int({ min: 0 }),
+      unconvertible: Array.from(
+        { length: faker.number.int({ min: 1, max: 10 }) },
+        (_, i) => i + 1,
+      ).map(() => faker.string.uuid()),
+      works: faker.number.int({ min: 0 }),
+    },
     newlyWanted: faker.number.int({ min: 0 }),
     ownList: faker.number.int({ min: 0 }),
+    remake: {
+      older: faker.number.int({ min: 0 }),
+      rows: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => ({
+          addedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+          bytes: faker.number.int({ min: 0 }),
+          files: faker.number.int({ min: 0 }),
+          seconds: faker.number.int({ min: 0 }),
+          title: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          workId: faker.string.uuid(),
+        }),
+      ),
+    },
     renamed: faker.number.int({ min: 0 }),
     renames: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
       () => ({
@@ -271,8 +345,45 @@ export const getUpdateCustomFormatResponseMock = (
   },
   impact: {
     downloading: faker.number.int({ min: 0 }),
+    made: {
+      bytes: faker.number.int({ min: 0 }),
+      files: faker.number.int({ min: 0 }),
+      matching: faker.number.int({ min: 0 }),
+      nodes: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => faker.string.alpha({ length: { min: 10, max: 20 } }),
+      ),
+      rows: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => ({
+          addedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+          bytes: faker.number.int({ min: 0 }),
+          files: faker.number.int({ min: 0 }),
+          seconds: faker.number.int({ min: 0 }),
+          title: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          workId: faker.string.uuid(),
+        }),
+      ),
+      seconds: faker.number.int({ min: 0 }),
+      unconvertible: Array.from(
+        { length: faker.number.int({ min: 1, max: 10 }) },
+        (_, i) => i + 1,
+      ).map(() => faker.string.uuid()),
+      works: faker.number.int({ min: 0 }),
+    },
     newlyWanted: faker.number.int({ min: 0 }),
     ownList: faker.number.int({ min: 0 }),
+    remake: {
+      older: faker.number.int({ min: 0 }),
+      rows: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => ({
+          addedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+          bytes: faker.number.int({ min: 0 }),
+          files: faker.number.int({ min: 0 }),
+          seconds: faker.number.int({ min: 0 }),
+          title: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          workId: faker.string.uuid(),
+        }),
+      ),
+    },
     renamed: faker.number.int({ min: 0 }),
     renames: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
       () => ({

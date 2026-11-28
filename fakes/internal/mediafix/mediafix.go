@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/jatassi/slipstream/fakes/scenario"
+	"github.com/jatassi/slipstream/internal/converting/clip"
 	"github.com/jatassi/slipstream/internal/media"
 	"github.com/jatassi/slipstream/internal/release"
 )
@@ -178,14 +179,14 @@ func (b *Builder) run(ctx context.Context, r recipe, dir string) error {
 			return fmt.Errorf("write %s: %w", f.name, err)
 		}
 	}
-	programs := map[string]string{"ffmpeg": b.tools.FFmpeg, "dovi_tool": b.tools.DoviTool}
+	programs := map[clip.Tool]string{clip.FFmpeg: b.tools.FFmpeg, clip.DoviTool: b.tools.DoviTool}
 	for _, s := range r.steps {
-		cmd := exec.CommandContext(ctx, programs[s.tool], s.args...)
+		cmd := exec.CommandContext(ctx, programs[s.Tool], s.Args...)
 		cmd.Dir = dir
 		var stderr bytes.Buffer
 		cmd.Stderr = &stderr
 		if err := cmd.Run(); err != nil {
-			return fmt.Errorf("%s: %w: %s", s.tool, err, bytes.TrimSpace(stderr.Bytes()))
+			return fmt.Errorf("%s: %w: %s", s.Tool, err, bytes.TrimSpace(stderr.Bytes()))
 		}
 	}
 	return nil
@@ -202,7 +203,7 @@ func (r *recipe) fileList() [][]string {
 func (r *recipe) stepList() [][]string {
 	out := make([][]string, len(r.steps))
 	for i, s := range r.steps {
-		out[i] = append([]string{s.tool}, s.args...)
+		out[i] = append([]string{string(s.Tool)}, s.Args...)
 	}
 	return out
 }
@@ -215,7 +216,7 @@ func Want(f scenario.MediaFile) media.Record {
 	v := f.Video
 	r := media.Record{Version: media.Version, Container: "matroska,webm", Duration: time.Duration(v.Seconds) * time.Second}
 	r.Video = media.Video{
-		Codec: "hevc", Profile: "Main 10", Width: v.Width, Height: v.Height, BitDepth: 10, FrameRate: media.Rate{Num: fps, Den: 1},
+		Codec: "hevc", Profile: "Main 10", Width: v.Width, Height: v.Height, BitDepth: 10, FrameRate: media.Rate{Num: clip.FPS, Den: 1},
 		HDR: []release.HDR{"HDR10"},
 	}
 	switch v.HDR {
@@ -269,7 +270,7 @@ var dvLevels = []int{
 // dvLevel is the level libx265 writes for v, the first whose sample rate
 // holds it.
 func dvLevel(v scenario.MediaVideo) int {
-	rate := v.Width * v.Height * fps
+	rate := v.Width * v.Height * clip.FPS
 	for i, limit := range dvLevels {
 		if rate <= limit {
 			return i + 1

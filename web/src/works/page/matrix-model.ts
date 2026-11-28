@@ -61,9 +61,11 @@ export type Matrix = {
 };
 
 const sourcingWords: {
-  readonly [S in TargetsProfile["targets"][number]["sourcing"]]: string;
+  readonly [S in TargetsProfile["targets"][number]["sourcing"]]: (from: string) => string;
 } = {
-  download: "Downloaded",
+  download: () => "Downloaded",
+  derive: (from) => `Made from ${from}`,
+  download_then_derive: (from) => `Downloaded, or made from ${from}`,
 };
 
 export const anyCut = "any";
@@ -92,10 +94,11 @@ export function matrixOf({
   targets: readonly TargetsTarget[];
   cuts: readonly TargetsCut[];
 }): Matrix {
-  const columns = profile.targets.map(({ targetId, sourcing }) => ({
+  const nameOfTarget = (id: string) => targets.find((target) => target.id === id)?.name ?? id;
+  const columns = profile.targets.map(({ targetId, sourcing, fromTargetId }) => ({
     id: targetId,
-    name: targets.find((target) => target.id === targetId)?.name ?? targetId,
-    sourcing: sourcingWords[sourcing],
+    name: nameOfTarget(targetId),
+    sourcing: sourcingWords[sourcing](nameOfTarget(fromTargetId ?? "")),
   }));
   const nameOf = cutNameOf(cuts);
   const editions = wants.editions.kind === "any" ? [anyCut] : wants.editions.cuts;

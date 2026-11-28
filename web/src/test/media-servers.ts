@@ -16,7 +16,6 @@ import { home, seedbox } from "./nodes";
 import { archiveRoot, filmsRoot } from "./roots";
 
 const api = "/api/v1/media-servers";
-
 const homeRef = { id: home.id, name: home.name };
 const seedboxRef = { id: seedbox.id, name: seedbox.name };
 
@@ -36,6 +35,7 @@ export const denJellyfin: MediaserversServerView = {
   version: "12.2.0",
   identity: "f4c1d2e3a4b5c6d7e8f9a0b1c2d3e4f5",
   reachingNode: homeRef,
+  pausesConversions: true,
   fallback: "available",
   checkedAt: "2026-11-14T09:00:00Z",
   contact: "responding",
@@ -60,6 +60,7 @@ export const livingRoomPlex: MediaserversServerView = {
   version: "1.43.5.11029",
   identity: "9b8a7c6d5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b",
   reachingNode: seedboxRef,
+  pausesConversions: true,
   runsOnNode: seedboxRef,
   fallback: "none",
   checkedAt: "2026-11-14T08:00:00Z",

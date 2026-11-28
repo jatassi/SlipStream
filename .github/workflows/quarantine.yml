@@ -59,7 +59,7 @@ jobs:
         uses: actions/cache@v6
         with:
           path: ${{ matrix.fixtures }}
-          key: fixtures-${{ matrix.target }}-${{ hashFiles('native/lock.json', 'fakes/internal/mediafix/recipe.go', 'fakes/internal/releases/releases.go', 'fakes/scenario/catalog/*.yaml') }}
+          key: fixtures-${{ matrix.target }}-${{ hashFiles('native/lock.json', 'fakes/internal/mediafix/recipe.go', 'internal/converting/clip/clip.go', 'fakes/internal/releases/releases.go', 'fakes/scenario/catalog/*.yaml') }}
           restore-keys: fixtures-${{ matrix.target }}-
       - name: Restore the Bun cache
         uses: actions/cache@v6

@@ -1,0 +1,1 @@
+export type ConversionsConversionGroupKind = "group";
