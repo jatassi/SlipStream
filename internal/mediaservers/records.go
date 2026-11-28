@@ -360,6 +360,9 @@ func (s service) Add(ctx context.Context, d Draft) (ServerView, error) {
 		return ServerView{}, err
 	}
 	s.m.cfg.Touch(d.Reaching)
+	if d.RunsOn != nil {
+		s.m.cfg.Touched()
+	}
 	s.m.changed(ctx, id)
 	return s.Get(ctx, id)
 }
@@ -476,7 +479,7 @@ func (s service) Update(ctx context.Context, id link.ServerID, p Patch) (ServerV
 		err = q.UpdateServer(ctx, db.UpdateServerParams{
 			ID: id, Name: next.Name, Address: next.Address, FallbackAddress: next.FallbackAddress, BrowserAddress: next.BrowserAddress,
 			Identity: next.Identity, Version: next.Version, MonitorDelayMs: next.MonitorDelayMs, ReachingNodeID: next.ReachingNodeID,
-			RunsOnNodeID: next.RunsOnNodeID, SecretsSealed: sealed, SettingsVersion: next.SettingsVersion, Fallback: next.Fallback,
+			RunsOnNodeID: next.RunsOnNodeID, PausesConversions: next.PausesConversions, SecretsSealed: sealed, SettingsVersion: next.SettingsVersion, Fallback: next.Fallback,
 			CheckedAt: next.CheckedAt, At: storage.Now(),
 		})
 		if err != nil {
@@ -492,10 +495,19 @@ func (s service) Update(ctx context.Context, id link.ServerID, p Patch) (ServerV
 		return ServerView{}, err
 	}
 	s.m.cfg.Touch(row.ReachingNodeID, next.ReachingNodeID)
+	s.m.pausingChanged(row, next)
 	s.m.changed(ctx, id)
 	s.m.playsEnded(ctx, ended)
 	s.m.membersChanged(ctx, p)
 	return s.Get(ctx, id)
+}
+
+// pausingChanged touches Converting's holders when next runs on another
+// Node than was or turned Pause Conversions.
+func (m *MediaServers) pausingChanged(was, next db.MediaserversServer) {
+	if next.RunsOnNodeID != was.RunsOnNodeID || next.PausesConversions != was.PausesConversions {
+		m.cfg.Touched()
+	}
 }
 
 // rerouted records that next's reaching Node holds its credential, and
@@ -532,6 +544,9 @@ func (p Patch) onto(row db.MediaserversServer, cred link.Credential) (db.Mediase
 	if p.RunsOn != nil {
 		row.RunsOnNodeID = nodeOrZero(p.RunsOn.To)
 	}
+	if p.PausesConversions != nil {
+		row.PausesConversions = *p.PausesConversions
+	}
 	if p.APIKey != nil {
 		cred.APIKey = *p.APIKey
 	}
@@ -541,7 +556,10 @@ func (p Patch) onto(row db.MediaserversServer, cred link.Credential) (db.Mediase
 // Remove forgets the server with its changes, mappings, index, play
 // history and credential holders.
 func (s service) Remove(ctx context.Context, id link.ServerID) error {
-	var reaching role.NodeID
+	var (
+		reaching role.NodeID
+		ranOn    bool
+	)
 	err := s.m.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		q := db.New(tx)
 		row, err := q.GetServer(ctx, id)
@@ -551,7 +569,7 @@ func (s service) Remove(ctx context.Context, id link.ServerID) error {
 		if err != nil {
 			return err
 		}
-		reaching = row.ReachingNodeID
+		reaching, ranOn = row.ReachingNodeID, !row.RunsOnNodeID.IsZero()
 		_, err = q.DeleteServer(ctx, id)
 		return err
 	})
@@ -559,6 +577,9 @@ func (s service) Remove(ctx context.Context, id link.ServerID) error {
 		return err
 	}
 	s.m.cfg.Touch(reaching)
+	if ranOn {
+		s.m.cfg.Touched()
+	}
 	s.m.changed(ctx, id)
 	return nil
 }
@@ -622,7 +643,7 @@ func (s service) ConfirmIdentity(ctx context.Context, id link.ServerID) (ServerV
 		err := q.UpdateServer(ctx, db.UpdateServerParams{
 			ID: id, Name: row.Name, Address: row.Address, FallbackAddress: row.FallbackAddress, BrowserAddress: row.BrowserAddress,
 			Identity: found.ID, Version: found.Version.String(), MonitorDelayMs: delayMs(sv.kind, c.MonitorDelay),
-			ReachingNodeID: row.ReachingNodeID, RunsOnNodeID: row.RunsOnNodeID, SecretsSealed: row.SecretsSealed,
+			ReachingNodeID: row.ReachingNodeID, RunsOnNodeID: row.RunsOnNodeID, PausesConversions: row.PausesConversions, SecretsSealed: row.SecretsSealed,
 			SettingsVersion: row.SettingsVersion + 1, Fallback: row.Fallback, CheckedAt: row.CheckedAt, At: storage.Now(),
 		})
 		if err != nil {

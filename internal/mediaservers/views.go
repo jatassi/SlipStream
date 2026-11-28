@@ -105,13 +105,14 @@ type Draft struct {
 // Patch is a change to a saved server. A field not sent leaves the value
 // alone. Null clears a nullable one.
 type Patch struct {
-	Name            *string
-	Address         *string
-	FallbackAddress *Set[string]
-	BrowserAddress  *Set[string]
-	Reaching        *role.NodeID
-	RunsOn          *Set[role.NodeID]
-	APIKey          *string
+	Name              *string
+	Address           *string
+	FallbackAddress   *Set[string]
+	BrowserAddress    *Set[string]
+	Reaching          *role.NodeID
+	RunsOn            *Set[role.NodeID]
+	PausesConversions *bool
+	APIKey            *string
 	// MembersSee on with no library is ErrNoMemberLibraries. The first
 	// turn on writes the default Libraries for Members.
 	MembersSee *bool
