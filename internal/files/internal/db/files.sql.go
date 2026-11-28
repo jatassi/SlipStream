@@ -1629,6 +1629,46 @@ func (q *Queries) ListLeftIn(ctx context.Context, workIds []works.WorkID) ([]Fil
 	return items, nil
 }
 
+const listMadeBefore = `-- name: ListMadeBefore :many
+SELECT id, work_id, derived_from_file_id FROM files_file
+WHERE derived = 1 AND derived_target_id = ?1 AND conversion_version < ?2 AND gone_at IS NULL
+ORDER BY work_id, id
+`
+
+type ListMadeBeforeParams struct {
+	TargetID targets.TargetID
+	Version  *int64
+}
+
+type ListMadeBeforeRow struct {
+	ID                FileID
+	WorkID            works.WorkID
+	DerivedFromFileID FileID
+}
+
+func (q *Queries) ListMadeBefore(ctx context.Context, arg ListMadeBeforeParams) ([]ListMadeBeforeRow, error) {
+	rows, err := q.db.QueryContext(ctx, listMadeBefore, arg.TargetID, arg.Version)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListMadeBeforeRow
+	for rows.Next() {
+		var i ListMadeBeforeRow
+		if err := rows.Scan(&i.ID, &i.WorkID, &i.DerivedFromFileID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listMoves = `-- name: ListMoves :many
 SELECT files_move.file_id, files_move.sits, files_move.origin, files_move.ring, files_file.work_id, files_file.root_id, files_file.path
 FROM files_move JOIN files_file ON files_file.id = files_move.file_id

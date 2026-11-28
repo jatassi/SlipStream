@@ -503,17 +503,25 @@ func TestCellsCarryTheConversionsFacts(t *testing.T) {
 func TestRemakesListOlderFilesAndQueueTheChosen(t *testing.T) {
 	l := newLife(t)
 	l.cells()
-	made := func(version int) {
+	made := func(version int, pruned bool) {
 		r := l.seed(t, seed{Stage: StageDone, Finished: l.now})
 		out, _ := l.file(t)
 		l.write(t, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
-			_, err := tx.ExecContext(ctx, `UPDATE conversions_conversion SET version = ?, output_file_id = ? WHERE id = ?`, version, out, r.ID)
+			if _, err := tx.ExecContext(ctx, `UPDATE files_file SET derived = 1, derived_from_file_id = ?, derived_target_id = ?, conversion_version = ? WHERE id = ?`,
+				r.SourceFile, l.target, version, out); err != nil {
+				return err
+			}
+			query, args := `UPDATE conversions_conversion SET version = ?, output_file_id = ? WHERE id = ?`, []any{version, out, r.ID}
+			if pruned {
+				query, args = `DELETE FROM conversions_conversion WHERE id = ?`, []any{r.ID}
+			}
+			_, err := tx.ExecContext(ctx, query, args...)
 			return err
 		})
 	}
-	made(l.version - 1)
-	made(l.version - 2)
-	made(l.version)
+	made(l.version-1, false)
+	made(l.version-2, true)
+	made(l.version, false)
 	var preview, saved files.RemakeImpact
 	l.write(t, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		var err error
@@ -525,7 +533,7 @@ func TestRemakesListOlderFilesAndQueueTheChosen(t *testing.T) {
 	})
 	for _, got := range []files.RemakeImpact{preview, saved} {
 		if got.Older != 2 || len(got.Rows) != 1 || got.Rows[0].Work != l.work || got.Rows[0].Files != 2 || got.Rows[0].Bytes <= 0 {
-			t.Errorf("impact = %+v, want two older files of the Work", got)
+			t.Errorf("impact = %+v, want two older files of the Work, the one whose done row Retention pruned included", got)
 		}
 	}
 	var nudges []db.ConversionsNudge

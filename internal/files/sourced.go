@@ -153,3 +153,25 @@ func (f *Files) Located(ctx context.Context, r storage.Reader[file], id ID) (Loc
 	}
 	return out, nil
 }
+
+// Made is a live made file of Work, and From the file it was made from,
+// zero once that is gone.
+type Made struct {
+	Work works.WorkID
+	File ID
+	From ID
+}
+
+// MadeBefore is every live file Target t's Conversion settings made
+// before version, read in r, by Work.
+func MadeBefore(ctx context.Context, r storage.Reader[file], t targets.TargetID, version int) ([]Made, error) {
+	rows, err := db.New(r).ListMadeBefore(ctx, db.ListMadeBeforeParams{TargetID: t, Version: new(int64(version))})
+	if err != nil {
+		return nil, err
+	}
+	out := make([]Made, len(rows))
+	for i, row := range rows {
+		out[i] = Made{Work: row.WorkID, File: row.ID, From: row.DerivedFromFileID}
+	}
+	return out, nil
+}

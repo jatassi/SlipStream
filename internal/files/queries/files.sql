@@ -320,3 +320,8 @@ WHERE f.work_id IN (sqlc.slice(work_ids)) ORDER BY f.id;
 UPDATE files_file SET root_id = sqlc.arg(root_id), modified_at = sqlc.arg(modified_at), node_file_id = sqlc.narg(node_file_id),
     node_volume_id = sqlc.narg(node_volume_id)
 WHERE id = sqlc.arg(id);
+
+-- name: ListMadeBefore :many
+SELECT id, work_id, derived_from_file_id FROM files_file
+WHERE derived = 1 AND derived_target_id = sqlc.arg(target_id) AND conversion_version < sqlc.arg(version) AND gone_at IS NULL
+ORDER BY work_id, id;

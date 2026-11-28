@@ -153,7 +153,7 @@ func (s Seam) cancelSource(ctx context.Context, tx *storage.Tx[storage.Library],
 func (s Seam) Remakes(ctx context.Context, tx *storage.Tx[storage.Library], t targets.TargetID, version int, ws []works.WorkID, preview bool) (files.RemakeImpact, error) {
 	c := s.Conversions()
 	q := db.New(tx)
-	made, err := q.ListMadeBefore(ctx, db.ListMadeBeforeParams{TargetID: t, Version: int64(version)})
+	made, err := files.MadeBefore(ctx, tx, t, version)
 	if err != nil {
 		return files.RemakeImpact{}, fmt.Errorf("read the files older settings made: %w", err)
 	}
@@ -165,20 +165,20 @@ func (s Seam) Remakes(ctx context.Context, tx *storage.Tx[storage.Library], t ta
 	var out files.RemakeImpact
 	at := map[works.WorkID]int{}
 	for _, m := range made {
-		if len(ws) > 0 && !slices.Contains(ws, m.WorkID) {
+		if len(ws) > 0 && !slices.Contains(ws, m.Work) {
 			continue
 		}
-		i, ok := at[m.WorkID]
+		i, ok := at[m.Work]
 		if !ok {
-			i, at[m.WorkID] = len(out.Rows), len(out.Rows)
-			out.Rows = append(out.Rows, files.MadeRow{Work: m.WorkID})
+			i, at[m.Work] = len(out.Rows), len(out.Rows)
+			out.Rows = append(out.Rows, files.MadeRow{Work: m.Work})
 		}
 		out.Older++
 		out.Rows[i].Files++
-		if m.SourceFileID.IsZero() {
+		if m.From.IsZero() {
 			continue
 		}
-		src, err := c.cfg.Files.Located(ctx, tx, m.SourceFileID)
+		src, err := c.cfg.Files.Located(ctx, tx, m.From)
 		switch {
 		case errors.Is(err, files.ErrNoFile):
 		case err != nil:
