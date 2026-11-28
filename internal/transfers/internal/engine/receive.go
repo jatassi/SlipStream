@@ -181,6 +181,8 @@ func (r *run) stage() error {
 	switch d := r.spec.download; {
 	case r.spec.backup != nil:
 		folder, err = r.e.backupStaging(r.ctx, r.spec.backup, r.spec.id)
+	case r.spec.scratch != (storing.Rel{}):
+		folder, err = r.e.scratchStaging(r.ctx, r.spec.id)
 	case d != nil:
 		folder, err = r.e.cfg.Downloads.StageDownload(r.ctx, d.Client, d.ContentType, d.InfoHash, r.spec.id.UUID)
 	default:
@@ -764,6 +766,11 @@ func (r *run) finish(l *lane, f *staged) error {
 	f.close()
 	if r.spec.backup != nil {
 		if err := r.e.place(r.ctx, f.path, r.spec.backup); err != nil {
+			return &failure{code: tv1.Failed_CODE_FOLDER_FAILED, position: f.position, detail: err.Error()}
+		}
+	}
+	if r.spec.scratch != (storing.Rel{}) {
+		if err := r.e.placeScratch(r.ctx, f.path, r.spec.scratch); err != nil {
 			return &failure{code: tv1.Failed_CODE_FOLDER_FAILED, position: f.position, detail: err.Error()}
 		}
 	}

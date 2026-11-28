@@ -170,10 +170,10 @@ func (q *Queries) InsertFile(ctx context.Context, arg InsertFileParams) error {
 
 const insertTransfer = `-- name: InsertTransfer :exec
 INSERT INTO transfers_record (id, purpose, job, source_node, destination_kind, destination_root, destination_backup, destination_node, destination_folder,
-    destination_client, destination_content_type, destination_info_hash, priority, created_at)
+    destination_client, destination_content_type, destination_info_hash, destination_name, priority, created_at)
 VALUES (?1, ?2, ?3, ?4, ?5, ?6,
     ?7, ?8, ?9, ?10, ?11,
-    ?12, ?13, ?14)
+    ?12, ?13, ?14, ?15)
 `
 
 type InsertTransferParams struct {
@@ -189,6 +189,7 @@ type InsertTransferParams struct {
 	DestinationClient      []byte
 	DestinationContentType *string
 	DestinationInfoHash    []byte
+	DestinationName        *string
 	Priority               string
 	CreatedAt              storage.Time
 }
@@ -207,6 +208,7 @@ func (q *Queries) InsertTransfer(ctx context.Context, arg InsertTransferParams) 
 		arg.DestinationClient,
 		arg.DestinationContentType,
 		arg.DestinationInfoHash,
+		arg.DestinationName,
 		arg.Priority,
 		arg.CreatedAt,
 	)

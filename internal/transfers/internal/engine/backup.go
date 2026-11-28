@@ -52,18 +52,20 @@ func (e *Engine) at(folder, name string) (string, error) {
 	return e.cfg.Disk.Host().Style.Join(folder, name), nil
 }
 
-// open resolves a sender's source: a Backup in a listed folder, or what
-// the Opener answers.
+// open resolves a sender's source: a Backup in a listed folder, a file
+// under the scratch folder, or what the Opener answers.
 func (e *Engine) open(ref source.Ref) (string, error) {
-	b, ok := ref.(source.Backup)
-	if !ok {
-		return e.cfg.Sources.Open(ref)
+	switch r := ref.(type) {
+	case source.Backup:
+		path, err := e.at(r.Folder, r.Name)
+		if err != nil {
+			return "", &source.Absent{Reason: source.Gone, Detail: err.Error()}
+		}
+		return path, nil
+	case source.Scratch:
+		return e.scratchSource(r)
 	}
-	path, err := e.at(b.Folder, b.Name)
-	if err != nil {
-		return "", &source.Absent{Reason: source.Gone, Detail: err.Error()}
-	}
-	return path, nil
+	return e.cfg.Sources.Open(ref)
 }
 
 // backupStaging is the folder a Backup kind's Transfer stages in: a

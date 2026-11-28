@@ -41,7 +41,10 @@ type NodeConfig struct {
 	Sources   Opener
 	Roots     Stager
 	Downloads DownloadStager
-	Timings   Timings
+	// Scratch is this Node's scratch folder now, clean. A scratch source
+	// opens and a scratch destination stages only under it.
+	Scratch func() string
+	Timings Timings
 	// Retry is timings.backups.windows_retry: how long a rename or delete
 	// in a Backup folder retries a Windows sharing violation.
 	Retry time.Duration
@@ -63,6 +66,7 @@ func NewNode(cfg NodeConfig) *Node {
 		Sources:   cfg.Sources,
 		Roots:     cfg.Roots,
 		Downloads: cfg.Downloads,
+		Scratch:   cfg.Scratch,
 		Timings: engine.Timings{
 			Chunk: t.Chunk, Report: t.Report, Dial: t.Dial, Estimate: t.Estimate,
 			LanesStart: t.LanesStart, LanesGrow: t.LanesGrow, LanesGain: t.LanesGain, LanesMax: t.LanesMax, Ahead: t.Ahead,
