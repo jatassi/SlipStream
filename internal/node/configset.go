@@ -131,8 +131,9 @@ func SetConfig(ctx context.Context, env Env, changes []ConfigChange) (keys []Key
 	return keys, false, errors.Join(err, lk.Release())
 }
 
-// setOffline judges a folder by the Disk alone, since the roots it may
-// not overlap are the Controller's and the Node holds none while stopped.
+// setOffline judges a folder by the Disk and the folders config.yaml
+// names, since the roots it may not overlap are the Controller's and the
+// Node holds none while stopped.
 func setOffline(ctx context.Context, env Env, changes []nodesystem.Change) ([]Key, error) {
 	f := env.configFile()
 	saved, _, err := f.load()
@@ -143,7 +144,11 @@ func setOffline(ctx context.Context, env Env, changes []nodesystem.Change) ([]Ke
 	if err != nil {
 		return nil, fmt.Errorf("open the disk: %w", err)
 	}
-	_, keys, err := f.set(ctx, storing.NewStore(storing.Config{Disk: disk, Timings: saved.Timings.Storing}), changes)
+	downloads, backups := env.DataDir.Resolve(saved.Torrent.Downloads), env.DataDir.Resolve(saved.Backups.Folder)
+	store := storing.NewStore(storing.Config{
+		Disk: disk, Downloads: func() []string { return []string{downloads} }, Backups: func() string { return backups }, Timings: saved.Timings.Storing,
+	})
+	_, keys, err := f.set(ctx, store, changes)
 	return keys, err
 }
 

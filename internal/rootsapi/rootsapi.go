@@ -202,7 +202,7 @@ type busy struct {
 }
 
 type refusal struct {
-	Reason string `json:"reason" enum:"not_absolute,not_found,not_a_folder,unwritable,inside_root,contains_root,inside_data,contains_data,inside_downloads,contains_downloads,unresponsive,network_share,outside,node_offline" doc:"Why the folder can't serve its purpose"`
+	Reason string `json:"reason" enum:"not_absolute,not_found,not_a_folder,unwritable,inside_root,contains_root,inside_data,contains_data,inside_downloads,contains_downloads,unresponsive,network_share,outside,inside_backups,contains_backups,node_offline" doc:"Why the folder can't serve its purpose"`
 	RootID string `json:"rootId,omitempty" format:"uuid" doc:"The root the folder is inside, contains or carries the marker of"`
 }
 

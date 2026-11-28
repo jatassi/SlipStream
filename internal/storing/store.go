@@ -43,6 +43,9 @@ type Config struct {
 	// Scratch is the Node's scratch folder now, clean, which the fence
 	// admits beside the roots and download folders.
 	Scratch func() string
+	// Backups is the Node's Backups folder, which the scratch folder may
+	// not overlap.
+	Backups func() string
 	Timings Timings
 	// Prober reads a root file's media record for Probe.
 	Prober media.Prober

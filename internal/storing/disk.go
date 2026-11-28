@@ -45,6 +45,9 @@ type Disk interface {
 	Clone(ctx context.Context, from, to string) error
 	// Writable writes nothing: access(W_OK) and the volume's read-only flag.
 	Writable(ctx context.Context, dir string) (bool, error)
+	// Runnable is whether path is a file to run: any file on Windows, one
+	// with an execute bit elsewhere.
+	Runnable(ctx context.Context, path string) (bool, error)
 	Volume(ctx context.Context, path string) (Volume, error)
 	Places(ctx context.Context) ([]Place, error)
 	Host() Host
