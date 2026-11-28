@@ -15,6 +15,7 @@ import (
 	"strings"
 
 	"github.com/jatassi/slipstream/internal/encode"
+	"github.com/jatassi/slipstream/internal/proctree"
 )
 
 type Size struct{ W, H, Seconds int }
@@ -183,7 +184,7 @@ func Make(ctx context.Context, t Tools, c encode.Class, s Size, dir string) (str
 		cmd.Dir, cmd.Env = dir, t.Environ
 		var stderr bytes.Buffer
 		cmd.Stderr = &stderr
-		if err := cmd.Run(); err != nil {
+		if err := proctree.Run(cmd); err != nil {
 			return "", fmt.Errorf("make the %s clip: %s: %w: %s", c, step.Tool, err, bytes.TrimSpace(stderr.Bytes()))
 		}
 	}

@@ -19,6 +19,7 @@ import (
 	"github.com/jatassi/slipstream/internal/converting/pipeline"
 	"github.com/jatassi/slipstream/internal/encode"
 	"github.com/jatassi/slipstream/internal/media"
+	"github.com/jatassi/slipstream/internal/proctree"
 	"github.com/jatassi/slipstream/internal/release"
 )
 
@@ -194,7 +195,7 @@ func (p *realProofs) check(ctx context.Context, job pipeline.Job) string {
 	cmd := exec.CommandContext(ctx, p.cfg.Tools.FFprobe, "-v", "error", "-select_streams", "v:0", //nolint:gosec // the bundled ffprobe on a test run's output
 		"-show_entries", "stream=color_range", "-of", "default=nw=1:nk=1", job.Output)
 	cmd.Env = p.cfg.Tools.Environ
-	colorRange, err := cmd.Output()
+	colorRange, err := proctree.Output(cmd)
 	if err != nil {
 		return "Its output can't be probed."
 	}
