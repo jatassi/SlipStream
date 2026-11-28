@@ -229,11 +229,14 @@ const sourceSelect = (name: string) =>
 /** The Targets a row's select offers to make its file from. */
 async function offeredSources(name: string) {
   await userEvent.click(sourceSelect(name));
-  const sources = page
+  const listbox = page.getByRole("listbox");
+  await expect.element(listbox).toBeVisible();
+  const sources = listbox
     .getByRole("option")
     .all()
     .flatMap((option) => /^Made from (.+)$/u.exec(option.element().textContent)?.[1] ?? []);
   await userEvent.keyboard("{Escape}");
+  await expect.element(listbox).not.toBeInTheDocument();
   return sources;
 }
 
