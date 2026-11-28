@@ -18,8 +18,11 @@ type Snapshot struct {
 	Jobs []Job
 	// Rates are bytes a second per (from, to) Node pair, from transfers_pair.
 	Rates map[[2]role.NodeID]float64
-	// Tests are the test runs in flight per Node.
-	Tests map[role.NodeID]int
+	// AssumedRate is bytes a second for a pair with no measured rate.
+	AssumedRate float64
+	// Tests are the test runs in flight per Node, of at most TestsAtOnce.
+	Tests       map[role.NodeID]int
+	TestsAtOnce int
 }
 
 type Node struct {
@@ -65,7 +68,8 @@ type Job struct {
 	OutBytes         int64
 	Root             storage.UUID
 	RootNode         role.NodeID
-	// RootRoom is the free bytes on the root's volume.
+	// RootRoom is the free bytes on the root's volume, net of what placed
+	// Conversions writing there reserve.
 	RootRoom  int64
 	Length    time.Duration
 	OutPixels int
