@@ -628,6 +628,8 @@ func refOf(f ledger.File) (source.Ref, error) {
 		return source.Backup{Folder: *f.SourceFolder, Name: f.Name}, nil
 	case source.LibraryKind:
 		return source.Library{Root: [16]byte(f.SourceRoot), Rel: *f.Path}, nil
+	case source.ScratchKind:
+		return source.Scratch{Name: *f.Path}, nil
 	}
 	return nil, fmt.Errorf("file %d of Transfer %s has the source kind %q", f.Position, f.TransferID, f.SourceKind)
 }
