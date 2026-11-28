@@ -2,6 +2,7 @@ package imports
 
 import (
 	"github.com/jatassi/slipstream/internal/bencode"
+	"github.com/jatassi/slipstream/internal/conversions"
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/imports/internal/db"
@@ -24,8 +25,8 @@ const (
 	FromGrab   Source = "grab"
 	FromRoot   Source = "root"
 	FromFolder Source = "folder"
-	// FromConversion is a made file a Conversion hands over, already
-	// matched and probed.
+	// FromConversion is the file a Conversion made, handed over with its
+	// Work, Items, title facts and probe, so it skips matching.
 	FromConversion Source = "conversion"
 )
 
@@ -39,7 +40,10 @@ type Import struct {
 	Grab     grabs.GrabID      // grab only; one unfinished Import per Grab
 	Node     role.NodeID       // grab: the downloading Node; folder: the Node
 	InfoHash *bencode.InfoHash // grab only
-	Root     roots.ID          // root only
+	Root     roots.ID          // root and conversion only
+	// Conversion is a conversion Import's Conversion, nil once its row
+	// went.
+	Conversion *conversions.ID
 	// Folder is root-relative for a root Import: its Work folder, or the
 	// file's path when it sits loose at the root's top. Absolute on the
 	// Node for a folder Import.
@@ -108,9 +112,9 @@ func (o Outcome) Final() bool {
 }
 
 // File is one video of an Import. Path is torrent-relative for a grab,
-// root-relative for a root and absolute on the Node for a folder. Items
-// are in tree order. Probe is nil until read, and for a file ffprobe
-// can't read.
+// root-relative for a root or a conversion and absolute on the Node for a
+// folder. Items are in tree order. Probe is nil until read, and for a
+// file ffprobe can't read.
 type File struct {
 	Position    int
 	Path        string
@@ -119,6 +123,9 @@ type File struct {
 	Seen        *storing.Seen
 	Probe       *media.Record
 	Quality     release.Quality
+	// Title is the read a conversion file carries, nil when its path's
+	// reading is its title.
+	Title       *release.Read
 	Cut         release.CutKey
 	ReleaseName string
 	SourceName  string
@@ -176,6 +183,7 @@ const (
 	ByTransfer PlacedBy = "transfer"
 	ByMove     PlacedBy = "move"
 	InPlace    PlacedBy = "in_place"
+	Converted  PlacedBy = "converted"
 )
 
 type Stage string

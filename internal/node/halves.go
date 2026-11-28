@@ -790,6 +790,7 @@ func (n *Node) startController(ctx context.Context) error {
 		Transfers:    copies,
 		OtherCopies:  otherCopies(&converts),
 		Grabs:        pipeline,
+		Conversions:  lateConversions{converts: &converts},
 		Timings:      imports.Timings{RetryMin: n.cfg.Timings.Grabs.RetryMin, RetryMax: n.cfg.Timings.Grabs.RetryMax},
 		Rand:         n.importsRand,
 		BeforeStep:   n.env.Test.BeforeScanStep,
@@ -843,6 +844,7 @@ func (n *Node) startController(ctx context.Context) error {
 		Log:           n.rootLog.With("subsystem", "conversions"),
 	})
 	copies.Register(converts.Purpose())
+	converts.Register(found.Converter())
 	front := home.New(home.Config{
 		Library: lib.db, Moves: mover, Grabs: pipeline, Imports: found, Works: tree, Files: shelf, Clients: clients,
 		Changed: home.SettingsChangedEvent.Bind(n.hub),
@@ -1035,6 +1037,18 @@ func (a lateArtwork) PublicURL(ref artwork.Ref, size artwork.Size) (string, erro
 // lateSubtitles is the Controller's Subtitles once it opens: files opens
 // before it, since subtitles reads files.
 type lateSubtitles struct{ files.Subtitles }
+
+// lateConversions is the Controller's Conversions once they are made:
+// imports is made before them, since they read its copy room.
+type lateConversions struct{ converts **conversions.Conversions }
+
+func (c lateConversions) Follow(ctx context.Context, tx *storage.Tx[storage.Library], id conversions.ID, r conversions.Report) (conversions.Followed, error) {
+	return (*c.converts).Follow(ctx, tx, id, r)
+}
+
+func (c lateConversions) Followed(ctx context.Context, fs ...conversions.Followed) {
+	(*c.converts).Followed(ctx, fs...)
+}
 
 // lateTasks is the Scheduled tasks once they open: the Media Servers and
 // grabs are made before them, since the tasks' catalog lists their tasks.

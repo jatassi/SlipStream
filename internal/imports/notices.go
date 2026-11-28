@@ -32,6 +32,9 @@ type ImportedFacts struct {
 	Files   []PlacedFile `json:"files"`
 	Failed  int          `json:"failed"`
 	Waiting int          `json:"waiting"`
+	// Quiet is a made file's: History lists it, and connections and the
+	// bell never hear.
+	Quiet bool `json:"quiet,omitempty"`
 }
 
 // PlacedFile is one placed file: the Items it holds, its quality and
@@ -65,7 +68,7 @@ type ScanAddedFacts struct {
 }
 
 func (f ImportedFacts) About() entry.About {
-	return entry.About{Type: f.Work.Type, Works: []works.WorkID{f.Work.ID}, Grab: f.Grab.UUID, Import: f.Import.UUID}
+	return entry.About{Type: f.Work.Type, Works: []works.WorkID{f.Work.ID}, Grab: f.Grab.UUID, Import: f.Import.UUID, Quiet: f.Quiet}
 }
 
 func (f ScanAddedFacts) About() entry.About { return entry.About{Type: f.Type, Works: f.Works} }
@@ -93,9 +96,10 @@ var (
 func Entries() []entry.Entry { return []entry.Entry{importedRow, upgradedRow, scanAddedRow} }
 
 // announce records Imported and Upgraded for the files imp placed since it
-// last came to rest. A root Import never sends: Pending imports' Add and
-// in-place adoption both come through one. Neither does an Import that
-// failed, or that its Work's delete ended.
+// last came to rest, quietly for a conversion Import. A root Import never
+// sends: Pending imports' Add and in-place adoption both come through
+// one. Neither does an Import that failed, or that its Work's delete
+// ended.
 func (im *Imports) announce(ctx context.Context, tx *storage.Tx[file], imp Import) error {
 	if sourceRules[imp.Source].announce == none || !imp.atRest() || imp.endedByDelete() {
 		return nil
@@ -125,7 +129,8 @@ func (im *Imports) announce(ctx context.Context, tx *storage.Tx[file], imp Impor
 	if err != nil {
 		return err
 	}
-	in, up := splitPlaced(ImportedFacts{Import: imp.ID, Grab: imp.Grab, Work: w, Root: words[fresh[0].Dest.Root]}, fresh, replaced, numbersOf(tree), imp.Files)
+	base := ImportedFacts{Import: imp.ID, Grab: imp.Grab, Work: w, Root: words[fresh[0].Dest.Root], Quiet: sourceRules[imp.Source].announce == quiet}
+	in, up := splitPlaced(base, fresh, replaced, numbersOf(tree), imp.Files)
 	if in != nil {
 		if err := importedRow.Record(ctx, tx, im.cfg.History, *in); err != nil {
 			return err

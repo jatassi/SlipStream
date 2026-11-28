@@ -31,8 +31,8 @@ SELECT * FROM imports_file_item WHERE import_id = ? ORDER BY position, "order";
 
 -- name: InsertImport :exec
 INSERT INTO imports_import (id, source, grab_id, node_id, info_hash, root_id, folder, content_type, hint, suggestion, work_id, edition,
-                            move_files, failure_code, ended, created_at, ignored_at, finished_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+                            move_files, failure_code, ended, created_at, ignored_at, finished_at, conversion_id)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: UpdateImport :exec
 UPDATE imports_import SET hint = ?, suggestion = ?, work_id = ?, edition = ?, move_files = ?, failure_code = ?, ended = ?,
@@ -45,8 +45,8 @@ DELETE FROM imports_import WHERE id = ?;
 -- name: InsertFile :exec
 INSERT INTO imports_file (import_id, position, path, source_index, size, modified_at, node_file_id, node_volume_id, probe, quality, cut,
                           release_name, source_name, outcome, reason, hold, confirmed, root_id, dest, sent_transfer, sent_order,
-                          placed_by, file_id, source_removed_at, seeded)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+                          placed_by, file_id, source_removed_at, seeded, title_read)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: SetFile :execrows
 UPDATE imports_file SET outcome = sqlc.arg(outcome), reason = sqlc.arg(reason), hold = sqlc.arg(hold), confirmed = sqlc.arg(confirmed),
@@ -186,5 +186,8 @@ ORDER BY position;
 UPDATE imports_file SET told_at = sqlc.arg(told_at)
 WHERE import_id = sqlc.arg(import_id) AND outcome = 'placed' AND told_at IS NULL;
 
--- name: ListUnfinishedAmong :many
-SELECT id FROM imports_import WHERE id IN (sqlc.slice(ids)) AND finished_at IS NULL ORDER BY id;
+-- name: ListUnrecentAmong :many
+SELECT id FROM imports_import WHERE id IN (sqlc.slice(ids)) AND (finished_at IS NULL OR source = 'conversion') ORDER BY id;
+
+-- name: GetImportOfConversion :one
+SELECT id FROM imports_import WHERE conversion_id = sqlc.arg(conversion_id);

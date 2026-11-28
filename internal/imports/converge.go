@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strconv"
 
+	"github.com/jatassi/slipstream/internal/conversions"
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/release"
@@ -26,6 +27,8 @@ type after struct {
 	// Write added to the Blocklist.
 	followed []grabs.Followed
 	blocked  bool
+	// converted is what each Conversion's Follow changed.
+	converted []conversions.Followed
 }
 
 // publish tells the readers what a committed Write changed.
@@ -49,6 +52,9 @@ func (im *Imports) publish(ctx context.Context, a after) {
 	}
 	if a.blocked {
 		im.cfg.Grabs.Blocked(ctx)
+	}
+	if len(a.converted) > 0 {
+		im.cfg.Conversions.Followed(ctx, a.converted...)
 	}
 }
 
@@ -88,7 +94,7 @@ func (im *Imports) writeIn(ctx context.Context, tx *storage.Tx[file], id ImportI
 	if !imp.Root.IsZero() {
 		a.roots = append(a.roots, imp.Root)
 	}
-	a.sent = a.sent || !sourceRules[imp.Source].landsInPlace
+	a.sent = a.sent || sourceRules[imp.Source].sends
 	if err := save(ctx, tx, &imp); err != nil {
 		return imp, err
 	}
@@ -98,9 +104,10 @@ func (im *Imports) writeIn(ctx context.Context, tx *storage.Tx[file], id ImportI
 // converge brings everything derived from imp's rows into line in tx: a
 // busy file back to pending once its Items are free, the decision once the
 // barrier is met, a download's release faults and its report to its
-// Grab, the files its Transfer wants and finished_at. A root Import's
-// files sit in their root and send nothing. Running it twice changes
-// nothing.
+// Grab, the files its Transfer wants, finished_at and, once a conversion
+// Import finishes, its report to its Conversion. A root or conversion
+// Import's files reach their root without imports' Transfer. Running it
+// twice changes nothing.
 func (im *Imports) converge(ctx context.Context, tx *storage.Tx[file], imp *Import, a *after) error {
 	if err := unbusy(ctx, tx, imp); err != nil {
 		return err
@@ -114,12 +121,16 @@ func (im *Imports) converge(ctx context.Context, tx *storage.Tx[file], imp *Impo
 			return err
 		}
 	}
-	if !sourceRules[imp.Source].landsInPlace {
+	if sourceRules[imp.Source].sends {
 		if _, err := im.cfg.Transfers.Want(ctx, tx, imp.transferRequest()); err != nil {
 			return err
 		}
 	}
+	open := imp.Finished.IsZero()
 	finishIfFinal(imp, storage.Now())
+	if open && !imp.Finished.IsZero() {
+		return im.followConversion(ctx, tx, imp, a)
+	}
 	return nil
 }
 
@@ -235,10 +246,10 @@ func holdingOf(id ImportID, f File) (storing.Rel, error) {
 	return storing.ParseRel(storing.HoldingDir + "/" + id.String() + "-" + strconv.Itoa(f.Position) + path.Ext(f.Path))
 }
 
-// destOf is where f's bytes go in root: for a root Import the path they
-// already sit at.
+// destOf is where f's bytes go in root: for a root or conversion Import
+// its path there.
 func (im Import) destOf(root roots.ID, f File) (*Dest, error) {
-	if sourceRules[im.Source].landsInPlace {
+	if sourceRules[im.Source].ownRoot {
 		rel, err := storing.ParseRel(f.Path)
 		return &Dest{Root: root, Holding: rel}, err
 	}
@@ -287,7 +298,7 @@ func (im *Imports) decide(ctx context.Context, tx *storage.Tx[file], imp *Import
 	if err != nil {
 		return err
 	}
-	c := imp.outcomeContext(judged, !sourceRules[imp.Source].landsInPlace && imp.Node != root.Node)
+	c := imp.outcomeContext(judged, sourceRules[imp.Source].sends && imp.Node != root.Node)
 	for k, o := range outcomes(vs, c) {
 		f := &imp.Files[judged[k]]
 		dest, err := imp.destOf(root.ID, *f)
@@ -299,10 +310,10 @@ func (im *Imports) decide(ctx context.Context, tx *storage.Tx[file], imp *Import
 	return nil
 }
 
-// rootOf is the root imp's files go into: a root Import's own, else its
-// Work's.
+// rootOf is the root imp's files go into: a root or conversion Import's
+// own, else its Work's.
 func (im Import) rootOf(ctx context.Context, r storage.Reader[file]) (roots.Root, error) {
-	if sourceRules[im.Source].landsInPlace {
+	if sourceRules[im.Source].ownRoot {
 		return roots.Get(ctx, r, im.Root)
 	}
 	return roots.OfWork(ctx, r, im.Work)
@@ -331,13 +342,22 @@ func (f *File) forced() []files.CellKey {
 }
 
 // candidates is the files of imp at positions batch as files.Judge takes
-// them, read by the Work's Content Type.
+// them, read by the Work's Content Type unless they carry their title,
+// and made from their Conversion's source.
 func (im *Imports) candidates(ctx context.Context, r storage.Reader[file], imp *Import, root roots.ID, batch []int) ([]files.Candidate, error) {
 	cuts, err := im.cfg.Targets.CutsIn(ctx, r)
 	if err != nil {
 		return nil, err
 	}
 	facet := im.cfg.Facets[imp.ContentType]
+	var derived *files.Derived
+	if imp.Conversion != nil {
+		m, err := conversions.MadeFrom(ctx, r, *imp.Conversion)
+		if err != nil {
+			return nil, err
+		}
+		derived = m.Derived
+	}
 	out := make([]files.Candidate, len(batch))
 	for k, i := range batch {
 		f := imp.Files[i]
@@ -345,10 +365,14 @@ func (im *Imports) candidates(ctx context.Context, r storage.Reader[file], imp *
 		if err != nil {
 			return nil, err
 		}
+		title := release.File(f.Path, facet, cuts.For(imp.ContentType))
+		if f.Title != nil {
+			title = *f.Title
+		}
 		out[k] = files.Candidate{
 			Key: f.Position, Items: f.Items, Cut: f.Cut, Size: f.Size, Media: *f.Probe, Quality: f.Quality,
-			ReleaseName: f.ReleaseName, Title: release.File(f.Path, facet, cuts.For(imp.ContentType)), SourceName: f.SourceName,
-			Holding: dest.Holding.String(), Force: f.forced(),
+			ReleaseName: f.ReleaseName, Title: title, SourceName: f.SourceName,
+			Holding: dest.Holding.String(), Force: f.forced(), Derived: derived,
 		}
 	}
 	return out, nil

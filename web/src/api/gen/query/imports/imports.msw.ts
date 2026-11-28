@@ -36,6 +36,13 @@ export const getListImportsResponseMock = (
   imports: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
     () => ({
       contentType: faker.helpers.fromRegExp("^[a-z][a-z0-9]{1,15}$"),
+      conversion: faker.helpers.arrayElement([
+        {
+          conversionId: faker.string.uuid(),
+          sourceFile: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        },
+        null,
+      ]),
       createdAt: faker.date.past().toISOString().slice(0, 19) + "Z",
       edition: faker.helpers.arrayElement([
         faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -123,6 +130,7 @@ export const getListImportsResponseMock = (
               "transfer",
               "move",
               "in_place",
+              "converted",
             ] as const),
             null,
           ]),
@@ -188,6 +196,7 @@ export const getListImportsResponseMock = (
                 "canceled",
                 "blocklisted",
                 "work_deleted",
+                "conversion_canceled",
               ] as const),
               ...(faker.datatype.boolean() ? { count: faker.number.int() } : {}),
               ...(faker.datatype.boolean()
@@ -281,7 +290,7 @@ export const getListImportsResponseMock = (
         null,
       ]),
       seeding: faker.datatype.boolean(),
-      source: faker.helpers.arrayElement(["grab", "root", "folder"] as const),
+      source: faker.helpers.arrayElement(["grab", "root", "folder", "conversion"] as const),
       stage: faker.helpers.arrayElement([
         "probing",
         "waiting",
@@ -324,6 +333,13 @@ export const getImportFolderResponseMock = (
       imports: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
         () => ({
           contentType: faker.helpers.fromRegExp("^[a-z][a-z0-9]{1,15}$"),
+          conversion: faker.helpers.arrayElement([
+            {
+              conversionId: faker.string.uuid(),
+              sourceFile: faker.string.alpha({ length: { min: 10, max: 20 } }),
+            },
+            null,
+          ]),
           createdAt: faker.date.past().toISOString().slice(0, 19) + "Z",
           edition: faker.helpers.arrayElement([
             faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -412,6 +428,7 @@ export const getImportFolderResponseMock = (
                   "transfer",
                   "move",
                   "in_place",
+                  "converted",
                 ] as const),
                 null,
               ]),
@@ -477,6 +494,7 @@ export const getImportFolderResponseMock = (
                     "canceled",
                     "blocklisted",
                     "work_deleted",
+                    "conversion_canceled",
                   ] as const),
                   ...(faker.datatype.boolean() ? { count: faker.number.int() } : {}),
                   ...(faker.datatype.boolean()
@@ -573,7 +591,7 @@ export const getImportFolderResponseMock = (
             null,
           ]),
           seeding: faker.datatype.boolean(),
-          source: faker.helpers.arrayElement(["grab", "root", "folder"] as const),
+          source: faker.helpers.arrayElement(["grab", "root", "folder", "conversion"] as const),
           stage: faker.helpers.arrayElement([
             "probing",
             "waiting",
@@ -604,6 +622,13 @@ export const getImportFolderResponseMock = (
       imports: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
         () => ({
           contentType: faker.helpers.fromRegExp("^[a-z][a-z0-9]{1,15}$"),
+          conversion: faker.helpers.arrayElement([
+            {
+              conversionId: faker.string.uuid(),
+              sourceFile: faker.string.alpha({ length: { min: 10, max: 20 } }),
+            },
+            null,
+          ]),
           createdAt: faker.date.past().toISOString().slice(0, 19) + "Z",
           edition: faker.helpers.arrayElement([
             faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -692,6 +717,7 @@ export const getImportFolderResponseMock = (
                   "transfer",
                   "move",
                   "in_place",
+                  "converted",
                 ] as const),
                 null,
               ]),
@@ -757,6 +783,7 @@ export const getImportFolderResponseMock = (
                     "canceled",
                     "blocklisted",
                     "work_deleted",
+                    "conversion_canceled",
                   ] as const),
                   ...(faker.datatype.boolean() ? { count: faker.number.int() } : {}),
                   ...(faker.datatype.boolean()
@@ -853,7 +880,7 @@ export const getImportFolderResponseMock = (
             null,
           ]),
           seeding: faker.datatype.boolean(),
-          source: faker.helpers.arrayElement(["grab", "root", "folder"] as const),
+          source: faker.helpers.arrayElement(["grab", "root", "folder", "conversion"] as const),
           stage: faker.helpers.arrayElement([
             "probing",
             "waiting",
@@ -928,6 +955,13 @@ export const getConfirmImportsResponseMock = (
   imports: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
     () => ({
       contentType: faker.helpers.fromRegExp("^[a-z][a-z0-9]{1,15}$"),
+      conversion: faker.helpers.arrayElement([
+        {
+          conversionId: faker.string.uuid(),
+          sourceFile: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        },
+        null,
+      ]),
       createdAt: faker.date.past().toISOString().slice(0, 19) + "Z",
       edition: faker.helpers.arrayElement([
         faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -1015,6 +1049,7 @@ export const getConfirmImportsResponseMock = (
               "transfer",
               "move",
               "in_place",
+              "converted",
             ] as const),
             null,
           ]),
@@ -1080,6 +1115,7 @@ export const getConfirmImportsResponseMock = (
                 "canceled",
                 "blocklisted",
                 "work_deleted",
+                "conversion_canceled",
               ] as const),
               ...(faker.datatype.boolean() ? { count: faker.number.int() } : {}),
               ...(faker.datatype.boolean()
@@ -1173,7 +1209,7 @@ export const getConfirmImportsResponseMock = (
         null,
       ]),
       seeding: faker.datatype.boolean(),
-      source: faker.helpers.arrayElement(["grab", "root", "folder"] as const),
+      source: faker.helpers.arrayElement(["grab", "root", "folder", "conversion"] as const),
       stage: faker.helpers.arrayElement([
         "probing",
         "waiting",
@@ -3453,6 +3489,13 @@ export const getGetImportResponseMock = (
   overrideResponse: Partial<Extract<ImportsImportEntry, object>> = {},
 ): ImportsImportEntry => ({
   contentType: faker.helpers.fromRegExp("^[a-z][a-z0-9]{1,15}$"),
+  conversion: faker.helpers.arrayElement([
+    {
+      conversionId: faker.string.uuid(),
+      sourceFile: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    },
+    null,
+  ]),
   createdAt: faker.date.past().toISOString().slice(0, 19) + "Z",
   edition: faker.helpers.arrayElement([faker.string.alpha({ length: { min: 10, max: 20 } }), null]),
   failure: faker.helpers.arrayElement([
@@ -3533,6 +3576,7 @@ export const getGetImportResponseMock = (
         "transfer",
         "move",
         "in_place",
+        "converted",
       ] as const),
       null,
     ]),
@@ -3598,6 +3642,7 @@ export const getGetImportResponseMock = (
           "canceled",
           "blocklisted",
           "work_deleted",
+          "conversion_canceled",
         ] as const),
         ...(faker.datatype.boolean() ? { count: faker.number.int() } : {}),
         ...(faker.datatype.boolean()
@@ -3684,7 +3729,7 @@ export const getGetImportResponseMock = (
     null,
   ]),
   seeding: faker.datatype.boolean(),
-  source: faker.helpers.arrayElement(["grab", "root", "folder"] as const),
+  source: faker.helpers.arrayElement(["grab", "root", "folder", "conversion"] as const),
   stage: faker.helpers.arrayElement(["probing", "waiting", "placing", "done", "failed"] as const),
   suggestion: faker.helpers.arrayElement([
     {
@@ -3708,6 +3753,13 @@ export const getActOnRootImportResponseMock = (
   overrideResponse: Partial<Extract<ImportsImportEntry, object>> = {},
 ): ImportsImportEntry => ({
   contentType: faker.helpers.fromRegExp("^[a-z][a-z0-9]{1,15}$"),
+  conversion: faker.helpers.arrayElement([
+    {
+      conversionId: faker.string.uuid(),
+      sourceFile: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    },
+    null,
+  ]),
   createdAt: faker.date.past().toISOString().slice(0, 19) + "Z",
   edition: faker.helpers.arrayElement([faker.string.alpha({ length: { min: 10, max: 20 } }), null]),
   failure: faker.helpers.arrayElement([
@@ -3788,6 +3840,7 @@ export const getActOnRootImportResponseMock = (
         "transfer",
         "move",
         "in_place",
+        "converted",
       ] as const),
       null,
     ]),
@@ -3853,6 +3906,7 @@ export const getActOnRootImportResponseMock = (
           "canceled",
           "blocklisted",
           "work_deleted",
+          "conversion_canceled",
         ] as const),
         ...(faker.datatype.boolean() ? { count: faker.number.int() } : {}),
         ...(faker.datatype.boolean()
@@ -3939,7 +3993,7 @@ export const getActOnRootImportResponseMock = (
     null,
   ]),
   seeding: faker.datatype.boolean(),
-  source: faker.helpers.arrayElement(["grab", "root", "folder"] as const),
+  source: faker.helpers.arrayElement(["grab", "root", "folder", "conversion"] as const),
   stage: faker.helpers.arrayElement(["probing", "waiting", "placing", "done", "failed"] as const),
   suggestion: faker.helpers.arrayElement([
     {
@@ -3963,6 +4017,13 @@ export const getActOnImportFileResponseMock = (
   overrideResponse: Partial<Extract<ImportsImportEntry, object>> = {},
 ): ImportsImportEntry => ({
   contentType: faker.helpers.fromRegExp("^[a-z][a-z0-9]{1,15}$"),
+  conversion: faker.helpers.arrayElement([
+    {
+      conversionId: faker.string.uuid(),
+      sourceFile: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    },
+    null,
+  ]),
   createdAt: faker.date.past().toISOString().slice(0, 19) + "Z",
   edition: faker.helpers.arrayElement([faker.string.alpha({ length: { min: 10, max: 20 } }), null]),
   failure: faker.helpers.arrayElement([
@@ -4043,6 +4104,7 @@ export const getActOnImportFileResponseMock = (
         "transfer",
         "move",
         "in_place",
+        "converted",
       ] as const),
       null,
     ]),
@@ -4108,6 +4170,7 @@ export const getActOnImportFileResponseMock = (
           "canceled",
           "blocklisted",
           "work_deleted",
+          "conversion_canceled",
         ] as const),
         ...(faker.datatype.boolean() ? { count: faker.number.int() } : {}),
         ...(faker.datatype.boolean()
@@ -4194,7 +4257,7 @@ export const getActOnImportFileResponseMock = (
     null,
   ]),
   seeding: faker.datatype.boolean(),
-  source: faker.helpers.arrayElement(["grab", "root", "folder"] as const),
+  source: faker.helpers.arrayElement(["grab", "root", "folder", "conversion"] as const),
   stage: faker.helpers.arrayElement(["probing", "waiting", "placing", "done", "failed"] as const),
   suggestion: faker.helpers.arrayElement([
     {

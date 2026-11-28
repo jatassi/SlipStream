@@ -14,6 +14,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/jatassi/slipstream/internal/conversions"
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/history/entry"
@@ -84,10 +85,12 @@ type Config struct {
 	// OtherCopies is the copies S48 (Moves) granted on a volume, none when
 	// nil.
 	OtherCopies OtherCopies
-	// Grabs is told how each download's Import goes, through Follow.
-	Grabs   *grabs.Grabs
-	Timings Timings
-	Rand    *rand.Rand
+	// Grabs is told how each download's Import goes, through Follow, and
+	// Conversions how each conversion Import ends.
+	Grabs       *grabs.Grabs
+	Conversions Conversions
+	Timings     Timings
+	Rand        *rand.Rand
 	// BeforeStep sees each root's unit before each phase, and BeforeImport
 	// each Import file's IO before it runs, in tests.
 	BeforeStep   func(ctx context.Context, root roots.ID, phase Phase)
@@ -129,15 +132,26 @@ func (NotReconciling) Scanned(context.Context, *storage.Tx[file], roots.ID) erro
 
 func (NotReconciling) ScanEnded() {}
 
-// Subtitles is what subtitles hears of a landing.
+// Subtitles is what subtitles hears of a landing: each file, then a made
+// file with the file it was made from.
 type Subtitles interface {
 	Landed(ctx context.Context, tx *storage.Tx[file], f files.File) error
+	Derived(ctx context.Context, tx *storage.Tx[file], source, made files.ID) error
 }
 
 // NoSubtitles is the Subtitles of a library nothing subtitles.
 type NoSubtitles struct{}
 
 func (NoSubtitles) Landed(context.Context, *storage.Tx[file], files.File) error { return nil }
+
+func (NoSubtitles) Derived(context.Context, *storage.Tx[file], files.ID, files.ID) error { return nil }
+
+// Conversions is what a conversion Import tells its Conversion: Follow
+// in the Write that ends it, and Followed once that Write commits.
+type Conversions interface {
+	Follow(ctx context.Context, tx *storage.Tx[file], id conversions.ID, r conversions.Report) (conversions.Followed, error)
+	Followed(ctx context.Context, fs ...conversions.Followed)
+}
 
 // Timings are the reconciler's, the grabs backoff: an import wait retries
 // after RetryMin, doubling to RetryMax, and a pass runs at least every

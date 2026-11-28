@@ -166,9 +166,7 @@ func (c *Conversions) publish(ctx context.Context, moved []ID, ros roster) {
 	}
 	c.cfg.Control().Touch(ros.holders.Serving()...)
 	c.cfg.Transfers.Touch()
-	if c.importer != nil {
-		c.importer.Wake()
-	}
+	c.importer.Wake()
 	ch := Changed{ConversionIDs: []string{}, WorkIDs: []string{}, GroupIDs: []string{}}
 	seen := map[ID]bool{}
 	var ws []works.WorkID

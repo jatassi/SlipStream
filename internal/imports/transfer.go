@@ -69,9 +69,10 @@ func (im *Imports) verified(ctx context.Context, tx *storage.Tx[file], t transfe
 
 // unstaged is the positions of imp's files placing from a staged copy
 // that their Transfer no longer counts verified, read in r: a re-home
-// moved their root, and the Transfer sends them again.
+// moved their root, and the Transfer sends them again. A Transfer imports
+// doesn't own never sends again.
 func (im *Imports) unstaged(ctx context.Context, r storage.Reader[file], imp Import) ([]int, error) {
-	if !slices.ContainsFunc(imp.Files, staged) {
+	if !sourceRules[imp.Source].sends || !slices.ContainsFunc(imp.Files, staged) {
 		return nil, nil
 	}
 	t, _, err := im.cfg.Transfers.Find(ctx, r, transfers.Import, imp.ID.String())

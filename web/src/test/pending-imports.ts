@@ -72,6 +72,7 @@ const entryOf = ({
   source: "root",
   stage: "waiting",
   grab: null,
+  conversion: null,
   nodeId: null,
   workId: null,
   edition: null,

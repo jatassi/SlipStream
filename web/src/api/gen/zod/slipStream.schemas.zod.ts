@@ -7762,6 +7762,14 @@ export const ImportsHint = zod.object({
 export type ImportsHint = zod.input<typeof ImportsHint>;
 export type ImportsHintOutput = zod.output<typeof ImportsHint>;
 
+export const ImportsImportMade = zod.object({
+  conversionId: zod.uuid(),
+  sourceFile: zod.string().describe("The name of the file the Conversion made it from"),
+});
+
+export type ImportsImportMade = zod.input<typeof ImportsImportMade>;
+export type ImportsImportMadeOutput = zod.output<typeof ImportsImportMade>;
+
 export const ImportsImportFailure = zod.object({
   code: zod.enum(["no_video_file", "unreadable"]),
   sentence: zod.string(),
@@ -7818,6 +7826,7 @@ export const ImportsReason = zod.object({
       "canceled",
       "blocklisted",
       "work_deleted",
+      "conversion_canceled",
     ])
     .describe("Why the file is left out, waits, isn't better or failed"),
   count: zod.int().exactOptional().describe("For several: the candidates that match"),
@@ -7902,6 +7911,7 @@ export const ImportsImportFile = zod.object({
       zod.literal("transfer"),
       zod.literal("move"),
       zod.literal("in_place"),
+      zod.literal("converted"),
       zod.literal(null),
     ])
     .nullable()
@@ -7983,6 +7993,11 @@ export const importsImportEntryContentTypeRegExp = new RegExp("^[a-z][a-z0-9]{1,
 
 export const ImportsImportEntry = zod.object({
   contentType: zod.string().regex(importsImportEntryContentTypeRegExp),
+  conversion: zod
+    .union([ImportsImportMade, zod.null()])
+    .describe(
+      "The Conversion that made its file; null outside a conversion Import, and once the Conversion is gone",
+    ),
   createdAt: zod.iso.datetime({ offset: true }),
   edition: zod
     .string()
@@ -8021,11 +8036,15 @@ export const ImportsImportEntry = zod.object({
     .describe("The Node the files are on, for a download or a folder; null for a root"),
   root: zod
     .union([ImportsRootLabel, zod.null()])
-    .describe("The library root the folder is in; null outside a root Import"),
+    .describe(
+      "The library root the folder is in, or the one a Conversion made its file for; null outside a root or conversion Import",
+    ),
   seeding: zod.boolean().describe("The download keeps seeding while a file waits"),
   source: zod
-    .enum(["grab", "root", "folder"])
-    .describe("root: a folder a library scan found in a root and couldn't place"),
+    .enum(["grab", "root", "folder", "conversion"])
+    .describe(
+      "root: a folder a library scan found in a root and couldn't place; conversion: the file a Conversion made",
+    ),
   stage: zod.enum(["probing", "waiting", "placing", "done", "failed"]),
   suggestion: zod
     .union([ImportsSuggestion, zod.null()])

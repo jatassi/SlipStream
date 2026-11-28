@@ -85,6 +85,7 @@ const every: {
   canceled: worded("canceled"),
   blocklisted: worded("blocklisted"),
   work_deleted: worded("work_deleted"),
+  conversion_canceled: worded("conversion_canceled"),
 };
 
 test("every reason a file waits reads as a sentence in the type's words", () => {

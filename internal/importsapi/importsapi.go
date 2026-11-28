@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/jatassi/slipstream/internal/api"
+	"github.com/jatassi/slipstream/internal/conversions"
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/identity"
@@ -130,7 +131,7 @@ type suggestion struct {
 }
 
 type reason struct {
-	Code     string               `json:"code" enum:"sample,bonus,hidden_folder,too_small,extension,runtime_sample,sibling_better,kept_better,meets_nothing,not_an_upgrade,edition_not_wanted,other_items,no_number,parts,name_taken,name_too_long,settings,busy,confirm,several,no_match,no_year,elsewhere,unlisted,no_such_item,unreadable,left,no_rule,import_failed,root_changed,by_admin,removed,canceled,blocklisted,work_deleted" doc:"Why the file is left out, waits, isn't better or failed"`
+	Code     string               `json:"code" enum:"sample,bonus,hidden_folder,too_small,extension,runtime_sample,sibling_better,kept_better,meets_nothing,not_an_upgrade,edition_not_wanted,other_items,no_number,parts,name_taken,name_too_long,settings,busy,confirm,several,no_match,no_year,elsewhere,unlisted,no_such_item,unreadable,left,no_rule,import_failed,root_changed,by_admin,removed,canceled,blocklisted,work_deleted,conversion_canceled" doc:"Why the file is left out, waits, isn't better or failed"`
 	Sentence api.Nullable[string] `json:"sentence" doc:"The one sentence the row leads with; null for a root Import's reason, whose other fields give it"`
 	Title    string               `json:"title,omitempty" doc:"For several, no_match, no_year, elsewhere and unlisted: the name's title or the Work's label"`
 	Year     int                  `json:"year,omitempty" doc:"The year beside title, when it has one"`
@@ -155,7 +156,7 @@ type importFile struct {
 	Recommended api.Nullable[api.Enum[action]] `json:"recommended" doc:"The action its row offers first; null when it offers none"`
 	Actions     []api.Enum[action]             `json:"actions" nullable:"false" doc:"The other actions its row offers"`
 	Forces      []forceOption                  `json:"forces" nullable:"false" doc:"Each Target it can be forced into, with the files that deletes"`
-	PlacedBy    api.Nullable[string]           `json:"placedBy" enum:"link,clone,copy,transfer,move,in_place" doc:"How it went into the library; null until it is placing"`
+	PlacedBy    api.Nullable[string]           `json:"placedBy" enum:"link,clone,copy,transfer,move,in_place,converted" doc:"How it went into the library; null until it is placing"`
 	FileID      api.Nullable[string]           `json:"fileId" format:"uuid" doc:"The library file it became; null until it is placed"`
 	Staged      int64                          `json:"staged" minimum:"0" doc:"Bytes its holding or staged copy uses while it waits"`
 	Movable     bool                           `json:"movable" doc:"Move files can move it, because no torrent SlipStream tracks is seeding it"`
@@ -191,11 +192,12 @@ type forceOption struct {
 
 type importEntry struct {
 	ID          string                      `json:"id" format:"uuid"`
-	Source      string                      `json:"source" enum:"grab,root,folder" doc:"root: a folder a library scan found in a root and couldn't place"`
+	Source      string                      `json:"source" enum:"grab,root,folder,conversion" doc:"root: a folder a library scan found in a root and couldn't place; conversion: the file a Conversion made"`
 	Stage       string                      `json:"stage" enum:"probing,waiting,placing,done,failed"`
 	Grab        api.Nullable[importGrab]    `json:"grab" doc:"The Grab whose download this is; null for a folder or a root"`
+	Conversion  api.Nullable[importMade]    `json:"conversion" doc:"The Conversion that made its file; null outside a conversion Import, and once the Conversion is gone"`
 	NodeID      *string                     `json:"nodeId" format:"uuid" doc:"The Node the files are on, for a download or a folder; null for a root"`
-	Root        api.Nullable[rootLabel]     `json:"root" doc:"The library root the folder is in; null outside a root Import"`
+	Root        api.Nullable[rootLabel]     `json:"root" doc:"The library root the folder is in, or the one a Conversion made its file for; null outside a root or conversion Import"`
 	Folder      string                      `json:"folder" doc:"For a root Import, its Work folder relative to the root, or the file's path when it sits loose at the root's top. The folder on its Node for a folder Import, and empty for a download, whose file paths are relative to its torrent"`
 	WorkID      *string                     `json:"workId" format:"uuid" doc:"The Work its files go into; null for a root Import, whose suggestion names one"`
 	Edition     *string                     `json:"edition" doc:"The key of the cut its files fill; null for any under any cut"`
@@ -217,6 +219,11 @@ type importGrab struct {
 	Stage   string `json:"stage" enum:"fetching,downloading,importing,imported,failed"`
 }
 
+type importMade struct {
+	ConversionID string `json:"conversionId" format:"uuid"`
+	SourceFile   string `json:"sourceFile" doc:"The name of the file the Conversion made it from"`
+}
+
 type importFailure struct {
 	Code     string `json:"code" enum:"no_video_file,unreadable"`
 	Sentence string `json:"sentence"`
@@ -227,6 +234,7 @@ type converter struct {
 	roots map[roots.ID]string
 	words map[imports.ImportID]map[int]imports.FileWords
 	grabs map[grabs.GrabID]grabs.Handoff
+	made  map[conversions.ID]conversions.Made
 }
 
 func (c converter) label(id roots.ID) rootLabel {
@@ -243,6 +251,9 @@ func (c converter) entry(e imports.Import) importEntry {
 	}
 	if g, ok := c.grabs[e.Grab]; ok {
 		out.Grab = api.Some(importGrab{ID: g.Grab.String(), Release: g.Release, Stage: string(g.Stage)})
+	}
+	if e.Conversion != nil {
+		out.Conversion = api.Some(importMade{ConversionID: e.Conversion.String(), SourceFile: c.made[*e.Conversion].SourceName})
 	}
 	if !e.Node.IsZero() {
 		out.NodeID = new(e.Node.String())
@@ -356,7 +367,7 @@ func (c converter) file(e imports.Import, f imports.File) importFile {
 }
 
 type listInput struct {
-	Source  string `query:"source" enum:"grab,root,folder" doc:"Only Imports from this source; every source's when left out"`
+	Source  string `query:"source" enum:"grab,root,folder,conversion" doc:"Only Imports from this source; every source's when left out"`
 	RootID  string `query:"rootId" format:"uuid" doc:"Only this root's Imports and its scan summary; every root's when left out"`
 	WorkID  string `query:"work" format:"uuid" doc:"Only the Imports into this Work; every Work's when left out"`
 	Ignored bool   `query:"ignored" doc:"List the ignored Imports instead of the ones that need the Admin"`
@@ -630,7 +641,11 @@ func (h handlers) list(ctx context.Context, by identity.Admin, in *listInput) (*
 	if err != nil {
 		return nil, err
 	}
-	c := converter{m: minter(h.pending), roots: l.Roots, words: map[imports.ImportID]map[int]imports.FileWords{}, grabs: gs}
+	made, err := open(h.pending).ConversionsOf(ctx, by, l.Imports)
+	if err != nil {
+		return nil, err
+	}
+	c := converter{m: minter(h.pending), roots: l.Roots, words: map[imports.ImportID]map[int]imports.FileWords{}, grabs: gs, made: made}
 	for _, e := range l.Imports {
 		if c.words[e.ID], err = open(h.pending).Words(ctx, by, e); err != nil {
 			return nil, err
@@ -666,7 +681,11 @@ func (h handlers) get(ctx context.Context, by identity.Admin, in *importIDInput)
 	if err != nil {
 		return nil, err
 	}
-	c := converter{m: minter(h.pending), roots: words, words: map[imports.ImportID]map[int]imports.FileWords{e.ID: said}, grabs: gs}
+	made, err := open(h.pending).ConversionsOf(ctx, by, []imports.Import{e})
+	if err != nil {
+		return nil, err
+	}
+	c := converter{m: minter(h.pending), roots: words, words: map[imports.ImportID]map[int]imports.FileWords{e.ID: said}, grabs: gs, made: made}
 	return &entryOutput{Body: c.entry(e)}, nil
 }
 
