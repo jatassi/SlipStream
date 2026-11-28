@@ -134,3 +134,17 @@ sql:
           - column: targets_profile_language.audio_condition
             go_type:
               type: AudioCondition
+          - column: targets_conversion.target_id
+            go_type:
+              type: TargetID
+          - column: targets_conversion.run_on_node_id
+            go_type:
+              import: github.com/jatassi/slipstream/internal/role
+              type: NodeID
+          - column: targets_conversion.keep_dv
+            go_type: bool
+          - column: targets_conversion.drop_commentary
+            go_type: bool
+          - column: targets_profile_target.from_target_id
+            go_type:
+              type: TargetID

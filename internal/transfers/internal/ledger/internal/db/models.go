@@ -55,6 +55,7 @@ type TransfersRecord struct {
 	DestinationClient      []byte
 	DestinationContentType *string
 	DestinationInfoHash    []byte
+	DestinationName        *string
 	Priority               string
 	CreatedAt              storage.Time
 	FailureCode            *string

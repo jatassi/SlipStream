@@ -81,3 +81,7 @@ sql:
           - column: imports_settings.id
             go_type:
               type: Singleton
+          - column: imports_import.conversion_id
+            go_type:
+              import: github.com/jatassi/slipstream/internal/storage
+              type: UUID

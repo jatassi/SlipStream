@@ -3,6 +3,7 @@ package node
 import (
 	"github.com/jatassi/slipstream/internal/backups"
 	"github.com/jatassi/slipstream/internal/contenttype"
+	"github.com/jatassi/slipstream/internal/conversions"
 	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/downloading"
 	"github.com/jatassi/slipstream/internal/files"
@@ -55,6 +56,7 @@ func LibrarySchemas(types contenttype.Set) []storage.Schema[storage.Library] {
 		indexers.Schema(),
 		trackers.Schema(),
 		files.Schema(),
+		conversions.Schema(),
 		subtitles.Schema(),
 		mediaservers.Schema(),
 		reachability.Schema(),

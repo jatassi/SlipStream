@@ -11,7 +11,7 @@ import (
 )
 
 const listSubjects = `-- name: ListSubjects :many
-SELECT f.id, f.work_id, f.cut, f.root_id, f.path, f.size, f.probe, f.grab_id, f.quality, f.label, f.extra, f.release_name, f.title_read, f.modified_at, f.node_file_id, f.node_volume_id, f.gone_at, f.probe_version, f.probed_at, f.probe_error, f.source_name, f.placed_by, CAST(m.file_id IS NULL AS INTEGER) AS at_name FROM files_file f
+SELECT f.id, f.work_id, f.cut, f.root_id, f.path, f.size, f.probe, f.grab_id, f.quality, f.label, f.extra, f.release_name, f.title_read, f.modified_at, f.node_file_id, f.node_volume_id, f.gone_at, f.probe_version, f.probed_at, f.probe_error, f.source_name, f.placed_by, f.derived_from_file_id, f.derived_target_id, f.conversion_version, f.derived, CAST(m.file_id IS NULL AS INTEGER) AS at_name FROM files_file f
 LEFT JOIN files_move m ON m.file_id = f.id
 WHERE f.id > coalesce(?1, x'')
 ORDER BY f.id
@@ -63,6 +63,10 @@ func (q *Queries) ListSubjects(ctx context.Context, arg ListSubjectsParams) ([]L
 			&i.FilesFile.ProbeError,
 			&i.FilesFile.SourceName,
 			&i.FilesFile.PlacedBy,
+			&i.FilesFile.DerivedFromFileID,
+			&i.FilesFile.DerivedTargetID,
+			&i.FilesFile.ConversionVersion,
+			&i.FilesFile.Derived,
 			&i.AtName,
 		); err != nil {
 			return nil, err
@@ -79,7 +83,7 @@ func (q *Queries) ListSubjects(ctx context.Context, arg ListSubjectsParams) ([]L
 }
 
 const listSubjectsOfFiles = `-- name: ListSubjectsOfFiles :many
-SELECT f.id, f.work_id, f.cut, f.root_id, f.path, f.size, f.probe, f.grab_id, f.quality, f.label, f.extra, f.release_name, f.title_read, f.modified_at, f.node_file_id, f.node_volume_id, f.gone_at, f.probe_version, f.probed_at, f.probe_error, f.source_name, f.placed_by, CAST(m.file_id IS NULL AS INTEGER) AS at_name FROM files_file f
+SELECT f.id, f.work_id, f.cut, f.root_id, f.path, f.size, f.probe, f.grab_id, f.quality, f.label, f.extra, f.release_name, f.title_read, f.modified_at, f.node_file_id, f.node_volume_id, f.gone_at, f.probe_version, f.probed_at, f.probe_error, f.source_name, f.placed_by, f.derived_from_file_id, f.derived_target_id, f.conversion_version, f.derived, CAST(m.file_id IS NULL AS INTEGER) AS at_name FROM files_file f
 LEFT JOIN files_move m ON m.file_id = f.id
 WHERE f.id IN (/*SLICE:ids*/?)
 ORDER BY f.id
@@ -133,6 +137,10 @@ func (q *Queries) ListSubjectsOfFiles(ctx context.Context, ids []FileID) ([]List
 			&i.FilesFile.ProbeError,
 			&i.FilesFile.SourceName,
 			&i.FilesFile.PlacedBy,
+			&i.FilesFile.DerivedFromFileID,
+			&i.FilesFile.DerivedTargetID,
+			&i.FilesFile.ConversionVersion,
+			&i.FilesFile.Derived,
 			&i.AtName,
 		); err != nil {
 			return nil, err
@@ -149,7 +157,7 @@ func (q *Queries) ListSubjectsOfFiles(ctx context.Context, ids []FileID) ([]List
 }
 
 const listSubjectsOfWorks = `-- name: ListSubjectsOfWorks :many
-SELECT f.id, f.work_id, f.cut, f.root_id, f.path, f.size, f.probe, f.grab_id, f.quality, f.label, f.extra, f.release_name, f.title_read, f.modified_at, f.node_file_id, f.node_volume_id, f.gone_at, f.probe_version, f.probed_at, f.probe_error, f.source_name, f.placed_by, CAST(m.file_id IS NULL AS INTEGER) AS at_name FROM files_file f
+SELECT f.id, f.work_id, f.cut, f.root_id, f.path, f.size, f.probe, f.grab_id, f.quality, f.label, f.extra, f.release_name, f.title_read, f.modified_at, f.node_file_id, f.node_volume_id, f.gone_at, f.probe_version, f.probed_at, f.probe_error, f.source_name, f.placed_by, f.derived_from_file_id, f.derived_target_id, f.conversion_version, f.derived, CAST(m.file_id IS NULL AS INTEGER) AS at_name FROM files_file f
 LEFT JOIN files_move m ON m.file_id = f.id
 WHERE f.work_id IN (SELECT unhex(replace(value, '-', '')) FROM json_each(?1))
     AND f.id > coalesce(?2, x'')
@@ -202,6 +210,10 @@ func (q *Queries) ListSubjectsOfWorks(ctx context.Context, arg ListSubjectsOfWor
 			&i.FilesFile.ProbeError,
 			&i.FilesFile.SourceName,
 			&i.FilesFile.PlacedBy,
+			&i.FilesFile.DerivedFromFileID,
+			&i.FilesFile.DerivedTargetID,
+			&i.FilesFile.ConversionVersion,
+			&i.FilesFile.Derived,
 			&i.AtName,
 		); err != nil {
 			return nil, err
