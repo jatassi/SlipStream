@@ -186,7 +186,7 @@ const (
 		`{"name":"Bluray","kind":"SourceSpecification","negate":false,"required":true,"fields":{"value":"bluray"}}]`
 	hdr       = `{"id":"ID","name":"HDR","includeWhenRenaming":true,"dialect":"slipstream",` + hdrConditions + `,"scoredBy":[],"slowReleases":0}`
 	hdrScored = `{"id":"ID","name":"HDR","includeWhenRenaming":true,"dialect":"slipstream",` + hdrConditions + `,"scoredBy":[{"id":"ID","name":"1080p"}],"slowReleases":0}`
-	noImpact  = `{"works":0,"ownList":0,"unwanted":{"files":0,"bytes":0},"renamed":0,"renames":[],"newlyWanted":0,"downloading":0,"subtitles":{"gained":[],"dropped":[],"days":0}}`
+	noImpact  = `{"works":0,"ownList":0,"unwanted":{"files":0,"bytes":0},"renamed":0,"renames":[],"newlyWanted":0,"downloading":0,"subtitles":{"gained":[],"dropped":[],"days":0},"made":{"files":0,"works":0,"seconds":0,"bytes":0,"nodes":[],"unconvertible":[],"matching":0,"rows":[]},"remake":{"older":0,"rows":[]}}`
 )
 
 func TestCustomFormatsAreMadeReadChangedAndDeletedWithTheTargetsThatScoreThem(t *testing.T) {

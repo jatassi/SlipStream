@@ -232,12 +232,13 @@ const (
 	Failed State = iota + 1
 	Missing
 	Downloading
+	Converting
 	Upgradable
 	Unreleased
 	Met
 )
 
-var stateNames = [...]string{Failed: "failed", Missing: "missing", Downloading: "downloading", Upgradable: "upgradable", Unreleased: "unreleased", Met: "met"}
+var stateNames = [...]string{Failed: "failed", Missing: "missing", Downloading: "downloading", Converting: "converting", Upgradable: "upgradable", Unreleased: "unreleased", Met: "met"}
 
 func (s State) String() string { return stateNames[s] }
 
@@ -276,6 +277,13 @@ type Cell struct {
 	// takes, is of a quality its Target ranks. It still reads Missing.
 	Gone   bool
 	Search SearchFact
+	// Sourcing is the cell's Profile row's, and From the Target it is
+	// made from, nil for a download. Conversion is the Conversion a
+	// converting cell reads from, or the one a failed made-from cell
+	// failed in.
+	Sourcing   targets.Sourcing
+	From       *targets.TargetID
+	Conversion *ConversionCell
 }
 
 // SearchFact is what grabs knows of a cell's search, through

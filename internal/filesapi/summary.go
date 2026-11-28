@@ -10,7 +10,7 @@ import (
 )
 
 type summary struct {
-	Status     api.Nullable[api.Enum[State]] `json:"status" doc:"Its monitored Items' first status in the order failed, missing, downloading, upgradable, unreleased, met; null while none has a Target"`
+	Status     api.Nullable[api.Enum[State]] `json:"status" doc:"Its monitored Items' first status in the order failed, missing, downloading, converting, upgradable, unreleased, met; null while none has a Target"`
 	Cells      api.Counts[State]             `json:"cells" doc:"Its monitored Items at each of their Targets, by state"`
 	Items      int                           `json:"items" minimum:"0" doc:"Its monitored Items that its source still lists, the only Items the status and counts read"`
 	ItemStatus api.Counts[State]             `json:"itemStatus" doc:"Its monitored Items by status; an Item with no Target isn't counted"`
@@ -34,7 +34,7 @@ func CountsOf(c files.Counts) api.Counts[State] {
 type need struct{}
 
 func (need) Variants() (discriminator string, variants []any) {
-	return "kind", []any{failedNeed{}, upgradeNeed{}, notFoundNeed{}, WaitingNeed{}, noRootNeed{}}
+	return "kind", []any{failedNeed{}, conversionFailedNeed{}, upgradeNeed{}, notFoundNeed{}, WaitingNeed{}, noRootNeed{}}
 }
 
 type failedNeed struct {
@@ -44,6 +44,16 @@ type failedNeed struct {
 	TargetID string   `json:"targetId" format:"uuid" doc:"The Target whose download failed"`
 	Waiting  []string `json:"waiting" nullable:"false" doc:"The Targets of the same Items and Edition, still missing, that wait on the failed one"`
 	GrabID   string   `json:"grabId" format:"uuid" doc:"The Grab that failed"`
+}
+
+type conversionFailedNeed struct {
+	Kind         string   `json:"kind" enum:"conversion_failed"`
+	ConversionID string   `json:"conversionId" format:"uuid"`
+	ItemIDs      []string `json:"itemIds" nullable:"false" doc:"A run of Items in tree order whose entries match"`
+	Edition      string   `json:"edition" doc:"any under any cut, else the key of the cut these Items need at this Target"`
+	TargetID     string   `json:"targetId" format:"uuid" doc:"The Target whose made file failed"`
+	Code         string   `json:"code" doc:"The fault, such as encoder_failed"`
+	Class        string   `json:"class" enum:"run,source" doc:"run: it failed on every Node it may try; source: its source file can't be converted"`
 }
 
 type upgradeNeed struct {
@@ -93,6 +103,12 @@ type noRootNeed struct {
 var needVariants = map[files.NeedKind]func(files.Need) any{
 	files.NeedFailed: func(n files.Need) any {
 		return failedNeed{Kind: "failed", ItemIDs: itemIDs(n.Items), Edition: string(n.Edition), TargetID: n.Target.String(), Waiting: targetIDs(n.Waiting), GrabID: n.Grab.String()}
+	},
+	files.NeedConversionFailed: func(n files.Need) any {
+		return conversionFailedNeed{
+			Kind: "conversion_failed", ConversionID: n.Conversion.String(), ItemIDs: itemIDs(n.Items), Edition: string(n.Edition),
+			TargetID: n.Target.String(), Code: n.Code, Class: n.Class,
+		}
 	},
 	files.NeedUpgrade: func(n files.Need) any {
 		return upgradeNeed{Kind: "upgrade", ItemIDs: itemIDs(n.Items), Edition: string(n.Edition), Upgrades: targetIDs(n.Upgrades)}

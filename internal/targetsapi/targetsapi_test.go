@@ -170,16 +170,16 @@ func TestTargetsAreCreatedReadDuplicatedAndDeletedWithTheirRules(t *testing.T) {
 	_, body := s.Call(t, http.MethodPost, "/api/v1/targets", hdBody)
 	ids["hd"] = ownertest.FirstID(body)
 	get(t, s, "/api/v1/targets/"+ids["hd"],
-		`{"id":"@hd","name":"HD",`+hdRules+`,"holdSeconds":0,"profiles":[],"contains":[],"createdAt":"T"}`, ids)
+		`{"id":"@hd","name":"HD",`+hdRules+`,"holdSeconds":0,"profiles":[],"contains":[],"conversion":null,"createdAt":"T"}`, ids)
 	_, body = s.Call(t, http.MethodPost, "/api/v1/targets", webBody)
 	ids["web"] = ownertest.FirstID(body)
 	get(t, s, "/api/v1/targets/"+ids["web"],
-		`{"id":"@web","name":"Web",`+webRules+`,"holdSeconds":0,"profiles":[],"contains":[],"createdAt":"T"}`, ids)
+		`{"id":"@web","name":"Web",`+webRules+`,"holdSeconds":0,"profiles":[],"contains":[],"conversion":null,"createdAt":"T"}`, ids)
 
 	_, body = s.Call(t, http.MethodPost, "/api/v1/targets/"+ids["hd"]+"/duplicate", "")
 	ids["copy"] = ownertest.FirstID(body)
 	get(t, s, "/api/v1/targets/"+ids["copy"],
-		`{"id":"@copy","name":"HD copy",`+hdRules+`,"holdSeconds":0,"profiles":[],"contains":["@hd","@web"],"createdAt":"T"}`, ids)
+		`{"id":"@copy","name":"HD copy",`+hdRules+`,"holdSeconds":0,"profiles":[],"contains":["@hd","@web"],"conversion":null,"createdAt":"T"}`, ids)
 	_, body = s.Call(t, http.MethodPost, "/api/v1/targets/"+ids["hd"]+"/duplicate", "")
 	ids["again"] = ownertest.FirstID(body)
 
@@ -188,11 +188,11 @@ func TestTargetsAreCreatedReadDuplicatedAndDeletedWithTheirRules(t *testing.T) {
 	_, body = s.Call(t, http.MethodPost, "/api/v1/profiles", profileBody("Small", ids["web"]))
 	ids["small"] = ownertest.FirstID(body)
 	get(t, s, "/api/v1/targets", `{"targets":[`+
-		`{"id":"@starter","name":"1080p",`+starterRules+`,"holdSeconds":0,"profiles":[{"id":"@fixture","name":"Fixture"}],"contains":[],"createdAt":"T"},`+
-		`{"id":"@hd","name":"HD",`+hdRules+`,"holdSeconds":0,"profiles":[{"id":"@standard","name":"Standard"}],"contains":["@copy","@again","@web"],"createdAt":"T"},`+
-		`{"id":"@copy","name":"HD copy",`+hdRules+`,"holdSeconds":0,"profiles":[],"contains":["@hd","@again","@web"],"createdAt":"T"},`+
-		`{"id":"@again","name":"HD copy 2",`+hdRules+`,"holdSeconds":0,"profiles":[],"contains":["@hd","@copy","@web"],"createdAt":"T"},`+
-		`{"id":"@web","name":"Web",`+webRules+`,"holdSeconds":0,"profiles":[{"id":"@small","name":"Small"},{"id":"@standard","name":"Standard"}],"contains":[],"createdAt":"T"}]}`, ids)
+		`{"id":"@starter","name":"1080p",`+starterRules+`,"holdSeconds":0,"profiles":[{"id":"@fixture","name":"Fixture"}],"contains":[],"conversion":null,"createdAt":"T"},`+
+		`{"id":"@hd","name":"HD",`+hdRules+`,"holdSeconds":0,"profiles":[{"id":"@standard","name":"Standard"}],"contains":["@copy","@again","@web"],"conversion":null,"createdAt":"T"},`+
+		`{"id":"@copy","name":"HD copy",`+hdRules+`,"holdSeconds":0,"profiles":[],"contains":["@hd","@again","@web"],"conversion":null,"createdAt":"T"},`+
+		`{"id":"@again","name":"HD copy 2",`+hdRules+`,"holdSeconds":0,"profiles":[],"contains":["@hd","@copy","@web"],"conversion":null,"createdAt":"T"},`+
+		`{"id":"@web","name":"Web",`+webRules+`,"holdSeconds":0,"profiles":[{"id":"@small","name":"Small"},{"id":"@standard","name":"Standard"}],"contains":[],"conversion":null,"createdAt":"T"}]}`, ids)
 
 	s.Expect(t, http.MethodDelete, "/api/v1/targets/"+ids["hd"], "", http.StatusConflict,
 		`{"status":409,"code":"target_in_use","title":"Profiles use the Target","detail":"Standard uses this Target. Remove it from that Profile first."}`)
@@ -274,7 +274,8 @@ func TestEachTargetsErrorAnswersItsProblem(t *testing.T) {
 		},
 		{
 			http.MethodPost, "/api/v1/profiles", `{"name":"Standard","contentType":"fixture","targets":[{"targetId":"` + id + `","sourcing":"derive"}],"editions":{"kind":"any"},"languages":[]}`,
-			http.StatusUnprocessableEntity, `@invalid`,
+			http.StatusUnprocessableEntity,
+			`{"status":422,"code":"not_built_yet","title":"SlipStream can't save this setting yet","detail":"SlipStream can't make files from other files yet.","errors":[{"location":"body.targets[0].sourcing","message":"SlipStream can't make files from other files yet."}]}`,
 		},
 		{
 			http.MethodPost, "/api/v1/profiles", profileBody("Standard", id), http.StatusCreated,
@@ -425,7 +426,7 @@ func TestATargetScoresCustomFormatsAndSetsHowItTakesPropers(t *testing.T) {
 		`"scores":{"formats":[{"formatId":"`+hdr.ID.String()+`","score":25},{"formatId":"`+targets.NewFormatID().String()+`","score":0}],"minimum":-10,"upgradeUntil":100,"increment":5},"propers":"dont_prefer"}`)
 	ids := map[string]string{"scored": ownertest.FirstID(body)}
 	get(t, s, "/api/v1/targets/"+ids["scored"], `{"id":"@scored","name":"Scored","tiers":[["webdl-1080p"]],"cutoff":"webdl-1080p","filters":[],`+
-		`"sizes":[{"quality":"webdl-1080p","min":12.5,"max":null}],`+scored+`,"holdSeconds":0,"profiles":[],"contains":[],"createdAt":"T"}`, ids)
+		`"sizes":[{"quality":"webdl-1080p","min":12.5,"max":null}],`+scored+`,"holdSeconds":0,"profiles":[],"contains":[],"conversion":null,"createdAt":"T"}`, ids)
 
 	ghost := targets.NewFormatID().String()
 	for _, c := range []struct{ scores, want string }{

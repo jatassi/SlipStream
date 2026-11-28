@@ -93,7 +93,7 @@ func (h *nodeHost) Archive() (nodesystem.Archive, error) {
 }
 
 // sections names the Nodes section each config.yaml section's rows show in.
-var sections = map[string]nodesystem.SectionID{"http": nodesystem.Web, "log": nodesystem.Log, "torrent": nodesystem.Torrent, "backups": nodesystem.Backups}
+var sections = map[string]nodesystem.SectionID{"http": nodesystem.Web, "log": nodesystem.Log, "torrent": nodesystem.Torrent, "backups": nodesystem.Backups, "converting": nodesystem.Converting}
 
 // configView is the Node settings table as the Nodes sections show it:
 // config.yaml as saved now, beside the running values. Only a claimed

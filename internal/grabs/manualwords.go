@@ -307,7 +307,7 @@ func (s sheet) gapWords(cs []files.Cell) string {
 		label = "Upgrade"
 	case files.Failed:
 		label = "Failed"
-	case files.Unreleased, files.Missing, files.Downloading, files.Met:
+	case files.Unreleased, files.Missing, files.Downloading, files.Converting, files.Met:
 	}
 	if s.in.nouns.Items == works.ItemsOne {
 		return label + ": " + cellName(cs[0]) + "."

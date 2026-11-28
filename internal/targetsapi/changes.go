@@ -36,6 +36,8 @@ type Impact struct {
 	NewlyWanted int           `json:"newlyWanted" minimum:"0" doc:"How many more files SlipStream will look for"`
 	Downloading int           `json:"downloading" minimum:"0" doc:"Downloads in progress that are no longer needed. Each waits in Pending imports once it finishes"`
 	Subtitles   subtitles     `json:"subtitles" doc:"What a change of a Profile's subtitle languages does"`
+	Made        madeImpact    `json:"made" doc:"The files a change of a Profile's made-from Targets has SlipStream make"`
+	Remake      remakeImpact  `json:"remake" doc:"The made files a Target's older Conversion settings made"`
 }
 
 type subtitles struct {
@@ -91,6 +93,7 @@ func ImpactOf(i files.Impact) Impact {
 	return Impact{
 		Works: i.Works, OwnList: i.OwnList, Unwanted: unwantedFiles{Files: i.Unwanted, Bytes: i.Bytes},
 		Renamed: i.Renamed, Renames: renames, NewlyWanted: i.NewlyWanted, Downloading: i.Downloading, Subtitles: subtitlesOf(i.Subtitles),
+		Made: noMade(), Remake: noRemake(),
 	}
 }
 
@@ -147,7 +150,8 @@ func filesOf(n int) string {
 }
 
 type updateTargetInput struct {
-	TargetID string `path:"targetId" format:"uuid"`
+	TargetID      string              `path:"targetId" format:"uuid"`
+	ConfirmRemake api.Optional[int64] `query:"confirmRemake" minimum:"0" doc:"The remade file count the Admin confirmed from the preview: a save that would remake more is refused with impact_changed"`
 	Changing
 	Body newTarget
 }
@@ -185,6 +189,7 @@ func (h handlers) updateTarget(ctx context.Context, by identity.Admin, in *updat
 type updateProfileInput struct {
 	ProfileID        string              `path:"profileId" format:"uuid"`
 	ConfirmSubtitles api.Optional[int64] `query:"confirmSubtitles" minimum:"0" doc:"The deleted subtitle count the Admin confirmed from the preview: a save that would delete more is refused with impact_changed"`
+	ConfirmMade      api.Optional[int64] `query:"confirmMade" minimum:"0" doc:"The made file count the Admin confirmed from the preview: a save that would make more is refused with impact_changed"`
 	Changing
 	Body newProfile
 }

@@ -544,8 +544,9 @@ func (a Address) Check() error {
 type FolderPurpose string
 
 const (
-	FolderDownloads FolderPurpose = "downloads"
-	FolderBackups   FolderPurpose = "backups"
+	FolderDownloads  FolderPurpose = "downloads"
+	FolderBackups    FolderPurpose = "backups"
+	FolderConverting FolderPurpose = "converting"
 )
 
 // Folder is a path on one Node, which judges it for Purpose.

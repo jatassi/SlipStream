@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/jatassi/slipstream/internal/api"
+	"github.com/jatassi/slipstream/internal/conversionsapi/notyet"
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/works"
@@ -170,7 +171,7 @@ func Routes(r *api.Router, goals Goals) {
 		Path:    "/targets",
 		Summary: "Create a Target from its tiers of qualities, cutoff, filters, sizes, Custom Format scores and propers setting",
 		Status:  http.StatusCreated,
-		Errors:  []*api.Code{targetNameTaken, qualityNotInTarget, formatNotFound},
+		Errors:  []*api.Code{targetNameTaken, qualityNotInTarget, formatNotFound, conversionRefused.Code, notyet.Field},
 	}, h.createTarget)
 	api.Register(o, api.Admin, api.Op{
 		ID:      "listTargets",
@@ -193,7 +194,7 @@ func Routes(r *api.Router, goals Goals) {
 		Path:    "/targets/{targetId}",
 		Summary: "Replace a Target's name and rules, renaming and refilling its Works' files, or preview the change's Impact",
 		Status:  http.StatusOK,
-		Errors:  []*api.Code{noSuchTarget, targetNameTaken, qualityNotInTarget, formatNotFound, ImpactChanged},
+		Errors:  []*api.Code{noSuchTarget, targetNameTaken, qualityNotInTarget, formatNotFound, ImpactChanged, conversionRefused.Code, targetIsASource.Code, notyet.Field},
 	}, h.updateTarget)
 	api.Register(o, api.Admin, api.Op{
 		ID:      "duplicateTarget",
@@ -218,7 +219,7 @@ func Routes(r *api.Router, goals Goals) {
 		Path:    "/profiles",
 		Summary: "Create a Profile of Targets in Profile order. A new Profile is never the default",
 		Status:  http.StatusCreated,
-		Errors:  []*api.Code{profileNameTaken, contentTypeNotFound, targetNotFound, cutNotFound, duplicateLanguage, noSubtitlesForType},
+		Errors:  []*api.Code{profileNameTaken, contentTypeNotFound, targetNotFound, cutNotFound, duplicateLanguage, noSubtitlesForType, notyet.Field},
 	}, h.createProfile)
 	api.Register(o, api.Admin, api.Op{
 		ID:      "listProfiles",
@@ -241,7 +242,7 @@ func Routes(r *api.Router, goals Goals) {
 		Path:    "/profiles/{profileId}",
 		Summary: "Replace a Profile's name, Targets, Edition list and subtitle languages, refilling and renaming its Works' files when its Targets or Edition list change, or preview the change's Impact",
 		Status:  http.StatusOK,
-		Errors:  []*api.Code{noSuchProfile, profileNameTaken, targetNotFound, cutNotFound, profileWrongType, duplicateLanguage, noSubtitlesForType, ImpactChanged},
+		Errors:  []*api.Code{noSuchProfile, profileNameTaken, targetNotFound, cutNotFound, profileWrongType, duplicateLanguage, noSubtitlesForType, ImpactChanged, targetIsASource.Code, notyet.Field},
 	}, h.updateProfile)
 	api.Register(o, api.Admin, api.Op{
 		ID:      "deleteProfile",

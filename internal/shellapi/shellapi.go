@@ -42,9 +42,10 @@ type banner struct {
 }
 
 type alerts struct {
-	Nodes  *string `json:"nodes" enum:"warn,fail" doc:"warn while a Node has been offline longer than a brief drop, or the Controller is doing a Role's work for an offline Node; fail while a Node has been offline or on another version longer than the offline grace; null otherwise"`
-	Health *string `json:"health" enum:"warn,fail" doc:"The worst level across every Health category, null while nothing is wrong"`
-	Tasks  *string `json:"tasks" enum:"warn,fail" doc:"The worst level in the Scheduled tasks Health category, null while nothing is wrong"`
+	Nodes       *string `json:"nodes" enum:"warn,fail" doc:"warn while a Node has been offline longer than a brief drop, or the Controller is doing a Role's work for an offline Node; fail while a Node has been offline or on another version longer than the offline grace; null otherwise"`
+	Health      *string `json:"health" enum:"warn,fail" doc:"The worst level across every Health category, null while nothing is wrong"`
+	Tasks       *string `json:"tasks" enum:"warn,fail" doc:"The worst level in the Scheduled tasks Health category, null while nothing is wrong"`
+	Conversions *string `json:"conversions" enum:"warn,fail" doc:"fail while a Conversion failed and waits for an Admin, warn while no Node can convert one; null otherwise"`
 }
 
 func alertsOf(a nodes.Alert, h *health.Health) alerts {

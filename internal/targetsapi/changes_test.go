@@ -120,7 +120,7 @@ func TestEveryChangePreviewsWithoutSavingThenSavesWhatItPreviewed(t *testing.T) 
 		if to != "" {
 			renamed, renames = "1", `[{"workId":"@work","title":"The Attic","files":[{"fileId":"@file","from":"The Attic/The Attic - Scarf - `+from+`.mkv","to":"The Attic/The Attic - Scarf - `+to+`.mkv"}]}]`
 		}
-		return `{"works":` + strconv.Itoa(works) + `,"ownList":0,"unwanted":{"files":0,"bytes":0},"renamed":` + renamed + `,"renames":` + renames + `,"newlyWanted":0,"downloading":0,"subtitles":{"gained":[],"dropped":[],"days":0}}`
+		return `{"works":` + strconv.Itoa(works) + `,"ownList":0,"unwanted":{"files":0,"bytes":0},"renamed":` + renamed + `,"renames":` + renames + `,"newlyWanted":0,"downloading":0,"subtitles":{"gained":[],"dropped":[],"days":0},"made":{"files":0,"works":0,"seconds":0,"bytes":0,"nodes":[],"unconvertible":[],"matching":0,"rows":[]},"remake":{"older":0,"rows":[]}}`
 	}
 	for _, c := range []struct {
 		name, method, path, body, impact, after string
@@ -168,7 +168,7 @@ func TestASaveDeletingMoreThanItsPreviewConfirmedIsRefused(t *testing.T) {
 	empty := fill(profileBody("Fixture"), ids)
 	path := "/api/v1/profiles/" + ids["fixture"]
 	unwanted := fill(`{"works":1,"ownList":0,"unwanted":{"files":1,"bytes":2097152000},"renamed":1,"renames":[{"workId":"@work","title":"The Attic","files":[`+
-		`{"fileId":"@file","from":"The Attic/The Attic - Scarf - 1080p.mkv","to":"The Attic/The Attic - Scarf - 1080p (extra 1).mkv"}]}],"newlyWanted":0,"downloading":0,"subtitles":{"gained":[],"dropped":[],"days":0}}`, ids)
+		`{"fileId":"@file","from":"The Attic/The Attic - Scarf - 1080p.mkv","to":"The Attic/The Attic - Scarf - 1080p (extra 1).mkv"}]}],"newlyWanted":0,"downloading":0,"subtitles":{"gained":[],"dropped":[],"days":0},"made":{"files":0,"works":0,"seconds":0,"bytes":0,"nodes":[],"unconvertible":[],"matching":0,"rows":[]},"remake":{"older":0,"rows":[]}}`, ids)
 	code, reply := s.Call(t, http.MethodPut, path+"?preview=true&unwanted=keep", empty)
 	if got := impactOf(t, "emptying the default Profile previewed", code, reply); got != unwanted {
 		t.Fatalf("the preview = %s, want %s", got, unwanted)
@@ -254,7 +254,7 @@ func TestATargetsHoldRoundTripsAndMovesNoWork(t *testing.T) {
 		return s.Call(t, http.MethodPut, "/api/v1/targets/"+ids["starter"], `{"name":"1080p",`+starterRules+`,"holdSeconds":`+hold+`}`)
 	}
 	code, reply := put("5400")
-	none := `{"works":0,"ownList":0,"unwanted":{"files":0,"bytes":0},"renamed":0,"renames":[],"newlyWanted":0,"downloading":0,"subtitles":{"gained":[],"dropped":[],"days":0}}`
+	none := `{"works":0,"ownList":0,"unwanted":{"files":0,"bytes":0},"renamed":0,"renames":[],"newlyWanted":0,"downloading":0,"subtitles":{"gained":[],"dropped":[],"days":0},"made":{"files":0,"works":0,"seconds":0,"bytes":0,"nodes":[],"unconvertible":[],"matching":0,"rows":[]},"remake":{"older":0,"rows":[]}}`
 	if got := impactOf(t, "holding the starter 90 minutes", code, reply); got != none || !strings.Contains(reply, `"holdSeconds":5400`) {
 		t.Fatalf("holding the starter 90 minutes = %s, want no Work moved and holdSeconds 5400", reply)
 	}

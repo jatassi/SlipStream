@@ -37,6 +37,10 @@ type Need struct {
 	// Group is the key of the search group whose latest search found a
 	// NeedNotFound's Items nothing.
 	Group string
+	// Conversion is a NeedConversionFailed's Conversion, with its fault
+	// in Code and the fault's Class.
+	Conversion storage.UUID
+	Class      string
 }
 
 // Flags reports whether n counts toward the Library's Needs you flag. A
@@ -48,6 +52,8 @@ type NeedKind uint8
 
 const (
 	NeedFailed NeedKind = iota + 1
+	// NeedConversionFailed is a made-from cell whose Conversion failed.
+	NeedConversionFailed
 	NeedUpgrade
 	// NeedNotFound is missing Items whose latest search found no Release,
 	// or none acceptable.
