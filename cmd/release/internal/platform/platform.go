@@ -43,6 +43,8 @@ var Tests = []Test{
 	},
 	{Package: "fakes/world/worldtest", Run: "^TestAHeldFileNamesItsHolder$"},
 	{Package: "internal/atomicfile", Run: "^(TestReplaceReplaces|TestRenameRetriesASharingViolation|TestRemoveRetriesASharingViolation)$"},
+	{Package: "internal/converting/clip", Run: "^TestEveryClassMakesAClipThatProbesAsItsClass$"},
+	{Package: "internal/converting/internal/drivers", Run: "^(TestTheReaderAnswers|TestTheVAAPIDriverLine)$"},
 	{Package: "internal/downloading", Run: "^(TestFreesCountsOnlyFilesWithNoOtherLink|TestPlacePayloadLinksOnOneVolumeAndCopiesAcrossVolumes)$"},
 	{Package: "internal/link", Run: "^TestKeyFileIsOwnerOnly$"},
 	{Package: "internal/link/internal/mux", Run: "^TestMeasureStream$"},
@@ -61,6 +63,7 @@ var Tests = []Test{
 	},
 	{Package: "internal/node/internal/host", Run: "^(TestBelowFloor|TestOnNetworkShareChecksTheNearestExistingAncestor)$"},
 	{Package: "internal/notifying", Run: "^(TestAScriptGetsItsArgumentsTheEventAndACleanEnvironment|TestAScriptPastStopIsKilledWithEverythingItStarted)$"},
+	{Package: "internal/proctree", Run: "^TestAKilledTreeLeavesNoChild$"},
 	{Package: "internal/secret", Run: "^(TestNoRowNoFileCreatesTheKey|TestCreatingTheKeySyncsItsDirectory)$"},
 	{Package: "internal/storage", Run: "^(TestSynctestWaitsForSQLiteWaitingOutALock|TestConcurrentWritesAllCommit)$"},
 	{
