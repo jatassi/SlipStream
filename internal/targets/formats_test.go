@@ -11,6 +11,7 @@ import (
 
 	"github.com/jatassi/slipstream/internal/formats"
 	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storage/storagetest"
@@ -29,7 +30,7 @@ type shelf struct {
 func newShelf(t *testing.T, n int) *shelf {
 	t.Helper()
 	ctx := t.Context()
-	s := &shelf{lib: storagetest.Library(t, works.Schema(), targets.Schema())}
+	s := &shelf{lib: storagetest.Library(t, nodes.Schema(), works.Schema(), targets.Schema())}
 	err := s.lib.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		for i := range n {
 			w, err := seedWork(ctx, tx, "cinema", string(rune('a'+i)))

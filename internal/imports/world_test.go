@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/jatassi/slipstream/internal/contenttype/contenttypetest"
+	"github.com/jatassi/slipstream/internal/conversions"
 	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/grabs"
@@ -123,7 +124,7 @@ func newWorld(t *testing.T) *world {
 	t.Helper()
 	ctx := t.Context()
 	w := &world{
-		lib:     storagetest.Library(t, identity.Schema(), nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), indexers.Schema(), downloadclients.Schema(), grabs.Schema(), files.Schema(), naming.Schema(), transfers.LibrarySchema(), Schema()),
+		lib:     storagetest.Library(t, identity.Schema(), nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), indexers.Schema(), downloadclients.Schema(), grabs.Schema(), files.Schema(), conversions.Schema(), naming.Schema(), transfers.LibrarySchema(), Schema()),
 		fx:      contenttypetest.New(),
 		node:    role.NodeID{UUID: storage.NewUUID()},
 		changed: &heard[Changed]{},

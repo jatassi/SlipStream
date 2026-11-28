@@ -78,7 +78,7 @@ type refreshed struct {
 func openRefreshed(t *testing.T, pages int) *refreshed {
 	t.Helper()
 	l := &refreshed{fx: contenttypetest.New(), ids: map[works.Key]works.WorkID{}}
-	l.lib = storagetest.Library(t, identity.Schema(), works.Schema(), metadata.Schema(), targets.Schema(), tasks.Schema())
+	l.lib = storagetest.Library(t, identity.Schema(), nodes.Schema(), works.Schema(), metadata.Schema(), targets.Schema(), tasks.Schema())
 	hub := live.NewHub([]live.Event{nodes.ChangedEvent, tasks.ChangedEvent, tasks.ProgressEvent, works.ChangedEvent, works.TypeChangedEvent})
 	t.Cleanup(hub.Close)
 	timings := metadata.DefaultTimings()

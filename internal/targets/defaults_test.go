@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storage/storagetest"
 	"github.com/jatassi/slipstream/internal/targets"
@@ -19,7 +20,7 @@ func (c *counted) Publish(context.Context, targets.Changed) { c.n.Add(1) }
 
 func TestOpenGivesAFreshLibraryTheStarterAndADefaultProfilePerType(t *testing.T) {
 	ctx := t.Context()
-	lib := storagetest.Library(t, works.Schema(), targets.Schema())
+	lib := storagetest.Library(t, nodes.Schema(), works.Schema(), targets.Schema())
 	var work works.WorkID
 	err := lib.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		var err error
@@ -76,7 +77,7 @@ func TestOpenGivesAFreshLibraryTheStarterAndADefaultProfilePerType(t *testing.T)
 
 func TestADeletedStarterStaysDeleted(t *testing.T) {
 	ctx := t.Context()
-	lib := storagetest.Library(t, works.Schema(), targets.Schema())
+	lib := storagetest.Library(t, nodes.Schema(), works.Schema(), targets.Schema())
 	goals := must[*targets.Targets](t)(targets.Open(ctx, targets.Config{Library: lib, Changed: discard{}}))
 	starter := must[[]targets.Target](t)(goals.ListTargets(ctx, identity.Admin{}))[0]
 	if err := goals.DeleteTarget(ctx, identity.Admin{}, starter.ID); err != nil {
@@ -95,7 +96,7 @@ func TestADeletedStarterStaysDeleted(t *testing.T) {
 
 func TestADefaultProfileTakesTheFirstFreeName(t *testing.T) {
 	ctx := t.Context()
-	lib := storagetest.Library(t, works.Schema(), targets.Schema())
+	lib := storagetest.Library(t, nodes.Schema(), works.Schema(), targets.Schema())
 	goals := must[*targets.Targets](t)(targets.Open(ctx, targets.Config{Library: lib, Works: described{"cinema": "Cinema"}, Types: facets("cinema"), Changed: discard{}}))
 	if _, err := goals.CreateProfile(ctx, identity.Admin{}, targets.ProfileSpec{Name: "Records", ContentType: "cinema"}); err != nil {
 		t.Fatal(err)
