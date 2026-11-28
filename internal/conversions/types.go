@@ -1,6 +1,7 @@
 package conversions
 
 import (
+	"github.com/jatassi/slipstream/internal/conversions/internal/db"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/conversions/internal/order"
@@ -10,14 +11,13 @@ import (
 	"github.com/jatassi/slipstream/internal/media"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
-	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
 type (
-	ID         struct{ storage.UUID }
-	BackfillID struct{ storage.UUID }
+	ID         = db.ConversionID
+	BackfillID = db.BackfillID
 )
 
 type Stage string
