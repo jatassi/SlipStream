@@ -25,7 +25,7 @@ func (w world) hold(d time.Duration) {
 	target := simtest.Decode[struct {
 		Targets []map[string]any `json:"targets"`
 	}](w.t, "listTargets", reply).Targets[0]
-	for _, k := range []string{"id", "profiles", "contains", "createdAt"} {
+	for _, k := range []string{"id", "profiles", "contains", "defaultKbps", "createdAt"} {
 		delete(target, k)
 	}
 	target["holdSeconds"] = int(d / time.Second)

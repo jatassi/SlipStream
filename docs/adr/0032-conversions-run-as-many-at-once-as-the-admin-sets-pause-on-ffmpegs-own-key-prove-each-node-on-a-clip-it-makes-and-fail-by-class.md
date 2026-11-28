@@ -1,0 +1,31 @@
+# Conversions run as many at once as the Admin sets, pause on ffmpeg's own key, prove each Node on a clip it makes, and fail by class
+
+Four choices shape how a Node runs Conversions. Each one rests on what a Node can observe about itself, and none on a number it would have to guess. Decided in [Conversion](https://github.com/jatassi/SlipStream/issues/169), building on [A/V pipeline design](https://github.com/jatassi/SlipStream/issues/18) Q8, Q19, Q22 and Q40, and on ADR 0007.
+
+- **Concurrency is the Admin's number.** Each Node runs at most its "Conversions at once", 1 by default. Placement gives a Node at most that many plus one, counting Conversions that share a source as one, so the next source copies while the current one runs. Everything else stays queued with no Node, and the tab and the Work page forecast each row's start and finish when they read it.
+- **Pause is jellyfin-ffmpeg's own key.** The runner starts ffmpeg with a stdin pipe, writes `p` when a Media Server on the Node transcodes video and `u` when it stops. That works the same on Windows, macOS and Linux. A stall counts only while a run is running and not paused. Each trial run checks the key, and a Node whose ffmpeg lacks it, such as an override, ends its running Conversions during a transcode and puts them back in the queue.
+- **A trial run converts a synthetic clip the Node makes.** The clip maker, moved from the Fake world's `mediafix` into `internal/converting/clip`, makes a two-second 320x180 clip of each source class in the Node's scratch folder with the bundled ffmpeg and `dovi_tool`. The Node converts it with each pipeline row in turn and keeps the first that passes as its proof. A proof must open its encoder, because `-encoders` isn't evidence. The Node builds a Conversion's arguments from the row its proof names, on its own ffmpeg.
+- **Failures have classes, and only a run fault costs a proof.** Every fault code has a class in one table. A run fault (an encoder, filter or device error, a crash, a stall, or an output whose length or streams don't match) retries once on the same Node, then once on another Node that can run it. It fails after the second Node fails, or after two attempts when no other Node can, and the Node loses its proof of those settings until a new trial run passes. A source or settings fault (an unreadable source, a stream the container can't hold, or an output the Target refuses) fails at once and costs no proof, because another Node would give the same answer. A full disk puts the Conversion back in the queue. A failed Conversion stays unfinished and keeps its cell failed until Retry, a new source file or an Admin cancel, and Retry gives it a fresh budget.
+
+The recorded Quick Sync run of 27 November 2026, on an Intel UHD 750 under Windows 11, confirmed the pause. `p` stopped progress within about a second, and the paused process used no GPU time and kept about 610 MB of GPU memory at 1080p. Plex's hardware transcodes kept running beside a running and a paused Conversion, and a new one started on hardware while a Conversion was paused. The same run measured HDR10 to SDR at 222 fps for one copy, 206 fps in total for two and 224 fps for three, because OpenCL tone mapping fills the 3D engine. A second Conversion adds nothing there, so the default stays 1.
+
+## Considered Options
+
+- **Measure what a Node can sustain in its trial run, capped by the Admin** (#18 Q19). Rejected. A trial run lasts a fraction of a second on a 320x180 clip and can't see heat, a shared NVENC session pool or what else the Node is doing. The number would look precise and be wrong.
+- **Suspend the whole ffmpeg process.** Rejected. Windows documents no call that suspends a process, and `SuspendThread` is meant for debuggers. The key works the same on every OS and is how Jellyfin's own throttler pauses.
+- **End running Conversions during every transcode.** Rejected. The recorded run showed a paused process takes no GPU time and doesn't keep Plex off the hardware, and an ended Conversion starts again from zero.
+- **Ship clips in the package, or trust the build's encoder list.** Rejected. Shipped clips grow every package and can't follow a new source class. `-encoders` lists `av1_qsv` on Rocket Lake, where it fails to open.
+- **Build the ffmpeg arguments on the Controller.** Rejected. A Controller and a Worker on different builds could run arguments the Worker never proved, and `targets` would import a Worker package.
+- **One builder type per hardware API.** Rejected. The shared parts would repeat five times, and the tone mapping fragment, `r=tv` included, would live in five files.
+- **Store each row's plan, with its Node, start and finish.** Rejected. A Node going away, a transcode or a Move up would rewrite thousands of rows, and the stored estimates go stale between passes.
+- **Let each Node pull work when a slot frees.** Rejected. Earliest finish and one Node per source are decisions across Nodes, the next source wouldn't copy ahead, and forecasts would still need the simulation.
+- **Keep the live stage on the attempt row, or derive it from an event log.** Rejected. Two machines would have to agree, or every cell read and placement pass would fold a log. One stage machine on the Conversion row, with attempts as child rows and `(node, attempt)` as the fence, makes a late report from an old attempt change nothing.
+- **Treat every check mismatch as a run fault** (#18 Q40). Rejected. Retrying a Target's refusal on another Node gives the same answer, so a refusal is a source or settings fault. A length or stream mismatch stays a run fault.
+
+## Consequences
+
+- A paused Conversion holds its GPU memory, about 610 MB at 1080p on Quick Sync, until it resumes. A GPU with little memory shared with a Media Server feels that.
+- An Admin with a fast GPU raises "Conversions at once" by hand. Nothing tells them the GPU has room.
+- A changed ffmpeg signature replaces the Node's proofs, and the Node runs its trial runs again before it takes more work.
+- A pinned retry whose Node fails its new trial run, or lapses, moves on to another Node instead of waiting.
+- NVENC's session limit and AMD's pause behaviour are unmeasured. Only Quick Sync on one Windows machine has been recorded.

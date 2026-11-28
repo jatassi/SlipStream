@@ -4,6 +4,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/jatassi/slipstream/internal/role"
 )
@@ -22,12 +23,17 @@ func TestValidateChecksTheLibrary(t *testing.T) {
 			{Name: "filtered", Tiers: [][]QualityKey{{"webdl-1080p"}}, Cutoff: "webdl-1080p", Filters: []LibraryFilter{{Attribute: "hdr", Mode: "only", Values: []string{"sepia"}}}},
 			{Name: "sized", Tiers: [][]QualityKey{{"webdl-1080p"}}, Cutoff: "webdl-1080p", Sizes: []LibrarySize{{Quality: "bluray-1080p", Min: 1}}},
 			{Name: "scored", Tiers: [][]QualityKey{{"webdl-1080p"}}, Cutoff: "webdl-1080p", Scores: &LibraryScores{Formats: map[string]int{"LQ": -5, "Remux": 10}}},
+			{Name: "mobile", Tiers: [][]QualityKey{{"webdl-720p"}}, Cutoff: "webdl-720p", Conversion: &LibraryConversion{Codec: "h264", Height: 1080, Kbps: 2000, Audio: "copy", Container: "mkv"}},
+			{Name: "small", Tiers: [][]QualityKey{{"webdl-720p"}}, Cutoff: "webdl-720p", Sizes: []LibrarySize{{Quality: "webdl-720p", Max: new(1.0)}}, Conversion: &LibraryConversion{Codec: "h264", Height: 720, Kbps: 2000, Audio: "copy", Container: "mkv"}},
 		},
 		Formats: []LibraryFormat{{Name: "LQ", Group: "^LQ$"}, {Name: "lq", Group: "^lq$"}},
 		Profiles: []LibraryProfile{
-			{Name: "Standard", ContentType: "music", Targets: []string{"1080p", "4k"}, Default: true},
+			{Name: "Standard", ContentType: "music", Targets: []LibraryEntry{{Target: "1080p"}, {Target: "4k"}}, Default: true},
 			{Name: "Standard", ContentType: "music", Default: true},
-			{Name: "Starter", ContentType: "music", Targets: []string{"1080p"}, Cuts: []string{"standard", "superfan"}},
+			{Name: "Starter", ContentType: "music", Targets: []LibraryEntry{{Target: "1080p"}}, Cuts: []string{"standard", "superfan"}},
+			{Name: "Made", ContentType: "music", Targets: []LibraryEntry{
+				{Target: "small", From: "1080p"}, {Target: "1080p", Grace: time.Hour}, {Target: "scored", From: "1080p"}, {Target: "mobile", From: "1080p", Grace: time.Minute},
+			}},
 		},
 		Indexers: []LibraryIndexer{
 			{Name: "Site", Kind: "torznab", Site: "torznab"},
@@ -49,10 +55,16 @@ func TestValidateChecksTheLibrary(t *testing.T) {
 		`scenario x: library target filtered: a filter set to Only or Not needs at least one value, Any takes none, and no value can repeat: "sepia" is not an HDR format`,
 		"scenario x: library target sized: the Target doesn't accept that quality: the size for bluray-1080p",
 		"scenario x: library target scored scores format Remux, which library.formats does not list",
+		"scenario x: library target mobile: the Conversion settings make files the Target refuses: quality_unranked",
+		"scenario x: library target small: the Conversion settings make files the Target refuses: outside_size",
 		"scenario x: library profile Standard names target 4k, which library.targets does not list and isn't the starter",
 		"scenario x: library has two profiles named Standard",
 		"scenario x: library has two default profiles for content type music",
 		"scenario x: library profile Starter lists cut superfan, which is no built-in cut's key",
+		"scenario x: library profile Made makes target small from 1080p, which isn't a downloaded target above it",
+		"scenario x: library profile Made gives target 1080p a grace and nothing to make its file from",
+		"scenario x: library profile Made makes target scored from a file, and it has no conversion settings",
+		"scenario x: library profile Made waits 1m0s for target mobile; a grace is 1 hour to 90 days in whole seconds",
 		"scenario x: library has two indexers named Site",
 		`scenario x: library indexer Site is a rss Indexer on site "torznab", which fixture-site doesn't serve as one`,
 		"scenario x: library indexer Site is an RSS feed with no tracker or media",

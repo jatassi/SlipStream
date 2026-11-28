@@ -59,7 +59,7 @@ func scannedHome(t *testing.T) (a *worldtest.API, listed map[string]listedMedia,
 		Name: "HDR10", Tiers: [][]scenario.QualityKey{{"hdtv-1080p"}}, Cutoff: "hdtv-1080p",
 		Filters: []scenario.LibraryFilter{{Attribute: "hdr", Mode: "only", Values: []string{"HDR10"}}},
 	}}
-	s.Library.Profiles = []scenario.LibraryProfile{{Name: "HDR", ContentType: "series", Targets: []string{"HDR10"}, Default: true}}
+	s.Library.Profiles = []scenario.LibraryProfile{{Name: "HDR", ContentType: "series", Targets: []scenario.LibraryEntry{{Target: "HDR10"}}, Default: true}}
 	run := worldtest.LaunchScenario(t, s)
 	a = api(t, run)
 	addShelves(t, a, run.Manifest())

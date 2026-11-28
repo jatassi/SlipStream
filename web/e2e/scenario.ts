@@ -35,4 +35,5 @@ export type Scenario =
   | "five-indexers-one-late"
   | "limited-tracker"
   | "subtitles"
-  | "remote-own-proxy";
+  | "remote-own-proxy"
+  | "conversion";

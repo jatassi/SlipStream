@@ -395,7 +395,9 @@ func (w *realWorld) colorRange(file string) string {
 // enough on the processor to pause. The pause case keeps the default stall
 // limit, since TestStall proves under synctest that a paused run never
 // stalls, and a resumed encode can take seconds to move again on a loaded
-// runner. The stall case shortens the limit.
+// runner. The stall case shortens the limit and pauses ffmpeg behind the
+// holder's back before its first progress line, since the limit runs from
+// the start and a loaded runner can take longer than it to report one.
 func TestPauseAndStall(t *testing.T) {
 	const stall = 3 * time.Second
 	s := settingsOf(encode.HEVC, encode.Bit8, encode.SDR, false, encode.P720)
@@ -405,6 +407,7 @@ func TestPauseAndStall(t *testing.T) {
 		drive func(w *realWorld, src media.Record, r *tapRun)
 	}{
 		{"p freezes the output time and u resumes to a passing output", DefaultTimings().Stall, func(w *realWorld, src media.Record, r *tapRun) {
+			w.encoding(r)
 			w.intent(src, s, true, cv1.Stage_STAGE_RUNNING)
 			w.await("paused", 10*time.Second)
 			time.Sleep(time.Second)
@@ -439,9 +442,7 @@ func TestPauseAndStall(t *testing.T) {
 			src := w.source(encode.ClassH264x8, clip.Size{W: 1280, H: 720, Seconds: 10}, 1280, 720)
 			w.intent(src, s, false, cv1.Stage_STAGE_READY)
 			w.await("started", time.Minute)
-			r := w.run()
-			w.encoding(r)
-			c.drive(w, src, r)
+			c.drive(w, src, w.run())
 			if len(w.results) > 0 {
 				t.Errorf("then results = %q", w.results)
 			}

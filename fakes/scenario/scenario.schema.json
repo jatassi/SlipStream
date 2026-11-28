@@ -3426,6 +3426,56 @@
               "hold": {
                 "type": "string",
                 "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+              },
+              "conversion": {
+                "properties": {
+                  "codec": {
+                    "type": "string",
+                    "enum": [
+                      "h264",
+                      "hevc",
+                      "av1"
+                    ]
+                  },
+                  "height": {
+                    "type": "integer",
+                    "enum": [
+                      2160,
+                      1080,
+                      720,
+                      480
+                    ]
+                  },
+                  "kbps": {
+                    "type": "integer",
+                    "maximum": 200000,
+                    "minimum": 100
+                  },
+                  "audio": {
+                    "type": "string",
+                    "enum": [
+                      "copy",
+                      "stereo_aac",
+                      "ac3_51_and_stereo_aac"
+                    ]
+                  },
+                  "container": {
+                    "type": "string",
+                    "enum": [
+                      "mkv",
+                      "mp4"
+                    ]
+                  }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "codec",
+                  "height",
+                  "kbps",
+                  "audio",
+                  "container"
+                ]
               }
             },
             "additionalProperties": false,
@@ -3450,7 +3500,30 @@
               },
               "targets": {
                 "items": {
-                  "type": "string"
+                  "oneOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "properties": {
+                        "target": {
+                          "type": "string"
+                        },
+                        "from": {
+                          "type": "string"
+                        },
+                        "grace": {
+                          "type": "string",
+                          "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+                        }
+                      },
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": [
+                        "target"
+                      ]
+                    }
+                  ]
                 },
                 "type": "array",
                 "uniqueItems": true
