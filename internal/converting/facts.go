@@ -66,7 +66,7 @@ func (f *facts) volume(ctx context.Context) *cv1.Volume {
 	if err != nil {
 		return nil
 	}
-	return &cv1.Volume{Free: v.Free, Total: v.Total}
+	return &cv1.Volume{Free: v.Free, Total: v.Total, Id: v.ID, Name: v.Name, Mount: v.Mount, SampledAtUnixMs: v.SampledAt.UnixMilli()}
 }
 
 // progress is one entry per live run, in conversion id order.

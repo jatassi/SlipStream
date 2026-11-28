@@ -781,11 +781,18 @@ func (x *Device) GetDriver() string {
 
 // Volume is the scratch folder's volume, in bytes.
 type Volume struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Free          int64                  `protobuf:"varint,1,opt,name=free,proto3" json:"free,omitempty"`
-	Total         int64                  `protobuf:"varint,2,opt,name=total,proto3" json:"total,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Free  int64                  `protobuf:"varint,1,opt,name=free,proto3" json:"free,omitempty"`
+	Total int64                  `protobuf:"varint,2,opt,name=total,proto3" json:"total,omitempty"`
+	// id is the fsid on Unix, or the volume serial on Windows, as Storage
+	// names a volume.
+	Id string `protobuf:"bytes,3,opt,name=id,proto3" json:"id,omitempty"`
+	// name reads "D: (Media)", "/mnt/media", "/Volumes/Archive" or "\\nas\media".
+	Name            string `protobuf:"bytes,4,opt,name=name,proto3" json:"name,omitempty"`
+	Mount           string `protobuf:"bytes,5,opt,name=mount,proto3" json:"mount,omitempty"`
+	SampledAtUnixMs int64  `protobuf:"varint,6,opt,name=sampled_at_unix_ms,json=sampledAtUnixMs,proto3" json:"sampled_at_unix_ms,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *Volume) Reset() {
@@ -828,6 +835,34 @@ func (x *Volume) GetFree() int64 {
 func (x *Volume) GetTotal() int64 {
 	if x != nil {
 		return x.Total
+	}
+	return 0
+}
+
+func (x *Volume) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *Volume) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *Volume) GetMount() string {
+	if x != nil {
+		return x.Mount
+	}
+	return ""
+}
+
+func (x *Volume) GetSampledAtUnixMs() int64 {
+	if x != nil {
+		return x.SampledAtUnixMs
 	}
 	return 0
 }
@@ -1704,10 +1739,14 @@ const file_slipstream_converting_v1_converting_proto_rawDesc = "" +
 	"\x06Device\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x16\n" +
 	"\x06vendor\x18\x02 \x01(\tR\x06vendor\x12\x16\n" +
-	"\x06driver\x18\x03 \x01(\tR\x06driver\"2\n" +
+	"\x06driver\x18\x03 \x01(\tR\x06driver\"\x99\x01\n" +
 	"\x06Volume\x12\x12\n" +
 	"\x04free\x18\x01 \x01(\x03R\x04free\x12\x14\n" +
-	"\x05total\x18\x02 \x01(\x03R\x05total\"\x97\x01\n" +
+	"\x05total\x18\x02 \x01(\x03R\x05total\x12\x0e\n" +
+	"\x02id\x18\x03 \x01(\tR\x02id\x12\x12\n" +
+	"\x04name\x18\x04 \x01(\tR\x04name\x12\x14\n" +
+	"\x05mount\x18\x05 \x01(\tR\x05mount\x12+\n" +
+	"\x12sampled_at_unix_ms\x18\x06 \x01(\x03R\x0fsampledAtUnixMs\"\x97\x01\n" +
 	"\bProgress\x12#\n" +
 	"\rconversion_id\x18\x01 \x01(\fR\fconversionId\x12\x18\n" +
 	"\aattempt\x18\x02 \x01(\rR\aattempt\x12\x1e\n" +

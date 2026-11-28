@@ -119,6 +119,13 @@ message Device {
 message Volume {
   int64 free = 1;
   int64 total = 2;
+  // id is the fsid on Unix, or the volume serial on Windows, as Storage
+  // names a volume.
+  string id = 3;
+  // name reads "D: (Media)", "/mnt/media", "/Volumes/Archive" or "\\nas\media".
+  string name = 4;
+  string mount = 5;
+  int64 sampled_at_unix_ms = 6;
 }
 
 message Progress {
