@@ -447,9 +447,7 @@ func (n *Node) startController(ctx context.Context) error {
 	fenced := nodes.FencedEvent.Bind(n.hub)
 	var systems *nodesystem.Nodes
 	conversionRuns = converting.Def.Serve(
-		func(ctx context.Context, r storage.Reader[storage.Library], id role.NodeID) (*cv1.Intent, error) {
-			return converts.Derive(ctx, r, id)
-		},
+		deriveConversions(&converts),
 		func(ctx context.Context, tx *storage.Tx[storage.Library], id role.NodeID, res *cv1.Result) error {
 			return converts.Apply(ctx, tx, id, res)
 		},
@@ -478,7 +476,7 @@ func (n *Node) startController(ctx context.Context) error {
 			copies.Noted(id, scope)
 			servers.Noted(id, scope)
 			reach.Noted(id, scope)
-			converts.Noted(id, scope)
+			notedConversions(converts, id, scope)
 		},
 		Applied: func(id role.NodeID, scope string) {
 			clients.Applied(id, scope)
@@ -1575,4 +1573,21 @@ func rootBusy(ctx context.Context, r storage.Reader[storage.Library], root roots
 		return roots.Busy{}, err
 	}
 	return roots.Busy{Moves: int(movesIn), Imports: int(importsIn), Transfers: transfersIn}, nil
+}
+
+// deriveConversions derives a Converting intent, which asks nothing of a
+// Node until the Controller's Conversions are built.
+func deriveConversions(converts **conversions.Conversions) func(context.Context, storage.Reader[storage.Library], role.NodeID) (*cv1.Intent, error) {
+	return func(ctx context.Context, r storage.Reader[storage.Library], id role.NodeID) (*cv1.Intent, error) {
+		if *converts == nil {
+			return &cv1.Intent{}, nil
+		}
+		return (*converts).Derive(ctx, r, id)
+	}
+}
+
+func notedConversions(converts *conversions.Conversions, id role.NodeID, scope string) {
+	if converts != nil {
+		converts.Noted(id, scope)
+	}
 }

@@ -26,6 +26,8 @@ type reconciler struct {
 	moved   map[role.NodeID]bool
 	// applied is the Conversions results moved since the last pass.
 	applied []ID
+	// unasked is when each test run whose ask failed last failed.
+	unasked map[test]time.Time
 	// retry is when a check whose probe failed is tried again.
 	retry map[ID]time.Time
 	noted chan struct{}
@@ -35,7 +37,7 @@ type reconciler struct {
 func newReconciler() *reconciler {
 	return &reconciler{
 		testing: map[role.NodeID]map[encode.Key]bool{}, signed: map[role.NodeID]converting.Signature{},
-		moved: map[role.NodeID]bool{}, retry: map[ID]time.Time{},
+		moved: map[role.NodeID]bool{}, retry: map[ID]time.Time{}, unasked: map[test]time.Time{},
 		noted: make(chan struct{}, 1),
 	}
 }
@@ -68,7 +70,7 @@ func (c *Conversions) Run(ctx context.Context) error {
 		next := c.cfg.Clock().Add(c.cfg.Timings.Pass)
 		if due, err := c.pass(ctx, c.roster()); err != nil {
 			c.cfg.Log.Warn("reconcile the Conversions", "err", err)
-		} else if due.Before(next) {
+		} else if !due.IsZero() && due.Before(next) {
 			next = due
 		}
 		timer.Reset(max(next.Sub(c.cfg.Clock()), 0))
@@ -159,13 +161,13 @@ func (c *Conversions) reconciling(ctx context.Context) (bool, error) {
 // publish tells the holders, Transfers and imports a pass's Writes, and
 // publishes the Conversions they moved.
 func (c *Conversions) publish(ctx context.Context, moved []ID, ros roster) {
+	if len(moved) == 0 {
+		return
+	}
 	c.cfg.Control().Touch(ros.holders.Serving()...)
 	c.cfg.Transfers.Touch()
 	if c.importer != nil {
 		c.importer.Wake()
-	}
-	if len(moved) == 0 {
-		return
 	}
 	ch := Changed{ConversionIDs: []string{}, WorkIDs: []string{}, GroupIDs: []string{}}
 	seen := map[ID]bool{}

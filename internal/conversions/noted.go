@@ -83,10 +83,3 @@ func (c *Conversions) replaceProofs(ctx context.Context, node role.NodeID, sig c
 	}
 	return nil
 }
-
-// signature is node's last reported signature, empty before any.
-func (c *Conversions) signature(node role.NodeID) converting.Signature {
-	c.rec.mu.Lock()
-	defer c.rec.mu.Unlock()
-	return c.rec.signed[node]
-}

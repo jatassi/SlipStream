@@ -3,6 +3,7 @@ package conversions
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/jatassi/slipstream/internal/conversions/internal/db"
 	"github.com/jatassi/slipstream/internal/conversions/internal/plan"
@@ -12,6 +13,12 @@ import (
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/storage"
 )
+
+// test is one Node's test run of one key.
+type test struct {
+	node role.NodeID
+	key  encode.Key
+}
 
 // inFlight is the test runs asked of each Node and not yet answered.
 func (r *reconciler) inFlight() map[role.NodeID]int {
@@ -24,13 +31,15 @@ func (r *reconciler) inFlight() map[role.NodeID]int {
 	return out
 }
 
-// take marks node's test run of k in flight, false when it already is.
-func (r *reconciler) take(node role.NodeID, k encode.Key) bool {
+// take marks node's test run of k in flight, false when it already is or
+// its last ask failed less than a pass before now.
+func (r *reconciler) take(node role.NodeID, k encode.Key, now time.Time, pass time.Duration) bool {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	if r.testing[node][k] {
+	if r.testing[node][k] || now.Before(r.unasked[test{node, k}].Add(pass)) {
 		return false
 	}
+	delete(r.unasked, test{node, k})
 	if r.testing[node] == nil {
 		r.testing[node] = map[encode.Key]bool{}
 	}
@@ -51,13 +60,17 @@ func (r *reconciler) done(node role.NodeID, k encode.Key) {
 // the Node's signature when it comes, and wakes the reconciler.
 func (c *Conversions) ask(ctx context.Context, tests []plan.Test) {
 	for _, t := range tests {
-		if !c.rec.take(t.Node, t.Key) {
+		if !c.rec.take(t.Node, t.Key, c.cfg.Clock(), c.cfg.Timings.Pass) {
 			continue
 		}
 		c.rec.tests.Go(func() {
 			defer c.rec.done(t.Node, t.Key)
 			if err := c.test(ctx, t.Node, t.Key); err != nil {
 				c.cfg.Log.Warn("run a test run", "node", t.Node, "shape", t.Key.Shape.String(), "class", t.Key.Class, "err", err)
+				c.rec.mu.Lock()
+				c.rec.unasked[test{t.Node, t.Key}] = c.cfg.Clock()
+				c.rec.mu.Unlock()
+				return
 			}
 			c.cfg.Poke.Wake()
 		})
@@ -77,7 +90,11 @@ func (c *Conversions) test(ctx context.Context, node role.NodeID, k encode.Key) 
 	if err != nil {
 		return err
 	}
-	current := c.signature(node)
+	f, _ := c.roster().facts(node)
+	current, _ := signatureOf(f.GetSignature())
+	if p.Signature != current {
+		return fmt.Errorf("the test run ran under signature %s, and the Node reports %s", p.Signature, current)
+	}
 	return c.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		return c.prove(ctx, tx, node, current, k, p)
 	})
