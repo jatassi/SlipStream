@@ -393,6 +393,20 @@ func (s *Store) Probe(ctx context.Context, req *storagev1.ProbeRequest) (*storag
 	return &storagev1.ProbeResponse{Record: record}, nil
 }
 
+// LibraryFile is media.Library on this Node: rel under root, with the
+// error a handler answers.
+func (s *Store) LibraryFile(ctx context.Context, root storage.UUID, rel string) (string, error) {
+	r, err := relOf(rel)
+	if err != nil {
+		return "", err
+	}
+	file, err := s.Local(ctx, root, r)
+	if err != nil {
+		return "", WireError(err)
+	}
+	return file, nil
+}
+
 // identityOf is what a scan compares of info besides its size.
 func identityOf(info Info) *storagev1.Identity {
 	return &storagev1.Identity{ModifiedUnixMs: info.ModTime().UnixMilli(), FileId: info.FileID(), VolumeId: info.Volume()}

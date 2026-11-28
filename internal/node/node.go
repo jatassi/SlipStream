@@ -608,8 +608,10 @@ func OSDisk(data string) (storing.Disk, error) { return storing.NewOSDisk(data) 
 
 // startStorage opens the Node's Storage over its Disk, claimed or not.
 func (n *Node) startStorage(cfg Config) {
+	scratch := n.env.DataDir.Resolve(cfg.Converting.Scratch)
 	n.store = storing.NewStore(storing.Config{
-		Disk: n.disk, Payloads: n.downloading, Downloads: n.downloading.Folders, Torrents: n.downloading.Torrents, Timings: cfg.Timings.Storing,
+		Disk: n.disk, Payloads: n.downloading, Downloads: n.downloading.Folders, Torrents: n.downloading.Torrents,
+		Scratch: func() string { return scratch }, Timings: cfg.Timings.Storing,
 		Prober: n.env.Media, ProbeTimeout: cfg.Timings.Media.Probe, PathLimit: cfg.Storage.PathLimit,
 		RemoveRetry: cfg.Timings.Moves.RemoveRetry, RemoveBound: cfg.Timings.Moves.RemoveBound,
 	})

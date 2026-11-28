@@ -27,6 +27,8 @@ type testDisk struct {
 	os   OSDisk
 	// downloads is the Node's downloads folders, which no root may overlap.
 	downloads []string
+	// scratch is the Node's scratch folder, which the fence admits.
+	scratch string
 
 	mu sync.Mutex
 	// hung paths make every call on them wait until the channel closes.
@@ -67,6 +69,7 @@ func newTestDisk(t *testing.T) *testDisk {
 		os:         native,
 		slow:       map[string]time.Duration{},
 		downloads:  []string{t.TempDir()},
+		scratch:    t.TempDir(),
 		hung:       map[string]chan struct{}{},
 		denied:     map[string]bool{},
 		broken:     map[string]bool{},

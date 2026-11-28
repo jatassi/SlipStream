@@ -494,7 +494,7 @@ func (n *Node) startController(ctx context.Context) error {
 	searchv1connect.SearchingService.Mount(dispatch, n.searchingService())
 	metadatav1connect.MetadataService.Mount(dispatch, metadata.NewHolder(holder))
 	subtitlesv1connect.SubtitlesService.Mount(dispatch, n.subtitlesHolder(client))
-	mediav1connect.MediaService.Mount(dispatch, media.NewService(n.env.Media, n.downloading, n.store.Holds, n.cfg.Timings.Media))
+	mediav1connect.MediaService.Mount(dispatch, media.NewService(n.env.Media, n.downloading, n.store.Holds, n.store.LibraryFile, n.cfg.Timings.Media))
 	notifyv1connect.NotifyingService.Mount(dispatch, notifying.Serve(n.cfg.Timings.Mail, n.env.Net.DialContext, n.env.Scripts))
 	if err := n.mountSidecars(ctx, dispatch, local); err != nil {
 		return err
@@ -1176,7 +1176,7 @@ func (n *Node) startWorker(ctx context.Context) error {
 	client := n.httpClient(n.env.Net.DialContext)
 	metadatav1connect.MetadataService.Mount(dispatch, metadata.NewHolder(n.openHolder(client)))
 	subtitlesv1connect.SubtitlesService.Mount(dispatch, n.subtitlesHolder(client))
-	mediav1connect.MediaService.Mount(dispatch, media.NewService(n.env.Media, n.downloading, n.store.Holds, n.cfg.Timings.Media))
+	mediav1connect.MediaService.Mount(dispatch, media.NewService(n.env.Media, n.downloading, n.store.Holds, n.store.LibraryFile, n.cfg.Timings.Media))
 	notifyv1connect.NotifyingService.Mount(dispatch, notifying.Serve(n.cfg.Timings.Mail, n.env.Net.DialContext, n.env.Scripts))
 	if err := n.mountSidecars(ctx, dispatch, local); err != nil {
 		return err

@@ -406,6 +406,52 @@ func TestCheckForDownloads(t *testing.T) {
 	}
 }
 
+func TestCheckForBackupsAndTheScratchFolder(t *testing.T) {
+	d := newTestDisk(t)
+	base := t.TempDir()
+	downloads := dir(t, base, "downloads")
+	d.downloads = []string{downloads}
+	held := storage.NewUUID()
+	heldAt := marked(t, held)
+	readOnly := dir(t, base, "read-only")
+	d.flag(d.readOnly, readOnly)
+	s := newStore(d)
+	running(t, s, intentOf(rootAt(held, heldAt, false))).next(t)
+	folders := foldersOf(s)
+	for _, purpose := range []Purpose{PurposeBackups, PurposeConverting} {
+		for _, c := range []struct {
+			name   string
+			path   string
+			reason Reason
+			root   storage.UUID
+		}{
+			{"inside a root the Node holds", dir(t, heldAt, "converting"), ReasonInsideRoot, held},
+			{"a root the Node holds", heldAt, ReasonInsideRoot, held},
+			{"containing a root the Node holds", filepath.Dir(heldAt), ReasonContainsRoot, held},
+			{"inside a download folder", dir(t, downloads, "converting"), ReasonInsideDownloads, storage.UUID{}},
+			{"containing a download folder", base, ReasonContainsDownloads, storage.UUID{}},
+			{"read-only", readOnly, ReasonUnwritable, storage.UUID{}},
+		} {
+			got, err := folders.Check(t.Context(), node, c.path, purpose, nil)
+			if err != nil {
+				t.Fatalf("%s %s: %v", purpose, c.name, err)
+			}
+			if got.Refusal == nil || got.Refusal.Reason != c.reason || got.Refusal.Root != c.root {
+				t.Errorf("%s %s: refusal = %+v, want %v naming %v", purpose, c.name, got.Refusal, c.reason, c.root)
+			}
+		}
+		for name, path := range map[string]string{
+			"inside the data folder":     dir(t, d.host.Data, purpose.String()),
+			"beside the download folder": dir(t, base, purpose.String()),
+		} {
+			got, err := folders.Check(t.Context(), node, path, purpose, nil)
+			if err != nil || got.Refusal != nil {
+				t.Errorf("%s %s: Check = %+v, %v, want usable", purpose, name, got, err)
+			}
+		}
+	}
+}
+
 func TestCheckForAClientFolder(t *testing.T) {
 	d := newTestDisk(t)
 	base := t.TempDir()
