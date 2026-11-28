@@ -15,6 +15,7 @@ import (
 
 	"github.com/jatassi/slipstream/internal/bencode"
 	mediav1 "github.com/jatassi/slipstream/internal/pb/slipstream/media/v1"
+	"github.com/jatassi/slipstream/internal/proctree"
 	"github.com/jatassi/slipstream/internal/rpc"
 	"github.com/jatassi/slipstream/internal/storage"
 )
@@ -56,7 +57,7 @@ func (f FFprobe) run(ctx context.Context, args ...string) ([]byte, error) {
 	cmd.WaitDelay = waitDelay
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
-	out, err := cmd.Output()
+	out, err := proctree.Output(cmd)
 	if ctx.Err() != nil {
 		return nil, fmt.Errorf("run ffprobe: %w", ctx.Err())
 	}

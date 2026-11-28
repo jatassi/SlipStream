@@ -105,6 +105,7 @@ export const adminNav: NavTable = [
     tab: { order: 2 },
     count: "activity",
     fill: "downloads",
+    alert: "conversions",
     within: true,
   },
   {

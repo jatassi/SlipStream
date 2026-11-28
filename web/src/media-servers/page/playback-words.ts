@@ -71,14 +71,14 @@ const decisionTerms = {
     icon: ArrowReloadHorizontalIcon,
     tone: "neutral",
     definition:
-      "The server converts the video or audio into a format the player can play, or burns in the subtitles.",
+      "The server re-encodes the video or audio into a format the player can play, or burns in the subtitles.",
   },
   hardware_transcode: {
     word: "Hardware transcode",
     icon: CpuIcon,
     tone: "neutral",
     definition:
-      "The server converts the file on its graphics hardware into a format the player can play.",
+      "The server re-encodes the file on its graphics hardware into a format the player can play.",
   },
 } as const satisfies TermsFor<Shown, "neutral">;
 

@@ -44,25 +44,32 @@ func (c *realConverter) ffmpeg() string { return cmp.Or(c.cfg.Override(), c.cfg.
 
 const tailSize = 2 << 10
 
+// Start runs ffmpeg under proctree. Kill cancels the run's own context, so
+// os/exec ends the tree with proctree's cancel, which leaves a nonzero
+// exit code on every OS, and never after the run was waited for.
 func (c *realConverter) Start(ctx context.Context, args []string) (Run, error) {
+	ctx, cancel := context.WithCancel(ctx)
 	cmd := exec.CommandContext(ctx, c.ffmpeg(), args...) //nolint:gosec // the Node's ffmpeg on arguments pipeline.Build made
 	cmd.Env = c.cfg.Tools.Environ
 	cmd.WaitDelay = c.cfg.Timings.KillGrace
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
+		cancel()
 		return nil, fmt.Errorf("open ffmpeg's input: %w", err)
 	}
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
+		cancel()
 		return nil, fmt.Errorf("open ffmpeg's output: %w", err)
 	}
-	r := &realRun{stdin: stdin, progress: make(chan Progress, 1), done: make(chan struct{})}
+	r := &realRun{stdin: stdin, progress: make(chan Progress, 1), done: make(chan struct{}), kill: cancel}
 	cmd.Stderr = &r.tail
 	end, err := proctree.Start(cmd)
 	if err != nil {
+		cancel()
 		return nil, fmt.Errorf("start ffmpeg: %w", err)
 	}
-	r.end = sync.OnceFunc(end)
+	r.end = end
 	go r.follow(cmd, stdout)
 	return r, nil
 }
@@ -70,6 +77,7 @@ func (c *realConverter) Start(ctx context.Context, args []string) (Run, error) {
 type realRun struct {
 	stdin    io.WriteCloser
 	progress chan Progress
+	kill     context.CancelFunc
 	end      func()
 	tail     tail
 	done     chan struct{}
@@ -98,6 +106,7 @@ func (r *realRun) follow(cmd *exec.Cmd, stdout io.Reader) {
 	}
 	_ = cmd.Wait()
 	r.end()
+	r.kill()
 	r.exit = Exit{Code: cmd.ProcessState.ExitCode(), Tail: r.tail.String()}
 	close(r.progress)
 	close(r.done)
@@ -130,7 +139,7 @@ func (r *realRun) key(k string) error {
 	return nil
 }
 
-func (r *realRun) Kill() { r.end() }
+func (r *realRun) Kill() { r.kill() }
 
 func (r *realRun) Wait() Exit {
 	<-r.done

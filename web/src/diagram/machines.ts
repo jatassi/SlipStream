@@ -42,7 +42,7 @@ const MACHINES: Readonly<Record<RoleName, Machine>> = {
   storage: { at: [-34, 0, TOP], live: true },
   converting: {
     at: [-152, -62, TOP],
-    live: false,
+    live: true,
     lead: { from: [102, 94, 6.5], toward: [0, 1], reach: 9 },
   },
   subtitles: {

@@ -159,6 +159,32 @@
   fill: var(--anatomy-lo);
 }
 
+.diagram [data-state="online"] .lamp-dot[data-lit] {
+  fill: var(--diagram-glow);
+}
+
+.diagram [data-state="online"] [data-turning] .gear-turn {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: diagram-gear-turn 3s linear infinite;
+}
+
+.diagram [data-state="online"] [data-turning] .gear-turn + .gear-turn {
+  animation-direction: reverse;
+}
+
+@keyframes diagram-gear-turn {
+  to {
+    rotate: 1turn;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .diagram [data-state="online"] [data-turning] .gear-turn {
+    animation: none;
+  }
+}
+
 .diagram .gear {
   fill: var(--anatomy-top);
   stroke: var(--anatomy-mid);

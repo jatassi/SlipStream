@@ -9,6 +9,7 @@ import (
 	"slices"
 
 	"github.com/jatassi/slipstream/internal/converting/internal/drivers"
+	"github.com/jatassi/slipstream/internal/proctree"
 )
 
 // readSignature runs ffmpeg -version and reads the Node's adapters, and
@@ -16,7 +17,7 @@ import (
 func readSignature(ctx context.Context, ffmpeg string, environ []string, read drivers.Reader) (Signature, []Device, error) {
 	cmd := exec.CommandContext(ctx, ffmpeg, "-version")
 	cmd.Env = environ
-	version, err := cmd.Output()
+	version, err := proctree.Output(cmd)
 	if err != nil {
 		return "", nil, fmt.Errorf("run ffmpeg -version: %w", err)
 	}

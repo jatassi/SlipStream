@@ -1,11 +1,11 @@
 import { useNavigate } from "@tanstack/react-router";
 
 import type { TargetsProfile } from "../api/gen/model";
-import { createProfile, updateProfile } from "../api/gen/query/targets/targets";
+import { createProfile } from "../api/gen/query/targets/targets";
 import { toast } from "../ui/toast";
 import { profileSections } from "./profile-sections";
 import { savingCuts } from "./editions-draft";
-import { useImpactSheet } from "./impact-sheet";
+import { useProfileSave } from "./use-profile-save";
 import {
   type ProfileDraft,
   newProfileDraft,
@@ -45,28 +45,16 @@ export function NewProfileEditor({ contentType }: { contentType: string }) {
 
 export function SavedProfileEditor({ profile }: { profile: TargetsProfile }) {
   const navigate = useNavigate();
-  const impact = useImpactSheet();
+  const saving = useProfileSave(profile, async () => {
+    await navigate({ to: "/settings/$section", params: { section: "profiles" } });
+  });
   return (
     <>
       <ProfileEditor
         initial={profileDraftOf(profile)}
-        save={{
-          label: "Save",
-          onSave: async (draft) => {
-            const body = profileBodyOf(draft);
-            await impact.save({
-              title: `Save ${profile.name}`,
-              action: "Save",
-              run: (changing) => savingCuts(() => updateProfile(profile.id, body, changing)),
-              done: async () => {
-                toast(`Saved ${body.name}.`);
-                await navigate({ to: "/settings/$section", params: { section: "profiles" } });
-              },
-            });
-          },
-        }}
+        save={{ label: "Save", onSave: saving.save }}
       />
-      {impact.sheet}
+      {saving.dialogs}
     </>
   );
 }
