@@ -12,6 +12,17 @@ const nothing = {
   newlyWanted: 0,
   downloading: 0,
   subtitles: { gained: [], dropped: [], days: 0 },
+  made: {
+    files: 0,
+    works: 0,
+    seconds: 0,
+    bytes: 0,
+    nodes: [],
+    unconvertible: [],
+    matching: 0,
+    rows: [],
+  },
+  remake: { older: 0, rows: [] },
 };
 
 const added: FormatsPastedFormat = { name: "DV", outcome: "add", savedAs: "DV" };

@@ -128,6 +128,7 @@ export const getListNodesResponseMock = (
           "engine-starts",
           "data-writable",
           "listener-up",
+          "ffmpeg-runs",
         ] as const),
         ...(faker.datatype.boolean()
           ? {
@@ -137,6 +138,9 @@ export const getListNodesResponseMock = (
                 "downloads_on_network_share",
                 "data_not_writable",
                 "http_not_listening",
+                "ffmpeg_fails",
+                "no_gpu",
+                "ffmpeg_testing",
               ] as const),
             }
           : {}),
@@ -239,6 +243,7 @@ export const getGetRoleBoardResponseMock = (
                   "engine-starts",
                   "data-writable",
                   "listener-up",
+                  "ffmpeg-runs",
                 ] as const),
               }
             : {}),
@@ -283,6 +288,7 @@ export const getGetRoleBoardResponseMock = (
           "engine-starts",
           "data-writable",
           "listener-up",
+          "ffmpeg-runs",
         ] as const),
         ...(faker.datatype.boolean()
           ? {
@@ -292,6 +298,9 @@ export const getGetRoleBoardResponseMock = (
                 "downloads_on_network_share",
                 "data_not_writable",
                 "http_not_listening",
+                "ffmpeg_fails",
+                "no_gpu",
+                "ffmpeg_testing",
               ] as const),
             }
           : {}),
@@ -1159,6 +1168,7 @@ export const getGetTopologyResponseMock = (
           "engine-starts",
           "data-writable",
           "listener-up",
+          "ffmpeg-runs",
         ] as const),
         ...(faker.datatype.boolean()
           ? {
@@ -1168,6 +1178,9 @@ export const getGetTopologyResponseMock = (
                 "downloads_on_network_share",
                 "data_not_writable",
                 "http_not_listening",
+                "ffmpeg_fails",
+                "no_gpu",
+                "ffmpeg_testing",
               ] as const),
             }
           : {}),
@@ -1342,7 +1355,12 @@ export const getGetNodeResponseMock = (
     () => ({
       at: faker.date.past().toISOString().slice(0, 19) + "Z",
       fit: faker.helpers.arrayElement(["fits", "weak", "fails"] as const),
-      probe: faker.helpers.arrayElement(["engine-starts", "data-writable", "listener-up"] as const),
+      probe: faker.helpers.arrayElement([
+        "engine-starts",
+        "data-writable",
+        "listener-up",
+        "ffmpeg-runs",
+      ] as const),
       ...(faker.datatype.boolean()
         ? {
             reason: faker.helpers.arrayElement([
@@ -1351,6 +1369,9 @@ export const getGetNodeResponseMock = (
               "downloads_on_network_share",
               "data_not_writable",
               "http_not_listening",
+              "ffmpeg_fails",
+              "no_gpu",
+              "ffmpeg_testing",
             ] as const),
           }
         : {}),
@@ -1461,7 +1482,12 @@ export const getRenameNodeResponseMock = (
     () => ({
       at: faker.date.past().toISOString().slice(0, 19) + "Z",
       fit: faker.helpers.arrayElement(["fits", "weak", "fails"] as const),
-      probe: faker.helpers.arrayElement(["engine-starts", "data-writable", "listener-up"] as const),
+      probe: faker.helpers.arrayElement([
+        "engine-starts",
+        "data-writable",
+        "listener-up",
+        "ffmpeg-runs",
+      ] as const),
       ...(faker.datatype.boolean()
         ? {
             reason: faker.helpers.arrayElement([
@@ -1470,6 +1496,9 @@ export const getRenameNodeResponseMock = (
               "downloads_on_network_share",
               "data_not_writable",
               "http_not_listening",
+              "ffmpeg_fails",
+              "no_gpu",
+              "ffmpeg_testing",
             ] as const),
           }
         : {}),
@@ -1580,7 +1609,12 @@ export const getSetNodeDialResponseMock = (
     () => ({
       at: faker.date.past().toISOString().slice(0, 19) + "Z",
       fit: faker.helpers.arrayElement(["fits", "weak", "fails"] as const),
-      probe: faker.helpers.arrayElement(["engine-starts", "data-writable", "listener-up"] as const),
+      probe: faker.helpers.arrayElement([
+        "engine-starts",
+        "data-writable",
+        "listener-up",
+        "ffmpeg-runs",
+      ] as const),
       ...(faker.datatype.boolean()
         ? {
             reason: faker.helpers.arrayElement([
@@ -1589,6 +1623,9 @@ export const getSetNodeDialResponseMock = (
               "downloads_on_network_share",
               "data_not_writable",
               "http_not_listening",
+              "ffmpeg_fails",
+              "no_gpu",
+              "ffmpeg_testing",
             ] as const),
           }
         : {}),

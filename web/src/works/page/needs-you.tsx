@@ -99,6 +99,8 @@ function grouped(needs: readonly FilesNeed[], grabs: readonly GrabsGrab[]): Grou
       case "no_root":
         out.noRoot = true;
         break;
+      case "conversion_failed":
+        break;
       default:
         return need satisfies never;
     }

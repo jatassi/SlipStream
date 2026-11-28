@@ -1,5 +1,7 @@
 export interface FilesStateCounts {
   /** @minimum 1 */
+  converting?: number;
+  /** @minimum 1 */
   downloading?: number;
   /** @minimum 1 */
   failed?: number;

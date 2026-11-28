@@ -11,6 +11,7 @@ export const groups = [
   "health",
   "backups",
   "moves",
+  "conversions",
 ] as const;
 
 /** What History lists, kept in the address. The Content Type is Activity's own `type`. */

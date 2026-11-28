@@ -128,6 +128,8 @@ export const UpdateProfileParams = zod.object({
 
 export const updateProfileQueryConfirmSubtitlesMin = 0;
 
+export const updateProfileQueryConfirmMadeMin = 0;
+
 export const updateProfileQueryUnwantedDefault = `delete`;
 export const updateProfileQueryConfirmMin = 0;
 
@@ -138,6 +140,13 @@ export const UpdateProfileQueryParams = zod.object({
     .exactOptional()
     .describe(
       "The deleted subtitle count the Admin confirmed from the preview: a save that would delete more is refused with impact_changed",
+    ),
+  confirmMade: zod
+    .int()
+    .min(updateProfileQueryConfirmMadeMin)
+    .exactOptional()
+    .describe(
+      "The made file count the Admin confirmed from the preview: a save that would make more is refused with impact_changed",
     ),
   preview: zod.boolean().exactOptional().describe("Return the change's Impact and save nothing"),
   unwanted: zod
@@ -208,10 +217,19 @@ export const UpdateTargetParams = zod.object({
   targetId: zod.uuid(),
 });
 
+export const updateTargetQueryConfirmRemakeMin = 0;
+
 export const updateTargetQueryUnwantedDefault = `delete`;
 export const updateTargetQueryConfirmMin = 0;
 
 export const UpdateTargetQueryParams = zod.object({
+  confirmRemake: zod
+    .int()
+    .min(updateTargetQueryConfirmRemakeMin)
+    .exactOptional()
+    .describe(
+      "The remade file count the Admin confirmed from the preview: a save that would remake more is refused with impact_changed",
+    ),
   preview: zod.boolean().exactOptional().describe("Return the change's Impact and save nothing"),
   unwanted: zod
     .enum(["delete", "keep"])

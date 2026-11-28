@@ -3,4 +3,5 @@ export type UpdateMediaServer422Code =
   | "media_server_localhost_on_worker"
   | "media_server_sign_in_refused"
   | "media_server_too_old"
-  | "no_member_libraries";
+  | "no_member_libraries"
+  | "not_built_yet";

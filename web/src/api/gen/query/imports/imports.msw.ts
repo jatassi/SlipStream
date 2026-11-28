@@ -1511,7 +1511,7 @@ export const getGetImportingSettingsResponseSettingFolderFieldMock = (
       : {}),
     nodeId: faker.string.uuid(),
     pendingRestart: faker.datatype.boolean(),
-    purpose: faker.helpers.arrayElement(["downloads", "backups"] as const),
+    purpose: faker.helpers.arrayElement(["downloads", "backups", "converting"] as const),
     running: faker.string.alpha({ length: { min: 10, max: 20 } }),
     source: faker.helpers.arrayElement([
       "database",
@@ -2038,7 +2038,7 @@ export const getUpdateImportingSettingsResponseSettingFolderFieldMock = (
       : {}),
     nodeId: faker.string.uuid(),
     pendingRestart: faker.datatype.boolean(),
-    purpose: faker.helpers.arrayElement(["downloads", "backups"] as const),
+    purpose: faker.helpers.arrayElement(["downloads", "backups", "converting"] as const),
     running: faker.string.alpha({ length: { min: 10, max: 20 } }),
     source: faker.helpers.arrayElement([
       "database",
@@ -2573,7 +2573,7 @@ export const getGetLibraryScanSettingsResponseSettingFolderFieldMock = (
       : {}),
     nodeId: faker.string.uuid(),
     pendingRestart: faker.datatype.boolean(),
-    purpose: faker.helpers.arrayElement(["downloads", "backups"] as const),
+    purpose: faker.helpers.arrayElement(["downloads", "backups", "converting"] as const),
     running: faker.string.alpha({ length: { min: 10, max: 20 } }),
     source: faker.helpers.arrayElement([
       "database",
@@ -3100,7 +3100,7 @@ export const getUpdateLibraryScanSettingsResponseSettingFolderFieldMock = (
       : {}),
     nodeId: faker.string.uuid(),
     pendingRestart: faker.datatype.boolean(),
-    purpose: faker.helpers.arrayElement(["downloads", "backups"] as const),
+    purpose: faker.helpers.arrayElement(["downloads", "backups", "converting"] as const),
     running: faker.string.alpha({ length: { min: 10, max: 20 } }),
     source: faker.helpers.arrayElement([
       "database",

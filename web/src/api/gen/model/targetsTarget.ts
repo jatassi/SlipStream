@@ -1,3 +1,4 @@
+import type { TargetsConversionView } from "./targetsConversionView.ts";
 import type { TargetsFilter } from "./targetsFilter.ts";
 import type { TargetsProfileRef } from "./targetsProfileRef.ts";
 import type { TargetsScores } from "./targetsScores.ts";
@@ -7,6 +8,8 @@ import type { TargetsTargetPropers } from "./targetsTargetPropers.ts";
 export interface TargetsTarget {
   /** The other Targets every file of which also meets this one */
   contains: string[];
+  /** Its Conversion settings, which make its files from another Target's; null while it has none */
+  conversion: TargetsConversionView | null;
   createdAt: string;
   /** The first quality of the tier at which a file is final */
   cutoff: string;

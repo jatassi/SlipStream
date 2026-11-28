@@ -45,7 +45,7 @@ export const failedUpgrade = (failed: string): FilesCellList => ({
       targetName: "1080p",
       wanted: true,
       state: "failed",
-      grabId: failed,
+      cause: { kind: "grab", grabId: failed },
       file: hdtv,
     },
     { ...base, targetId: uhd, targetName: "2160p HDR", wanted: true, state: "missing" },

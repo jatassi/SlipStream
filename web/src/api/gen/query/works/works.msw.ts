@@ -995,7 +995,7 @@ export const getGetContentTypeSettingsResponseSettingFolderFieldMock = (
       : {}),
     nodeId: faker.string.uuid(),
     pendingRestart: faker.datatype.boolean(),
-    purpose: faker.helpers.arrayElement(["downloads", "backups"] as const),
+    purpose: faker.helpers.arrayElement(["downloads", "backups", "converting"] as const),
     running: faker.string.alpha({ length: { min: 10, max: 20 } }),
     source: faker.helpers.arrayElement([
       "database",
@@ -1522,7 +1522,7 @@ export const getUpdateContentTypeSettingsResponseSettingFolderFieldMock = (
       : {}),
     nodeId: faker.string.uuid(),
     pendingRestart: faker.datatype.boolean(),
-    purpose: faker.helpers.arrayElement(["downloads", "backups"] as const),
+    purpose: faker.helpers.arrayElement(["downloads", "backups", "converting"] as const),
     running: faker.string.alpha({ length: { min: 10, max: 20 } }),
     source: faker.helpers.arrayElement([
       "database",
@@ -1750,6 +1750,7 @@ export const getListLibraryResponseMock = (
     ]),
     bytes: faker.number.int({ min: 0 }),
     cells: {
+      ...(faker.datatype.boolean() ? { converting: faker.number.int({ min: 1 }) } : {}),
       ...(faker.datatype.boolean() ? { downloading: faker.number.int({ min: 1 }) } : {}),
       ...(faker.datatype.boolean() ? { failed: faker.number.int({ min: 1 }) } : {}),
       ...(faker.datatype.boolean() ? { met: faker.number.int({ min: 1 }) } : {}),
@@ -1766,6 +1767,7 @@ export const getListLibraryResponseMock = (
     ]),
     id: faker.string.uuid(),
     itemStatus: {
+      ...(faker.datatype.boolean() ? { converting: faker.number.int({ min: 1 }) } : {}),
       ...(faker.datatype.boolean() ? { downloading: faker.number.int({ min: 1 }) } : {}),
       ...(faker.datatype.boolean() ? { failed: faker.number.int({ min: 1 }) } : {}),
       ...(faker.datatype.boolean() ? { met: faker.number.int({ min: 1 }) } : {}),
@@ -1800,6 +1802,7 @@ export const getListLibraryResponseMock = (
         "failed",
         "missing",
         "downloading",
+        "converting",
         "upgradable",
         "unreleased",
         "met",
@@ -2228,7 +2231,7 @@ export const getAddWorkResponseSettingFolderFieldMock = (
       : {}),
     nodeId: faker.string.uuid(),
     pendingRestart: faker.datatype.boolean(),
-    purpose: faker.helpers.arrayElement(["downloads", "backups"] as const),
+    purpose: faker.helpers.arrayElement(["downloads", "backups", "converting"] as const),
     running: faker.string.alpha({ length: { min: 10, max: 20 } }),
     source: faker.helpers.arrayElement([
       "database",
@@ -2919,8 +2922,45 @@ export const getSetWorksProfileResponseMock = (
 ): WorksProfileChanged => ({
   impact: {
     downloading: faker.number.int({ min: 0 }),
+    made: {
+      bytes: faker.number.int({ min: 0 }),
+      files: faker.number.int({ min: 0 }),
+      matching: faker.number.int({ min: 0 }),
+      nodes: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => faker.string.alpha({ length: { min: 10, max: 20 } }),
+      ),
+      rows: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => ({
+          addedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+          bytes: faker.number.int({ min: 0 }),
+          files: faker.number.int({ min: 0 }),
+          seconds: faker.number.int({ min: 0 }),
+          title: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          workId: faker.string.uuid(),
+        }),
+      ),
+      seconds: faker.number.int({ min: 0 }),
+      unconvertible: Array.from(
+        { length: faker.number.int({ min: 1, max: 10 }) },
+        (_, i) => i + 1,
+      ).map(() => faker.string.uuid()),
+      works: faker.number.int({ min: 0 }),
+    },
     newlyWanted: faker.number.int({ min: 0 }),
     ownList: faker.number.int({ min: 0 }),
+    remake: {
+      older: faker.number.int({ min: 0 }),
+      rows: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => ({
+          addedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+          bytes: faker.number.int({ min: 0 }),
+          files: faker.number.int({ min: 0 }),
+          seconds: faker.number.int({ min: 0 }),
+          title: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          workId: faker.string.uuid(),
+        }),
+      ),
+    },
     renamed: faker.number.int({ min: 0 }),
     renames: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
       () => ({
@@ -3084,6 +3124,7 @@ export const getSearchWorksResponseMock = (
     ]),
     bytes: faker.number.int({ min: 0 }),
     cells: {
+      ...(faker.datatype.boolean() ? { converting: faker.number.int({ min: 1 }) } : {}),
       ...(faker.datatype.boolean() ? { downloading: faker.number.int({ min: 1 }) } : {}),
       ...(faker.datatype.boolean() ? { failed: faker.number.int({ min: 1 }) } : {}),
       ...(faker.datatype.boolean() ? { met: faker.number.int({ min: 1 }) } : {}),
@@ -3100,6 +3141,7 @@ export const getSearchWorksResponseMock = (
     ]),
     id: faker.string.uuid(),
     itemStatus: {
+      ...(faker.datatype.boolean() ? { converting: faker.number.int({ min: 1 }) } : {}),
       ...(faker.datatype.boolean() ? { downloading: faker.number.int({ min: 1 }) } : {}),
       ...(faker.datatype.boolean() ? { failed: faker.number.int({ min: 1 }) } : {}),
       ...(faker.datatype.boolean() ? { met: faker.number.int({ min: 1 }) } : {}),
@@ -3134,6 +3176,7 @@ export const getSearchWorksResponseMock = (
         "failed",
         "missing",
         "downloading",
+        "converting",
         "upgradable",
         "unreleased",
         "met",
@@ -3565,7 +3608,7 @@ export const getGetWorkResponseSettingFolderFieldMock = (
       : {}),
     nodeId: faker.string.uuid(),
     pendingRestart: faker.datatype.boolean(),
-    purpose: faker.helpers.arrayElement(["downloads", "backups"] as const),
+    purpose: faker.helpers.arrayElement(["downloads", "backups", "converting"] as const),
     running: faker.string.alpha({ length: { min: 10, max: 20 } }),
     source: faker.helpers.arrayElement([
       "database",
@@ -4276,7 +4319,7 @@ export const getSetWorkOptionsResponseSettingFolderFieldMock = (
       : {}),
     nodeId: faker.string.uuid(),
     pendingRestart: faker.datatype.boolean(),
-    purpose: faker.helpers.arrayElement(["downloads", "backups"] as const),
+    purpose: faker.helpers.arrayElement(["downloads", "backups", "converting"] as const),
     running: faker.string.alpha({ length: { min: 10, max: 20 } }),
     source: faker.helpers.arrayElement([
       "database",

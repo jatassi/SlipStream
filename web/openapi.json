@@ -860,6 +860,20 @@
         ],
         "type": "object"
       },
+      "CanceledOutputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "canceled": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "canceled"
+        ],
+        "type": "object"
+      },
       "CheckFolderInputBody": {
         "additionalProperties": false,
         "properties": {
@@ -869,12 +883,13 @@
             "type": "string"
           },
           "purpose": {
-            "description": "root: a library root's rules, on a Storage Node; downloads: a downloads folder's, writable, on no network share and apart from every root on the Node; import: a folder to import from, inside one of the Node's library roots or download folders; backups: a folder for Backups, writable and apart from every root and downloads folder on the Node",
+            "description": "root: a library root's rules, on a Storage Node; downloads: a downloads folder's, writable, on no network share and apart from every root on the Node; import: a folder to import from, inside one of the Node's library roots or download folders; backups: a folder for Backups, writable and apart from every root and downloads folder on the Node; converting: a Node's scratch folder for Conversions, writable and apart from every root, downloads folder and the Backups folder on the Node",
             "enum": [
               "root",
               "downloads",
               "import",
-              "backups"
+              "backups",
+              "converting"
             ],
             "type": "string"
           },
@@ -941,6 +956,1097 @@
         },
         "required": [
           "connections"
+        ],
+        "type": "object"
+      },
+      "ConversionsAttempt": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "description": "The fault, empty when none",
+            "type": "string"
+          },
+          "endedAt": {
+            "description": "null while the attempt runs",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "n": {
+            "format": "int64",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "node": {
+            "description": "The Node's name",
+            "type": "string"
+          },
+          "outcome": {
+            "description": "Absent while the attempt runs",
+            "enum": [
+              "failed",
+              "stalled",
+              "disk_full",
+              "put_back"
+            ],
+            "type": "string"
+          },
+          "startedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "n",
+          "node",
+          "code",
+          "startedAt",
+          "endedAt"
+        ],
+        "type": "object"
+      },
+      "ConversionsChanged": {
+        "additionalProperties": false,
+        "properties": {
+          "conversionIds": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "groupIds": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "workIds": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "conversionIds",
+          "workIds",
+          "groupIds"
+        ],
+        "type": "object"
+      },
+      "ConversionsConversionGroup": {
+        "additionalProperties": false,
+        "properties": {
+          "bytes": {
+            "description": "Their forecast output size",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "count": {
+            "format": "int64",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "finish": {
+            "description": "null with no forecast",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "groupKind": {
+            "enum": [
+              "backfill",
+              "season"
+            ],
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "group"
+            ],
+            "type": "string"
+          },
+          "label": {
+            "description": "Such as Backfill of 720p mobile, or The Office season 2",
+            "type": "string"
+          },
+          "nodes": {
+            "description": "The Nodes they are forecast to run on",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "seconds": {
+            "description": "Their forecast run time",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "start": {
+            "description": "null with no forecast",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "kind",
+          "id",
+          "groupKind",
+          "label",
+          "count",
+          "nodes",
+          "seconds",
+          "bytes",
+          "start",
+          "finish"
+        ],
+        "type": "object"
+      },
+      "ConversionsConversionList": {
+        "additionalProperties": false,
+        "properties": {
+          "attention": {
+            "description": "Failed Conversions, newest first",
+            "items": {
+              "$ref": "#/components/schemas/ConversionsConversionRow"
+            },
+            "type": "array"
+          },
+          "converting": {
+            "description": "Running and paused Conversions",
+            "items": {
+              "$ref": "#/components/schemas/ConversionsConversionRow"
+            },
+            "type": "array"
+          },
+          "counts": {
+            "$ref": "#/components/schemas/ConversionsCounts"
+          },
+          "cursor": {
+            "description": "Pages Up next; null on its last page",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "next": {
+            "description": "Up next, one entry per lane in run order",
+            "items": {
+              "$ref": "#/components/schemas/ConversionsLaneRows"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "counts",
+          "attention",
+          "converting",
+          "next",
+          "cursor"
+        ],
+        "type": "object"
+      },
+      "ConversionsConversionRow": {
+        "additionalProperties": false,
+        "properties": {
+          "attempts": {
+            "description": "Oldest first",
+            "items": {
+              "$ref": "#/components/schemas/ConversionsAttempt"
+            },
+            "type": "array"
+          },
+          "failure": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ConversionsFailure"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why it failed; null unless it failed"
+          },
+          "finish": {
+            "description": "When it is forecast to finish; null with no forecast",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "items": {
+            "description": "In tree order",
+            "items": {
+              "$ref": "#/components/schemas/ConversionsItem"
+            },
+            "type": "array"
+          },
+          "kind": {
+            "enum": [
+              "conversion"
+            ],
+            "type": "string"
+          },
+          "lane": {
+            "enum": [
+              "moved_up",
+              "new",
+              "upgrade",
+              "backfill"
+            ],
+            "type": "string"
+          },
+          "node": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ConversionsNamed"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The Node it is placed on; null until it is placed"
+          },
+          "pausedBy": {
+            "description": "The Media Servers whose transcodes pause it; null while it isn't paused",
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "progress": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ConversionsProgress"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "While it runs; conversions.live keeps it current. null otherwise"
+          },
+          "source": {
+            "$ref": "#/components/schemas/ConversionsSource"
+          },
+          "stage": {
+            "enum": [
+              "queued",
+              "copying",
+              "ready",
+              "running",
+              "paused",
+              "checking",
+              "returning",
+              "landing",
+              "done",
+              "failed",
+              "canceled"
+            ],
+            "type": "string"
+          },
+          "start": {
+            "description": "When it is forecast to start; null once it has, or with no forecast",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "target": {
+            "$ref": "#/components/schemas/ConversionsTarget",
+            "description": "The Target it makes a file for"
+          },
+          "wait": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ConversionsWait"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why it hasn't started; null once it has"
+          },
+          "work": {
+            "$ref": "#/components/schemas/ConversionsWork"
+          }
+        },
+        "required": [
+          "kind",
+          "id",
+          "stage",
+          "lane",
+          "work",
+          "items",
+          "target",
+          "source",
+          "node",
+          "progress",
+          "pausedBy",
+          "wait",
+          "start",
+          "finish",
+          "failure",
+          "attempts"
+        ],
+        "type": "object"
+      },
+      "ConversionsCounts": {
+        "additionalProperties": false,
+        "properties": {
+          "clearsAt": {
+            "description": "When the last unfinished Conversion is forecast to finish; null when none is forecast",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "converting": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "failed": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "paused": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "waiting": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "converting",
+          "paused",
+          "waiting",
+          "failed",
+          "clearsAt"
+        ],
+        "type": "object"
+      },
+      "ConversionsFailure": {
+        "additionalProperties": false,
+        "properties": {
+          "class": {
+            "description": "run: it failed on every Node it may try; source: its source file can't be converted as its settings ask",
+            "enum": [
+              "run",
+              "source"
+            ],
+            "type": "string"
+          },
+          "code": {
+            "description": "The fault, such as encoder_failed",
+            "type": "string"
+          },
+          "detail": {
+            "description": "ffmpeg's last lines, for Details",
+            "type": "string"
+          },
+          "nodes": {
+            "description": "The Nodes its counted attempts failed on",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "code",
+          "class",
+          "nodes",
+          "detail"
+        ],
+        "type": "object"
+      },
+      "ConversionsGroupPage": {
+        "additionalProperties": false,
+        "properties": {
+          "cursor": {
+            "description": "null on the last page",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "rows": {
+            "description": "In run order",
+            "items": {
+              "$ref": "#/components/schemas/ConversionsConversionRow"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "rows",
+          "cursor"
+        ],
+        "type": "object"
+      },
+      "ConversionsHours": {
+        "additionalProperties": false,
+        "properties": {
+          "on": {
+            "description": "Whether the Node converts only inside the window",
+            "type": "boolean"
+          },
+          "window": {
+            "$ref": "#/components/schemas/SettingTimes"
+          }
+        },
+        "required": [
+          "on",
+          "window"
+        ],
+        "type": "object"
+      },
+      "ConversionsItem": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "label": {
+            "description": "Such as S01E04",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "label"
+        ],
+        "type": "object"
+      },
+      "ConversionsLaneRows": {
+        "additionalProperties": false,
+        "properties": {
+          "lane": {
+            "enum": [
+              "moved_up",
+              "new",
+              "upgrade",
+              "backfill"
+            ],
+            "type": "string"
+          },
+          "rows": {
+            "description": "In run order",
+            "items": {
+              "$ref": "#/components/schemas/ConversionsUpNext"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "lane",
+          "rows"
+        ],
+        "type": "object"
+      },
+      "ConversionsLiveNode": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "running": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "running"
+        ],
+        "type": "object"
+      },
+      "ConversionsLiveRow": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "paused": {
+            "type": "boolean"
+          },
+          "percent": {
+            "format": "double",
+            "type": "number"
+          },
+          "secondsLeft": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "speed": {
+            "format": "double",
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "percent",
+          "speed",
+          "secondsLeft",
+          "paused"
+        ],
+        "type": "object"
+      },
+      "ConversionsLiveSample": {
+        "additionalProperties": false,
+        "properties": {
+          "nodes": {
+            "items": {
+              "$ref": "#/components/schemas/ConversionsLiveNode"
+            },
+            "type": "array"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/ConversionsLiveRow"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "rows",
+          "nodes"
+        ],
+        "type": "object"
+      },
+      "ConversionsNamed": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "type": "object"
+      },
+      "ConversionsNodeConverting": {
+        "additionalProperties": false,
+        "properties": {
+          "atOnce": {
+            "format": "int64",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "atOnceDefault": {
+            "format": "int64",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "hours": {
+            "$ref": "#/components/schemas/ConversionsHours"
+          },
+          "override": {
+            "description": "Whether a Target's Run on names this Node while it can't run that Target's Conversions",
+            "type": "boolean"
+          },
+          "processor": {
+            "description": "Use the processor when no GPU can",
+            "type": "boolean"
+          },
+          "proofs": {
+            "items": {
+              "$ref": "#/components/schemas/ConversionsProof"
+            },
+            "type": "array"
+          },
+          "running": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "scratch": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ConversionsVolume"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The scratch folder's volume; null while unknown"
+          },
+          "sentence": {
+            "$ref": "#/components/schemas/ConversionsSentence"
+          }
+        },
+        "required": [
+          "atOnce",
+          "atOnceDefault",
+          "hours",
+          "processor",
+          "sentence",
+          "proofs",
+          "scratch",
+          "override",
+          "running"
+        ],
+        "type": "object"
+      },
+      "ConversionsNodeSettings": {
+        "additionalProperties": false,
+        "properties": {
+          "atOnce": {
+            "description": "null for the default",
+            "format": "int64",
+            "maximum": 16,
+            "minimum": 1,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "hours": {
+            "$ref": "#/components/schemas/ConversionsHours"
+          },
+          "processor": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "atOnce",
+          "hours",
+          "processor"
+        ],
+        "type": "object"
+      },
+      "ConversionsProgress": {
+        "additionalProperties": false,
+        "properties": {
+          "percent": {
+            "format": "double",
+            "maximum": 100,
+            "minimum": 0,
+            "type": "number"
+          },
+          "secondsLeft": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "speed": {
+            "description": "Times real time",
+            "format": "double",
+            "minimum": 0,
+            "type": "number"
+          }
+        },
+        "required": [
+          "percent",
+          "speed",
+          "secondsLeft"
+        ],
+        "type": "object"
+      },
+      "ConversionsProof": {
+        "additionalProperties": false,
+        "properties": {
+          "api": {
+            "description": "null for the processor",
+            "enum": [
+              "qsv",
+              "vaapi",
+              "cuda",
+              "videotoolbox"
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "class": {
+            "enum": [
+              "h264_8",
+              "hevc_8",
+              "hevc_10",
+              "av1_8",
+              "av1_10",
+              "hdr10",
+              "hlg",
+              "dv5",
+              "dv81",
+              "decode_sdr",
+              "decode_hdr10"
+            ],
+            "type": "string"
+          },
+          "device": {
+            "description": "Such as Intel UHD Graphics 770",
+            "type": "string"
+          },
+          "error": {
+            "description": "ffmpeg's last lines, for Details; empty unless it failed",
+            "type": "string"
+          },
+          "failedAt": {
+            "description": "null unless it failed",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "lostAt": {
+            "description": "When a driver change lost it; null otherwise",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "path": {
+            "enum": [
+              "hardware",
+              "hardware_opencl",
+              "processor"
+            ],
+            "type": "string"
+          },
+          "pauses": {
+            "description": "Whether a pause stops its progress",
+            "type": "boolean"
+          },
+          "provenAt": {
+            "description": "null unless it passed",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "shape": {
+            "$ref": "#/components/schemas/ConversionsShape"
+          },
+          "speed": {
+            "description": "Times real time at 1080p",
+            "format": "double",
+            "minimum": 0,
+            "type": "number"
+          }
+        },
+        "required": [
+          "shape",
+          "class",
+          "path",
+          "api",
+          "device",
+          "speed",
+          "pauses",
+          "provenAt",
+          "failedAt",
+          "lostAt",
+          "error"
+        ],
+        "type": "object"
+      },
+      "ConversionsSentence": {
+        "additionalProperties": false,
+        "properties": {
+          "api": {
+            "description": "The hardware it converts with; null with none",
+            "enum": [
+              "qsv",
+              "vaapi",
+              "cuda",
+              "videotoolbox"
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "none": {
+            "description": "Whether it can convert nothing",
+            "type": "boolean"
+          },
+          "processor": {
+            "description": "Whether it converts with its processor",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "api",
+          "processor",
+          "none"
+        ],
+        "type": "object"
+      },
+      "ConversionsShape": {
+        "additionalProperties": false,
+        "properties": {
+          "codec": {
+            "enum": [
+              "h264",
+              "hevc",
+              "av1"
+            ],
+            "type": "string"
+          },
+          "curve": {
+            "enum": [
+              "bt2390",
+              "hable",
+              "mobius",
+              "reinhard"
+            ],
+            "type": "string"
+          },
+          "depth": {
+            "enum": [
+              8,
+              10
+            ],
+            "format": "int64",
+            "type": "integer"
+          },
+          "keepDolbyVision": {
+            "type": "boolean"
+          },
+          "range": {
+            "enum": [
+              "sdr",
+              "hdr10",
+              "source"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "codec",
+          "depth",
+          "range",
+          "keepDolbyVision",
+          "curve"
+        ],
+        "type": "object"
+      },
+      "ConversionsSource": {
+        "additionalProperties": false,
+        "properties": {
+          "fileId": {
+            "description": "null once the source file is gone",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "description": "The source file's name",
+            "type": "string"
+          },
+          "target": {
+            "description": "The name of the Target the source file fills",
+            "type": "string"
+          }
+        },
+        "required": [
+          "fileId",
+          "name",
+          "target"
+        ],
+        "type": "object"
+      },
+      "ConversionsTarget": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "description": "null once the Target is deleted",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "type": "object"
+      },
+      "ConversionsUpNext": {
+        "discriminator": {
+          "mapping": {
+            "conversion": "#/components/schemas/ConversionsConversionRow",
+            "group": "#/components/schemas/ConversionsConversionGroup"
+          },
+          "propertyName": "kind"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/ConversionsConversionRow"
+          },
+          {
+            "$ref": "#/components/schemas/ConversionsConversionGroup"
+          }
+        ]
+      },
+      "ConversionsVolume": {
+        "additionalProperties": false,
+        "properties": {
+          "free": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "total": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "free",
+          "total"
+        ],
+        "type": "object"
+      },
+      "ConversionsWait": {
+        "additionalProperties": false,
+        "properties": {
+          "cause": {
+            "description": "For no_node: why the Node closest to running it can't",
+            "enum": [
+              "no_role",
+              "lapsed",
+              "runs_elsewhere",
+              "pinned_elsewhere",
+              "failed_here",
+              "untested",
+              "test_failed",
+              "retesting",
+              "proof_lost",
+              "processor_off",
+              "none_online",
+              "no_holder"
+            ],
+            "type": "string"
+          },
+          "code": {
+            "description": "Why it hasn't started",
+            "enum": [
+              "in_line",
+              "hours",
+              "room",
+              "copying",
+              "away",
+              "download",
+              "testing",
+              "transcode",
+              "no_node",
+              "no_source"
+            ],
+            "type": "string"
+          },
+          "free": {
+            "description": "For room: the bytes free on the Node",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "need": {
+            "description": "For room: the bytes it needs",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "node": {
+            "$ref": "#/components/schemas/ConversionsNamed",
+            "description": "The Node its words name, when one"
+          },
+          "place": {
+            "description": "For in_line: its place in line, from 1",
+            "format": "int64",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "servers": {
+            "description": "For transcode: the Media Servers transcoding on its Node",
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "sourceTarget": {
+            "description": "For download: the Target it is made from",
+            "type": "string"
+          },
+          "until": {
+            "description": "For hours and download: when the wait ends",
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code"
+        ],
+        "type": "object"
+      },
+      "ConversionsWork": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "type": {
+            "description": "The Work's Content Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "type"
         ],
         "type": "object"
       },
@@ -3812,6 +4918,7 @@
       "FilesCell": {
         "discriminator": {
           "mapping": {
+            "converting": "#/components/schemas/FilesConvertingCell",
             "downloading": "#/components/schemas/FilesDownloadingCell",
             "failed": "#/components/schemas/FilesFailedCell",
             "met": "#/components/schemas/FilesMetCell",
@@ -3830,6 +4937,9 @@
           },
           {
             "$ref": "#/components/schemas/FilesDownloadingCell"
+          },
+          {
+            "$ref": "#/components/schemas/FilesConvertingCell"
           },
           {
             "$ref": "#/components/schemas/FilesFailedCell"
@@ -3884,6 +4994,23 @@
           "summary",
           "levels",
           "needsYou"
+        ],
+        "type": "object"
+      },
+      "FilesCellNode": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
         ],
         "type": "object"
       },
@@ -3956,6 +5083,193 @@
         "required": [
           "work",
           "digest"
+        ],
+        "type": "object"
+      },
+      "FilesConversionFailedNeed": {
+        "additionalProperties": false,
+        "properties": {
+          "class": {
+            "description": "run: it failed on every Node it may try; source: its source file can't be converted",
+            "enum": [
+              "run",
+              "source"
+            ],
+            "type": "string"
+          },
+          "code": {
+            "description": "The fault, such as encoder_failed",
+            "type": "string"
+          },
+          "conversionId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "edition": {
+            "description": "any under any cut, else the key of the cut these Items need at this Target",
+            "type": "string"
+          },
+          "itemIds": {
+            "description": "A run of Items in tree order whose entries match",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "kind": {
+            "enum": [
+              "conversion_failed"
+            ],
+            "type": "string"
+          },
+          "targetId": {
+            "description": "The Target whose made file failed",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "conversionId",
+          "itemIds",
+          "edition",
+          "targetId",
+          "code",
+          "class"
+        ],
+        "type": "object"
+      },
+      "FilesConversionFailure": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "description": "The fault, such as encoder_failed",
+            "type": "string"
+          },
+          "conversionId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "conversion"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "conversionId",
+          "code"
+        ],
+        "type": "object"
+      },
+      "FilesConvertingCell": {
+        "additionalProperties": false,
+        "properties": {
+          "candidates": {
+            "description": "How many Releases it is waiting on; 0 while it waits for none",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "conversionId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "edition": {
+            "description": "any under any cut, else the key of the cut this Item needs at this Target",
+            "type": "string"
+          },
+          "file": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FilesLibraryFile"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The file the made file would replace; null when it replaces none"
+          },
+          "gone": {
+            "description": "It has no file because its library file is gone from its root. Only a search an Admin starts searches for it",
+            "type": "boolean"
+          },
+          "itemId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "node": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FilesCellNode"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The Node it is placed on; null until it is placed"
+          },
+          "stage": {
+            "enum": [
+              "queued",
+              "copying",
+              "ready",
+              "running",
+              "paused",
+              "checking",
+              "returning",
+              "landing"
+            ],
+            "type": "string"
+          },
+          "state": {
+            "description": "An unfinished Conversion makes its file, and it would otherwise be missing or upgradable",
+            "enum": [
+              "converting"
+            ],
+            "type": "string"
+          },
+          "stopped": {
+            "description": "Failed Grabs stopped SlipStream searching it again at once. Backlog search still searches it",
+            "type": "boolean"
+          },
+          "targetId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "targetName": {
+            "type": "string"
+          },
+          "waitUntil": {
+            "description": "When SlipStream grabs the best Release found for it, unless a better one arrives; null while it waits for none",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "wanted": {
+            "description": "Missing, failed or upgradable with no Grab in flight, and its Item monitored, listed and released",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "state",
+          "conversionId",
+          "stage",
+          "node",
+          "file",
+          "itemId",
+          "edition",
+          "targetId",
+          "targetName",
+          "wanted",
+          "gone",
+          "stopped",
+          "waitUntil",
+          "candidates"
         ],
         "type": "object"
       },
@@ -4109,6 +5423,10 @@
             "minimum": 0,
             "type": "integer"
           },
+          "cause": {
+            "$ref": "#/components/schemas/FilesFailure",
+            "description": "The Grab or the Conversion that failed"
+          },
           "edition": {
             "description": "any under any cut, else the key of the cut this Item needs at this Target",
             "type": "string"
@@ -4122,16 +5440,11 @@
                 "type": "null"
               }
             ],
-            "description": "The file the Grab would have replaced; null when it replaced none"
+            "description": "The file the Grab or the Conversion would have replaced; null when it replaced none"
           },
           "gone": {
             "description": "It has no file because its library file is gone from its root. Only a search an Admin starts searches for it",
             "type": "boolean"
-          },
-          "grabId": {
-            "description": "The Grab that failed",
-            "format": "uuid",
-            "type": "string"
           },
           "itemId": {
             "format": "uuid",
@@ -4169,7 +5482,7 @@
         },
         "required": [
           "state",
-          "grabId",
+          "cause",
           "file",
           "itemId",
           "edition",
@@ -4231,6 +5544,23 @@
         ],
         "type": "object"
       },
+      "FilesFailure": {
+        "discriminator": {
+          "mapping": {
+            "conversion": "#/components/schemas/FilesConversionFailure",
+            "grab": "#/components/schemas/FilesGrabFailure"
+          },
+          "propertyName": "kind"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/FilesGrabFailure"
+          },
+          {
+            "$ref": "#/components/schemas/FilesConversionFailure"
+          }
+        ]
+      },
       "FilesFileGrab": {
         "additionalProperties": false,
         "properties": {
@@ -4290,6 +5620,26 @@
           "itemId",
           "edition",
           "targetId"
+        ],
+        "type": "object"
+      },
+      "FilesGrabFailure": {
+        "additionalProperties": false,
+        "properties": {
+          "grabId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "grab"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "grabId"
         ],
         "type": "object"
       },
@@ -4381,7 +5731,7 @@
                 "type": "null"
               }
             ],
-            "description": "Its first state in the order failed, missing, downloading, upgradable, unreleased, met, across its Targets; null for an Item with no Target"
+            "description": "Its first state in the order failed, missing, downloading, converting, upgradable, unreleased, met, across its Targets; null for an Item with no Target"
           }
         },
         "required": [
@@ -4845,6 +6195,7 @@
       "FilesNeed": {
         "discriminator": {
           "mapping": {
+            "conversion_failed": "#/components/schemas/FilesConversionFailedNeed",
             "failed": "#/components/schemas/FilesFailedNeed",
             "no_root": "#/components/schemas/FilesNoRootNeed",
             "not_found": "#/components/schemas/FilesNotFoundNeed",
@@ -4856,6 +6207,9 @@
         "oneOf": [
           {
             "$ref": "#/components/schemas/FilesFailedNeed"
+          },
+          {
+            "$ref": "#/components/schemas/FilesConversionFailedNeed"
           },
           {
             "$ref": "#/components/schemas/FilesUpgradeNeed"
@@ -5131,6 +6485,7 @@
           "failed",
           "missing",
           "downloading",
+          "converting",
           "upgradable",
           "unreleased",
           "met"
@@ -5140,6 +6495,10 @@
       "FilesStateCounts": {
         "additionalProperties": false,
         "properties": {
+          "converting": {
+            "minimum": 1,
+            "type": "integer"
+          },
           "downloading": {
             "minimum": 1,
             "type": "integer"
@@ -5238,7 +6597,7 @@
                 "type": "null"
               }
             ],
-            "description": "Its monitored Items' first status in the order failed, missing, downloading, upgradable, unreleased, met; null while none has a Target"
+            "description": "Its monitored Items' first status in the order failed, missing, downloading, converting, upgradable, unreleased, met; null while none has a Target"
           }
         },
         "required": [
@@ -10439,7 +11798,8 @@
               "subtitles",
               "health",
               "backups",
-              "moves"
+              "moves",
+              "conversions"
             ],
             "type": "string"
           },
@@ -10566,7 +11926,8 @@
               "subtitles",
               "health",
               "backups",
-              "moves"
+              "moves",
+              "conversions"
             ],
             "type": "string"
           },
@@ -16233,6 +17594,10 @@
             "minLength": 1,
             "type": "string"
           },
+          "pausesConversions": {
+            "description": "Pause Conversions on the Node it runs on while it transcodes video",
+            "type": "boolean"
+          },
           "reachingNodeId": {
             "format": "uuid",
             "type": "string"
@@ -17497,6 +18862,22 @@
         "required": [
           "importIds",
           "on"
+        ],
+        "type": "object"
+      },
+      "MoveInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "after": {
+            "description": "The Conversion it goes right after, in its lane; null for the head of Moved up",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "after"
         ],
         "type": "object"
       },
@@ -19912,7 +21293,8 @@
             "enum": [
               "engine-starts",
               "data-writable",
-              "listener-up"
+              "listener-up",
+              "ffmpeg-runs"
             ],
             "type": "string"
           },
@@ -19923,7 +21305,10 @@
               "downloads_not_writable",
               "downloads_on_network_share",
               "data_not_writable",
-              "http_not_listening"
+              "http_not_listening",
+              "ffmpeg_fails",
+              "no_gpu",
+              "ffmpeg_testing"
             ],
             "type": "string"
           },
@@ -20060,7 +21445,8 @@
             "enum": [
               "engine-starts",
               "data-writable",
-              "listener-up"
+              "listener-up",
+              "ffmpeg-runs"
             ],
             "type": "string"
           },
@@ -20902,6 +22288,7 @@
               "health",
               "backups",
               "moves",
+              "conversions",
               "system"
             ],
             "type": "string"
@@ -25146,7 +26533,8 @@
             "description": "The rules the Node judges the folder by, as checkFolder names them",
             "enum": [
               "downloads",
-              "backups"
+              "backups",
+              "converting"
             ],
             "type": "string"
           },
@@ -26040,6 +27428,17 @@
       "ShellAlerts": {
         "additionalProperties": false,
         "properties": {
+          "conversions": {
+            "description": "fail while a Conversion failed and waits for an Admin, warn while no Node can convert one; null otherwise",
+            "enum": [
+              "warn",
+              "fail"
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "health": {
             "description": "The worst level across every Health category, null while nothing is wrong",
             "enum": [
@@ -26077,7 +27476,8 @@
         "required": [
           "nodes",
           "health",
-          "tasks"
+          "tasks",
+          "conversions"
         ],
         "type": "object"
       },
@@ -27402,7 +28802,8 @@
               "web",
               "log",
               "torrent",
-              "backups"
+              "backups",
+              "converting"
             ],
             "type": "string"
           }
@@ -27700,6 +29101,124 @@
         ],
         "type": "object"
       },
+      "TargetsBackfill": {
+        "additionalProperties": false,
+        "properties": {
+          "convert": {
+            "description": "The Works to convert",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "default": {
+            "description": "The Profile new Works take",
+            "format": "uuid",
+            "type": "string"
+          },
+          "rest": {
+            "$ref": "#/components/schemas/TargetsBackfillRest",
+            "description": "Where the other Works go"
+          }
+        },
+        "required": [
+          "convert",
+          "rest",
+          "default"
+        ],
+        "type": "object"
+      },
+      "TargetsBackfillRest": {
+        "additionalProperties": false,
+        "properties": {
+          "newName": {
+            "description": "The name of a new Profile, the old one without the made-from Target, that the rest move to",
+            "maxLength": 100,
+            "type": "string"
+          },
+          "profileId": {
+            "description": "An existing Profile the rest move to",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "TargetsCause": {
+        "additionalProperties": false,
+        "properties": {
+          "class": {
+            "description": "The source class it covers",
+            "enum": [
+              "h264_8",
+              "hevc_8",
+              "hevc_10",
+              "av1_8",
+              "av1_10",
+              "hdr10",
+              "hlg",
+              "dv5",
+              "dv81",
+              "decode_sdr",
+              "decode_hdr10"
+            ],
+            "type": "string"
+          },
+          "count": {
+            "description": "The Conversions waiting on it",
+            "format": "int64",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "node": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TargetsNamed"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The Node its sentence names; null when none"
+          },
+          "notifiedAt": {
+            "description": "When the Admin was notified",
+            "format": "date-time",
+            "type": "string"
+          },
+          "shape": {
+            "description": "The settings shape it covers, such as h264.8.sdr.bt2390",
+            "type": "string"
+          },
+          "why": {
+            "enum": [
+              "no_role",
+              "lapsed",
+              "runs_elsewhere",
+              "pinned_elsewhere",
+              "failed_here",
+              "untested",
+              "test_failed",
+              "retesting",
+              "proof_lost",
+              "processor_off",
+              "none_online",
+              "no_holder"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "why",
+          "class",
+          "shape",
+          "count",
+          "node",
+          "notifiedAt"
+        ],
+        "type": "object"
+      },
       "TargetsChanged": {
         "additionalProperties": false,
         "properties": {
@@ -27712,6 +29231,237 @@
         },
         "required": [
           "workIds"
+        ],
+        "type": "object"
+      },
+      "TargetsConversionSpec": {
+        "additionalProperties": false,
+        "properties": {
+          "audio": {
+            "enum": [
+              "copy",
+              "stereo_aac",
+              "ac3_51_and_stereo_aac"
+            ],
+            "type": "string"
+          },
+          "codec": {
+            "enum": [
+              "h264",
+              "hevc",
+              "av1"
+            ],
+            "type": "string"
+          },
+          "container": {
+            "enum": [
+              "mkv",
+              "mp4"
+            ],
+            "type": "string"
+          },
+          "curve": {
+            "description": "The tone mapping curve from HDR to SDR",
+            "enum": [
+              "bt2390",
+              "hable",
+              "mobius",
+              "reinhard"
+            ],
+            "type": "string"
+          },
+          "depth": {
+            "enum": [
+              8,
+              10
+            ],
+            "format": "int64",
+            "type": "integer"
+          },
+          "dropCommentary": {
+            "type": "boolean"
+          },
+          "kbps": {
+            "description": "The video bitrate at maxHeight",
+            "format": "int64",
+            "maximum": 200000,
+            "minimum": 100,
+            "type": "integer"
+          },
+          "keepDolbyVision": {
+            "type": "boolean"
+          },
+          "maxHeight": {
+            "description": "The largest output height. A wider picture fits the 16:9 box of that height",
+            "enum": [
+              2160,
+              1080,
+              720,
+              480
+            ],
+            "format": "int64",
+            "type": "integer"
+          },
+          "range": {
+            "description": "source keeps the source's range, with HDR10+ written as HDR10",
+            "enum": [
+              "sdr",
+              "hdr10",
+              "source"
+            ],
+            "type": "string"
+          },
+          "runOnNodeId": {
+            "description": "The one Node its Conversions run on; null for any Node that can",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "runOnNodeId",
+          "codec",
+          "maxHeight",
+          "kbps",
+          "depth",
+          "range",
+          "keepDolbyVision",
+          "curve",
+          "audio",
+          "dropCommentary",
+          "container"
+        ],
+        "type": "object"
+      },
+      "TargetsConversionView": {
+        "additionalProperties": false,
+        "properties": {
+          "audio": {
+            "enum": [
+              "copy",
+              "stereo_aac",
+              "ac3_51_and_stereo_aac"
+            ],
+            "type": "string"
+          },
+          "causes": {
+            "description": "Why no Node can convert some of its Conversions",
+            "items": {
+              "$ref": "#/components/schemas/TargetsCause"
+            },
+            "type": "array"
+          },
+          "codec": {
+            "enum": [
+              "h264",
+              "hevc",
+              "av1"
+            ],
+            "type": "string"
+          },
+          "container": {
+            "enum": [
+              "mkv",
+              "mp4"
+            ],
+            "type": "string"
+          },
+          "curve": {
+            "description": "The tone mapping curve from HDR to SDR",
+            "enum": [
+              "bt2390",
+              "hable",
+              "mobius",
+              "reinhard"
+            ],
+            "type": "string"
+          },
+          "defaultKbps": {
+            "description": "The bitrate a new setting starts at",
+            "format": "int64",
+            "minimum": 100,
+            "type": "integer"
+          },
+          "depth": {
+            "enum": [
+              8,
+              10
+            ],
+            "format": "int64",
+            "type": "integer"
+          },
+          "dropCommentary": {
+            "type": "boolean"
+          },
+          "kbps": {
+            "description": "The video bitrate at maxHeight",
+            "format": "int64",
+            "maximum": 200000,
+            "minimum": 100,
+            "type": "integer"
+          },
+          "keepDolbyVision": {
+            "type": "boolean"
+          },
+          "maxHeight": {
+            "description": "The largest output height. A wider picture fits the 16:9 box of that height",
+            "enum": [
+              2160,
+              1080,
+              720,
+              480
+            ],
+            "format": "int64",
+            "type": "integer"
+          },
+          "older": {
+            "description": "Made files the Target's older settings made",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "range": {
+            "description": "source keeps the source's range, with HDR10+ written as HDR10",
+            "enum": [
+              "sdr",
+              "hdr10",
+              "source"
+            ],
+            "type": "string"
+          },
+          "runOnNodeId": {
+            "description": "null for any Node that can",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "version": {
+            "description": "Rises with each change of the settings, not of Run on",
+            "format": "int64",
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "runOnNodeId",
+          "version",
+          "older",
+          "causes",
+          "defaultKbps",
+          "codec",
+          "maxHeight",
+          "kbps",
+          "depth",
+          "range",
+          "keepDolbyVision",
+          "curve",
+          "audio",
+          "dropCommentary",
+          "container"
         ],
         "type": "object"
       },
@@ -27829,10 +29579,24 @@
       "TargetsEntry": {
         "additionalProperties": false,
         "properties": {
+          "fromTargetId": {
+            "description": "For derive and download_then_derive: the Target above it whose file it is made from",
+            "format": "uuid",
+            "type": "string"
+          },
+          "graceSeconds": {
+            "description": "For download_then_derive: how long SlipStream searches for a download before it makes the file",
+            "format": "int64",
+            "maximum": 7776000,
+            "minimum": 3600,
+            "type": "integer"
+          },
           "sourcing": {
-            "description": "How the Target gets its file",
+            "description": "How the Target gets its file: download, made from another Target's file (derive), or downloaded, or made from another Target's file after a wait (download_then_derive)",
             "enum": [
-              "download"
+              "download",
+              "derive",
+              "download_then_derive"
             ],
             "type": "string"
           },
@@ -27976,6 +29740,10 @@
             "minimum": 0,
             "type": "integer"
           },
+          "made": {
+            "$ref": "#/components/schemas/TargetsMadeImpact",
+            "description": "The files a change of a Profile's made-from Targets has SlipStream make"
+          },
           "newlyWanted": {
             "description": "How many more files SlipStream will look for",
             "format": "int64",
@@ -27987,6 +29755,10 @@
             "format": "int64",
             "minimum": 0,
             "type": "integer"
+          },
+          "remake": {
+            "$ref": "#/components/schemas/TargetsRemakeImpact",
+            "description": "The made files a Target's older Conversion settings made"
           },
           "renamed": {
             "description": "Files whose path changes, Kept files included",
@@ -28024,7 +29796,132 @@
           "renames",
           "newlyWanted",
           "downloading",
-          "subtitles"
+          "subtitles",
+          "made",
+          "remake"
+        ],
+        "type": "object"
+      },
+      "TargetsMadeImpact": {
+        "additionalProperties": false,
+        "properties": {
+          "bytes": {
+            "description": "About how much they take on disk",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "files": {
+            "description": "Files the save has SlipStream make",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "matching": {
+            "description": "The Works the backfill's rest moves to a Profile that matches without the made-from Target",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "nodes": {
+            "description": "The Nodes forecast to make them",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/TargetsMadeRow"
+            },
+            "type": "array"
+          },
+          "seconds": {
+            "description": "About how long they take to make",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "unconvertible": {
+            "description": "The Works no Node can convert today",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "works": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "files",
+          "works",
+          "seconds",
+          "bytes",
+          "nodes",
+          "unconvertible",
+          "matching",
+          "rows"
+        ],
+        "type": "object"
+      },
+      "TargetsMadeRow": {
+        "additionalProperties": false,
+        "properties": {
+          "addedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "bytes": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "files": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "seconds": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "title": {
+            "type": "string"
+          },
+          "workId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "workId",
+          "title",
+          "files",
+          "seconds",
+          "bytes",
+          "addedAt"
+        ],
+        "type": "object"
+      },
+      "TargetsNamed": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
         ],
         "type": "object"
       },
@@ -28080,6 +29977,10 @@
       "TargetsNewProfile": {
         "additionalProperties": false,
         "properties": {
+          "backfill": {
+            "$ref": "#/components/schemas/TargetsBackfill",
+            "description": "A replace that adds a made-from Target only: which Works to convert, where the rest go, and the default for new Works"
+          },
           "contentType": {
             "pattern": "^[a-z][a-z0-9]{1,15}$",
             "type": "string"
@@ -28153,6 +30054,10 @@
       "TargetsNewTarget": {
         "additionalProperties": false,
         "properties": {
+          "conversion": {
+            "$ref": "#/components/schemas/TargetsConversionSpec",
+            "description": "Its Conversion settings; null or left out for none"
+          },
           "cutoff": {
             "description": "Any quality of the tier at which a file is final",
             "enum": [
@@ -28209,6 +30114,17 @@
               "dont_prefer"
             ],
             "type": "string"
+          },
+          "remake": {
+            "description": "A replace only: the Works whose files the Target's older Conversion settings made, to make again",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
           },
           "scores": {
             "$ref": "#/components/schemas/TargetsNewScores",
@@ -28298,6 +30214,38 @@
           "key",
           "name",
           "tiers"
+        ],
+        "type": "object"
+      },
+      "TargetsProblem": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "enum": [
+              "codec_filtered",
+              "range_from_sdr",
+              "outside_size",
+              "container_audio",
+              "quality_unranked"
+            ],
+            "type": "string"
+          },
+          "facts": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "What its words name, by key",
+            "type": "object"
+          },
+          "field": {
+            "description": "The Conversion setting it is about, such as codec",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "field",
+          "facts"
         ],
         "type": "object"
       },
@@ -28566,6 +30514,28 @@
         ],
         "type": "object"
       },
+      "TargetsRemakeImpact": {
+        "additionalProperties": false,
+        "properties": {
+          "older": {
+            "description": "Made files the Target's older settings made",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/TargetsMadeRow"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "older",
+          "rows"
+        ],
+        "type": "object"
+      },
       "TargetsRenamedFile": {
         "additionalProperties": false,
         "properties": {
@@ -28715,6 +30685,17 @@
             },
             "type": "array"
           },
+          "conversion": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TargetsConversionView"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Its Conversion settings, which make its files from another Target's; null while it has none"
+          },
           "createdAt": {
             "format": "date-time",
             "type": "string"
@@ -28796,6 +30777,7 @@
           "holdSeconds",
           "profiles",
           "contains",
+          "conversion",
           "createdAt"
         ],
         "type": "object"
@@ -30953,12 +32935,13 @@
             "type": "string"
           },
           "kind": {
-            "description": "root is a library root, backup a Backup destination, backups_folder the Controller's Backups folder, and download_folder a Download Client's folder",
+            "description": "root is a library root, backup a Backup destination, backups_folder the Controller's Backups folder, download_folder a Download Client's folder, and scratch a Node's scratch folder for Conversions",
             "enum": [
               "root",
               "backup",
               "backups_folder",
-              "download_folder"
+              "download_folder",
+              "scratch"
             ],
             "type": "string"
           },
@@ -31184,11 +33167,12 @@
             "type": "string"
           },
           "purpose": {
-            "description": "The kind of job that asked for it. backup copies a Backup to a Backup destination, or back to the Controller, and move copies a library file or a torrent's payload to another Node",
+            "description": "The kind of job that asked for it. backup copies a Backup to a Backup destination, or back to the Controller, move copies a library file or a torrent's payload to another Node, and conversion copies a Conversion's source to the Node that converts it, or its made file back to its root",
             "enum": [
               "import",
               "backup",
-              "move"
+              "move",
+              "conversion"
             ],
             "type": "string"
           },
@@ -43629,6 +45613,1610 @@
         "x-slipstream-access": "admin"
       }
     },
+    "/conversions": {
+      "get": {
+        "operationId": "listConversions",
+        "parameters": [
+          {
+            "description": "Only this band; left out, every band",
+            "explode": false,
+            "in": "query",
+            "name": "band",
+            "schema": {
+              "description": "Only this band; left out, every band",
+              "enum": [
+                "attention",
+                "converting",
+                "next"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "description": "Only Conversions placed or forecast on this Node",
+            "explode": false,
+            "in": "query",
+            "name": "node",
+            "schema": {
+              "description": "Only Conversions placed or forecast on this Node",
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Only Works of this Content Type",
+            "explode": false,
+            "in": "query",
+            "name": "type",
+            "schema": {
+              "description": "Only Works of this Content Type",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Only Works whose title holds this",
+            "explode": false,
+            "in": "query",
+            "name": "q",
+            "schema": {
+              "description": "Only Works whose title holds this",
+              "maxLength": 200,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Only this Work's Conversions",
+            "explode": false,
+            "in": "query",
+            "name": "work",
+            "schema": {
+              "description": "Only this Work's Conversions",
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The cursor of the previous page",
+            "explode": false,
+            "in": "query",
+            "name": "cursor",
+            "schema": {
+              "description": "The cursor of the previous page",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversionsConversionList"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "superseded",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "501": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "not_built_yet"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Implemented"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "List the Conversions tab: its counts, the ones that need attention, the ones converting, and a page of Up next by lane",
+        "tags": [
+          "conversions"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/conversions/groups/{groupId}": {
+      "get": {
+        "operationId": "getConversionGroup",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "groupId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "The cursor of the previous page",
+            "explode": false,
+            "in": "query",
+            "name": "cursor",
+            "schema": {
+              "description": "The cursor of the previous page",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversionsGroupPage"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "conversion_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "superseded",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "501": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "not_built_yet"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Implemented"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Get a page of a folded group's Conversions",
+        "tags": [
+          "conversions"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/conversions/groups/{groupId}/cancel": {
+      "post": {
+        "operationId": "cancelConversionGroup",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "groupId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CanceledOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "conversion_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "superseded",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "501": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "not_built_yet"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Implemented"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Cancel every unfinished Conversion of a folded group",
+        "tags": [
+          "conversions"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/conversions/{id}/cancel": {
+      "post": {
+        "operationId": "cancelConversion",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversionsConversionRow"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "conversion_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "conversion_finished",
+                            "conversion_placing",
+                            "superseded",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "501": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "not_built_yet"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Implemented"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Cancel an unfinished Conversion. SlipStream doesn't queue it again until its source file changes or an Admin asks for it",
+        "tags": [
+          "conversions"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/conversions/{id}/move": {
+      "post": {
+        "operationId": "moveConversion",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MoveInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversionsConversionRow"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "conversion_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "conversion_not_waiting",
+                            "superseded",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "501": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "not_built_yet"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Implemented"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Put a waiting Conversion right after another in its lane",
+        "tags": [
+          "conversions"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/conversions/{id}/move-up": {
+      "post": {
+        "operationId": "moveConversionUp",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversionsConversionRow"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "conversion_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "conversion_not_waiting",
+                            "superseded",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "501": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "not_built_yet"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Implemented"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Put a waiting Conversion at the head of Moved up",
+        "tags": [
+          "conversions"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/conversions/{id}/retry": {
+      "post": {
+        "operationId": "retryConversion",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversionsConversionRow"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "conversion_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "conversion_not_failed",
+                            "superseded",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "501": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "not_built_yet"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Implemented"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Queue a failed Conversion again at the head of its lane, with a fresh set of attempts",
+        "tags": [
+          "conversions"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
     "/counts": {
       "get": {
         "operationId": "getCounts",
@@ -47093,6 +50681,58 @@
                           "event"
                         ],
                         "title": "Event backups.changed",
+                        "type": "object"
+                      },
+                      {
+                        "properties": {
+                          "data": {
+                            "$ref": "#/components/schemas/ConversionsChanged"
+                          },
+                          "event": {
+                            "const": "conversions.changed",
+                            "description": "The event name.",
+                            "type": "string"
+                          },
+                          "id": {
+                            "description": "The event ID.",
+                            "type": "integer"
+                          },
+                          "retry": {
+                            "description": "The retry time in milliseconds.",
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "data",
+                          "event"
+                        ],
+                        "title": "Event conversions.changed",
+                        "type": "object"
+                      },
+                      {
+                        "properties": {
+                          "data": {
+                            "$ref": "#/components/schemas/ConversionsLiveSample"
+                          },
+                          "event": {
+                            "const": "conversions.live",
+                            "description": "The event name.",
+                            "type": "string"
+                          },
+                          "id": {
+                            "description": "The event ID.",
+                            "type": "integer"
+                          },
+                          "retry": {
+                            "description": "The retry time in milliseconds.",
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "data",
+                          "event"
+                        ],
+                        "title": "Event conversions.live",
                         "type": "object"
                       },
                       {
@@ -53917,12 +57557,12 @@
             }
           },
           {
-            "description": "Only these groups; left out, all seven",
+            "description": "Only these groups; left out, all eight",
             "explode": false,
             "in": "query",
             "name": "groups",
             "schema": {
-              "description": "Only these groups; left out, all seven",
+              "description": "Only these groups; left out, all eight",
               "items": {
                 "enum": [
                   "grabs",
@@ -53931,7 +57571,8 @@
                   "subtitles",
                   "health",
                   "backups",
-                  "moves"
+                  "moves",
+                  "conversions"
                 ],
                 "type": "string"
               },
@@ -67751,7 +71392,8 @@
                             "media_server_localhost_on_worker",
                             "media_server_sign_in_refused",
                             "media_server_too_old",
-                            "no_member_libraries"
+                            "no_member_libraries",
+                            "not_built_yet"
                           ],
                           "type": "string"
                         }
@@ -76773,6 +80415,670 @@
         "x-slipstream-access": "admin"
       }
     },
+    "/nodes/{id}/converting": {
+      "get": {
+        "operationId": "getNodeConverting",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversionsNodeConverting"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "node_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "superseded",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "501": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "not_built_yet"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Implemented"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Get a Node's Converting section: its settings, what it converts with, and its test runs",
+        "tags": [
+          "conversions"
+        ],
+        "x-slipstream-access": "admin"
+      },
+      "put": {
+        "operationId": "updateNodeConverting",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConversionsNodeSettings"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversionsNodeConverting"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "node_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "superseded",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "501": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "not_built_yet"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Implemented"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Change a Node's Conversions at once, hours and processor switch",
+        "tags": [
+          "conversions"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/nodes/{id}/converting/rerun": {
+      "post": {
+        "operationId": "rerunNodeTests",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Accepted"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "node_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "superseded",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "501": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "not_built_yet"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Implemented"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Run a Node's test runs again",
+        "tags": [
+          "conversions"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
     "/nodes/{id}/dial": {
       "put": {
         "operationId": "setNodeDial",
@@ -83027,6 +87333,7 @@
                             "duplicate_language",
                             "invalid",
                             "no_subtitles_for_type",
+                            "not_built_yet",
                             "target_not_found"
                           ],
                           "type": "string"
@@ -83550,6 +87857,18 @@
             }
           },
           {
+            "description": "The made file count the Admin confirmed from the preview: a save that would make more is refused with impact_changed",
+            "explode": false,
+            "in": "query",
+            "name": "confirmMade",
+            "schema": {
+              "description": "The made file count the Admin confirmed from the preview: a save that would make more is refused with impact_changed",
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
             "description": "Return the change's Impact and save nothing",
             "explode": false,
             "in": "query",
@@ -83700,9 +88019,17 @@
                             "impact_changed",
                             "profile_name_taken",
                             "superseded",
+                            "target_is_a_source",
                             "worker_node"
                           ],
                           "type": "string"
+                        },
+                        "profiles": {
+                          "description": "The Profiles that make another Target's files from it",
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
                         }
                       },
                       "type": "object"
@@ -83729,6 +88056,7 @@
                             "duplicate_language",
                             "invalid",
                             "no_subtitles_for_type",
+                            "not_built_yet",
                             "profile_wrong_type",
                             "target_not_found"
                           ],
@@ -99380,11 +103708,22 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "conversion_refused",
                             "format_not_found",
                             "invalid",
+                            "not_built_yet",
                             "quality_not_in_target"
                           ],
                           "type": "string"
+                        },
+                        "problems": {
+                          "items": {
+                            "$ref": "#/components/schemas/TargetsProblem"
+                          },
+                          "type": [
+                            "array",
+                            "null"
+                          ]
                         }
                       },
                       "type": "object"
@@ -99834,6 +104173,18 @@
             }
           },
           {
+            "description": "The remade file count the Admin confirmed from the preview: a save that would remake more is refused with impact_changed",
+            "explode": false,
+            "in": "query",
+            "name": "confirmRemake",
+            "schema": {
+              "description": "The remade file count the Admin confirmed from the preview: a save that would remake more is refused with impact_changed",
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
             "description": "Return the change's Impact and save nothing",
             "explode": false,
             "in": "query",
@@ -99983,10 +104334,18 @@
                           "enum": [
                             "impact_changed",
                             "superseded",
+                            "target_is_a_source",
                             "target_name_taken",
                             "worker_node"
                           ],
                           "type": "string"
+                        },
+                        "profiles": {
+                          "description": "The Profiles that make another Target's files from it",
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
                         }
                       },
                       "type": "object"
@@ -100009,11 +104368,22 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "conversion_refused",
                             "format_not_found",
                             "invalid",
+                            "not_built_yet",
                             "quality_not_in_target"
                           ],
                           "type": "string"
+                        },
+                        "problems": {
+                          "items": {
+                            "$ref": "#/components/schemas/TargetsProblem"
+                          },
+                          "type": [
+                            "array",
+                            "null"
+                          ]
                         }
                       },
                       "type": "object"

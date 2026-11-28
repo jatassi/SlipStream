@@ -6,4 +6,7 @@ export type NodesProbeReason =
   | "downloads_not_writable"
   | "downloads_on_network_share"
   | "data_not_writable"
-  | "http_not_listening";
+  | "http_not_listening"
+  | "ffmpeg_fails"
+  | "no_gpu"
+  | "ffmpeg_testing";
