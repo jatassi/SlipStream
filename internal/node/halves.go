@@ -677,7 +677,7 @@ func (n *Node) startController(ctx context.Context) error {
 		Rand:        n.filesRand,
 		Reconciling: reconciling.Blocked,
 		Moves:       moves.FilesHooks{},
-		Conversions: conversions.Seam{Poke: poke},
+		Conversions: conversions.Seam{Poke: poke, Conversions: func() *conversions.Conversions { return converts }},
 		Homes:       homes,
 		Log:         n.rootLog.With("subsystem", "files"),
 	})
