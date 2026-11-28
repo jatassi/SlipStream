@@ -22,6 +22,7 @@ import (
 	"github.com/jatassi/slipstream/internal/subtitles"
 	"github.com/jatassi/slipstream/internal/tasks"
 	"github.com/jatassi/slipstream/internal/trackers"
+	"github.com/jatassi/slipstream/internal/transfers"
 )
 
 // healthCategories is every Health category after Storage, one line each,
@@ -44,9 +45,27 @@ func healthCategories(h *half) []health.Category {
 
 // storageParts is what the Storage category judges: a line per holder
 // that samples volumes, and the library roots' own items.
-func storageParts(h *half) health.StorageParts {
+func storageParts(lib *storage.DB[storage.Library], h *half) health.StorageParts {
+	scratch := scratchVolumes{
+		scratch: h.scratch, roster: h.nodes,
+		names: func(ctx context.Context) (names map[role.NodeID]string, err error) {
+			err = lib.Read(ctx, func(ctx context.Context, r storage.Reader[storage.Library]) error {
+				names, err = liveNames(ctx, r)
+				return err
+			})
+			return names, err
+		},
+		reserved: func(ctx context.Context, node role.NodeID, volume string) (n int64, err error) {
+			err = lib.Read(ctx, func(ctx context.Context, r storage.Reader[storage.Library]) error {
+				n, err = h.transfers.ReservedIn(ctx, r, node, volume)
+				return err
+			})
+			return n, err
+		},
+		events: []live.Event{nodes.ChangedEvent, transfers.ChangedEvent},
+	}
 	return health.StorageParts{
-		Volumes:    []health.VolumeSource{h.roots.HealthVolumes(), h.clients.HealthVolumes()},
+		Volumes:    []health.VolumeSource{h.roots.HealthVolumes(), h.clients.HealthVolumes(), scratch.source()},
 		Roots:      h.roots.HealthSource(),
 		RootEvents: roots.HealthEvents,
 	}
@@ -57,7 +76,7 @@ func (n *Node) openHealth(ctx context.Context, lib *storage.DB[storage.Library],
 		Library:     lib,
 		Hub:         n.hub,
 		Changed:     health.ChangedEvent.Bind(n.hub),
-		Storage:     storageParts(h),
+		Storage:     storageParts(lib, h),
 		Categories:  healthCategories(h),
 		Names:       liveNames,
 		Roster:      h.nodes,

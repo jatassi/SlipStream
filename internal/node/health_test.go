@@ -25,8 +25,8 @@ import (
 func TestTheHealthRegistryMatchesItsIDsEventsAndTasks(t *testing.T) {
 	cats := healthCategories(&half{})
 	ids := []health.ID{health.StorageID}
-	events := storageParts(&half{}).RootEvents
-	for _, v := range storageParts(&half{}).Volumes {
+	events := storageParts(nil, &half{}).RootEvents
+	for _, v := range storageParts(nil, &half{}).Volumes {
 		events = append(events, v.Events...)
 	}
 	for _, c := range cats {

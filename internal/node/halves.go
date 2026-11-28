@@ -169,6 +169,8 @@ type half struct {
 	// conversions queues, places and lands every Conversion, on a
 	// Controller.
 	conversions *conversions.Conversions
+	// scratch is each Converting Node's scratch volume, on a Controller.
+	scratch func(node role.NodeID) *cv1.Volume
 	// serving proxies to the Controller while a Worker holds Serving.
 	serving *serving.Worker
 }
@@ -203,6 +205,10 @@ func (n *Node) startController(ctx context.Context) error {
 		converts       *conversions.Conversions
 		conversionRuns *role.Control[*cv1.Intent, *cv1.Facts, *cv1.Result]
 	)
+	scratchOf := func(node role.NodeID) *cv1.Volume {
+		f, _ := conversionRuns.Facts(node)
+		return conversions.ScratchOf(f)
+	}
 	var keeping entry.Recorder
 	keeper := reconciling.New(reconciling.Config{
 		Library: lib.db,
@@ -303,17 +309,20 @@ func (n *Node) startController(ctx context.Context) error {
 			maps.Copy(out, library)
 			return out, err
 		},
-		Moved:         clients.Moved,
-		LowWait:       backups.CopyWaitLimitIn,
-		Paused:        whileReconciling,
-		Folders:       func(id role.NodeID) []transfers.BackupFolder { return kept.Folders(id) },
-		FoldersNoted:  func(id role.NodeID) { kept.FoldersNoted(id) },
-		Sample:        func(ctx context.Context, id role.NodeID) error { return homes.Sample(ctx, id) },
-		ScratchVolume: scratchVolume,
-		Hub:           n.hub,
-		Changed:       transfers.ChangedEvent.Bind(n.hub),
-		Timings:       n.cfg.Timings.Transfers,
-		Log:           n.rootLog.With("subsystem", "transfers"),
+		Moved:        clients.Moved,
+		LowWait:      backups.CopyWaitLimitIn,
+		Paused:       whileReconciling,
+		Folders:      func(id role.NodeID) []transfers.BackupFolder { return kept.Folders(id) },
+		FoldersNoted: func(id role.NodeID) { kept.FoldersNoted(id) },
+		Sample:       func(ctx context.Context, id role.NodeID) error { return homes.Sample(ctx, id) },
+		ScratchVolume: func(node role.NodeID) (string, bool) {
+			v := scratchOf(node)
+			return v.GetId(), v != nil
+		},
+		Hub:     n.hub,
+		Changed: transfers.ChangedEvent.Bind(n.hub),
+		Timings: n.cfg.Timings.Transfers,
+		Log:     n.rootLog.With("subsystem", "transfers"),
 	})
 	transferring = transfers.Def.Serve(copies.Derive, copies.Apply)
 	servers := mediaservers.New(mediaservers.Config{
@@ -922,6 +931,7 @@ func (n *Node) startController(ctx context.Context) error {
 		copier:      copier,
 		moves:       mover,
 		conversions: converts,
+		scratch:     scratchOf,
 	}
 	if h.health, err = n.openHealth(ctx, lib.db, h); err != nil {
 		return err
@@ -1389,9 +1399,6 @@ func writing(ctx context.Context, r storage.Reader[storage.Library], fs []files.
 	}
 	return out, nil
 }
-
-// scratchVolume is the id of the volume that holds node's scratch folder.
-func scratchVolume(role.NodeID) (string, bool) { return "", false }
 
 // heldRoles is every Role this binary runs, and the Node-wide channels
 // every Node holds, one held line each.

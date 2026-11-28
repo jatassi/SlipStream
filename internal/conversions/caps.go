@@ -130,6 +130,19 @@ func proofOf(res *cv1.TestResponse, os string) (converting.Proved, error) {
 	return out, nil
 }
 
+// ScratchOf is f's scratch volume with its names cut to their caps, nil
+// while it is unknown or its figures are past them.
+func ScratchOf(f *cv1.Facts) *cv1.Volume {
+	v := f.GetScratch()
+	if v == nil || v.GetId() == "" || v.GetFree() < 0 || v.GetFree() > v.GetTotal() || v.GetTotal() > maxVolume {
+		return nil
+	}
+	return &cv1.Volume{
+		Free: v.GetFree(), Total: v.GetTotal(), Id: capName(v.GetId()), Name: capName(v.GetName()), Mount: capName(v.GetMount()),
+		SampledAtUnixMs: v.GetSampledAtUnixMs(),
+	}
+}
+
 // Facts are a Converting Node's facts within their caps.
 type Facts struct {
 	// Signature is empty when the Node's isn't one, so it qualifies for
@@ -158,7 +171,7 @@ func factsOf(f *cv1.Facts, atOnce int, lengths map[ID]time.Duration) Facts {
 	for _, d := range f.GetDevices()[:min(len(f.GetDevices()), maxDevices)] {
 		out.Devices = append(out.Devices, converting.Device{Name: capName(d.GetName()), Vendor: capName(d.GetVendor()), Driver: capName(d.GetDriver())})
 	}
-	if v := f.GetScratch(); v != nil && v.GetFree() >= 0 && v.GetFree() <= v.GetTotal() && v.GetTotal() <= maxVolume {
+	if v := ScratchOf(f); v != nil {
 		out.Scratch = &Volume{Free: v.GetFree(), Total: v.GetTotal()}
 	}
 	for _, p := range f.GetProgress() {
