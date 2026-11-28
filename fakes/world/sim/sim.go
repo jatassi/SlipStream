@@ -80,6 +80,10 @@ type World struct {
 	walk     *walk
 	fakes    *servers
 	cues     atomic.Int64
+	// made answers every Node's probes, so a file one Node makes probes
+	// on the Node whose root keeps it.
+	made     *simconv.Made
+	madeOnce sync.Once
 	// hash is the scenario's, which takes seconds to compute for a
 	// library of tens of thousands of files.
 	hash string
@@ -377,8 +381,8 @@ func (n *Node) env() node.Env {
 	if n.w.walk != nil {
 		n.w.walk.env(n, &env)
 	}
-	made := simconv.NewMade(env.Media)
-	env.Media, env.Converting = made, made.Converting
+	n.w.madeOnce.Do(func() { n.w.made = simconv.NewMade(env.Media) })
+	env.Media, env.Converting = n.w.made, n.w.made.Converting
 	for _, edit := range n.w.opts.edits {
 		edit(n.spec.Name, &env)
 	}

@@ -18,8 +18,8 @@ import (
 	"github.com/jatassi/slipstream/internal/role"
 )
 
-// Made is a Node's prober: each file a run made, by its base name, and
-// every other path from the prober it wraps.
+// Made is a world's prober: each file a run on any Node made, by its base
+// name, and every other path from the prober it wraps.
 type Made struct {
 	base media.Prober
 	mu   sync.Mutex
