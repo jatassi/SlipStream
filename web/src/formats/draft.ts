@@ -12,13 +12,15 @@ export type Dialect = FormatsCustomFormatDialect;
 
 /**
  * A condition's value as the editor holds it, by the shape of its kind's
- * value: a pattern, one of the kind's values, or a range of numbers.
+ * value: a pattern, one of the kind's values, a range of numbers, or none
+ * for a kind that is a fact alone, such as Is derived.
  * `picked` is a value as text, as a Select holds it.
  */
 export type Value =
   | { readonly shape: "pattern"; readonly text: string }
   | { readonly shape: "pick"; readonly picked: string; readonly except: boolean }
-  | { readonly shape: "range"; readonly min: string; readonly max: string };
+  | { readonly shape: "range"; readonly min: string; readonly max: string }
+  | { readonly shape: "none" };
 
 export type ConditionDraft = {
   /** Keeps a row's state while rows above it are removed. */
@@ -62,6 +64,9 @@ const nextKey = (() => {
 })();
 
 export function blankValue(kind: Kind): Value {
+  if (kind.fields.length === 0) {
+    return { shape: "none" };
+  }
   if (kind.pattern) {
     return { shape: "pattern", text: "" };
   }
@@ -96,6 +101,8 @@ function valueOf(kind: Kind, fields: FormatsCondition["fields"]): Value {
       };
     case "range":
       return { shape: "range", min: shown(fields["min"]), max: shown(fields["max"]) };
+    case "none":
+      return blank;
     default:
       return blank satisfies never;
   }
@@ -159,6 +166,8 @@ export function valueWords(condition: ConditionDraft): string {
       return value.min.trim() === "" || value.max.trim() === ""
         ? ""
         : `${value.min.trim()} to ${value.max.trim()}`;
+    case "none":
+      return condition.kind.words;
     default:
       return value satisfies never;
   }
@@ -174,6 +183,8 @@ function fieldsOf({ kind, value }: ConditionDraft): FormatsCondition["fields"] {
     }
     case "range":
       return { min: Number(value.min), max: Number(value.max) };
+    case "none":
+      return {};
     default:
       return value satisfies never;
   }
@@ -198,6 +209,7 @@ function valueProblems(at: string, value: Value): Record<string, string> {
     case "pattern":
       return value.text.trim() === "" ? { [`${at}.fields.value`]: "Enter a pattern." } : {};
     case "pick":
+    case "none":
       return {};
     case "range":
       return {
