@@ -19,6 +19,9 @@ const (
 	DownloadsOnNetworkShare ProbeReason = "downloads_on_network_share"
 	DataNotWritable         ProbeReason = "data_not_writable"
 	HTTPNotListening        ProbeReason = "http_not_listening"
+	FFmpegFails             ProbeReason = "ffmpeg_fails"
+	NoGPU                   ProbeReason = "no_gpu"
+	FFmpegTesting           ProbeReason = "ffmpeg_testing"
 )
 
 // probeReasons is the Probe that finds each ProbeReason.
@@ -28,6 +31,9 @@ var probeReasons = map[ProbeReason]Probe{
 	DownloadsOnNetworkShare: EngineStarts,
 	DataNotWritable:         DataWritable,
 	HTTPNotListening:        ListenerUp,
+	FFmpegFails:             FFmpegRuns,
+	NoGPU:                   FFmpegRuns,
+	FFmpegTesting:           FFmpegRuns,
 }
 
 // ProbeReasons is every ProbeReason, sorted.
@@ -39,6 +45,9 @@ var probeWords = map[ProbeReason]string{
 	DownloadsOnNetworkShare: "Its downloads folder is on a network share.",
 	DataNotWritable:         "Its data folder can't be written to.",
 	HTTPNotListening:        "Its web server isn't listening.",
+	FFmpegFails:             "Its ffmpeg can't convert a test clip on the processor.",
+	NoGPU:                   "Its test run found no graphics card that ffmpeg can use, so it converts on the processor.",
+	FFmpegTesting:           "Its first ffmpeg test run hasn't finished.",
 }
 
 // Words is what r found, as a sentence.

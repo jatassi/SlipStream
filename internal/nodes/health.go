@@ -58,6 +58,9 @@ var probeFixes = map[role.ProbeReason]string{
 	role.DownloadsOnNetworkShare: "Move its downloads folder to a local disk, then Check now.",
 	role.DataNotWritable:         "Let SlipStream write to its data folder, then Check now.",
 	role.HTTPNotListening:        "Check that no other program holds its web port, then Check now.",
+	role.FFmpegFails:             "Check that its ffmpeg path, if one is set, is a working ffmpeg, then Check now.",
+	role.NoGPU:                   "Update its graphics driver, then Check now.",
+	role.FFmpegTesting:           "Wait a minute, then Check now.",
 }
 
 // itemsOf is the Nodes category's answer on b: a Node lapsed or on another
@@ -99,9 +102,12 @@ func itemsOf(b *Board, probes map[ID][]role.ProbeResult, rejected map[ID]role.Re
 				a.Unsure = append(a.Unsure, health.Unsure{Key: pk, Says: health.Says{Subject: subject, Text: awayWords(v) + " SlipStream checks " + labels(roles) + " on it again once it's back."}})
 			case !ok:
 				a.Unsure = append(a.Unsure, health.Unsure{Key: pk, Says: health.Says{Subject: subject, Text: v.Name + " hasn't sent its check results since SlipStream started."}})
-			case verdict.Reason == role.EngineNotListening:
+			case verdict.Reason == role.FFmpegTesting:
+				a.Unsure = append(a.Unsure, health.Unsure{Key: pk, Says: health.Says{Subject: subject, Text: v.Name + " hasn't finished its first ffmpeg test run."}})
+			case verdict.Reason == role.EngineNotListening, verdict.Reason == role.NoGPU:
 				// Download Clients reports a listener that can't bind, beside the
-				// port it is set to.
+				// port it is set to. A Node with no usable graphics card converts
+				// on its processor.
 			case verdict.Fit == role.Fails:
 				a.Items = append(a.Items, probeItem(pk, health.Fail, subject, fmt.Sprintf("%s can't run on %s.", labels(roles), v.Name), verdict))
 			case verdict.Fit == role.Weak:

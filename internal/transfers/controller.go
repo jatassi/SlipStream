@@ -264,6 +264,9 @@ type ControllerConfig struct {
 	FoldersNoted func(node role.NodeID)
 	// Sample asks node for a fresh sample of its volumes.
 	Sample func(ctx context.Context, node role.NodeID) error
+	// ScratchVolume is the id of the volume that holds node's scratch
+	// folder, and whether it is known.
+	ScratchVolume func(node role.NodeID) (string, bool)
 	// Hub wakes the loop on the events of the inputs above that publish
 	// one: roots, volumes, Health and Nodes.
 	Hub     *live.Hub

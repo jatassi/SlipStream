@@ -40,12 +40,12 @@ func TestHousekeepingPrunesInItsUnitsOrder(t *testing.T) {
 		while tasks.WhileReconciling
 	}
 	var got []unit
-	for _, s := range housekeepingSteps(nil, nil, nil, nil, nil, nil, nil) {
+	for _, s := range housekeepingSteps(nil, nil, nil, nil, nil, nil, nil, nil) {
 		got = append(got, unit{s.Label, s.WhileReconciling})
 	}
 	want := []unit{
 		{"Indexer queries and sessions", tasks.Runs}, {"Media Server history", tasks.Runs}, {"History", tasks.Pauses},
-		{"Finished Grabs", tasks.Pauses}, {"Finished Imports", tasks.Pauses}, {"Import records", tasks.Pauses}, {"Subtitle tries", tasks.Runs},
+		{"Finished Grabs", tasks.Pauses}, {"Finished Imports", tasks.Pauses}, {"Finished Conversions", tasks.Pauses}, {"Import records", tasks.Pauses}, {"Subtitle tries", tasks.Runs},
 	}
 	if !slices.Equal(got, want) {
 		t.Fatalf("Housekeeping's units are %v, want %v", got, want)

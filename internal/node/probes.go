@@ -15,6 +15,7 @@ var probeChecks = map[role.Probe]func(*Node) (role.Fit, role.ProbeReason){
 	role.EngineStarts: (*Node).engineStarts,
 	role.DataWritable: (*Node).dataWritable,
 	role.ListenerUp:   (*Node).listenerUp,
+	role.FFmpegRuns:   (*Node).ffmpegRuns,
 }
 
 // probe runs every probe the Role table names.
@@ -70,6 +71,8 @@ func (n *Node) listenerUp() (role.Fit, role.ProbeReason) {
 	}
 	return role.Fits, ""
 }
+
+func (n *Node) ffmpegRuns() (role.Fit, role.ProbeReason) { return n.proofs.Runs() }
 
 // writable creates dir when it is missing, then writes a file in it and
 // removes it.

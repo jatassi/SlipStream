@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jatassi/slipstream/fakes/world/sim/simconv"
 	"github.com/jatassi/slipstream/internal/media/mediatest"
 	"github.com/jatassi/slipstream/internal/media/speech/speechtest"
 	"github.com/jatassi/slipstream/internal/node/internal/logs"
@@ -43,17 +44,18 @@ func testEnv(t *testing.T) (Env, *syncBuffer) {
 	d := testDataDir(t)
 	stderr := new(syncBuffer)
 	return Env{
-		DataDir: d,
-		Environ: []string{"SLIPSTREAM_TORRENT_LISTEN=127.0.0.1:0", "SLIPSTREAM_HTTP_LISTEN=127.0.0.1:0", "SLIPSTREAM_LINK_LISTEN=127.0.0.1:0", "SLIPSTREAM_ENDPOINTS_INDEXERS_CATALOG=https://127.0.0.1:9/master", lowScrypt},
-		Stderr:  stderr,
-		Version: "test",
-		Net:     osNetwork{},
-		Engine:  func(c engine.Config) (engine.Engine, error) { return libtorrent.Open(c) },
-		OpenLog: logs.Open,
-		Media:   mediatest.Prober{},
-		Speech:  speechtest.Fixed{Runs: []speechtest.Run{{Start: time.Second, End: 2 * time.Second}}, Length: 4 * time.Second},
-		Disk:    OSDisk,
-		Test:    Test{SeedLibrary: storagetest.SeedLibrary},
+		DataDir:    d,
+		Environ:    []string{"SLIPSTREAM_TORRENT_LISTEN=127.0.0.1:0", "SLIPSTREAM_HTTP_LISTEN=127.0.0.1:0", "SLIPSTREAM_LINK_LISTEN=127.0.0.1:0", "SLIPSTREAM_ENDPOINTS_INDEXERS_CATALOG=https://127.0.0.1:9/master", lowScrypt},
+		Stderr:     stderr,
+		Version:    "test",
+		Net:        osNetwork{},
+		Engine:     func(c engine.Config) (engine.Engine, error) { return libtorrent.Open(c) },
+		OpenLog:    logs.Open,
+		Media:      mediatest.Prober{},
+		Speech:     speechtest.Fixed{Runs: []speechtest.Run{{Start: time.Second, End: 2 * time.Second}}, Length: 4 * time.Second},
+		Converting: simconv.Default,
+		Disk:       OSDisk,
+		Test:       Test{SeedLibrary: storagetest.SeedLibrary},
 	}, stderr
 }
 

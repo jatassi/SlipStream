@@ -209,9 +209,9 @@ func (t *Transfers) judgeNow(ctx context.Context, board Board) (judgment, error)
 }
 
 // ReservedIn is the bytes live Transfers still expect on volume of node,
-// read in rd: of each unfailed Transfer into a root on it, every file
-// neither verified, placed nor dropped, less what its receiver verified
-// of them.
+// read in rd: of each unfailed Transfer into a root or the scratch folder
+// on it, every file neither verified, placed nor dropped, less what its
+// receiver verified of them.
 func (t *Transfers) ReservedIn(ctx context.Context, rd storage.Reader[storage.Library], node role.NodeID, volume string) (int64, error) {
 	var s snapshot
 	if err := t.records(ctx, rd, &s); err != nil {
@@ -221,12 +221,7 @@ func (t *Transfers) ReservedIn(ctx context.Context, rd storage.Reader[storage.Li
 	s.facts = map[role.NodeID]*tv1.Facts{node: facts}
 	var out int64
 	for _, tr := range s.transfers {
-		root, ok := tr.Destination.(Root)
-		if !ok {
-			continue
-		}
-		d := s.dests[root.ID]
-		if tr.Failure != nil || d.Node != node || d.Volume == nil || d.Volume.ID != volume {
+		if tr.Failure != nil || !t.onVolume(s, tr, node, volume) {
 			continue
 		}
 		var need int64
@@ -238,4 +233,18 @@ func (t *Transfers) ReservedIn(ctx context.Context, rd storage.Reader[storage.Li
 		out += max(need-s.receiving(tr, s.dest(tr)).GetVerifiedBytes(), 0)
 	}
 	return out, nil
+}
+
+// onVolume is whether tr writes into a root or the scratch folder on
+// node's volume.
+func (t *Transfers) onVolume(s snapshot, tr Transfer, node role.NodeID, volume string) bool {
+	switch d := tr.Destination.(type) {
+	case Root:
+		r := s.dests[d.ID]
+		return r.Node == node && r.Volume != nil && r.Volume.ID == volume
+	case Scratch:
+		id, known := t.cfg.ScratchVolume(node)
+		return d.Node == node && known && id == volume
+	}
+	return false
 }
