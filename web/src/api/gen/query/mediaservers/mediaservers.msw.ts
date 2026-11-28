@@ -298,6 +298,7 @@ export const getListMediaServersResponseMock = (
       })),
       membersSee: faker.datatype.boolean(),
       name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      pausesConversions: faker.datatype.boolean(),
       ...(faker.datatype.boolean() ? { plexPass: faker.datatype.boolean() } : {}),
       reachingNode: {
         id: faker.string.uuid(),
@@ -382,6 +383,7 @@ export const getAddMediaServerResponseMock = (
   })),
   membersSee: faker.datatype.boolean(),
   name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  pausesConversions: faker.datatype.boolean(),
   ...(faker.datatype.boolean() ? { plexPass: faker.datatype.boolean() } : {}),
   reachingNode: {
     id: faker.string.uuid(),
@@ -2168,6 +2170,7 @@ export const getGetMediaServerResponseMock = (
   })),
   membersSee: faker.datatype.boolean(),
   name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  pausesConversions: faker.datatype.boolean(),
   ...(faker.datatype.boolean() ? { plexPass: faker.datatype.boolean() } : {}),
   reachingNode: {
     id: faker.string.uuid(),
@@ -2250,6 +2253,7 @@ export const getUpdateMediaServerResponseMock = (
   })),
   membersSee: faker.datatype.boolean(),
   name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  pausesConversions: faker.datatype.boolean(),
   ...(faker.datatype.boolean() ? { plexPass: faker.datatype.boolean() } : {}),
   reachingNode: {
     id: faker.string.uuid(),
@@ -2391,6 +2395,7 @@ export const getConfirmMediaServerIdentityResponseMock = (
   })),
   membersSee: faker.datatype.boolean(),
   name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  pausesConversions: faker.datatype.boolean(),
   ...(faker.datatype.boolean() ? { plexPass: faker.datatype.boolean() } : {}),
   reachingNode: {
     id: faker.string.uuid(),

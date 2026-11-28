@@ -18161,6 +18161,10 @@
           "name": {
             "type": "string"
           },
+          "pausesConversions": {
+            "description": "Whether Conversions on the Node it runs on pause while it transcodes video",
+            "type": "boolean"
+          },
           "plexPass": {
             "description": "Plex only: whether the signed-in account has Plex Pass",
             "type": "boolean"
@@ -18200,6 +18204,7 @@
           "version",
           "identity",
           "reachingNode",
+          "pausesConversions",
           "fallback",
           "contact",
           "sends",
@@ -71392,8 +71397,7 @@
                             "media_server_localhost_on_worker",
                             "media_server_sign_in_refused",
                             "media_server_too_old",
-                            "no_member_libraries",
-                            "not_built_yet"
+                            "no_member_libraries"
                           ],
                           "type": "string"
                         }

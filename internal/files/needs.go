@@ -119,7 +119,7 @@ func wantedNeeds(group []Cell, grabs map[CellKey]GrabCell) []Need {
 			}
 		case Upgradable:
 			upgrades = append(upgrades, c.Target.ID)
-		case Unreleased, Downloading, Met:
+		case Unreleased, Downloading, Converting, Met:
 		}
 	}
 	head := group[0]

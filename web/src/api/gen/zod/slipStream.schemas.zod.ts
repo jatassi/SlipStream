@@ -9918,6 +9918,9 @@ export const MediaserversServerView = zod.object({
     .boolean()
     .describe("Show to Members: whether Members may be offered access to the server"),
   name: zod.string(),
+  pausesConversions: zod
+    .boolean()
+    .describe("Whether Conversions on the Node it runs on pause while it transcodes video"),
   plexPass: zod
     .boolean()
     .exactOptional()

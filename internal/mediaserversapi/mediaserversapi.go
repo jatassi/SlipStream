@@ -12,7 +12,6 @@ import (
 	"slices"
 
 	"github.com/jatassi/slipstream/internal/api"
-	"github.com/jatassi/slipstream/internal/conversionsapi/notyet"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/mediaserverlink"
 	"github.com/jatassi/slipstream/internal/mediaserverlink/link"
@@ -207,13 +206,11 @@ func setOf(p api.Patch[string]) *mediaservers.Set[string] {
 }
 
 func (b patchBody) patch() (mediaservers.Patch, error) {
-	if b.PausesConversions != nil && !*b.PausesConversions {
-		return mediaservers.Patch{}, notyet.Field.On("pausesConversions", "SlipStream can't save this setting yet.")
-	}
 	p := mediaservers.Patch{
 		Name: b.Name, Address: b.Address, APIKey: b.APIKey,
 		FallbackAddress: setOf(b.FallbackAddress), BrowserAddress: setOf(b.BrowserAddress),
 		MembersSee: b.MembersSee, MemberLibraries: b.MemberLibraries, MemberAddress: setOf(b.MemberAddress),
+		PausesConversions: b.PausesConversions,
 	}
 	if b.ReachingNodeID != nil {
 		n, err := nodeID(*b.ReachingNodeID)
@@ -592,7 +589,7 @@ func Routes(r *api.Router, servers Servers) {
 	api.Register(o, api.Admin, api.Op{
 		ID: "updateMediaServer", Method: http.MethodPatch, Path: base + "/{id}", Status: http.StatusOK,
 		Summary: "Change a Media Server, testing it again when the change is to its address, Connect from Node or API key",
-		Errors:  append(update, noMemberLibraries, notyet.Field),
+		Errors:  append(update, noMemberLibraries),
 	}, h.update)
 	api.Register(o, api.Admin, api.Op{
 		ID: "removeMediaServer", Method: http.MethodDelete, Path: base + "/{id}", Status: http.StatusNoContent,
