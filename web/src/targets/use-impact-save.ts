@@ -12,6 +12,8 @@ type Changing = {
   readonly confirm?: number;
   /** Sent only by a change that drops a subtitle language, the one kind that deletes subtitles. */
   readonly confirmSubtitles?: number;
+  /** Sent only by a change that has SlipStream make files. */
+  readonly confirmMade?: number;
 };
 
 export type ImpactChange = {
@@ -29,8 +31,38 @@ const isNothing = (impact: TargetsImpact): boolean =>
   impact.renamed === 0 &&
   impact.newlyWanted === 0 &&
   impact.downloading === 0 &&
+  impact.made.files === 0 &&
   impact.subtitles.gained.every((want) => want.searches === 0) &&
   subtitlesDeleted(impact) === 0;
+
+/**
+ * Runs a change with the counts the Admin confirmed from `confirmed`, or
+ * `made` files to make when they picked fewer. A change that now does more
+ * than that is refused and answers "changed".
+ */
+export async function runConfirmed(
+  change: ImpactChange,
+  unwanted: Unwanted,
+  confirmed: TargetsImpact,
+  made = confirmed.made.files,
+): Promise<"saved" | "changed"> {
+  try {
+    await change.run({
+      unwanted,
+      confirm: confirmed.unwanted.files,
+      ...(confirmed.subtitles.dropped.length > 0 && {
+        confirmSubtitles: subtitlesDeleted(confirmed),
+      }),
+      ...(made > 0 && { confirmMade: made }),
+    });
+  } catch (error) {
+    if (!isProblem(error, "impact_changed")) {
+      throw error;
+    }
+    return "changed";
+  }
+  return "saved";
+}
 
 export type Showing = {
   readonly change: ImpactChange;
@@ -59,18 +91,7 @@ export function useImpactSave(): {
   const [showing, setShowing] = useState<Showing>();
 
   const commit = async (change: ImpactChange, unwanted: Unwanted, confirmed: TargetsImpact) => {
-    try {
-      await change.run({
-        unwanted,
-        confirm: confirmed.unwanted.files,
-        ...(confirmed.subtitles.dropped.length > 0 && {
-          confirmSubtitles: subtitlesDeleted(confirmed),
-        }),
-      });
-    } catch (error) {
-      if (!isProblem(error, "impact_changed")) {
-        throw error;
-      }
+    if ((await runConfirmed(change, unwanted, confirmed)) === "changed") {
       const { impact } = await change.run({ preview: true });
       setShowing({ change, impact, changed: true });
       return;

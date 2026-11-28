@@ -1,5 +1,5 @@
 import type { TargetsImpact, TargetsSubtitles } from "../api/gen/model";
-import { bytes } from "../format";
+import { bytes, spanWords } from "../format";
 import { scansFirst } from "../subtitles/scan-words";
 import { languageName } from "../subtitles/settings-words";
 import type { Unwanted } from "./use-impact-save";
@@ -51,8 +51,12 @@ export function subtitleLines({ gained, dropped, days }: TargetsSubtitles): stri
 export const subtitlesDeleted = (impact: TargetsImpact): number =>
   impact.subtitles.dropped.reduce((count, want) => count + want.deleted, 0);
 
+/** What a change that makes files costs: "SlipStream will make 412 files, about 2 days 13 h and 340 GB." */
+export const madeLine = ({ files, seconds, bytes: size }: TargetsImpact["made"]): string =>
+  `SlipStream will make ${some(files, "file", "files")}, about ${spanWords(seconds)} and ${bytes(size)}.`;
+
 export function impactLines(impact: TargetsImpact): string[] {
-  const { works, ownList, unwanted, renamed, newlyWanted, downloading } = impact;
+  const { works, ownList, unwanted, renamed, newlyWanted, downloading, made } = impact;
   return [
     works > 0 && `${counted(works, "Work changes", "Works change")}.`,
     ownList > 0 &&
@@ -62,6 +66,7 @@ export function impactLines(impact: TargetsImpact): string[] {
     renamed > 0 && `${counted(renamed, "file is renamed", "files are renamed")}.`,
     newlyWanted > 0 &&
       `SlipStream will look for ${counted(newlyWanted, "more file", "more files")}.`,
+    made.files > 0 && madeLine(made),
     downloading > 0 &&
       (downloading === 1
         ? "1 download in progress is no longer needed. When it finishes, it waits in Pending imports."
