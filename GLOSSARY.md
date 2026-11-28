@@ -87,7 +87,7 @@ _In UI_: "Renames", as in "Review all renames".
 _Avoid_: Mass rename, rename preview
 
 **Cell**:
-One Edition at one Target of one Item. A cell's state is failed, missing, downloading, upgradable, unreleased or met.
+One Edition at one Target of one Item. A cell's state is failed, missing, downloading, converting, upgradable, unreleased or met.
 _In UI_: none. Say "file" or name the episode and Target, such as "S01E03 at 1080p".
 _Avoid_: Slot, square
 
@@ -97,8 +97,8 @@ _In UI_: "Available on".
 _Avoid_: Release date (for the deciding day), available date, out date
 
 **Item status**:
-An Item's state, rolled up from its cells with what needs attention first: failed, missing, downloading, upgradable, unreleased, met.
-_In UI_: Each state's word: Failed, Missing, Downloading, Upgrade, Unreleased, Met.
+An Item's state, rolled up from its cells with what needs attention first: failed, missing, downloading, converting, upgradable, unreleased, met.
+_In UI_: Each state's word: Failed, Missing, Downloading, Converting, Upgrade, Unreleased, Met.
 _Avoid_: Available (for an Item or cell), complete
 
 **Needs you**:
@@ -140,6 +140,41 @@ _Avoid_: Transcode, transcode job, pipeline job, encode, task. Transcode names o
 What a Target's file should come out as when SlipStream makes or adjusts it: video, dynamic range, audio tracks and container. They belong to the Target, and every Profile that derives the Target uses them.
 _In UI_: "Conversion settings".
 _Avoid_: Recipe, encode settings, preset, transcode profile
+
+**Conversion settings version**:
+A number on a Target's Conversion settings that rises with each change and is recorded on every file a Conversion makes, so the files made with older settings can be found and remade.
+_In UI_: none. Say "made with older settings".
+_Avoid_: Revision, settings hash
+
+**Made from (sourcing)**:
+A Profile row whose Target's file SlipStream makes from the file of a Target above it in the same Profile, either always or once a download hasn't come within a wait. The Conversion always reads a downloaded file, never a made one.
+_In UI_: "Made from {Target}", and "Downloaded, or made from {Target} after {time}" for the row that waits for a download first.
+_Avoid_: Derived from, transcoded from, generated from
+
+**Derived file**:
+A library file a Conversion made, which has no release name and keeps the id of the downloaded file it was made from. It counts for every Target it meets.
+_In UI_: none. Say "From a Conversion of {source file name}".
+_Avoid_: Transcoded file, encode, rendition
+
+**Trial run**:
+A short ffmpeg run on a two-second synthetic clip the Node makes, which proves the Node can convert one source class with one settings shape. A Node runs its trial runs again whenever its ffmpeg signature changes.
+_In UI_: "Test run".
+_Avoid_: Benchmark, capability check, trial (in UI copy)
+
+**Proof**:
+A passed trial run, kept per Node, ffmpeg signature, settings shape and source class, that names the pipeline that passed. A Conversion goes only to a Node with a proof for its shape and class, and runs the pipeline that proof names.
+_In UI_: none. Say what the Node converts with, such as "Attic converts with Intel Quick Sync."
+_Avoid_: Capability, certification
+
+**No capable Node**:
+A Conversion that no Node can run now, because no online Node has the Converting Role, none has a proof for it, or its Target runs only on a Node that is away.
+_In UI_: "No Node can convert this".
+_Avoid_: Unplaceable, stuck, unassigned
+
+**Backfill**:
+The last of the Conversion queue's four lanes, which holds the Conversions for Works that lacked a new made-from Target, remakes, files a Library scan adopts and Works moved onto a Profile.
+_In UI_: "Backfill", as a lane heading only.
+_Avoid_: Bulk conversion, catch-up
 
 **Blocklist**:
 Releases known to be bad, keyed by torrent info hash, that no search grabs again for any Work until an Admin removes them. A release fault, Mark failed, Not this Release on a waiting download and a canceled Grab the Admin chose to blocklist each add one.
