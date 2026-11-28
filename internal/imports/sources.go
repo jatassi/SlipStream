@@ -17,8 +17,16 @@ type sourceRule struct {
 	// a Work delete leaves its waiting files to Pending imports, where
 	// its root's Leads show beside it.
 	landsInPlace bool
-	probe        probeAt
-	announce     announcing
+	// ownRoot: its files land in its own root, from their Path there.
+	ownRoot bool
+	// sends: a file on another Node than its root's goes there in imports'
+	// own Transfer.
+	sends bool
+	// placedBy is how each of its files reached its root before it
+	// lands, empty when its place step moves the bytes.
+	placedBy PlacedBy
+	probe    probeAt
+	announce announcing
 	// arrival is why a landed file's Work has its Conversions converge.
 	arrival files.Arrival
 }
@@ -38,11 +46,13 @@ type announcing int
 const (
 	loud announcing = iota
 	none
+	// quiet: History lists it, and connections and the bell never hear.
+	quiet
 )
 
 var sourceRules = map[Source]sourceRule{
-	FromGrab:       {download: true, probe: onImportNode, announce: loud, arrival: files.ArrivalNew},
-	FromFolder:     {picked: true, probe: onImportNode, announce: loud, arrival: files.ArrivalNew},
-	FromRoot:       {landsInPlace: true, probe: carried, announce: none, arrival: files.ArrivalAdopted},
-	FromConversion: {landsInPlace: true, probe: carried, announce: none, arrival: files.ArrivalMade},
+	FromGrab:       {download: true, sends: true, probe: onImportNode, announce: loud, arrival: files.ArrivalNew},
+	FromFolder:     {picked: true, sends: true, probe: onImportNode, announce: loud, arrival: files.ArrivalNew},
+	FromRoot:       {landsInPlace: true, ownRoot: true, probe: carried, announce: none, arrival: files.ArrivalAdopted},
+	FromConversion: {ownRoot: true, placedBy: Converted, probe: carried, announce: quiet, arrival: files.ArrivalMade},
 }

@@ -126,6 +126,7 @@ const importOf = (
 ): ImportsImportEntry => ({
   stage: "waiting",
   grab: null,
+  conversion: null,
   nodeId: null,
   root: null,
   folder: "",

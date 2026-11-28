@@ -238,6 +238,17 @@ func (q *Queries) GetImport(ctx context.Context, id ImportID) (ImportsImport, er
 	return i, err
 }
 
+const getImportOfConversion = `-- name: GetImportOfConversion :one
+SELECT id FROM imports_import WHERE conversion_id = ?1
+`
+
+func (q *Queries) GetImportOfConversion(ctx context.Context, conversionID storage.UUID) (ImportID, error) {
+	row := q.db.QueryRowContext(ctx, getImportOfConversion, conversionID)
+	var id ImportID
+	err := row.Scan(&id)
+	return id, err
+}
+
 const getOpenFolderImport = `-- name: GetOpenFolderImport :one
 SELECT id, source, grab_id, node_id, info_hash, root_id, folder, content_type, hint, suggestion, work_id, edition, move_files, failure_code, ended, created_at, ignored_at, finished_at, conversion_id FROM imports_import
 WHERE source = 'folder' AND node_id = ? AND folder = ? AND finished_at IS NULL AND work_id IS ? AND edition IS ?
@@ -375,8 +386,8 @@ func (q *Queries) Ignore(ctx context.Context, arg IgnoreParams) error {
 const insertFile = `-- name: InsertFile :exec
 INSERT INTO imports_file (import_id, position, path, source_index, size, modified_at, node_file_id, node_volume_id, probe, quality, cut,
                           release_name, source_name, outcome, reason, hold, confirmed, root_id, dest, sent_transfer, sent_order,
-                          placed_by, file_id, source_removed_at, seeded)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                          placed_by, file_id, source_removed_at, seeded, title_read)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type InsertFileParams struct {
@@ -405,6 +416,7 @@ type InsertFileParams struct {
 	FileID          files.ID
 	SourceRemovedAt storage.Time
 	Seeded          int64
+	TitleRead       *string
 }
 
 func (q *Queries) InsertFile(ctx context.Context, arg InsertFileParams) error {
@@ -434,6 +446,7 @@ func (q *Queries) InsertFile(ctx context.Context, arg InsertFileParams) error {
 		arg.FileID,
 		arg.SourceRemovedAt,
 		arg.Seeded,
+		arg.TitleRead,
 	)
 	return err
 }
@@ -486,29 +499,30 @@ func (q *Queries) InsertFill(ctx context.Context, arg InsertFillParams) error {
 
 const insertImport = `-- name: InsertImport :exec
 INSERT INTO imports_import (id, source, grab_id, node_id, info_hash, root_id, folder, content_type, hint, suggestion, work_id, edition,
-                            move_files, failure_code, ended, created_at, ignored_at, finished_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            move_files, failure_code, ended, created_at, ignored_at, finished_at, conversion_id)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type InsertImportParams struct {
-	ID          ImportID
-	Source      string
-	GrabID      grabs.GrabID
-	NodeID      role.NodeID
-	InfoHash    []byte
-	RootID      roots.ID
-	Folder      *string
-	ContentType works.TypeID
-	Hint        string
-	Suggestion  *string
-	WorkID      works.WorkID
-	Edition     *release.CutKey
-	MoveFiles   int64
-	FailureCode *string
-	Ended       *string
-	CreatedAt   storage.Time
-	IgnoredAt   storage.Time
-	FinishedAt  storage.Time
+	ID           ImportID
+	Source       string
+	GrabID       grabs.GrabID
+	NodeID       role.NodeID
+	InfoHash     []byte
+	RootID       roots.ID
+	Folder       *string
+	ContentType  works.TypeID
+	Hint         string
+	Suggestion   *string
+	WorkID       works.WorkID
+	Edition      *release.CutKey
+	MoveFiles    int64
+	FailureCode  *string
+	Ended        *string
+	CreatedAt    storage.Time
+	IgnoredAt    storage.Time
+	FinishedAt   storage.Time
+	ConversionID storage.UUID
 }
 
 func (q *Queries) InsertImport(ctx context.Context, arg InsertImportParams) error {
@@ -531,6 +545,7 @@ func (q *Queries) InsertImport(ctx context.Context, arg InsertImportParams) erro
 		arg.CreatedAt,
 		arg.IgnoredAt,
 		arg.FinishedAt,
+		arg.ConversionID,
 	)
 	return err
 }
@@ -1218,43 +1233,6 @@ func (q *Queries) ListUnfinished(ctx context.Context) ([]ImportsImport, error) {
 	return items, nil
 }
 
-const listUnfinishedAmong = `-- name: ListUnfinishedAmong :many
-SELECT id FROM imports_import WHERE id IN (/*SLICE:ids*/?) AND finished_at IS NULL ORDER BY id
-`
-
-func (q *Queries) ListUnfinishedAmong(ctx context.Context, ids []ImportID) ([]ImportID, error) {
-	query := listUnfinishedAmong
-	var queryParams []interface{}
-	if len(ids) > 0 {
-		for _, v := range ids {
-			queryParams = append(queryParams, v)
-		}
-		query = strings.Replace(query, "/*SLICE:ids*/?", strings.Repeat(",?", len(ids))[1:], 1)
-	} else {
-		query = strings.Replace(query, "/*SLICE:ids*/?", "NULL", 1)
-	}
-	rows, err := q.db.QueryContext(ctx, query, queryParams...)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ImportID
-	for rows.Next() {
-		var id ImportID
-		if err := rows.Scan(&id); err != nil {
-			return nil, err
-		}
-		items = append(items, id)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const listUnfinishedImports = `-- name: ListUnfinishedImports :many
 SELECT id, source, grab_id, node_id, info_hash, root_id, folder, content_type, hint, suggestion, work_id, edition, move_files, failure_code, ended, created_at, ignored_at, finished_at, conversion_id FROM imports_import WHERE finished_at IS NULL ORDER BY source <> 'root', root_id, folder, id
 `
@@ -1404,6 +1382,43 @@ func (q *Queries) ListUnfinishedRootImports(ctx context.Context) ([]ImportsImpor
 			return nil, err
 		}
 		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listUnrecentAmong = `-- name: ListUnrecentAmong :many
+SELECT id FROM imports_import WHERE id IN (/*SLICE:ids*/?) AND (finished_at IS NULL OR source = 'conversion') ORDER BY id
+`
+
+func (q *Queries) ListUnrecentAmong(ctx context.Context, ids []ImportID) ([]ImportID, error) {
+	query := listUnrecentAmong
+	var queryParams []interface{}
+	if len(ids) > 0 {
+		for _, v := range ids {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:ids*/?", strings.Repeat(",?", len(ids))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ImportID
+	for rows.Next() {
+		var id ImportID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
 	}
 	if err := rows.Close(); err != nil {
 		return nil, err

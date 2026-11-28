@@ -19,6 +19,7 @@ import { Section } from "../ui/section";
 import { useShell } from "../ui/shell-context";
 import { Skeleton } from "../ui/skeleton";
 import { useAdding } from "./adding";
+import { ConversionEntry } from "./pending-entry";
 import { DownloadEntry, waitingFiles } from "./download-entry";
 import { type FolderGroup, FolderEntry, foldersOf } from "./folder-entry";
 import { ImportFilesSheet } from "./import-files-sheet";
@@ -32,9 +33,10 @@ export const pendingParams = (view: PendingView): ListImportsParams =>
 
 type Download = { readonly entry: ImportsImportEntry; readonly type: WorksContentType };
 
-/** Pending imports' groups in their fixed order: downloads, then each root, then folders imported by hand. */
+/** Pending imports' groups in their fixed order: downloads, Conversions, then each root, then folders imported by hand. */
 export type PendingGroup =
   | { readonly kind: "downloads"; readonly downloads: readonly Download[] }
+  | { readonly kind: "conversions"; readonly made: readonly Download[] }
   | { readonly kind: "root"; readonly group: Group }
   | { readonly kind: "folders"; readonly folders: readonly FolderGroup[] };
 
@@ -68,14 +70,18 @@ export function groupsOf(
   { leads, imports, entries }: ReturnType<typeof usePendingImports>,
   types: readonly WorksContentType[],
 ): PendingGroup[] {
-  const downloads = imports.flatMap((entry) =>
-    entry.source === "grab"
-      ? types.filter(({ id }) => id === entry.contentType).map((type) => ({ entry, type }))
-      : [],
-  );
+  const typed = (source: ImportsImportEntry["source"]) =>
+    imports.flatMap((entry) =>
+      entry.source === source
+        ? types.filter(({ id }) => id === entry.contentType).map((type) => ({ entry, type }))
+        : [],
+    );
+  const downloads = typed("grab");
+  const made = typed("conversion");
   const folders = foldersOf(imports.filter(({ source }) => source === "folder"));
   return [
     ...(downloads.length === 0 ? [] : [{ kind: "downloads", downloads } as const]),
+    ...(made.length === 0 ? [] : [{ kind: "conversions", made } as const]),
     ...rootGroupsOf(view === "ignored" ? [] : leads, entries, types).map(
       (group) => ({ kind: "root", group }) as const,
     ),
@@ -159,6 +165,23 @@ function Downloads({ downloads }: { downloads: readonly Download[] }) {
   );
 }
 
+function Conversions({ made }: { made: readonly Download[] }) {
+  return (
+    <Section title="From Conversions">
+      <ul aria-label="Pending imports from Conversions" className="flex flex-col gap-2">
+        {made.map(({ entry, type }) => (
+          <Suspense
+            key={entry.id}
+            fallback={<Skeleton label="Loading the Conversion's file" shape="rows" lines={2} />}
+          >
+            <ConversionEntry entry={entry} type={type} />
+          </Suspense>
+        ))}
+      </ul>
+    </Section>
+  );
+}
+
 function Folders({ folders }: { folders: readonly FolderGroup[] }) {
   return (
     <Section title="From Import files">
@@ -175,6 +198,8 @@ function PendingGroupOf({ group }: { group: PendingGroup }) {
   switch (group.kind) {
     case "downloads":
       return <Downloads downloads={group.downloads} />;
+    case "conversions":
+      return <Conversions made={group.made} />;
     case "root":
       return <RootGroup group={group.group} />;
     case "folders":
@@ -193,7 +218,8 @@ const empties: { readonly [V in PendingView]: string } = {
 };
 
 /**
- * Pending imports: the downloads that wait for the Admin, then what each
+ * Pending imports: the downloads that wait for the Admin, then the files
+ * Conversions made that wait, then what each
  * root's last library scan added and the folders it couldn't match, then the
  * folders the Admin opened with Import files. The Ignored view lists the
  * folders the Admin set aside.

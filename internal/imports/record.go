@@ -9,8 +9,10 @@ import (
 	"slices"
 
 	"github.com/jatassi/slipstream/internal/bencode"
+	"github.com/jatassi/slipstream/internal/conversions"
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/imports/internal/db"
+	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storing"
 	"github.com/jatassi/slipstream/internal/works"
@@ -108,6 +110,9 @@ func recordOf(row db.ImportsImport, fs []db.ImportsFile, items []db.ImportsFileI
 	if row.FailureCode != nil {
 		im.Failure = new(FailureCode(*row.FailureCode))
 	}
+	if !row.ConversionID.IsZero() {
+		im.Conversion = &conversions.ID{UUID: row.ConversionID}
+	}
 	if err := json.Unmarshal([]byte(row.Hint), &im.Hint); err != nil {
 		return Import{}, fmt.Errorf("import %s: its hint: %w", row.ID, err)
 	}
@@ -161,6 +166,9 @@ func fileOf(row db.ImportsFile, items []works.ItemID) (File, error) {
 	if f.Hold, err = fromJSON[Hold](row.Hold); err != nil {
 		return File{}, fmt.Errorf("the hold of %s: %w", row.Path, err)
 	}
+	if f.Title, err = fromJSON[release.Read](row.TitleRead); err != nil {
+		return File{}, fmt.Errorf("the title of %s: %w", row.Path, err)
+	}
 	if row.Dest != nil {
 		holding, err := storing.ParseRel(*row.Dest)
 		if err != nil {
@@ -207,6 +215,9 @@ func fileRow(id ImportID, f File) (db.ImportsFile, error) {
 	if row.Hold, err = jsonOf(f.Hold); err != nil {
 		return db.ImportsFile{}, fmt.Errorf("the hold of %s: %w", f.Path, err)
 	}
+	if row.TitleRead, err = jsonOf(f.Title); err != nil {
+		return db.ImportsFile{}, fmt.Errorf("the title of %s: %w", f.Path, err)
+	}
 	if f.Dest != nil {
 		row.RootID, row.Dest = f.Dest.Root, new(f.Dest.Holding.String())
 	}
@@ -229,7 +240,7 @@ func insertFile(ctx context.Context, q *db.Queries, id ImportID, f File) error {
 		NodeFileID: row.NodeFileID, NodeVolumeID: row.NodeVolumeID, Probe: row.Probe, Quality: row.Quality, Cut: row.Cut,
 		ReleaseName: row.ReleaseName, SourceName: row.SourceName, Outcome: row.Outcome, Reason: row.Reason, Hold: row.Hold,
 		Confirmed: row.Confirmed, RootID: row.RootID, Dest: row.Dest, SentTransfer: row.SentTransfer, SentOrder: row.SentOrder,
-		PlacedBy: row.PlacedBy, FileID: row.FileID, SourceRemovedAt: row.SourceRemovedAt, Seeded: row.Seeded,
+		PlacedBy: row.PlacedBy, FileID: row.FileID, SourceRemovedAt: row.SourceRemovedAt, Seeded: row.Seeded, TitleRead: row.TitleRead,
 	})
 	if err != nil {
 		return err
@@ -277,6 +288,9 @@ func insertImport(ctx context.Context, tx *storage.Tx[file], im Import) error {
 	}
 	if im.MoveFiles {
 		p.MoveFiles = 1
+	}
+	if im.Conversion != nil {
+		p.ConversionID = im.Conversion.UUID
 	}
 	var err error
 	if p.Hint, p.Suggestion, p.FailureCode, p.Ended, err = columnsOf(im); err != nil {

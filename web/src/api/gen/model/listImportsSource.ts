@@ -1,1 +1,1 @@
-export type ListImportsSource = "grab" | "root" | "folder";
+export type ListImportsSource = "grab" | "root" | "folder" | "conversion";

@@ -13783,6 +13783,17 @@
             "pattern": "^[a-z][a-z0-9]{1,15}$",
             "type": "string"
           },
+          "conversion": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ImportsImportMade"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The Conversion that made its file; null outside a conversion Import, and once the Conversion is gone"
+          },
           "createdAt": {
             "format": "date-time",
             "type": "string"
@@ -13872,18 +13883,19 @@
                 "type": "null"
               }
             ],
-            "description": "The library root the folder is in; null outside a root Import"
+            "description": "The library root the folder is in, or the one a Conversion made its file for; null outside a root or conversion Import"
           },
           "seeding": {
             "description": "The download keeps seeding while a file waits",
             "type": "boolean"
           },
           "source": {
-            "description": "root: a folder a library scan found in a root and couldn't place",
+            "description": "root: a folder a library scan found in a root and couldn't place; conversion: the file a Conversion made",
             "enum": [
               "grab",
               "root",
-              "folder"
+              "folder",
+              "conversion"
             ],
             "type": "string"
           },
@@ -13922,6 +13934,7 @@
           "source",
           "stage",
           "grab",
+          "conversion",
           "nodeId",
           "root",
           "folder",
@@ -14044,7 +14057,8 @@
               "copy",
               "transfer",
               "move",
-              "in_place"
+              "in_place",
+              "converted"
             ],
             "type": [
               "string",
@@ -14173,6 +14187,24 @@
           "id",
           "release",
           "stage"
+        ],
+        "type": "object"
+      },
+      "ImportsImportMade": {
+        "additionalProperties": false,
+        "properties": {
+          "conversionId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "sourceFile": {
+            "description": "The name of the file the Conversion made it from",
+            "type": "string"
+          }
+        },
+        "required": [
+          "conversionId",
+          "sourceFile"
         ],
         "type": "object"
       },
@@ -14459,7 +14491,8 @@
               "removed",
               "canceled",
               "blocklisted",
-              "work_deleted"
+              "work_deleted",
+              "conversion_canceled"
             ],
             "type": "string"
           },
@@ -59503,7 +59536,8 @@
               "enum": [
                 "grab",
                 "root",
-                "folder"
+                "folder",
+                "conversion"
               ],
               "type": "string"
             }

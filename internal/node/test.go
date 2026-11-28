@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/jatassi/slipstream/internal/conversions"
 	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/imports"
@@ -88,6 +89,8 @@ type Half struct {
 	Transfers *transfers.Transfers
 	// Moves is the Controller's S48 (Moves).
 	Moves *moves.Moves
+	// Conversions is the Controller's S44 (Conversion).
+	Conversions *conversions.Conversions
 }
 
 func (t Test) held(local *storage.DB[storage.Local]) []role.Held {

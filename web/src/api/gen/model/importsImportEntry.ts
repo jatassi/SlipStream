@@ -4,12 +4,15 @@ import type { ImportsImportEntryStage } from "./importsImportEntryStage.ts";
 import type { ImportsImportFailure } from "./importsImportFailure.ts";
 import type { ImportsImportFile } from "./importsImportFile.ts";
 import type { ImportsImportGrab } from "./importsImportGrab.ts";
+import type { ImportsImportMade } from "./importsImportMade.ts";
 import type { ImportsRootLabel } from "./importsRootLabel.ts";
 import type { ImportsSuggestion } from "./importsSuggestion.ts";
 
 export interface ImportsImportEntry {
   /** @pattern ^[a-z][a-z0-9]{1,15}$ */
   contentType: string;
+  /** The Conversion that made its file; null outside a conversion Import, and once the Conversion is gone */
+  conversion: ImportsImportMade | null;
   createdAt: string;
   /**
    * The key of the cut its files fill; null for any under any cut
@@ -44,11 +47,11 @@ export interface ImportsImportEntry {
    * @nullable
    */
   nodeId: string | null;
-  /** The library root the folder is in; null outside a root Import */
+  /** The library root the folder is in, or the one a Conversion made its file for; null outside a root or conversion Import */
   root: ImportsRootLabel | null;
   /** The download keeps seeding while a file waits */
   seeding: boolean;
-  /** root: a folder a library scan found in a root and couldn't place */
+  /** root: a folder a library scan found in a root and couldn't place; conversion: the file a Conversion made */
   source: ImportsImportEntrySource;
   stage: ImportsImportEntryStage;
   /** The best candidate; null when none matched */

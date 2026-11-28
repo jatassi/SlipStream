@@ -392,20 +392,24 @@ func (w *realWorld) colorRange(file string) string {
 }
 
 // TestPauseAndStall runs a 720p H.264 clip through a 720p HEVC encode, long
-// enough on the processor to pause, with the stall limit shortened.
+// enough on the processor to pause. The pause case keeps the default stall
+// limit, since TestStall proves under synctest that a paused run never
+// stalls, and a resumed encode can take seconds to move again on a loaded
+// runner. The stall case shortens the limit.
 func TestPauseAndStall(t *testing.T) {
 	const stall = 3 * time.Second
 	s := settingsOf(encode.HEVC, encode.Bit8, encode.SDR, false, encode.P720)
 	for _, c := range []struct {
 		name  string
+		stall time.Duration
 		drive func(w *realWorld, src media.Record, r *tapRun)
 	}{
-		{"p freezes the output time with no stall and u resumes to a passing output", func(w *realWorld, src media.Record, r *tapRun) {
+		{"p freezes the output time and u resumes to a passing output", DefaultTimings().Stall, func(w *realWorld, src media.Record, r *tapRun) {
 			w.intent(src, s, true, cv1.Stage_STAGE_RUNNING)
 			w.await("paused", 10*time.Second)
 			time.Sleep(time.Second)
 			still := r.outTime()
-			time.Sleep(2 * stall)
+			time.Sleep(3 * time.Second)
 			if now := r.outTime(); now != still {
 				w.t.Errorf("the output time moved from %d to %d while paused", still, now)
 			}
@@ -413,7 +417,7 @@ func TestPauseAndStall(t *testing.T) {
 			w.await("resumed", 10*time.Second)
 			w.awaitExit(2 * time.Minute)
 		}},
-		{"a run that stops making progress stalls", func(w *realWorld, _ media.Record, r *tapRun) {
+		{"a run that stops making progress stalls", stall, func(w *realWorld, _ media.Record, r *tapRun) {
 			if err := r.Pause(); err != nil {
 				w.t.Fatal(err)
 			}
@@ -431,7 +435,7 @@ func TestPauseAndStall(t *testing.T) {
 		}},
 	} {
 		t.Run(c.name, func(t *testing.T) {
-			w := newRealWorld(t, stall)
+			w := newRealWorld(t, c.stall)
 			src := w.source(encode.ClassH264x8, clip.Size{W: 1280, H: 720, Seconds: 10}, 1280, 720)
 			w.intent(src, s, false, cv1.Stage_STAGE_READY)
 			w.await("started", time.Minute)

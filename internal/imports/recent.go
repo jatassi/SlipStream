@@ -35,8 +35,9 @@ const recentPage = 256
 
 // Recent is the rows newest finished Imports, an Import finished once its
 // record says so or is gone, and how many finished Imports landed a file
-// at or after since. It walks landings newest first, so it reads past the
-// landings of unfinished Imports only.
+// at or after since. A conversion Import is never among them. It walks
+// landings newest first, so it reads past the landings of unfinished and
+// conversion Imports only.
 func (im *Imports) Recent(ctx context.Context, r storage.Reader[file], rows int, since time.Time) (Recent, error) {
 	kept, err := finishedNewest(ctx, r, rows)
 	if err != nil {
@@ -54,13 +55,13 @@ func (im *Imports) Recent(ctx context.Context, r storage.Reader[file], rows int,
 	for i, t := range tallies {
 		ids[i] = t.Import
 	}
-	open, err := unfinishedAmong(ctx, r, ids)
+	skip, err := unrecentAmong(ctx, r, ids)
 	if err != nil {
 		return Recent{}, err
 	}
 	for _, t := range tallies {
 		switch {
-		case open[t.Import]:
+		case skip[t.Import]:
 		case t.Upgraded:
 			out.Upgraded++
 		default:
@@ -88,12 +89,12 @@ func finishedNewest(ctx context.Context, r storage.Reader[file], n int) ([]stora
 				fresh = append(fresh, l.Import)
 			}
 		}
-		open, err := unfinishedAmong(ctx, r, fresh)
+		skip, err := unrecentAmong(ctx, r, fresh)
 		if err != nil {
 			return nil, err
 		}
 		for _, id := range fresh {
-			if !open[id] && len(kept) < n {
+			if !skip[id] && len(kept) < n {
 				kept = append(kept, id)
 			}
 		}
@@ -105,14 +106,16 @@ func finishedNewest(ctx context.Context, r storage.Reader[file], n int) ([]stora
 	return kept, nil
 }
 
-func unfinishedAmong(ctx context.Context, r storage.Reader[file], ids []storage.UUID) (map[storage.UUID]bool, error) {
+// unrecentAmong is which of ids Recent leaves out: unfinished and
+// conversion Imports.
+func unrecentAmong(ctx context.Context, r storage.Reader[file], ids []storage.UUID) (map[storage.UUID]bool, error) {
 	q, out := db.New(r), map[storage.UUID]bool{}
 	for chunk := range slices.Chunk(ids, works.Batch) {
 		of := make([]ImportID, len(chunk))
 		for i, id := range chunk {
 			of[i] = ImportID{UUID: id}
 		}
-		open, err := q.ListUnfinishedAmong(ctx, of)
+		open, err := q.ListUnrecentAmong(ctx, of)
 		if err != nil {
 			return nil, err
 		}

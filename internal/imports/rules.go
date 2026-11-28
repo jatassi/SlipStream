@@ -138,11 +138,12 @@ var rules = map[ReasonCode]rule{
 	RootChanged: {sentence: func(_ Reason, w wording) string {
 		return "The " + w.work() + " moved to another library root while this file was being imported."
 	}},
-	ByAdmin:     {sentence: fixed("You chose not to import this.")},
-	Removed:     {sentence: fixed("The download was removed.")},
-	Canceled:    {sentence: fixed("The Grab was canceled.")},
-	Blocklisted: {sentence: fixed("The Release is on the Blocklist.")},
-	WorkDeleted: {sentence: func(_ Reason, w wording) string { return "The " + w.work() + " was deleted." }},
+	ByAdmin:            {sentence: fixed("You chose not to import this.")},
+	Removed:            {sentence: fixed("The download was removed.")},
+	Canceled:           {sentence: fixed("The Grab was canceled.")},
+	Blocklisted:        {sentence: fixed("The Release is on the Blocklist.")},
+	WorkDeleted:        {sentence: func(_ Reason, w wording) string { return "The " + w.work() + " was deleted." }},
+	ConversionCanceled: {sentence: fixed("The Conversion was canceled.")},
 }
 
 func fixed(s string) func(Reason, wording) string { return func(Reason, wording) string { return s } }

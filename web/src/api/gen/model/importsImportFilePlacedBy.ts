@@ -9,4 +9,5 @@ export type ImportsImportFilePlacedBy =
   | "transfer"
   | "move"
   | "in_place"
+  | "converted"
   | null;

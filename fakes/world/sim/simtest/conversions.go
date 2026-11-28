@@ -82,8 +82,9 @@ func Short(d time.Duration) Outcome { return Outcome{kind: short, short: d} }
 
 // Conversions plays cued outcomes on the runs of videos, in order, one per
 // run: once a video's cues are played, its runs succeed. A video is the
-// stem the walk fills its bytes from, a one-video release's name or
-// <release>/<path> for a file of a release of files, so a run matches
+// stem the walk fills its bytes from, a one-video release's name,
+// <release>/<path> for a file of a release of files or <folder>/<path>
+// for a file of a library folder, so a run matches
 // whether it reads the library file or its copy in scratch. Proofs names
 // the pipelines a Node's test runs pass. One Conversions serves every Node
 // and keeps its state across their restarts.
@@ -171,7 +172,7 @@ func (c *Conversions) next(input string) (Outcome, string, bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	for stem, cues := range c.cues {
-		if !bytes.Equal(head, releases.Filler(stem, int64(len(head)))) {
+		if !bytes.Equal(head, releases.Filler(stem, int64(len(head)))) && !bytes.HasPrefix([]byte(stem), head) {
 			continue
 		}
 		c.ran[stem]++

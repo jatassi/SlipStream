@@ -86,6 +86,7 @@ const reasonWords: { readonly [C in ImportsReasonCode]: Wording } = {
   canceled: worded,
   blocklisted: worded,
   work_deleted: worded,
+  conversion_canceled: worded,
 };
 
 /** Why one file waits, in plain words. */

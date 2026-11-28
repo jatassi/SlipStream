@@ -119,9 +119,16 @@ type Config struct {
 type Conversions struct {
 	cfg      Config
 	importer Importer
+	rec      *reconciler
+	// roster reads the Board and the holders' facts.
+	roster func() roster
 }
 
-func New(cfg Config) *Conversions { return &Conversions{cfg: cfg} }
+func New(cfg Config) *Conversions {
+	c := &Conversions{cfg: cfg, rec: newReconciler()}
+	c.roster = c.boardRoster
+	return c
+}
 
 var errNotBuilt = errors.New("conversions isn't built yet")
 
