@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/netip"
 	"slices"
+	"sync/atomic"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/backups"
@@ -203,6 +204,7 @@ func (n *Node) startController(ctx context.Context) error {
 		kept           *backups.Backups
 		goals          *targets.Targets
 		converts       *conversions.Conversions
+		built          atomic.Pointer[conversions.Conversions]
 		conversionRuns *role.Control[*cv1.Intent, *cv1.Facts, *cv1.Result]
 	)
 	scratchOf := func(node role.NodeID) *cv1.Volume {
@@ -447,7 +449,7 @@ func (n *Node) startController(ctx context.Context) error {
 	fenced := nodes.FencedEvent.Bind(n.hub)
 	var systems *nodesystem.Nodes
 	conversionRuns = converting.Def.Serve(
-		deriveConversions(&converts),
+		deriveConversions(&built),
 		func(ctx context.Context, tx *storage.Tx[storage.Library], id role.NodeID, res *cv1.Result) error {
 			return converts.Apply(ctx, tx, id, res)
 		},
@@ -476,7 +478,7 @@ func (n *Node) startController(ctx context.Context) error {
 			copies.Noted(id, scope)
 			servers.Noted(id, scope)
 			reach.Noted(id, scope)
-			notedConversions(converts, id, scope)
+			notedConversions(&built, id, scope)
 		},
 		Applied: func(id role.NodeID, scope string) {
 			clients.Applied(id, scope)
@@ -843,6 +845,7 @@ func (n *Node) startController(ctx context.Context) error {
 		Clock:         time.Now,
 		Log:           n.rootLog.With("subsystem", "conversions"),
 	})
+	built.Store(converts)
 	copies.Register(converts.Purpose())
 	converts.Register(found.Converter())
 	front := home.New(home.Config{
@@ -1591,17 +1594,18 @@ func rootBusy(ctx context.Context, r storage.Reader[storage.Library], root roots
 
 // deriveConversions derives a Converting intent, which asks nothing of a
 // Node until the Controller's Conversions are built.
-func deriveConversions(converts **conversions.Conversions) func(context.Context, storage.Reader[storage.Library], role.NodeID) (*cv1.Intent, error) {
+func deriveConversions(built *atomic.Pointer[conversions.Conversions]) func(context.Context, storage.Reader[storage.Library], role.NodeID) (*cv1.Intent, error) {
 	return func(ctx context.Context, r storage.Reader[storage.Library], id role.NodeID) (*cv1.Intent, error) {
-		if *converts == nil {
+		c := built.Load()
+		if c == nil {
 			return &cv1.Intent{}, nil
 		}
-		return (*converts).Derive(ctx, r, id)
+		return c.Derive(ctx, r, id)
 	}
 }
 
-func notedConversions(converts *conversions.Conversions, id role.NodeID, scope string) {
-	if converts != nil {
-		converts.Noted(id, scope)
+func notedConversions(built *atomic.Pointer[conversions.Conversions], id role.NodeID, scope string) {
+	if c := built.Load(); c != nil {
+		c.Noted(id, scope)
 	}
 }
