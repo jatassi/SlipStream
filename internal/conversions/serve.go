@@ -23,10 +23,16 @@ func (c *Conversions) Apply(ctx context.Context, tx *storage.Tx[storage.Library]
 		return err
 	}
 	if u, err := storage.UUIDFromBytes(r.GetConversionId()); err == nil {
-		c.rec.mu.Lock()
-		c.rec.applied = append(c.rec.applied, ID{UUID: u})
-		c.rec.mu.Unlock()
+		c.noteMoved(ID{UUID: u})
 	}
 	c.cfg.Poke.Wake()
 	return nil
+}
+
+// noteMoved has the next pass tell the holders, Transfers, imports and
+// the tab of ids, which a Write outside the reconciler moved.
+func (c *Conversions) noteMoved(ids ...ID) {
+	c.rec.mu.Lock()
+	c.rec.applied = append(c.rec.applied, ids...)
+	c.rec.mu.Unlock()
 }

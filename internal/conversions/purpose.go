@@ -69,6 +69,7 @@ func (c *Conversions) verified(ctx context.Context, tx *storage.Tx[storage.Libra
 		return err
 	}
 	if j.Output {
+		c.noteMoved(j.Conversion)
 		return c.advance(ctx, tx, j.Conversion, Event{On: Returned, Node: t.Source, Attempt: j.Attempt, Fenced: true})
 	}
 	return c.copying(ctx, tx, j, Copied)
@@ -82,6 +83,7 @@ func (c *Conversions) transferFailed(ctx context.Context, tx *storage.Tx[storage
 		return err
 	}
 	if j.Output {
+		c.noteMoved(j.Conversion)
 		return c.advance(ctx, tx, j.Conversion, Event{On: ReturnFailed, Node: t.Source, Attempt: j.Attempt, Fenced: true})
 	}
 	return c.copying(ctx, tx, j, CopyFailed)
@@ -92,6 +94,7 @@ func (c *Conversions) copying(ctx context.Context, tx *storage.Tx[storage.Librar
 	if err != nil {
 		return fmt.Errorf("read the Conversions copying the source: %w", err)
 	}
+	c.noteMoved(ids...)
 	for _, id := range ids {
 		if err := c.advance(ctx, tx, id, Event{On: on, Node: j.Node}); err != nil {
 			return err
@@ -101,7 +104,7 @@ func (c *Conversions) copying(ctx context.Context, tx *storage.Tx[storage.Librar
 }
 
 // transferred wakes the reconciler, which tells the Nodes the copies
-// readied.
+// readied and the returns checked.
 func (c *Conversions) transferred([]string) { c.cfg.Poke.Wake() }
 
 // jobNames names each job by its Work, as the Conversion's row keeps it.

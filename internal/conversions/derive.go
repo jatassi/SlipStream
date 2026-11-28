@@ -118,7 +118,7 @@ func jobOf(ctx context.Context, q *db.Queries, row Row, src files.Located, s enc
 	j := &cv1.Job{
 		ConversionId: row.ID.Bytes(), Attempt: uint32(row.Attempt), //nolint:gosec // attempts count up from 1
 		Settings: &cv1.Settings{
-			Codec: string(s.Codec), MaxHeight: uint32(s.MaxHeight), //nolint:gosec // encode.Parse bounds every number Kbps: uint32(s.Kbps), Depth: uint32(s.Depth), Range: string(s.Range),
+			Codec: string(s.Codec), MaxHeight: uint32(s.MaxHeight), Kbps: uint32(s.Kbps), Depth: uint32(s.Depth), Range: string(s.Range), //nolint:gosec // encode.Parse bounds every number
 			KeepDv: s.KeepDV, Curve: string(s.Curve), Audio: string(s.Audio), DropCommentary: s.DropCommentary, Container: string(s.Container),
 		},
 		Source:   &cv1.Source{Record: record},

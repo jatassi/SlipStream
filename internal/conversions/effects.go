@@ -14,11 +14,20 @@ import (
 	"github.com/jatassi/slipstream/internal/transfers/source"
 )
 
-func placedTo(_ context.Context, m *move) (Stage, error) {
+// placedTo copies the source first, or waits for the copy another
+// Conversion of it on the Node is making.
+func placedTo(ctx context.Context, m *move) (Stage, error) {
 	if m.row.NotBefore.After(m.now) {
 		return "", nil
 	}
 	if m.ev.Copy {
+		return StageCopying, nil
+	}
+	copying, err := m.q.ListCopying(ctx, db.ListCopyingParams{NodeID: m.ev.Node, SourceFileID: *m.row.SourceFile})
+	if err != nil {
+		return "", fmt.Errorf("read the Conversions copying the source: %w", err)
+	}
+	if len(copying) > 0 {
 		return StageCopying, nil
 	}
 	return StageReady, nil
