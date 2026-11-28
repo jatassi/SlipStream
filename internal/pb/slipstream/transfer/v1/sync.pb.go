@@ -610,6 +610,7 @@ type Destination struct {
 	//	*Destination_Backup
 	//	*Destination_BackupsFolder
 	//	*Destination_DownloadFolder
+	//	*Destination_Scratch
 	Kind          isDestination_Kind `protobuf_oneof:"kind"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -688,6 +689,15 @@ func (x *Destination) GetDownloadFolder() *DownloadFolder {
 	return nil
 }
 
+func (x *Destination) GetScratch() string {
+	if x != nil {
+		if x, ok := x.Kind.(*Destination_Scratch); ok {
+			return x.Scratch
+		}
+	}
+	return ""
+}
+
 type isDestination_Kind interface {
 	isDestination_Kind()
 }
@@ -713,6 +723,13 @@ type Destination_DownloadFolder struct {
 	DownloadFolder *DownloadFolder `protobuf:"bytes,4,opt,name=download_folder,json=downloadFolder,proto3,oneof"`
 }
 
+type Destination_Scratch struct {
+	// scratch is a name, '/' separated, under the receiver's scratch
+	// folder. The receiver stages in the folder's .transfers/ and renames
+	// the one file into place once it verifies.
+	Scratch string `protobuf:"bytes,5,opt,name=scratch,proto3,oneof"`
+}
+
 func (*Destination_Root) isDestination_Kind() {}
 
 func (*Destination_Backup) isDestination_Kind() {}
@@ -720,6 +737,8 @@ func (*Destination_Backup) isDestination_Kind() {}
 func (*Destination_BackupsFolder) isDestination_Kind() {}
 
 func (*Destination_DownloadFolder) isDestination_Kind() {}
+
+func (*Destination_Scratch) isDestination_Kind() {}
 
 // DownloadFolder is the folder a Download Client keeps the torrent with
 // info_hash in: client_id names an external client, empty for the
@@ -960,6 +979,7 @@ type Source struct {
 	//	*Source_Path
 	//	*Source_Backup
 	//	*Source_Library
+	//	*Source_Scratch
 	Ref           isSource_Ref `protobuf_oneof:"ref"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1038,6 +1058,15 @@ func (x *Source) GetLibrary() *LibrarySource {
 	return nil
 }
 
+func (x *Source) GetScratch() string {
+	if x != nil {
+		if x, ok := x.Ref.(*Source_Scratch); ok {
+			return x.Scratch
+		}
+	}
+	return ""
+}
+
 type isSource_Ref interface {
 	isSource_Ref()
 }
@@ -1062,6 +1091,12 @@ type Source_Library struct {
 	Library *LibrarySource `protobuf:"bytes,4,opt,name=library,proto3,oneof"`
 }
 
+type Source_Scratch struct {
+	// scratch is a name, '/' separated, the sender opens only under its
+	// own scratch folder.
+	Scratch string `protobuf:"bytes,5,opt,name=scratch,proto3,oneof"`
+}
+
 func (*Source_Torrent) isSource_Ref() {}
 
 func (*Source_Path) isSource_Ref() {}
@@ -1069,6 +1104,8 @@ func (*Source_Path) isSource_Ref() {}
 func (*Source_Backup) isSource_Ref() {}
 
 func (*Source_Library) isSource_Ref() {}
+
+func (*Source_Scratch) isSource_Ref() {}
 
 // LibrarySource is the file at rel, '/' separated, under the root.
 type LibrarySource struct {
@@ -1937,12 +1974,13 @@ const file_slipstream_transfer_v1_sync_proto_rawDesc = "" +
 	"\x05files\x18\x06 \x03(\v2\x1c.slipstream.transfer.v1.FileR\x05files\"6\n" +
 	"\x04Peer\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\fR\x03key\x12\x1c\n" +
-	"\taddresses\x18\x02 \x03(\tR\taddresses\"\xb4\x02\n" +
+	"\taddresses\x18\x02 \x03(\tR\taddresses\"\xd0\x02\n" +
 	"\vDestination\x12=\n" +
 	"\x04root\x18\x01 \x01(\v2'.slipstream.transfer.v1.RootDestinationH\x00R\x04root\x12=\n" +
 	"\x06backup\x18\x02 \x01(\v2#.slipstream.transfer.v1.BackupPlaceH\x00R\x06backup\x12L\n" +
 	"\x0ebackups_folder\x18\x03 \x01(\v2#.slipstream.transfer.v1.BackupPlaceH\x00R\rbackupsFolder\x12Q\n" +
-	"\x0fdownload_folder\x18\x04 \x01(\v2&.slipstream.transfer.v1.DownloadFolderH\x00R\x0edownloadFolderB\x06\n" +
+	"\x0fdownload_folder\x18\x04 \x01(\v2&.slipstream.transfer.v1.DownloadFolderH\x00R\x0edownloadFolder\x12\x1a\n" +
+	"\ascratch\x18\x05 \x01(\tH\x00R\ascratchB\x06\n" +
 	"\x04kind\"m\n" +
 	"\x0eDownloadFolder\x12\x1b\n" +
 	"\tclient_id\x18\x01 \x01(\fR\bclientId\x12!\n" +
@@ -1957,12 +1995,13 @@ const file_slipstream_transfer_v1_sync_proto_rawDesc = "" +
 	"\x04File\x12\x1a\n" +
 	"\bposition\x18\x01 \x01(\rR\bposition\x126\n" +
 	"\x06source\x18\x02 \x01(\v2\x1e.slipstream.transfer.v1.SourceR\x06source\x12\x12\n" +
-	"\x04size\x18\x03 \x01(\x03R\x04size\"\x8f\x02\n" +
+	"\x04size\x18\x03 \x01(\x03R\x04size\"\xab\x02\n" +
 	"\x06Source\x12B\n" +
 	"\atorrent\x18\x01 \x01(\v2&.slipstream.transfer.v1.TorrentPayloadH\x00R\atorrent\x128\n" +
 	"\x04path\x18\x02 \x01(\v2\".slipstream.transfer.v1.PathSourceH\x00R\x04path\x12=\n" +
 	"\x06backup\x18\x03 \x01(\v2#.slipstream.transfer.v1.BackupPlaceH\x00R\x06backup\x12A\n" +
-	"\alibrary\x18\x04 \x01(\v2%.slipstream.transfer.v1.LibrarySourceH\x00R\alibraryB\x05\n" +
+	"\alibrary\x18\x04 \x01(\v2%.slipstream.transfer.v1.LibrarySourceH\x00R\alibrary\x12\x1a\n" +
+	"\ascratch\x18\x05 \x01(\tH\x00R\ascratchB\x05\n" +
 	"\x03ref\"5\n" +
 	"\rLibrarySource\x12\x12\n" +
 	"\x04root\x18\x01 \x01(\fR\x04root\x12\x10\n" +
@@ -2141,12 +2180,14 @@ func file_slipstream_transfer_v1_sync_proto_init() {
 		(*Destination_Backup)(nil),
 		(*Destination_BackupsFolder)(nil),
 		(*Destination_DownloadFolder)(nil),
+		(*Destination_Scratch)(nil),
 	}
 	file_slipstream_transfer_v1_sync_proto_msgTypes[10].OneofWrappers = []any{
 		(*Source_Torrent)(nil),
 		(*Source_Path)(nil),
 		(*Source_Backup)(nil),
 		(*Source_Library)(nil),
+		(*Source_Scratch)(nil),
 	}
 	file_slipstream_transfer_v1_sync_proto_msgTypes[20].OneofWrappers = []any{
 		(*Result_Verified)(nil),
