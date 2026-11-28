@@ -50,9 +50,11 @@ func randomWorld(t *testing.T, r *rand.Rand) world {
 	for range 1 + r.IntN(3) {
 		w.tree.Items = append(w.tree.Items, works.Item{ID: works.ItemID{UUID: storage.NewUUID()}})
 	}
+	var ts []targets.Target
 	for i := range 1 + r.IntN(4) {
-		w.goals.Targets = append(w.goals.Targets, randomTarget(t, r, string(rune('A'+i))))
+		ts = append(ts, randomTarget(t, r, string(rune('A'+i))))
 	}
+	w.goals = downloaded(ts...)
 	imports := []storage.UUID{{}, storage.NewUUID()}
 	w.importing = imports[r.IntN(len(imports))]
 	landed := map[ID]storage.UUID{}
@@ -311,7 +313,7 @@ func TestATieKeepsTheIncumbentElseTheOldestFile(t *testing.T) {
 	}
 	older, newer, better := file(release.WEBDL1080p), file(release.WEBRip1080p), file(release.Remux1080p)
 	at := func(fills map[CellKey]Fill, fs ...File) ID {
-		goals := targets.Goals{Targets: []targets.Target{hd}}
+		goals := downloaded(hd)
 		w := world{tree: works.Bare{Items: []works.Item{item}}, goals: goals, files: fs, fills: fills, scoring: newScoring(marked, goals, release.Fact[release.Language]{})}
 		return refill(w)[key].File
 	}

@@ -100,6 +100,8 @@ export function ValueField({
       return <PickField value={value} {...common} />;
     case "range":
       return <RangeField value={value} {...common} />;
+    case "none":
+      return null;
     default:
       return value satisfies never;
   }

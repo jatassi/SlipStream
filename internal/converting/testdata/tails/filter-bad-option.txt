@@ -1,0 +1,13 @@
+Input #0, matroska,webm, from 'src.mkv':
+  Metadata:
+    ENCODER         : Lavf62.12.103
+  Duration: 00:00:01.00, start: 0.000000, bitrate: 295 kb/s
+  Stream #0:0: Video: h264 (High), yuv420p(tv, progressive), 320x240 [SAR 1:1 DAR 4:3], 24 fps, 24 tbr, 1k tbn
+    Metadata:
+      ENCODER         : Lavc62.28.103 libx264
+      DURATION        : 00:00:01.000000000
+[Parsed_tonemap_3 @ 0x55d98223c400] [Eval @ 0x7ffcf73137e0] Undefined constant or missing '(' in 'nosuch'
+[Parsed_tonemap_3 @ 0x55d98223c400] Unable to parse "tonemap" option value "nosuch"
+[fc#-1 @ 0x55d9822399c0] Error applying option 'tonemap' to filter 'tonemap': Invalid argument
+Error opening output file out7.mkv.
+Error opening output files: Invalid argument

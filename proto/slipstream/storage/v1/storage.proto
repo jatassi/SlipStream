@@ -281,6 +281,9 @@ enum Reason {
   REASON_UNRESPONSIVE = 11;
   REASON_NETWORK_SHARE = 12;
   REASON_OUTSIDE = 13;
+  // The scratch folder may not overlap the Node's Backups folder.
+  REASON_INSIDE_BACKUPS = 14;
+  REASON_CONTAINS_BACKUPS = 15;
 }
 
 message VerifyRequest {

@@ -1,0 +1,24 @@
+Input #0, matroska,webm, from 'src.mkv':
+  Metadata:
+    ENCODER         : Lavf62.12.103
+  Duration: 00:00:01.00, start: 0.000000, bitrate: 295 kb/s
+  Stream #0:0: Video: h264 (High), yuv420p(tv, progressive), 320x240 [SAR 1:1 DAR 4:3], 24 fps, 24 tbr, 1k tbn
+    Metadata:
+      ENCODER         : Lavc62.28.103 libx264
+      DURATION        : 00:00:01.000000000
+Stream mapping:
+  Stream #0:0 -> #0:0 (h264 (native) -> h264 (libx264))
+Press [q] to stop, [?] for help
+x264 [error]: baseline profile doesn't support a bit depth of 10
+[libx264 @ 0x55987c160c00] Error setting profile baseline.
+[libx264 @ 0x55987c160c00] Possible profiles: baseline main high high10 high422 high444
+[vost#0:0/libx264 @ 0x55987c160980] [enc:libx264 @ 0x55987c138e00] Error while opening encoder - maybe incorrect parameters such as bit_rate, rate, width or height.
+[vf#0:0 @ 0x55987c16b9c0] Error sending frames to consumers: Invalid argument
+[vf#0:0 @ 0x55987c16b9c0] Task finished with error code: -22 (Invalid argument)
+[vost#0:0/libx264 @ 0x55987c160980] [enc:libx264 @ 0x55987c138e00] Could not open encoder before EOF
+[vost#0:0/libx264 @ 0x55987c160980] Task finished with error code: -22 (Invalid argument)
+[vost#0:0/libx264 @ 0x55987c160980] Terminating thread with return code -22 (Invalid argument)
+[vf#0:0 @ 0x55987c16b9c0] Terminating thread with return code -22 (Invalid argument)
+[out#0/matroska @ 0x55987c160600] Nothing was written into output file, because at least one of its streams received no packets.
+frame=    0 fps=0.0 q=0.0 Lsize=       0KiB time=N/A bitrate=N/A speed=N/A elapsed=0:00:00.00    
+Conversion failed!

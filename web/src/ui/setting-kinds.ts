@@ -7,7 +7,7 @@ import { choiceKind, switchKind, windowKind } from "./setting-picks";
 import { rateKind } from "./setting-rate";
 import { sizeKind } from "./setting-size";
 import { spaceKind } from "./setting-space";
-import { ipKind, templateKind } from "./setting-template";
+import { fileKind, ipKind, templateKind } from "./setting-template";
 
 export const kinds: { readonly [K in SettingKind]: Kind<K> } = {
   duration: durationKind,
@@ -19,6 +19,7 @@ export const kinds: { readonly [K in SettingKind]: Kind<K> } = {
   rate: rateKind,
   address: addressKind,
   folder: folderKind,
+  file: fileKind,
   space: spaceKind,
   template: templateKind,
   list: listKind,

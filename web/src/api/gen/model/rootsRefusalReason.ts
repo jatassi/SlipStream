@@ -15,4 +15,6 @@ export type RootsRefusalReason =
   | "unresponsive"
   | "network_share"
   | "outside"
+  | "inside_backups"
+  | "contains_backups"
   | "node_offline";

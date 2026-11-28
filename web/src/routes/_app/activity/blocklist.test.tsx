@@ -58,7 +58,7 @@ test("the Blocklist tab follows Jobs and Torrents and lists each entry in words"
       .getByRole("link")
       .all()
       .map((link) => link.element().textContent),
-  ).toEqual(["Jobs", "Torrents", "Blocklist", "History"]);
+  ).toEqual(["Jobs", "Torrents", "Conversions", "Blocklist", "History"]);
 
   await expect
     .element(row(orchard ?? ""))

@@ -75,11 +75,14 @@ type Seat struct {
 }
 
 // Suggested is what a new Node's Roles step ticks first: each Acquire
-// Role that has no probe or whose probe fits on the Node.
+// Role that has no probe or whose probe fits on the Node, and Converting
+// where its test run used a graphics card.
 func (s Seat) Suggested() role.Set {
 	var out role.Set
 	for _, r := range role.Names() {
-		if p := r.Rule().Probe; r.Group() == role.Acquire && (p == "" || s.Probes[p].Fit == role.Fits) {
+		p := r.Rule().Probe
+		fits := p != "" && s.Probes[p].Fit == role.Fits
+		if r.Group() == role.Acquire && (p == "" || fits) || r == role.Converting && fits {
 			out = out.With(r)
 		}
 	}

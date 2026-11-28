@@ -8,6 +8,7 @@ import type {
   SettingChoiceField,
   SettingCountField,
   SettingDurationField,
+  SettingFileField,
   SettingFolderField,
   SettingIPField,
   SettingListField,
@@ -354,6 +355,38 @@ export const getGetNodeConfigResponseSettingFolderFieldMock = (
   ...overrideResponse,
 });
 
+export const getGetNodeConfigResponseSettingFileFieldMock = (
+  overrideResponse: Partial<SettingFileField> = {},
+): SettingFileField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["file"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    nodeId: faker.string.uuid(),
+    pendingRestart: faker.datatype.boolean(),
+    running: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    unsupported: faker.datatype.boolean(),
+    value: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
+  ...overrideResponse,
+});
+
 export const getGetNodeConfigResponseSettingSpaceFieldMock = (
   overrideResponse: Partial<SettingSpaceField> = {},
 ): SettingSpaceField => ({
@@ -549,6 +582,7 @@ export const getGetNodeConfigResponseMock = (
             { ...getGetNodeConfigResponseSettingRateFieldMock() },
             { ...getGetNodeConfigResponseSettingAddressFieldMock() },
             { ...getGetNodeConfigResponseSettingFolderFieldMock() },
+            { ...getGetNodeConfigResponseSettingFileFieldMock() },
             { ...getGetNodeConfigResponseSettingSpaceFieldMock() },
             { ...getGetNodeConfigResponseSettingTemplateFieldMock() },
             { ...getGetNodeConfigResponseSettingListFieldMock() },
@@ -887,6 +921,38 @@ export const getUpdateNodeConfigResponseSettingFolderFieldMock = (
   ...overrideResponse,
 });
 
+export const getUpdateNodeConfigResponseSettingFileFieldMock = (
+  overrideResponse: Partial<SettingFileField> = {},
+): SettingFileField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["file"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    nodeId: faker.string.uuid(),
+    pendingRestart: faker.datatype.boolean(),
+    running: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    unsupported: faker.datatype.boolean(),
+    value: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
+  ...overrideResponse,
+});
+
 export const getUpdateNodeConfigResponseSettingSpaceFieldMock = (
   overrideResponse: Partial<SettingSpaceField> = {},
 ): SettingSpaceField => ({
@@ -1082,6 +1148,7 @@ export const getUpdateNodeConfigResponseMock = (
             { ...getUpdateNodeConfigResponseSettingRateFieldMock() },
             { ...getUpdateNodeConfigResponseSettingAddressFieldMock() },
             { ...getUpdateNodeConfigResponseSettingFolderFieldMock() },
+            { ...getUpdateNodeConfigResponseSettingFileFieldMock() },
             { ...getUpdateNodeConfigResponseSettingSpaceFieldMock() },
             { ...getUpdateNodeConfigResponseSettingTemplateFieldMock() },
             { ...getUpdateNodeConfigResponseSettingListFieldMock() },

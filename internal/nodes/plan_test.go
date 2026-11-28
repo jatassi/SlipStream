@@ -201,8 +201,8 @@ func TestEveryProbeReasonBlocksTheRoleItGuards(t *testing.T) {
 }
 
 // TestSuggestedTicksAcquireRolesWhoseProbesFit is the Roles step's first
-// ticks: Searching always, and Downloading only while its engine-starts
-// probe fits.
+// ticks: Searching always, Downloading only while its engine-starts probe
+// fits, and Converting only while its ffmpeg-runs probe fits.
 func TestSuggestedTicksAcquireRolesWhoseProbesFit(t *testing.T) {
 	for _, tc := range []struct {
 		name   string
@@ -213,6 +213,9 @@ func TestSuggestedTicksAcquireRolesWhoseProbesFit(t *testing.T) {
 		{name: "engine fits", probes: map[role.Probe]role.ProbeResult{role.EngineStarts: {Fit: role.Fits}, role.DataWritable: {Fit: role.Fits}}, want: role.Of(role.Searching, role.Downloading)},
 		{name: "engine weak", probes: map[role.Probe]role.ProbeResult{role.EngineStarts: {Fit: role.Weak}}, want: role.Of(role.Searching)},
 		{name: "engine fails", probes: map[role.Probe]role.ProbeResult{role.EngineStarts: {Fit: role.Fails}}, want: role.Of(role.Searching)},
+		{name: "ffmpeg fits", probes: map[role.Probe]role.ProbeResult{role.FFmpegRuns: {Fit: role.Fits}}, want: role.Of(role.Searching, role.Converting)},
+		{name: "ffmpeg weak", probes: map[role.Probe]role.ProbeResult{role.FFmpegRuns: {Fit: role.Weak}}, want: role.Of(role.Searching)},
+		{name: "ffmpeg fails", probes: map[role.Probe]role.ProbeResult{role.FFmpegRuns: {Fit: role.Fails}}, want: role.Of(role.Searching)},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			sb := seat(seedbox, 0)

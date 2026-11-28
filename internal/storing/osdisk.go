@@ -84,6 +84,14 @@ func (d OSDisk) Stat(_ context.Context, path string) (Info, error) {
 	return d.identify(path, info)
 }
 
+func (d OSDisk) Runnable(_ context.Context, path string) (bool, error) {
+	info, err := os.Stat(path)
+	if err != nil {
+		return false, err //nolint:wrapcheck // a PathError names the call and the path; callers classify it with errors.Is
+	}
+	return !info.IsDir() && (d.host.Style == Windows || info.Mode().Perm()&0o111 != 0), nil
+}
+
 func (OSDisk) Resolve(_ context.Context, path string) (string, error) {
 	return filepath.EvalSymlinks(path) //nolint:wrapcheck // a PathError names the call and the path; callers classify it with errors.Is
 }

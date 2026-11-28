@@ -52,6 +52,8 @@ export type ImpactSheetState = {
  */
 export function useImpactSave(): {
   readonly save: (change: ImpactChange) => Promise<void>;
+  /** Goes on from a preview the caller already ran. */
+  readonly saveFrom: (change: ImpactChange, impact: TargetsImpact) => Promise<void>;
   readonly sheet: ImpactSheetState;
 } {
   const [showing, setShowing] = useState<Showing>();
@@ -77,8 +79,7 @@ export function useImpactSave(): {
     await change.done();
   };
 
-  const save = async (change: ImpactChange) => {
-    const { impact } = await change.run({ preview: true });
+  const saveFrom = async (change: ImpactChange, impact: TargetsImpact) => {
     if (isNothing(impact)) {
       await commit(change, "delete", impact);
       return;
@@ -87,7 +88,8 @@ export function useImpactSave(): {
   };
 
   return {
-    save,
+    save: async (change) => saveFrom(change, (await change.run({ preview: true })).impact),
+    saveFrom,
     sheet: {
       showing,
       onSave: (shown, unwanted) => commit(shown.change, unwanted, shown.impact),

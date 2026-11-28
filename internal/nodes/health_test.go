@@ -68,7 +68,7 @@ func TestTheNodesItemsFollowTheBoardAndTheProbes(t *testing.T) {
 		{
 			name:  "no verdicts since the Controller started",
 			board: cluster().at(start), probes: map[ID][]role.ProbeResult{home: fits(start, role.DataWritable)},
-			unsure: []health.Key{key(home.String(), "listener-up"), key(box.String(), "engine-starts")},
+			unsure: []health.Key{key(home.String(), "ffmpeg-runs"), key(home.String(), "listener-up"), key(box.String(), "engine-starts")},
 		},
 		{
 			name:  "a failing probe for a Role the Node holds",
@@ -83,6 +83,20 @@ func TestTheNodesItemsFollowTheBoardAndTheProbes(t *testing.T) {
 			name:  "a weak probe for a Role the Node holds",
 			board: cluster().at(start), probes: with(everyFit(), box, weak),
 			items: map[health.Key]health.Level{key(box.String(), "engine-starts"): health.Warn},
+		},
+		{
+			name:  "ffmpeg that fails its test run",
+			board: cluster().at(start), probes: with(everyFit(), home, role.ProbeResult{Probe: role.FFmpegRuns, Fit: role.Fails, Reason: role.FFmpegFails, At: start}),
+			items: map[health.Key]health.Level{key(home.String(), "ffmpeg-runs"): health.Fail},
+		},
+		{
+			name:  "ffmpeg that converts on the processor alone",
+			board: cluster().at(start), probes: with(everyFit(), home, role.ProbeResult{Probe: role.FFmpegRuns, Fit: role.Weak, Reason: role.NoGPU, At: start}),
+		},
+		{
+			name:  "ffmpeg before its first test run answers",
+			board: cluster().at(start), probes: with(everyFit(), home, role.ProbeResult{Probe: role.FFmpegRuns, Fit: role.Weak, Reason: role.FFmpegTesting, At: start}),
+			unsure: []health.Key{key(home.String(), "ffmpeg-runs")},
 		},
 		{
 			name:  "a failing probe for a Role the Node doesn't hold",

@@ -165,7 +165,7 @@ var cudaOpenCL = Row{
 }
 
 // processor tone maps with jellyfin-ffmpeg's tonemapx, which applies Dolby
-// Vision metadata.
+// Vision metadata, before it scales: scale can't read a Profile 5 picture.
 var processor = Row{
 	Name:     "processor",
 	OS:       []string{"windows", "linux", "darwin"},
@@ -177,7 +177,7 @@ var processor = Row{
 			format = "yuv420p10le"
 		}
 		if n.ToneMap {
-			return fmt.Sprintf("scale=w=%d:h=%d,%s", n.W, n.H, ToneMap(n, "tonemapx", format))
+			return fmt.Sprintf("%s,scale=w=%d:h=%d", ToneMap(n, "tonemapx", format), n.W, n.H)
 		}
 		return fmt.Sprintf("scale=w=%d:h=%d,format=%s", n.W, n.H, format)
 	},

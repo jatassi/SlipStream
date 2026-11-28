@@ -393,6 +393,20 @@ func (s *Store) Probe(ctx context.Context, req *storagev1.ProbeRequest) (*storag
 	return &storagev1.ProbeResponse{Record: record}, nil
 }
 
+// LibraryFile is media.Library on this Node: rel under root, with the
+// error a handler answers.
+func (s *Store) LibraryFile(ctx context.Context, root storage.UUID, rel string) (string, error) {
+	r, err := relOf(rel)
+	if err != nil {
+		return "", err
+	}
+	file, err := s.Local(ctx, root, r)
+	if err != nil {
+		return "", WireError(err)
+	}
+	return file, nil
+}
+
 // identityOf is what a scan compares of info besides its size.
 func identityOf(info Info) *storagev1.Identity {
 	return &storagev1.Identity{ModifiedUnixMs: info.ModTime().UnixMilli(), FileId: info.FileID(), VolumeId: info.Volume()}
@@ -639,6 +653,48 @@ func (s *Store) Judge(ctx context.Context, path string, purpose Purpose) (CheckR
 	return s.check(ctx, path, purpose, nil, purpose.writes())
 }
 
+// Unrunnable is why the Node can't run a program at a path.
+type Unrunnable uint8
+
+const (
+	UnrunnableNotAbsolute Unrunnable = iota + 1
+	UnrunnableMissing
+	UnrunnableDenied
+	UnrunnableNotAProgram
+	UnrunnableUnresponsive
+)
+
+var unrunnableOf = map[FolderErrorKind]Unrunnable{
+	FolderNotFound:     UnrunnableMissing,
+	FolderNotAFolder:   UnrunnableMissing,
+	FolderDenied:       UnrunnableDenied,
+	FolderUnresponsive: UnrunnableUnresponsive,
+}
+
+// JudgeProgram is path clean, and 0 when the Node can run the file there,
+// else why it can't.
+func (s *Store) JudgeProgram(ctx context.Context, path string) (string, Unrunnable, error) {
+	p, err := s.host.Style.Clean(path)
+	switch {
+	case errors.Is(err, ErrNotAbsolute):
+		return path, UnrunnableNotAbsolute, nil
+	case err != nil:
+		return "", 0, err
+	}
+	runs, err := timed(ctx, s, p, func(ctx context.Context) (bool, error) { return s.cfg.Disk.Runnable(ctx, p) })
+	if err != nil {
+		why, ok := unrunnableOf[folderErrorOf(err)]
+		if !ok {
+			return "", 0, s.folderError(err)
+		}
+		return p, why, nil
+	}
+	if !runs {
+		return p, UnrunnableNotAProgram, nil
+	}
+	return p, 0, nil
+}
+
 // writes is whether Check tries a write in a folder for p.
 func (p Purpose) writes() bool { return p != PurposeClientFolder && p != PurposeImport }
 
@@ -703,16 +759,19 @@ func (s *Store) check(ctx context.Context, path string, purpose Purpose, others 
 
 // reserved is every folder a folder for purpose may not overlap: for a
 // root, others and the Node's data and downloads folders; for downloads
-// and a client folder, every root the Node holds; for Backups and the
-// scratch folder, every root the Node holds and its downloads folders.
+// and a client folder, every root the Node holds; for Backups, every root
+// the Node holds and its downloads folders; for the scratch folder, those
+// and the Backups folder.
 func (s *Store) reserved(purpose Purpose, others []Other) []reserved {
 	switch purpose {
 	case PurposeRoot:
 		return append(apartFrom(others), forRoot(s.host.Data, s.cfg.Downloads())...)
 	case PurposeDownloads, PurposeClientFolder:
 		return apartFrom(s.held())
-	case PurposeBackups, PurposeConverting:
+	case PurposeBackups:
 		return append(apartFrom(s.held()), downloadsFolders(s.cfg.Downloads())...)
+	case PurposeConverting:
+		return append(append(apartFrom(s.held()), downloadsFolders(s.cfg.Downloads())...), reserved{path: s.cfg.Backups(), inside: ReasonInsideBackups, contains: ReasonContainsBackups})
 	case PurposeImport:
 	}
 	panic(fmt.Sprintf("storing: purpose %d has no rules", purpose))

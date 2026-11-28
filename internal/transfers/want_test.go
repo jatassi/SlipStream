@@ -142,6 +142,21 @@ func TestReservedInCountsWhatLiveTransfersStillSend(t *testing.T) {
 		if got := reserved("v2"); got != 0 {
 			t.Errorf("ReservedIn on another volume = %d, want 0", got)
 		}
+
+		r.write(t, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+			_, err := r.tr.Want(ctx, tx, transfers.Request{
+				Purpose: transfers.Conversion, Job: "src/home/7", Source: r.seedbox, Priority: transfers.Low,
+				Destination: transfers.Scratch{Node: r.home, Name: "in/s-7.mkv"},
+				Files:       []transfers.FileRequest{{Name: "Heat (1995).mkv", Source: source.Library{Root: [16]byte{7}, Rel: "Heat (1995)/Heat (1995).mkv"}, Size: 3 << 20}},
+			})
+			return err
+		})
+		if got, want := reserved("v2"), int64(3<<20); got != want {
+			t.Errorf("ReservedIn on home's scratch volume = %d, want %d: the copy into its scratch folder", got, want)
+		}
+		if got, want := reserved("v1"), int64(1<<20-1<<18); got != want {
+			t.Errorf("ReservedIn on the root's volume = %d after a scratch copy, want %d", got, want)
+		}
 	})
 }
 

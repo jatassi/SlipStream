@@ -120,6 +120,42 @@ func (shelfFacet) Place(ctx context.Context, r storage.Reader[storage.Library], 
 	}, nil
 }
 
+// nudging is files' Conversions as conversions' Seam queues them: a
+// conversions_nudge row per Ask, under the table's own checks.
+type nudging struct{ files.NoConversions }
+
+func (nudging) Queue(ctx context.Context, tx *storage.Tx[storage.Library], asks ...files.Ask) error {
+	for _, a := range asks {
+		if _, err := tx.ExecContext(ctx, `INSERT INTO conversions_nudge (work_id, why, since, created_at) VALUES (?, ?, ?, ?)`,
+			a.Work, string(a.Why), a.Since.UnixMilli(), a.Since.UnixMilli()); err != nil {
+			return fmt.Errorf("nudge work %s: %w", a.Work, err)
+		}
+	}
+	return nil
+}
+
+// nudges is each reason a Work's Conversions were asked to converge.
+func (w *world) nudges(t *testing.T, work works.WorkID) []string {
+	t.Helper()
+	rows, err := w.lib.QueryContext(t.Context(), `SELECT why FROM conversions_nudge WHERE work_id = ? ORDER BY id`, work)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = rows.Close() }()
+	var out []string
+	for rows.Next() {
+		var why string
+		if err := rows.Scan(&why); err != nil {
+			t.Fatal(err)
+		}
+		out = append(out, why)
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatal(err)
+	}
+	return out
+}
+
 func newWorld(t *testing.T) *world {
 	t.Helper()
 	ctx := t.Context()
@@ -169,7 +205,7 @@ func newWorld(t *testing.T) *world {
 			Describe: func(works.TypeID) (works.Description, bool) { return contenttypetest.Description, true },
 			Budget:   func(context.Context, storage.Reader[storage.Library], works.TypeID) (int, error) { return 1000, nil },
 		}),
-		Names: map[works.TypeID]release.Names{contenttypetest.ID: w.fx}, Today: time.Now, Disk: w.disk,
+		Names: map[works.TypeID]release.Names{contenttypetest.ID: w.fx}, Today: time.Now, Disk: w.disk, Conversions: nudging{},
 	}); err != nil {
 		t.Fatal(err)
 	}

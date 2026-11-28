@@ -40,7 +40,13 @@ type Config struct {
 	// Torrents is where each file of every torrent the Node's clients hold
 	// lies, so a folder import can tell which files still seed.
 	Torrents func() []string
-	Timings  Timings
+	// Scratch is the Node's scratch folder now, clean, which the fence
+	// admits beside the roots and download folders.
+	Scratch func() string
+	// Backups is the Node's Backups folder, which the scratch folder may
+	// not overlap.
+	Backups func() string
+	Timings Timings
 	// Prober reads a root file's media record for Probe.
 	Prober media.Prober
 	// ProbeTimeout bounds one Probe: timings.media.probe.

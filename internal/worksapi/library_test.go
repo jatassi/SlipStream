@@ -287,8 +287,8 @@ func TestNeedsYouIsOneEntryPerItemAndEditionInRankOrder(t *testing.T) {
 
 	hd, uhd := s.hd.ID.String(), s.uhd.ID.String()
 	want := `[` +
-		`{"kind":"failed","itemIds":["` + a.ID.String() + `"],"edition":"any","targetId":"` + hd + `","waiting":["` + uhd + `"],"grabId":"` + failedA.String() + `"},` +
-		`{"kind":"failed","itemIds":["` + g.ID.String() + `"],"edition":"any","targetId":"` + uhd + `","waiting":["` + hd + `"],"grabId":"` + failedG.String() + `"},` +
+		`{"kind":"failed","itemIds":["` + a.ID.String() + `"],"edition":"any","targetId":"` + hd + `","waiting":[],"grabId":"` + failedA.String() + `"},` +
+		`{"kind":"failed","itemIds":["` + g.ID.String() + `"],"edition":"any","targetId":"` + uhd + `","waiting":[],"grabId":"` + failedG.String() + `"},` +
 		`{"kind":"upgrade","itemIds":["` + b.ID.String() + `","` + c.ID.String() + `"],"edition":"any","upgrades":["` + hd + `"]},` +
 		`{"kind":"upgrade","itemIds":["` + e.ID.String() + `"],"edition":"any","upgrades":["` + hd + `"]},` +
 		`{"kind":"waiting","grabId":"` + waits.String() + `","code":"node_away","clientError":null,"importWait":null}]`

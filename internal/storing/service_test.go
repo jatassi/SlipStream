@@ -406,6 +406,58 @@ func TestCheckForDownloads(t *testing.T) {
 	}
 }
 
+func TestCheckForBackupsAndTheScratchFolder(t *testing.T) {
+	d := newTestDisk(t)
+	base := t.TempDir()
+	downloads := dir(t, base, "downloads")
+	d.downloads = []string{downloads}
+	dir(t, d.backups)
+	backupsAt := filepath.Dir(d.backups)
+	held := storage.NewUUID()
+	heldAt := marked(t, held)
+	readOnly := dir(t, base, "read-only")
+	d.flag(d.readOnly, readOnly)
+	s := newStore(d)
+	running(t, s, intentOf(rootAt(held, heldAt, false))).next(t)
+	folders := foldersOf(s)
+	both := []Purpose{PurposeBackups, PurposeConverting}
+	for _, c := range []struct {
+		name     string
+		path     string
+		purposes []Purpose
+		reason   Reason
+		root     storage.UUID
+	}{
+		{"inside a root the Node holds", dir(t, heldAt, "converting"), both, ReasonInsideRoot, held},
+		{"a root the Node holds", heldAt, both, ReasonInsideRoot, held},
+		{"containing a root the Node holds", filepath.Dir(heldAt), both, ReasonContainsRoot, held},
+		{"inside a download folder", dir(t, downloads, "converting"), both, ReasonInsideDownloads, storage.UUID{}},
+		{"containing a download folder", base, both, ReasonContainsDownloads, storage.UUID{}},
+		{"read-only", readOnly, both, ReasonUnwritable, storage.UUID{}},
+		{"inside the Backups folder", dir(t, d.backups, "converting"), []Purpose{PurposeConverting}, ReasonInsideBackups, storage.UUID{}},
+		{"the Backups folder", d.backups, []Purpose{PurposeConverting}, ReasonInsideBackups, storage.UUID{}},
+		{"containing the Backups folder", backupsAt, []Purpose{PurposeConverting}, ReasonContainsBackups, storage.UUID{}},
+		{"the Backups folder", d.backups, []Purpose{PurposeBackups}, 0, storage.UUID{}},
+		{"inside the data folder", dir(t, d.host.Data, "converting"), both, 0, storage.UUID{}},
+		{"beside the download folder", dir(t, base, "converting"), both, 0, storage.UUID{}},
+	} {
+		for _, purpose := range c.purposes {
+			got, err := folders.Check(t.Context(), node, c.path, purpose, nil)
+			if err != nil {
+				t.Fatalf("%s %s: %v", purpose, c.name, err)
+			}
+			var reason Reason
+			var root storage.UUID
+			if got.Refusal != nil {
+				reason, root = got.Refusal.Reason, got.Refusal.Root
+			}
+			if reason != c.reason || root != c.root {
+				t.Errorf("%s %s: refusal = %+v, want reason %d naming %v", purpose, c.name, got.Refusal, c.reason, c.root)
+			}
+		}
+	}
+}
+
 func TestCheckForAClientFolder(t *testing.T) {
 	d := newTestDisk(t)
 	base := t.TempDir()

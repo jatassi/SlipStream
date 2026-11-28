@@ -13,6 +13,7 @@ import type {
   SettingChoiceField,
   SettingCountField,
   SettingDurationField,
+  SettingFileField,
   SettingFolderField,
   SettingIPField,
   SettingListField,
@@ -849,6 +850,38 @@ export const getGetNodeNetworkSettingsResponseSettingFolderFieldMock = (
   ...overrideResponse,
 });
 
+export const getGetNodeNetworkSettingsResponseSettingFileFieldMock = (
+  overrideResponse: Partial<SettingFileField> = {},
+): SettingFileField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["file"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    nodeId: faker.string.uuid(),
+    pendingRestart: faker.datatype.boolean(),
+    running: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    unsupported: faker.datatype.boolean(),
+    value: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
+  ...overrideResponse,
+});
+
 export const getGetNodeNetworkSettingsResponseSettingSpaceFieldMock = (
   overrideResponse: Partial<SettingSpaceField> = {},
 ): SettingSpaceField => ({
@@ -1041,6 +1074,7 @@ export const getGetNodeNetworkSettingsResponseMock = (
       { ...getGetNodeNetworkSettingsResponseSettingRateFieldMock() },
       { ...getGetNodeNetworkSettingsResponseSettingAddressFieldMock() },
       { ...getGetNodeNetworkSettingsResponseSettingFolderFieldMock() },
+      { ...getGetNodeNetworkSettingsResponseSettingFileFieldMock() },
       { ...getGetNodeNetworkSettingsResponseSettingSpaceFieldMock() },
       { ...getGetNodeNetworkSettingsResponseSettingTemplateFieldMock() },
       { ...getGetNodeNetworkSettingsResponseSettingListFieldMock() },
@@ -1376,6 +1410,38 @@ export const getPatchNodeNetworkSettingsResponseSettingFolderFieldMock = (
   ...overrideResponse,
 });
 
+export const getPatchNodeNetworkSettingsResponseSettingFileFieldMock = (
+  overrideResponse: Partial<SettingFileField> = {},
+): SettingFileField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["file"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    nodeId: faker.string.uuid(),
+    pendingRestart: faker.datatype.boolean(),
+    running: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    unsupported: faker.datatype.boolean(),
+    value: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
+  ...overrideResponse,
+});
+
 export const getPatchNodeNetworkSettingsResponseSettingSpaceFieldMock = (
   overrideResponse: Partial<SettingSpaceField> = {},
 ): SettingSpaceField => ({
@@ -1568,6 +1634,7 @@ export const getPatchNodeNetworkSettingsResponseMock = (
       { ...getPatchNodeNetworkSettingsResponseSettingRateFieldMock() },
       { ...getPatchNodeNetworkSettingsResponseSettingAddressFieldMock() },
       { ...getPatchNodeNetworkSettingsResponseSettingFolderFieldMock() },
+      { ...getPatchNodeNetworkSettingsResponseSettingFileFieldMock() },
       { ...getPatchNodeNetworkSettingsResponseSettingSpaceFieldMock() },
       { ...getPatchNodeNetworkSettingsResponseSettingTemplateFieldMock() },
       { ...getPatchNodeNetworkSettingsResponseSettingListFieldMock() },
@@ -1907,6 +1974,38 @@ export const getGetRemoteAccessSettingsResponseSettingFolderFieldMock = (
   ...overrideResponse,
 });
 
+export const getGetRemoteAccessSettingsResponseSettingFileFieldMock = (
+  overrideResponse: Partial<SettingFileField> = {},
+): SettingFileField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["file"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    nodeId: faker.string.uuid(),
+    pendingRestart: faker.datatype.boolean(),
+    running: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    unsupported: faker.datatype.boolean(),
+    value: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
+  ...overrideResponse,
+});
+
 export const getGetRemoteAccessSettingsResponseSettingSpaceFieldMock = (
   overrideResponse: Partial<SettingSpaceField> = {},
 ): SettingSpaceField => ({
@@ -2099,6 +2198,7 @@ export const getGetRemoteAccessSettingsResponseMock = (
       { ...getGetRemoteAccessSettingsResponseSettingRateFieldMock() },
       { ...getGetRemoteAccessSettingsResponseSettingAddressFieldMock() },
       { ...getGetRemoteAccessSettingsResponseSettingFolderFieldMock() },
+      { ...getGetRemoteAccessSettingsResponseSettingFileFieldMock() },
       { ...getGetRemoteAccessSettingsResponseSettingSpaceFieldMock() },
       { ...getGetRemoteAccessSettingsResponseSettingTemplateFieldMock() },
       { ...getGetRemoteAccessSettingsResponseSettingListFieldMock() },
@@ -2434,6 +2534,38 @@ export const getPatchRemoteAccessSettingsResponseSettingFolderFieldMock = (
   ...overrideResponse,
 });
 
+export const getPatchRemoteAccessSettingsResponseSettingFileFieldMock = (
+  overrideResponse: Partial<SettingFileField> = {},
+): SettingFileField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["file"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    nodeId: faker.string.uuid(),
+    pendingRestart: faker.datatype.boolean(),
+    running: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    unsupported: faker.datatype.boolean(),
+    value: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
+  ...overrideResponse,
+});
+
 export const getPatchRemoteAccessSettingsResponseSettingSpaceFieldMock = (
   overrideResponse: Partial<SettingSpaceField> = {},
 ): SettingSpaceField => ({
@@ -2626,6 +2758,7 @@ export const getPatchRemoteAccessSettingsResponseMock = (
       { ...getPatchRemoteAccessSettingsResponseSettingRateFieldMock() },
       { ...getPatchRemoteAccessSettingsResponseSettingAddressFieldMock() },
       { ...getPatchRemoteAccessSettingsResponseSettingFolderFieldMock() },
+      { ...getPatchRemoteAccessSettingsResponseSettingFileFieldMock() },
       { ...getPatchRemoteAccessSettingsResponseSettingSpaceFieldMock() },
       { ...getPatchRemoteAccessSettingsResponseSettingTemplateFieldMock() },
       { ...getPatchRemoteAccessSettingsResponseSettingListFieldMock() },

@@ -1,0 +1,6 @@
+[in#0 @ 0x556c3e1aad40] Format matroska,webm detected only with low score of 1, misdetection possible!
+Truncating packet of size 12898 to 4
+[in#0 @ 0x556c3e1aad40] EBML header parsing failed
+[in#0 @ 0x556c3e1aaa40] Error opening input: Invalid data found when processing input
+Error opening input file bad.mkv.
+Error opening input files: Invalid data found when processing input

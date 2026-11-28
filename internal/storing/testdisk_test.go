@@ -27,6 +27,10 @@ type testDisk struct {
 	os   OSDisk
 	// downloads is the Node's downloads folders, which no root may overlap.
 	downloads []string
+	// scratch is the Node's scratch folder, which the fence admits.
+	scratch string
+	// backups is the Node's Backups folder.
+	backups string
 
 	mu sync.Mutex
 	// hung paths make every call on them wait until the channel closes.
@@ -67,6 +71,8 @@ func newTestDisk(t *testing.T) *testDisk {
 		os:         native,
 		slow:       map[string]time.Duration{},
 		downloads:  []string{t.TempDir()},
+		scratch:    t.TempDir(),
+		backups:    filepath.Join(t.TempDir(), "backups"),
 		hung:       map[string]chan struct{}{},
 		denied:     map[string]bool{},
 		broken:     map[string]bool{},
@@ -325,6 +331,13 @@ func (d *testDisk) Clone(ctx context.Context, from, to string) error {
 		return err //nolint:wrapcheck // the OS's own error, as a Disk answers it
 	}
 	return os.Rename(part, d.at(to)) //nolint:wrapcheck // the OS's own error, as a Disk answers it
+}
+
+func (d *testDisk) Runnable(ctx context.Context, path string) (bool, error) {
+	if err := d.fault(ctx, "runnable", path); err != nil {
+		return false, err
+	}
+	return d.os.Runnable(ctx, path)
 }
 
 func (d *testDisk) Writable(ctx context.Context, dir string) (bool, error) {

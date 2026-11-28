@@ -1,3 +1,4 @@
+import { HttpResponse, http } from "msw";
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
@@ -21,6 +22,7 @@ const schema: FormatsSchema = {
         pattern: true,
         values: [],
       },
+      { kind: "Derived", words: "Is derived", fields: [], pattern: false, values: [] },
     ],
   })),
 };
@@ -113,5 +115,26 @@ test("a saved format's editor warns of its slow pattern and saves its edit throu
     name: "Golden",
     includeWhenRenaming: false,
     conditions: [{ ...golden.conditions[0], fields: { value: String.raw`\bGOLDEN\b` } }],
+  });
+});
+
+test("a condition of a kind with no value, such as Is derived, saves with no fields", async () => {
+  const sent: unknown[] = [];
+  const creating = http.post("*/api/v1/custom-formats", async ({ request }) => {
+    sent.push(await request.json());
+    return HttpResponse.json(golden, { status: 201 });
+  });
+  renderApp({ path: "/settings/custom-formats/new", handlers: [creating, ...handlers] });
+  await userEvent.fill(page.getByRole("textbox", { name: "Name", exact: true }), "Made");
+  await userEvent.click(page.getByRole("combobox", { name: "Kind" }));
+  await userEvent.click(page.getByRole("option", { name: "Is derived" }));
+  await userEvent.click(page.getByRole("button", { name: "Create Custom Format" }));
+  await expect.poll(() => sent).toHaveLength(1);
+  expect(sent[0]).toEqual({
+    name: "Made",
+    includeWhenRenaming: false,
+    conditions: [
+      { name: "Is derived", kind: "Derived", negate: false, required: false, fields: {} },
+    ],
   });
 });

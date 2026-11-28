@@ -139,7 +139,7 @@ func TestNames(t *testing.T) {
 		},
 	} {
 		t.Run(c.name, func(t *testing.T) {
-			w := shelved(t, "{Shelf} - {Thing} - {Edition Tag} {Target}", targets.Goals{Targets: []targets.Target{best, web, uhd}}, scarf)
+			w := shelved(t, "{Shelf} - {Thing} - {Edition Tag} {Target}", downloaded(best, web, uhd), scarf)
 			w.fresh = map[ID]bool{ids["fresh"]: true}
 			for _, s := range c.files {
 				w.files = append(w.files, File{ID: ids[s.id], Items: []works.ItemID{scarf.ID}, Cut: release.Standard, Quality: s.quality, Label: s.label, Extra: s.extra, Path: s.path})
@@ -168,7 +168,7 @@ func TestAFileBeingPlacedOnAnotherFilesNameFindsItTaken(t *testing.T) {
 	scarf := works.Item{ID: works.ItemID{UUID: storage.NewUUID()}}
 	held := File{ID: ID{UUID: storage.NewUUID()}, Items: []works.ItemID{scarf.ID}, Cut: release.Standard, Quality: release.WEBDL1080p, Label: "Web", Path: "Attic/Attic - Scarf.mkv"}
 	fresh := File{ID: ID{UUID: storage.NewUUID()}, Items: []works.ItemID{scarf.ID}, Cut: release.Standard, Quality: release.WEBDL1080p, Path: ".slipstream-incoming/grab.mkv"}
-	w := shelved(t, "{Shelf} - {Thing}", targets.Goals{Targets: []targets.Target{web}}, scarf)
+	w := shelved(t, "{Shelf} - {Thing}", downloaded(web), scarf)
 	w.files, w.fresh = []File{held, fresh}, map[ID]bool{fresh.ID: true}
 	_, _, err := names(w, map[CellKey]Fill{{Item: scarf.ID, Edition: targets.AnyEdition, Target: web.ID}: {File: held.ID}})
 	if taken, ok := errors.AsType[*NameTakenError](err); !ok || *taken != (NameTakenError{Path: "Attic/Attic - Scarf.mkv"}) {
@@ -183,7 +183,7 @@ func keeping(t *testing.T, held, source string) (w world, fills map[CellKey]Fill
 	t.Helper()
 	web := newTarget(t, "Web", []release.Quality{release.WEBDL1080p})
 	scarf := works.Item{ID: works.ItemID{UUID: storage.NewUUID()}}
-	w = shelved(t, "{Shelf} - {Thing} - {Target}", targets.Goals{Targets: []targets.Target{web}}, scarf)
+	w = shelved(t, "{Shelf} - {Thing} - {Target}", downloaded(web), scarf)
 	off := false
 	scheme, err := naming.SchemeOf(shelf("{Shelf} - {Thing} - {Target}").Naming(), naming.Settings{Rename: &off})
 	if err != nil {
@@ -224,7 +224,7 @@ func TestAGoneFileKeepsItsNameAndHoldsItsN(t *testing.T) {
 		Path: "Attic/Attic - Scarf - Web (extra 1).mkv", GoneAt: storage.Now(),
 	}
 	kept := File{ID: ID{UUID: storage.NewUUID()}, Items: []works.ItemID{scarf.ID}, Cut: release.Standard, Quality: release.HDTV720p, Label: "Web", Path: "Attic/Scarf.mkv"}
-	w := shelved(t, "{Shelf} - {Thing} - {Edition Tag} {Target}", targets.Goals{Targets: []targets.Target{best}}, scarf)
+	w := shelved(t, "{Shelf} - {Thing} - {Edition Tag} {Target}", downloaded(best), scarf)
 	w.files, w.retagged = []File{gone, kept}, map[release.CutKey]bool{release.Standard: true}
 	got, _, err := names(w, nil)
 	if err != nil {

@@ -284,11 +284,12 @@ func newCluster(t *testing.T) *cluster {
 		Paused: func(context.Context, storage.Reader[storage.Library]) (bool, error) {
 			return r.blocked.Load(), nil
 		},
-		Sample:  func(context.Context, role.NodeID) error { return nil },
-		Hub:     live.NewHub([]live.Event{roots.ChangedEvent, roots.VolumesChangedEvent, health.ChangedEvent, nodes.ChangedEvent, transfers.ChangedEvent}),
-		Changed: r.published,
-		Timings: transfers.DefaultTimings(),
-		Log:     discard,
+		Sample:        func(context.Context, role.NodeID) error { return nil },
+		ScratchVolume: func(id role.NodeID) (string, bool) { return "v2", id == r.home },
+		Hub:           live.NewHub([]live.Event{roots.ChangedEvent, roots.VolumesChangedEvent, health.ChangedEvent, nodes.ChangedEvent, transfers.ChangedEvent}),
+		Changed:       r.published,
+		Timings:       transfers.DefaultTimings(),
+		Log:           discard,
 	})
 	r.purpose.register(r.tr)
 	c = transfers.Def.Serve(r.tr.Derive, r.tr.Apply)

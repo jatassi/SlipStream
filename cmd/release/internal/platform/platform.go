@@ -43,6 +43,10 @@ var Tests = []Test{
 	},
 	{Package: "fakes/world/worldtest", Run: "^TestAHeldFileNamesItsHolder$"},
 	{Package: "internal/atomicfile", Run: "^(TestReplaceReplaces|TestRenameRetriesASharingViolation|TestRemoveRetriesASharingViolation)$"},
+	{
+		Package: "internal/converting",
+		Run:     "^(TestAHardwareRowFailsItsTestRunWithoutAGPU|TestTheProcessorConvertsEachClass|TestPauseAndStall|TestRealRunsFFmpegWithoutSlipStreamVariables)$",
+	},
 	{Package: "internal/converting/clip", Run: "^TestEveryClassMakesAClipThatProbesAsItsClass$"},
 	{Package: "internal/converting/internal/drivers", Run: "^(TestTheReaderAnswers|TestTheVAAPIDriverLine)$"},
 	{Package: "internal/downloading", Run: "^(TestFreesCountsOnlyFilesWithNoOtherLink|TestPlacePayloadLinksOnOneVolumeAndCopiesAcrossVolumes)$"},

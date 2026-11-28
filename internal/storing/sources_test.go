@@ -40,10 +40,11 @@ func newFenced(t *testing.T, prober media.Prober) *fenced {
 	d.downloads = []string{f.downloads}
 	f.store = NewStore(Config{
 		Disk: d, Payloads: payloads{}, Downloads: func() []string { return d.downloads }, Torrents: func() []string { return f.seeding },
+		Scratch: func() string { return d.scratch },
 		Timings: Timings{Stat: 10 * time.Second},
 	})
 	running(t, f.store, intentOf(rootAt(id, f.root, false))).next(t)
-	svc := media.NewService(prober, payloads{}, f.store.Holds, media.Timings{Probe: time.Second})
+	svc := media.NewService(prober, payloads{}, f.store.Holds, f.store.LibraryFile, media.Timings{Probe: time.Second})
 	f.probes = func(role.NodeID) mediav1connect.MediaServiceHandler { return svc }
 	return f
 }
@@ -194,6 +195,31 @@ func TestBrowsingForAnImportStartsAtTheRootsAndDownloadFolders(t *testing.T) {
 	})
 }
 
+func TestAProbeInARootResolvesItsNameOnTheRootsNode(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		f := newFenced(t, mediatest.Prober{Of: map[string]media.Record{"Heat (1995)/Heat.mkv": {Container: "matroska"}}})
+		write(t, filepath.Join(f.root, "Heat (1995)", "Heat.mkv"), "film")
+		write(t, filepath.Join(f.elsewhere, "Heat (1995)", "Heat.mkv"), "film")
+		f.escape(t)
+		var asked []role.NodeID
+		probes := Probes(func(n role.NodeID) mediav1connect.MediaServiceHandler {
+			asked = append(asked, n)
+			return f.probes(n)
+		})
+		got, err := probes.ProbeIn(t.Context(), node, f.at.Root, mustRel(t, "Heat (1995)/Heat.mkv"))
+		if err != nil || got.Container != "matroska" || !slices.Equal(asked, []role.NodeID{node}) {
+			t.Errorf("ProbeIn of a file in the root = %+v, %v, asking %v; want matroska from %v", got, err, asked, node)
+		}
+		if _, err := probes.ProbeIn(t.Context(), node, storage.NewUUID(), mustRel(t, "Heat (1995)/Heat.mkv")); !notReady(t, err).Unknown {
+			t.Errorf("ProbeIn in a root the Node doesn't hold = %v, want not ready, unknown", err)
+		}
+		_, err = probes.ProbeIn(t.Context(), node, f.at.Root, mustRel(t, "Linked/Heat (1995)/Heat.mkv"))
+		if _, ok := errors.AsType[*OutsideError](err); !ok {
+			t.Errorf("ProbeIn through a link in the root to elsewhere = %v, want *OutsideError", err)
+		}
+	})
+}
+
 type stalled struct{}
 
 func (stalled) Probe(ctx context.Context, _ string) (media.Record, error) {
@@ -221,7 +247,7 @@ func TestAProbeTimeoutAndAnFfprobeErrorArriveTyped(t *testing.T) {
 func TestAProbeOfAPayloadReadsItWhereItsClientKeepsIt(t *testing.T) {
 	h := bencode.InfoHash{1}
 	want := media.Record{Container: "matroska"}
-	svc := media.NewService(mediatest.Prober{Of: map[string]media.Record{"0100/orchard.mkv": want}}, payloads{h: "/downloads/0100/orchard.mkv"}, nil, media.DefaultTimings())
+	svc := media.NewService(mediatest.Prober{Of: map[string]media.Record{"0100/orchard.mkv": want}}, payloads{h: "/downloads/0100/orchard.mkv"}, nil, nil, media.DefaultTimings())
 	probes := Probes(func(role.NodeID) mediav1connect.MediaServiceHandler { return svc })
 	if got, err := probes.Probe(t.Context(), node, Payload{InfoHash: h}); err != nil || got.Container != want.Container {
 		t.Errorf("Probe of a payload = %+v, %v; want %+v", got, err, want)

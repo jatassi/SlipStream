@@ -49,7 +49,8 @@ func Store(tb testing.TB, data, downloads string) *storing.Store {
 	if err != nil {
 		tb.Fatal(err)
 	}
-	return storing.NewStore(storing.Config{Disk: disk, Downloads: func() []string { return []string{downloads} }, Timings: storing.Timings{Stat: 10 * time.Second}})
+	scratch := tb.TempDir()
+	return storing.NewStore(storing.Config{Disk: disk, Downloads: func() []string { return []string{downloads} }, Scratch: func() string { return scratch }, Timings: storing.Timings{Stat: 10 * time.Second}})
 }
 
 // Everywhere reaches store on every Node, for its Storage and its folders.
@@ -145,8 +146,10 @@ func held(tb testing.TB, lib *storage.DB[storage.Library], node role.NodeID, on 
 	if on.Downloads == nil {
 		on.Downloads = []string{tb.TempDir()}
 	}
+	scratch := tb.TempDir()
 	store := storing.NewStore(storing.Config{
 		Disk: on.Disk, Payloads: on.Payloads, Downloads: func() []string { return on.Downloads }, Torrents: func() []string { return on.Torrents },
+		Scratch: func() string { return scratch },
 		Timings: storing.Timings{Stat: 10 * time.Second},
 	})
 	var intent *storagev1.Intent

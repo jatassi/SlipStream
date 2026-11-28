@@ -77,7 +77,9 @@ func TestReasonOfIsTheFirstReasonAndCountsEachOtherItemOnce(t *testing.T) {
 		return works.Item{ID: works.ItemID{UUID: storage.NewUUID()}, Label: label, Monitored: true}
 	}
 	scarf, mittens, gloves, hat := item("Scarf"), item("Mittens"), item("Gloves"), item("Hat")
-	cell := func(it works.Item, s files.State) files.Cell { return files.Cell{Item: it, State: s, Released: true} }
+	cell := func(it works.Item, s files.State) files.Cell {
+		return files.Cell{Item: it, State: s, Released: true, Sourcing: targets.Download}
+	}
 	gone := func(c files.Cell) files.Cell { c.Gone = true; return c }
 	stopped := func(c files.Cell) files.Cell { c.Search.Stopped = true; return c }
 	for _, c := range []struct {

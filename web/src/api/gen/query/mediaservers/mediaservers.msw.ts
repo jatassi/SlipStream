@@ -32,6 +32,7 @@ import type {
   SettingChoiceField,
   SettingCountField,
   SettingDurationField,
+  SettingFileField,
   SettingFolderField,
   SettingIPField,
   SettingListField,
@@ -1386,6 +1387,38 @@ export const getGetMediaServerSettingsResponseSettingFolderFieldMock = (
   ...overrideResponse,
 });
 
+export const getGetMediaServerSettingsResponseSettingFileFieldMock = (
+  overrideResponse: Partial<SettingFileField> = {},
+): SettingFileField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["file"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    nodeId: faker.string.uuid(),
+    pendingRestart: faker.datatype.boolean(),
+    running: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    unsupported: faker.datatype.boolean(),
+    value: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
+  ...overrideResponse,
+});
+
 export const getGetMediaServerSettingsResponseSettingSpaceFieldMock = (
   overrideResponse: Partial<SettingSpaceField> = {},
 ): SettingSpaceField => ({
@@ -1578,6 +1611,7 @@ export const getGetMediaServerSettingsResponseMock = (
       { ...getGetMediaServerSettingsResponseSettingRateFieldMock() },
       { ...getGetMediaServerSettingsResponseSettingAddressFieldMock() },
       { ...getGetMediaServerSettingsResponseSettingFolderFieldMock() },
+      { ...getGetMediaServerSettingsResponseSettingFileFieldMock() },
       { ...getGetMediaServerSettingsResponseSettingSpaceFieldMock() },
       { ...getGetMediaServerSettingsResponseSettingTemplateFieldMock() },
       { ...getGetMediaServerSettingsResponseSettingListFieldMock() },
@@ -1913,6 +1947,38 @@ export const getUpdateMediaServerSettingsResponseSettingFolderFieldMock = (
   ...overrideResponse,
 });
 
+export const getUpdateMediaServerSettingsResponseSettingFileFieldMock = (
+  overrideResponse: Partial<SettingFileField> = {},
+): SettingFileField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["file"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    nodeId: faker.string.uuid(),
+    pendingRestart: faker.datatype.boolean(),
+    running: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    unsupported: faker.datatype.boolean(),
+    value: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
+  ...overrideResponse,
+});
+
 export const getUpdateMediaServerSettingsResponseSettingSpaceFieldMock = (
   overrideResponse: Partial<SettingSpaceField> = {},
 ): SettingSpaceField => ({
@@ -2105,6 +2171,7 @@ export const getUpdateMediaServerSettingsResponseMock = (
       { ...getUpdateMediaServerSettingsResponseSettingRateFieldMock() },
       { ...getUpdateMediaServerSettingsResponseSettingAddressFieldMock() },
       { ...getUpdateMediaServerSettingsResponseSettingFolderFieldMock() },
+      { ...getUpdateMediaServerSettingsResponseSettingFileFieldMock() },
       { ...getUpdateMediaServerSettingsResponseSettingSpaceFieldMock() },
       { ...getUpdateMediaServerSettingsResponseSettingTemplateFieldMock() },
       { ...getUpdateMediaServerSettingsResponseSettingListFieldMock() },

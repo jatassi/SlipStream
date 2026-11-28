@@ -10,6 +10,7 @@ import (
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/history/entry"
 	"github.com/jatassi/slipstream/internal/live"
+	"github.com/jatassi/slipstream/internal/mediaservers"
 	"github.com/jatassi/slipstream/internal/nodes"
 	cv1 "github.com/jatassi/slipstream/internal/pb/slipstream/converting/v1"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/converting/v1/convertingv1connect"
@@ -96,8 +97,11 @@ type Config struct {
 	// RootRoom is the free bytes on root's volume, and whether they are
 	// known: imports.CopyRoom.
 	RootRoom func(ctx context.Context, r storage.Reader[storage.Library], root roots.ID) (int64, bool, error)
-	History  entry.Recorder
-	Changed  Publisher[Changed]
+	// TranscodingOn is each Media Server on node that pauses its
+	// Conversions, and whether it transcodes video now.
+	TranscodingOn func(ctx context.Context, r storage.Reader[storage.Library], node role.NodeID) ([]mediaservers.Transcoding, error)
+	History       entry.Recorder
+	Changed       Publisher[Changed]
 	// Live is sampled while Listening.
 	Live live.AdminPublisher[LiveSample]
 	Hub  *live.Hub

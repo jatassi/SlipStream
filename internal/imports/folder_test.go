@@ -186,6 +186,9 @@ func TestMoveFilesPlacesByAMoveAndRemovesTheSource(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(dir, "Shelf w1", "Clip 1.mkv")); !errors.Is(err, os.ErrNotExist) {
 		t.Errorf("the moved clip's source: %v, want it gone", err)
 	}
+	if got := w.nudges(t, one.ID); !slices.Equal(got, []string{"new"}) {
+		t.Errorf("landing the clip nudged %s's Conversions %v, want once as new", one.Label, got)
+	}
 }
 
 // crossDisk is a disk whose volumes link and clone nothing, so a place

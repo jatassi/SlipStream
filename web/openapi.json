@@ -25464,6 +25464,8 @@
               "unresponsive",
               "network_share",
               "outside",
+              "inside_backups",
+              "contains_backups",
               "node_offline"
             ],
             "type": "string"
@@ -26430,6 +26432,7 @@
             "choice": "#/components/schemas/SettingChoiceField",
             "count": "#/components/schemas/SettingCountField",
             "duration": "#/components/schemas/SettingDurationField",
+            "file": "#/components/schemas/SettingFileField",
             "folder": "#/components/schemas/SettingFolderField",
             "ip": "#/components/schemas/SettingIPField",
             "list": "#/components/schemas/SettingListField",
@@ -26472,6 +26475,9 @@
             "$ref": "#/components/schemas/SettingFolderField"
           },
           {
+            "$ref": "#/components/schemas/SettingFileField"
+          },
+          {
             "$ref": "#/components/schemas/SettingSpaceField"
           },
           {
@@ -26487,6 +26493,90 @@
             "$ref": "#/components/schemas/SettingIPField"
           }
         ]
+      },
+      "SettingFileField": {
+        "additionalProperties": false,
+        "properties": {
+          "applies": {
+            "enum": [
+              "live",
+              "restart"
+            ],
+            "type": "string"
+          },
+          "default": {
+            "description": "Empty runs the program SlipStream bundles",
+            "type": "string"
+          },
+          "defaultFrom": {
+            "description": "Where the default comes from, when it is another setting's value",
+            "type": "string"
+          },
+          "isDefault": {
+            "description": "The setting has no override; Reset to default leaves it unchanged",
+            "type": "boolean"
+          },
+          "key": {
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "file"
+            ],
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "lockedBy": {
+            "description": "The environment variable that sets the value; the control is read-only",
+            "type": "string"
+          },
+          "nodeId": {
+            "description": "The Node the path is on, which checks that the program is there and runs",
+            "format": "uuid",
+            "type": "string"
+          },
+          "pendingRestart": {
+            "description": "The saved value differs from the running one until the Node restarts",
+            "type": "boolean"
+          },
+          "running": {
+            "type": "string"
+          },
+          "source": {
+            "enum": [
+              "database",
+              "default",
+              "config.yaml",
+              ".env",
+              "env"
+            ],
+            "type": "string"
+          },
+          "unsupported": {
+            "description": "SlipStream's support doesn't cover a program set here",
+            "type": "boolean"
+          },
+          "value": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "value",
+          "running",
+          "default",
+          "nodeId",
+          "unsupported",
+          "key",
+          "label",
+          "source",
+          "applies",
+          "isDefault",
+          "pendingRestart"
+        ],
+        "type": "object"
       },
       "SettingFolderField": {
         "additionalProperties": false,
