@@ -35,7 +35,7 @@ func (c *Conversions) drainIn(ctx context.Context, tx *storage.Tx[storage.Librar
 	}
 	sourced, err := c.cfg.Files.Sourced(ctx, tx, works.Only(ws))
 	if err != nil {
-		return nil, false, fmt.Errorf("read the made-from cells: %w", err)
+		return nil, false, fmt.Errorf("read what each Work's files are made from: %w", err)
 	}
 	have, err := openOf(ctx, q, ws, sourced)
 	if err != nil {

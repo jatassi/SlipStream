@@ -38,7 +38,7 @@ func (s Seam) Cells(ctx context.Context, r storage.Reader[storage.Library], ws w
 		return out, err
 	}, func(ids []works.WorkID) ([]db.ListCellsOfRow, error) { return q.ListCellsOf(ctx, ids) })
 	if err != nil {
-		return nil, fmt.Errorf("read the Conversions of cells: %w", err)
+		return nil, fmt.Errorf("read the Conversions of these Works: %w", err)
 	}
 	now := s.Conversions().cfg.Clock()
 	out := map[files.CellKey]files.ConversionCell{}

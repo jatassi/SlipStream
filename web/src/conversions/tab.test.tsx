@@ -7,6 +7,7 @@ import {
   getMoveConversionUpMockHandler,
 } from "../api/gen/query/conversions/conversions.msw";
 import { getListContentTypesMockHandler } from "../api/gen/query/works/works.msw";
+import { anthologies } from "../test/anthology";
 import { renderApp } from "../test/render-app";
 
 const waiting = (id: string, title: string): ConversionsConversionRow => ({
@@ -14,7 +15,7 @@ const waiting = (id: string, title: string): ConversionsConversionRow => ({
   id,
   stage: "queued",
   lane: "new",
-  work: { id: `${id}-work`, title, type: "movie" },
+  work: { id: `${id}-work`, title, type: anthologies.id },
   items: [],
   target: { id: "720p-mobile", name: "720p mobile" },
   source: { fileId: `${id}-file`, name: `${title}.mkv`, target: "1080p" },

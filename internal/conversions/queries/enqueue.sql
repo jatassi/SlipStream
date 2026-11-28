@@ -17,7 +17,7 @@ UPDATE conversions_backfill SET count = count + @n WHERE id = @id;
 SELECT * FROM conversions_conversion WHERE work_id IN (sqlc.slice(work_ids)) AND finished_at IS NULL ORDER BY id;
 
 -- name: ListDeclinedOf :many
-SELECT * FROM conversions_declined WHERE source_file_id IN (sqlc.slice(source_file_ids));
+SELECT * FROM conversions_declined WHERE source_file_id IN (sqlc.slice(source_file_ids)) ORDER BY source_file_id, target_id;
 
 -- name: DeleteDecline :exec
 DELETE FROM conversions_declined WHERE source_file_id = ? AND target_id = ?;
@@ -68,7 +68,8 @@ ORDER BY id;
 
 -- name: ListReading :many
 SELECT DISTINCT source_file_id FROM conversions_conversion
-WHERE source_file_id IN (sqlc.slice(source_file_ids)) AND stage IN ('copying', 'ready', 'running', 'paused');
+WHERE source_file_id IN (sqlc.slice(source_file_ids)) AND stage IN ('copying', 'ready', 'running', 'paused')
+ORDER BY source_file_id;
 
 -- name: GetNodeSettings :one
 SELECT * FROM conversions_node WHERE node_id = ?;

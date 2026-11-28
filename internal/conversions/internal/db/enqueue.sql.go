@@ -247,7 +247,7 @@ func (q *Queries) ListCellsOf(ctx context.Context, workIds []works.WorkID) ([]Li
 }
 
 const listDeclinedOf = `-- name: ListDeclinedOf :many
-SELECT source_file_id, target_id FROM conversions_declined WHERE source_file_id IN (/*SLICE:source_file_ids*/?)
+SELECT source_file_id, target_id FROM conversions_declined WHERE source_file_id IN (/*SLICE:source_file_ids*/?) ORDER BY source_file_id, target_id
 `
 
 func (q *Queries) ListDeclinedOf(ctx context.Context, sourceFileIds []files.ID) ([]ConversionsDeclined, error) {
@@ -588,6 +588,7 @@ func (q *Queries) ListProofsOf(ctx context.Context, nodeID role.NodeID) ([]Conve
 const listReading = `-- name: ListReading :many
 SELECT DISTINCT source_file_id FROM conversions_conversion
 WHERE source_file_id IN (/*SLICE:source_file_ids*/?) AND stage IN ('copying', 'ready', 'running', 'paused')
+ORDER BY source_file_id
 `
 
 func (q *Queries) ListReading(ctx context.Context, sourceFileIds []files.ID) ([]files.ID, error) {
