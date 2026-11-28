@@ -3,13 +3,11 @@ package conversions
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"maps"
 	"slices"
 
 	"github.com/jatassi/slipstream/internal/conversions/internal/db"
-	"github.com/jatassi/slipstream/internal/encode"
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/storage"
@@ -149,7 +147,7 @@ func (s Seam) cancelSource(ctx context.Context, tx *storage.Tx[storage.Library],
 
 // Remakes is each Work of ws, or every Work when ws is empty, with files
 // t made with settings before version, and queues ws for a remake into
-// one remake backfill unless preview. Seconds wait on the forecast.
+// one remake backfill unless preview. Seconds are the forecast's.
 func (s Seam) Remakes(ctx context.Context, tx *storage.Tx[storage.Library], t targets.TargetID, version int, ws []works.WorkID, preview bool) (files.RemakeImpact, error) {
 	c := s.Conversions()
 	q := db.New(tx)
@@ -157,13 +155,10 @@ func (s Seam) Remakes(ctx context.Context, tx *storage.Tx[storage.Library], t ta
 	if err != nil {
 		return files.RemakeImpact{}, fmt.Errorf("read the files older settings made: %w", err)
 	}
-	goals, err := goalsOf(ctx, tx)
-	if err != nil {
-		return files.RemakeImpact{}, err
-	}
-	settings := goals[t].Conversion.Settings
 	var out files.RemakeImpact
 	at := map[works.WorkID]int{}
+	var pairs []files.MadePair
+	var of []int
 	for _, m := range made {
 		if len(ws) > 0 && !slices.Contains(ws, m.Work) {
 			continue
@@ -178,14 +173,15 @@ func (s Seam) Remakes(ctx context.Context, tx *storage.Tx[storage.Library], t ta
 		if m.From.IsZero() {
 			continue
 		}
-		src, err := c.cfg.Files.Located(ctx, tx, m.From)
-		switch {
-		case errors.Is(err, files.ErrNoFile):
-		case err != nil:
-			return files.RemakeImpact{}, fmt.Errorf("read a source file: %w", err)
-		default:
-			out.Rows[i].Bytes += encode.Bytes(src.Media, settings)
-		}
+		pairs, of = append(pairs, files.MadePair{Work: m.Work, Source: m.From, Target: t}), append(of, i)
+	}
+	plans, err := c.forecastPairs(ctx, tx, pairs)
+	if err != nil {
+		return files.RemakeImpact{}, err
+	}
+	for k, p := range plans {
+		out.Rows[of[k]].Seconds += p.seconds
+		out.Rows[of[k]].Bytes += p.bytes
 	}
 	summaries, err := works.SummariesOf(ctx, tx, slices.Collect(maps.Keys(at)))
 	if err != nil {

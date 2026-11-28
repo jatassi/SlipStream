@@ -844,6 +844,7 @@ func (n *Node) startController(ctx context.Context) error {
 		Clock:         time.Now,
 		Log:           n.rootLog.With("subsystem", "conversions"),
 	})
+	copies.Register(converts.Purpose())
 	front := home.New(home.Config{
 		Library: lib.db, Moves: mover, Grabs: pipeline, Imports: found, Works: tree, Files: shelf, Clients: clients,
 		Changed: home.SettingsChangedEvent.Bind(n.hub),

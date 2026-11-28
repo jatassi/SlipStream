@@ -11,11 +11,22 @@ import (
 // Derive is node's Converting intent: its ready, running and paused
 // Conversions, whether a Media Server there transcodes video, and the
 // scratch names to keep.
-func (c *Conversions) Derive(context.Context, storage.Reader[storage.Library], role.NodeID) (*cv1.Intent, error) {
-	return &cv1.Intent{}, nil
+func (c *Conversions) Derive(ctx context.Context, r storage.Reader[storage.Library], node role.NodeID) (*cv1.Intent, error) {
+	return c.derive(ctx, r, node)
 }
 
-// Apply applies one of from's results, fenced by its Node and attempt.
-func (c *Conversions) Apply(context.Context, *storage.Tx[storage.Library], role.NodeID, *cv1.Result) error {
-	return errNotBuilt
+// Apply applies one of from's results, fenced by its Node and attempt,
+// and wakes the reconciler to tell Transfers, imports and the tab once it
+// commits.
+func (c *Conversions) Apply(ctx context.Context, tx *storage.Tx[storage.Library], from role.NodeID, r *cv1.Result) error {
+	if err := c.apply(ctx, tx, from, r); err != nil {
+		return err
+	}
+	if u, err := storage.UUIDFromBytes(r.GetConversionId()); err == nil {
+		c.rec.mu.Lock()
+		c.rec.applied = append(c.rec.applied, ID{UUID: u})
+		c.rec.mu.Unlock()
+	}
+	c.cfg.Poke.Wake()
+	return nil
 }

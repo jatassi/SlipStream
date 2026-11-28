@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/jatassi/slipstream/internal/conversions/internal/db"
+	"github.com/jatassi/slipstream/internal/converting"
 	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/encode"
 	"github.com/jatassi/slipstream/internal/files"
@@ -17,8 +18,10 @@ import (
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/media"
+	"github.com/jatassi/slipstream/internal/mediaservers"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/nodes/nodestest"
+	cv1 "github.com/jatassi/slipstream/internal/pb/slipstream/converting/v1"
 	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
@@ -148,7 +151,7 @@ func newLife(t *testing.T) *life {
 	t.Helper()
 	ctx := t.Context()
 	l := &life{
-		lib:   storagetest.Library(t, identity.Schema(), nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), downloadclients.Schema(), grabs.Schema(), indexers.Schema(), files.Schema(), Schema()),
+		lib:   storagetest.Library(t, identity.Schema(), nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), downloadclients.Schema(), grabs.Schema(), indexers.Schema(), files.Schema(), transfers.LibrarySchema(), Schema()),
 		attic: role.NodeID{UUID: storage.NewUUID()}, den: role.NodeID{UUID: storage.NewUUID()},
 		root: roots.ID{UUID: storage.NewUUID()}, work: works.WorkID{UUID: storage.NewUUID()},
 		media: media.Record{
@@ -204,8 +207,19 @@ func newLife(t *testing.T) *life {
 	l.c = New(Config{
 		Library: l.lib, Files: l.files, Transfers: l.transfers, History: rec, Changed: discard[Changed]{}, Poke: NewPoke(),
 		Clock: func() time.Time { return l.now }, Log: slog.New(slog.DiscardHandler),
+		RootRoom: func(context.Context, storage.Reader[storage.Library], roots.ID) (int64, bool, error) {
+			return 1 << 50, true, nil
+		},
+		TranscodingOn: func(context.Context, storage.Reader[storage.Library], role.NodeID) ([]mediaservers.Transcoding, error) {
+			return nil, nil
+		},
+		Reconciling: func(context.Context, storage.Reader[storage.Library]) (bool, error) { return false, nil },
+		Zone:        func() *time.Location { return time.UTC }, Timings: DefaultTimings(), Run: converting.DefaultTimings(),
 	})
 	l.c.Register(l.importer)
+	l.c.roster = func() roster {
+		return roster{holders: nobody{}, facts: func(role.NodeID) (*cv1.Facts, bool) { return nil, false }}
+	}
 	return l
 }
 
@@ -382,3 +396,13 @@ func (l *life) declined(t *testing.T, r Row) bool {
 	}
 	return n == 1
 }
+
+// nobody is a Board on which no Node holds Converting.
+type nobody struct{}
+
+func (nobody) Holds(nodes.ID) bool                 { return false }
+func (nobody) May(nodes.ID) bool                   { return false }
+func (nobody) Lapsed(nodes.ID) bool                { return false }
+func (nobody) Away(nodes.ID) (nodes.Absence, bool) { return nodes.Absence{}, false }
+func (nobody) WrittenOff(nodes.ID) bool            { return false }
+func (nobody) Serving() []nodes.ID                 { return nil }

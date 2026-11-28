@@ -48,7 +48,7 @@ var transitions = []transition{
 	{From: []Stage{StageCopying}, On: Copied, Fence: FenceNode, To: to(StageReady)},
 	{From: []Stage{StageCopying}, On: CopyFailed, Fence: FenceNode, To: faultTo, Do: []effect{faulted}},
 	{From: []Stage{StageReady}, On: Started, Fence: FenceAttempt, To: to(StageRunning), Do: []effect{started}},
-	{From: []Stage{StageRunning}, On: Paused, Fence: FenceAttempt, To: to(StagePaused)},
+	{From: []Stage{StageRunning}, On: Paused, Fence: FenceAttempt, To: to(StagePaused), Do: []effect{pausedBy}},
 	{From: []Stage{StagePaused}, On: Resumed, Fence: FenceAttempt, To: to(StageRunning), Do: []effect{resumed}},
 	{From: []Stage{StageRunning, StagePaused}, On: Preempted, Fence: FenceNode, To: to(StageQueued), Do: []effect{leave(AttemptPutBack)}},
 	{From: []Stage{StageRunning}, On: Exited, Fence: FenceAttempt, To: exitedTo, Do: []effect{moveSpeed, returnOutput}},

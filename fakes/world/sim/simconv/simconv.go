@@ -5,6 +5,7 @@ package simconv
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"slices"
@@ -19,14 +20,24 @@ import (
 )
 
 // Made is a world's prober: each file a run on any Node made, by its base
-// name, and every other path from the prober it wraps.
+// name, and every other path from the prober it wraps. A file the wrapped
+// prober doesn't know, such as a source's copy in a scratch folder, reads
+// as the file it probed with the same first bytes.
 type Made struct {
 	base media.Prober
 	mu   sync.Mutex
 	of   map[string]media.Record
+	// bytes is each probed file's record by its first bytes.
+	bytes map[string]media.Record
 }
 
-func NewMade(base media.Prober) *Made { return &Made{base: base, of: map[string]media.Record{}} }
+func NewMade(base media.Prober) *Made {
+	return &Made{base: base, of: map[string]media.Record{}, bytes: map[string]media.Record{}}
+}
+
+// headLen is how many first bytes tell two copies of a file apart from
+// every other file the walk writes.
+const headLen = 32
 
 func (m *Made) Probe(ctx context.Context, path string) (media.Record, error) {
 	m.mu.Lock()
@@ -35,7 +46,31 @@ func (m *Made) Probe(ctx context.Context, path string) (media.Record, error) {
 	if ok {
 		return r, nil
 	}
-	return m.base.Probe(ctx, path)
+	head := headOf(path)
+	r, err := m.base.Probe(ctx, path)
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if err == nil && head != "" {
+		m.bytes[head] = r
+	}
+	if copied, ok := m.bytes[head]; err != nil && head != "" && ok {
+		return copied, nil
+	}
+	return r, err
+}
+
+// headOf is path's first bytes, "" when it has fewer or can't be read.
+func headOf(path string) string {
+	f, err := os.Open(path)
+	if err != nil {
+		return ""
+	}
+	b := make([]byte, headLen)
+	_, err = io.ReadFull(f, b)
+	if cerr := f.Close(); err != nil || cerr != nil {
+		return ""
+	}
+	return string(b)
 }
 
 // Converting is node.Env.Converting over m: Succeeds registering what it
