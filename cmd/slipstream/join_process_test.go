@@ -235,6 +235,7 @@ func TestJoinRunning(t *testing.T) {
 	if claimed := box.await("claimed"); claimed["claim"] != "worker" {
 		t.Fatalf("claimed record %v, want claim worker", claimed)
 	}
+	stopNode(t, box, dir)
 }
 
 // TestJoinWaitsAtTheNodePortForTheDial joins a stopped Node with a code
