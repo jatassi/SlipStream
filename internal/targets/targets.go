@@ -65,6 +65,12 @@ var (
 	ErrProfileIsDefault = errors.New("the default Profile can't be deleted")
 	ErrMovesToItself    = errors.New("a Profile's Works can't move to the Profile being deleted")
 	ErrNoReplacement    = errors.New("no Profile has the id a deleted Profile's Works would move to")
+	ErrBadSourcing      = errors.New("a row's source Target or wait doesn't match how it is sourced")
+	ErrBadGrace         = errors.New("the wait for a download isn't whole seconds from 1 hour to 90 days")
+	ErrNoConversion     = errors.New("a made-from row's Target has no Conversion settings")
+	ErrSourceNotAbove   = errors.New("a made-from row's source isn't a downloaded Target above it in the Profile")
+	ErrNotOnProfile     = errors.New("a Work left out of the save doesn't use the Profile being saved")
+	ErrRestStays        = errors.New("the Works left out can't move to the Profile being saved")
 )
 
 // InUseError is a Target that Profiles hold, By their names, or a cut
@@ -140,6 +146,11 @@ func insertTarget(ctx context.Context, q *db.Queries, t Target) error {
 	})
 	if err != nil {
 		return err
+	}
+	if t.Conversion != nil {
+		if err := writeConversion(ctx, q, t.ID, t.Conversion); err != nil {
+			return err
+		}
 	}
 	return insertRules(ctx, q, t)
 }
@@ -228,7 +239,7 @@ func (t *Targets) DuplicateTarget(ctx context.Context, _ identity.Admin, id Targ
 		}
 		copied = Target{
 			ID: TargetID{UUID: storage.NewUUID()}, Tiers: all[i].Tiers, Cutoff: all[i].Cutoff, Filters: all[i].Filters,
-			Scores: all[i].Scores, Propers: all[i].Propers, Hold: all[i].Hold, CreatedAt: storage.Now(),
+			Scores: all[i].Scores, Propers: all[i].Propers, Hold: all[i].Hold, Conversion: all[i].Conversion, CreatedAt: storage.Now(),
 		}
 		for n := 1; copied.Name == "" || slices.ContainsFunc(all, func(t Target) bool { return foldName(t.Name) == foldName(copied.Name) }); n++ {
 			copied.Name = all[i].Name + " copy"
@@ -314,7 +325,7 @@ func listTargets(ctx context.Context, q *db.Queries) ([]Target, error) {
 		}
 		at[row.ID] = &out[i]
 	}
-	if err := readScores(ctx, q, at); err != nil {
+	if err := readScoresAndConversions(ctx, q, at); err != nil {
 		return nil, err
 	}
 	for _, row := range qualities {
@@ -359,11 +370,19 @@ func targetOf(row db.TargetsTarget) (Target, error) {
 	}, nil
 }
 
-// readScores adds each Target's format scores to it.
-func readScores(ctx context.Context, q *db.Queries, at map[TargetID]*Target) error {
+// readScoresAndConversions adds each Target's format scores and
+// Conversion settings to it.
+func readScoresAndConversions(ctx context.Context, q *db.Queries, at map[TargetID]*Target) error {
 	scores, err := q.ListFormatScores(ctx)
+	if err != nil {
+		return err
+	}
 	for _, s := range scores {
 		at[s.TargetID].Scores.Formats[formatID(s.FormatID)] = int(s.Score)
+	}
+	conversions, err := readConversions(ctx, q)
+	for id, c := range conversions {
+		at[id].Conversion = c
 	}
 	return err
 }
