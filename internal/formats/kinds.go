@@ -34,6 +34,7 @@ var kinds = []kind{
 	{KindInfo{ReleaseGroup, "Release group", []string{"value"}, true}, 1, patternOn(onGroup)},
 	{KindInfo{ReleaseType, "Release type", []string{"value"}, false}, 0, compileSpan},
 	{KindInfo{Year, "Year", []string{"min", "max"}, false}, 0, compileYear},
+	{KindInfo{Derived, "Is derived", []string{}, false}, 0, compileDerived},
 }
 
 // Kinds lists every kind with its fields, in upstream's order. The editor
@@ -62,6 +63,10 @@ type test interface {
 	run(*input) (matched, timedOut bool)
 }
 
+type partial interface {
+	unread(*input) bool
+}
+
 // input is one Read as the tests read it, each text split into runes
 // once for every format.
 type input struct {
@@ -81,7 +86,9 @@ const (
 
 func newInput(r *release.Read) *input {
 	in := &input{read: r, languages: languagesOf(r.Facts)}
-	in.texts[onTitle], in.known[onTitle] = regex.TextOf(r.Release), true
+	if !r.Facts.Derived {
+		in.texts[onTitle], in.known[onTitle] = regex.TextOf(r.Release), true
+	}
 	if g, ok := r.Facts.Group.Get(); ok {
 		in.texts[onGroup], in.known[onGroup] = regex.TextOf(g), true
 	}
@@ -129,6 +136,10 @@ type pattern struct {
 	on textOf
 	re *regex.Regex
 }
+
+// unread is a made file's title: it has no release name, so a title
+// condition matches it neither way.
+func (p pattern) unread(in *input) bool { return p.on == onTitle && !in.known[onTitle] }
 
 func (p pattern) run(in *input) (matched, timedOut bool) {
 	if !in.known[p.on] {
@@ -293,6 +304,17 @@ func compileYear(f fields) (test, error) {
 		return nil, err
 	}
 	return y, nil
+}
+
+type derivedIs struct{}
+
+func (derivedIs) run(in *input) (matched, timedOut bool) { return in.read.Facts.Derived, false }
+
+func compileDerived(f fields) (test, error) {
+	if !f.dialect.derived {
+		return nil, &KindError{Name: f.c.Name, Kind: string(f.c.Kind), Dialect: f.dialect.name}
+	}
+	return derivedIs{}, nil
 }
 
 func lookup[T any](f fields, table map[string]T) (T, error) {

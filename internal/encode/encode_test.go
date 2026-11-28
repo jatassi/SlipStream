@@ -212,6 +212,9 @@ func TestPredictAndRewrite(t *testing.T) {
 			if r.Release != "" {
 				t.Errorf("a made file has the release name %q", r.Release)
 			}
+			if !r.Facts.Derived {
+				t.Error("a made file isn't derived")
+			}
 		})
 	}
 }

@@ -191,6 +191,7 @@ const (
 	failed
 	matched
 	timedOut
+	unread
 )
 
 type run struct {
@@ -205,25 +206,35 @@ func (c *Catalog) start(r *release.Read) *run {
 
 func (r *run) test(i int) outcome {
 	if r.memo[i] == unrun {
-		ok, slow := r.c.tests[i].run(r.in)
-		switch {
-		case slow:
-			r.memo[i] = timedOut
-		case ok:
-			r.memo[i] = matched
-		default:
-			r.memo[i] = failed
-		}
+		r.memo[i] = outcomeOf(r.c.tests[i], r.in)
 	}
 	return r.memo[i]
 }
 
-// cond is one condition after Negate. A condition that timed out is not
-// matched, negated or not.
+func outcomeOf(t test, in *input) outcome {
+	if p, ok := t.(partial); ok && p.unread(in) {
+		return unread
+	}
+	ok, slow := t.run(in)
+	switch {
+	case slow:
+		return timedOut
+	case ok:
+		return matched
+	default:
+		return failed
+	}
+}
+
+// cond is one condition after Negate. A condition that timed out, or
+// whose test can't read the input, is not matched, negated or not.
 func (r *run) cond(c cond) (ok, slow bool) {
 	o := r.test(c.test)
 	if o == timedOut {
 		return false, true
+	}
+	if o == unread {
+		return false, false
 	}
 	return (o == matched) != c.negate, false
 }

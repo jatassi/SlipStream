@@ -36,6 +36,9 @@ type Facts struct {
 	Size     Fact[int64] // bytes
 	Flags    []Flag
 	Coverage Coverage
+	// Derived is a file a Conversion made. A Release from an Indexer is
+	// never derived.
+	Derived bool
 }
 
 // Coverage is what the Items a release or file covers add up to, which

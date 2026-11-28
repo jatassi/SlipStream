@@ -427,7 +427,7 @@ func TestTheSchemaListsEachAppsKindsAndTheirValuesInWords(t *testing.T) {
 		}
 	}
 	for d, want := range map[string]string{
-		"slipstream": "Release title, Edition, Language, Indexer flag, Source, Resolution, Quality modifier, Size, Release group, Release type, Year",
+		"slipstream": "Release title, Edition, Language, Indexer flag, Source, Resolution, Quality modifier, Size, Release group, Release type, Year, Is derived",
 		"radarr":     "Release title, Edition, Language, Indexer flag, Source, Resolution, Quality modifier, Size, Release group, Year",
 		"sonarr":     "Release title, Language, Indexer flag, Source, Resolution, Size, Release group, Release type",
 	} {

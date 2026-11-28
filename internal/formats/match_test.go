@@ -244,6 +244,25 @@ func TestSizeAndYear(t *testing.T) {
 	})
 }
 
+func TestDerived(t *testing.T) {
+	derived := cond(formats.Derived, map[string]any{})
+	made := withFacts(release.Facts{Derived: true})
+	made.Release = ""
+	runKindCases(t, []kindCase{
+		{"is derived matches a made file", formats.SlipStream, derived, made, true},
+		{"and not a release", formats.SlipStream, derived, named("Film.2020.1080p.BluRay.REMUX-GRP"), false},
+		{"negated, it matches a release", formats.SlipStream, negated(derived), named("Film.2020.1080p.BluRay.REMUX-GRP"), true},
+		{"a title condition doesn't match a made file", formats.SlipStream, title(`.*`), made, false},
+		{"nor does a negated one", formats.Radarr, negated(title(`\bREMUX\b`)), made, false},
+	})
+	for _, d := range []formats.Dialect{formats.SlipStream, formats.Radarr, formats.Sonarr} {
+		offered := slices.ContainsFunc(formats.KindsIn(d), func(o formats.Offered) bool { return o.Kind == formats.Derived })
+		if offered != (d == formats.SlipStream) {
+			t.Errorf("%s offers is derived: %v", d, offered)
+		}
+	}
+}
+
 func TestCheck(t *testing.T) {
 	cases := []struct {
 		name string
@@ -265,6 +284,10 @@ func TestCheck(t *testing.T) {
 		{
 			"a kind no format has", format(1, formats.Radarr, cond("CodecSpecification", map[string]any{"value": 1})),
 			formats.KindError{Name: "CodecSpecification", Kind: "CodecSpecification"},
+		},
+		{
+			"a kind the dialect lacks", format(1, formats.Radarr, cond(formats.Derived, map[string]any{})),
+			formats.KindError{Name: "DerivedSpecification", Kind: "DerivedSpecification", Dialect: formats.Radarr},
 		},
 		{
 			"a field the kind lacks", format(1, formats.Radarr, cond(formats.Source, map[string]any{"value": 1, "min": 2})),
