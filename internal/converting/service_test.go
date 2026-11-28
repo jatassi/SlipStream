@@ -4,10 +4,9 @@ import (
 	"context"
 	"testing"
 
-	"github.com/jatassi/slipstream/internal/rpc"
-
 	"github.com/jatassi/slipstream/internal/encode"
 	cv1 "github.com/jatassi/slipstream/internal/pb/slipstream/converting/v1"
+	"github.com/jatassi/slipstream/internal/rpc"
 )
 
 type keyProofs struct {
