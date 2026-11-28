@@ -277,6 +277,38 @@ func TestUntickingSearchingMovesItsIndexersToTheHeir(t *testing.T) {
 	}
 }
 
+func TestUntickingARequeuingRolePutsItsWorkBackHeirOrNot(t *testing.T) {
+	conversions := nodes.Noun{One: "Conversion", Many: "Conversions"}
+	for _, tc := range []struct {
+		name  string
+		heir  bool
+		held  nodes.Held
+		facts []string
+	}{
+		{"the last holder with only waiting work", false, nodes.Held{Units: 3, Noun: conversions}, []string{"3 Conversions waiting on seedbox"}},
+		{"a holder with an heir", true, nodes.Held{Units: 1, Noun: conversions}, []string{"1 Conversion waiting on seedbox"}},
+		{"running work", false, nodes.Held{Units: 2, Started: 2, Noun: conversions}, []string{"2 Conversions running on seedbox"}},
+		{"running and waiting work", true, nodes.Held{Units: 5, Started: 2, Noun: conversions}, []string{"2 Conversions running on seedbox", "3 Conversions waiting on seedbox"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			sb := seat(seedbox, role.Of(role.Converting))
+			sb.Moves = map[role.Name]nodes.Held{role.Converting: tc.held}
+			own := homeRoles.Without(role.Converting)
+			if tc.heir {
+				own = homeRoles
+			}
+			s := situation(seat(home, own), sb)
+			s.Requeues = role.Of(role.Converting)
+			out := nodes.Plan(s, nodes.SetRoles{Want: nodes.Roles{seedbox.ID: 0}})
+			wantEffects(t, out,
+				nodes.LetsGo{Node: seedbox, Role: role.Converting},
+				nodes.Requeues{Role: role.Converting, From: seedbox, Held: tc.held},
+			)
+			wantFacts(t, out.Effects[1].Words(), tc.facts...)
+		})
+	}
+}
+
 func TestTheSameSetIsANoOpAndAnAppliedChangeMovesTheBasis(t *testing.T) {
 	s := seedboxDownloading()
 	same := nodes.Plan(s, nodes.SetRoles{Basis: s.Basis(), Want: nodes.Roles{seedbox.ID: s.Seats[1].Assigned}})

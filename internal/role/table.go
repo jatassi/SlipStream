@@ -72,7 +72,7 @@ var table = [...]row{
 	{Searching, "Searching", Acquire, "searches", Rule{Always: true, Work: Portable, Lapse: ToController}},
 	{Downloading, "Downloading", Acquire, "downloads", Rule{Always: true, Work: Tied, Lapse: Wait, Probe: EngineStarts}},
 	{Storage, "Storage", Store, "stores the library", Rule{Always: true, Work: Tied, Lapse: Wait, Probe: DataWritable}},
-	{Converting, "Converting", Process, "converts", Rule{Work: Portable, Lapse: ToPeer}},
+	{Converting, "Converting", Process, "converts", Rule{Work: Portable, Lapse: Wait}},
 	{Subtitles, "Subtitles", Process, "fetches subtitles", Rule{Work: Portable, Lapse: ToPeer}},
 	{Metadata, "Metadata", Connect, "reads metadata", Rule{Always: true, Work: None, Lapse: ToController}},
 	{MediaServerLink, "Media Server link", Connect, "sends changes to Media Servers", Rule{Controller: true, Work: None, Lapse: Wait}},
