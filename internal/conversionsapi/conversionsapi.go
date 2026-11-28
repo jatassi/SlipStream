@@ -56,7 +56,7 @@ type source struct {
 	Name     string  `json:"name" doc:"The source file's name"`
 	TargetID *string `json:"targetId" format:"uuid" doc:"The Target the source file fills; null once no Profile makes this Target from one"`
 	Target   string  `json:"target" doc:"The name of the Target the source file fills; empty once no Profile makes this Target from one"`
-	Edition  string  `json:"edition" doc:"The cut of the cell it fills"`
+	Edition  string  `json:"edition" doc:"The edition of the Work the source file fills"`
 }
 
 type progress struct {

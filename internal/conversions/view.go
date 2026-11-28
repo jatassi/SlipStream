@@ -527,7 +527,7 @@ func (t *tab) fill(ctx context.Context, r storage.Reader[storage.Library], shown
 	}
 	sourced, err := t.c.cfg.Files.Sourced(ctx, r, works.Only(ws))
 	if err != nil {
-		return nil, fmt.Errorf("read the made-from cells: %w", err)
+		return nil, fmt.Errorf("read what each Work's files are made from: %w", err)
 	}
 	servers := map[role.NodeID][]string{}
 	q := db.New(r)

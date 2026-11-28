@@ -1155,7 +1155,7 @@ export type ConversionsProgress = zod.input<typeof ConversionsProgress>;
 export type ConversionsProgressOutput = zod.output<typeof ConversionsProgress>;
 
 export const ConversionsSource = zod.object({
-  edition: zod.string().describe("The cut of the cell it fills"),
+  edition: zod.string().describe("The edition of the Work the source file fills"),
   fileId: zod.uuid().nullable().describe("null once the source file is gone"),
   name: zod.string().describe("The source file's name"),
   target: zod

@@ -1863,7 +1863,7 @@
         "additionalProperties": false,
         "properties": {
           "edition": {
-            "description": "The cut of the cell it fills",
+            "description": "The edition of the Work the source file fills",
             "type": "string"
           },
           "fileId": {

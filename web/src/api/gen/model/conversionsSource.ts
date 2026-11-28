@@ -1,5 +1,5 @@
 export interface ConversionsSource {
-  /** The cut of the cell it fills */
+  /** The edition of the Work the source file fills */
   edition: string;
   /**
    * null once the source file is gone
