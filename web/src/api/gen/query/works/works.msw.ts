@@ -8,6 +8,7 @@ import type {
   SettingChoiceField,
   SettingCountField,
   SettingDurationField,
+  SettingFileField,
   SettingFolderField,
   SettingIPField,
   SettingListField,
@@ -1009,6 +1010,38 @@ export const getGetContentTypeSettingsResponseSettingFolderFieldMock = (
   ...overrideResponse,
 });
 
+export const getGetContentTypeSettingsResponseSettingFileFieldMock = (
+  overrideResponse: Partial<SettingFileField> = {},
+): SettingFileField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["file"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    nodeId: faker.string.uuid(),
+    pendingRestart: faker.datatype.boolean(),
+    running: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    unsupported: faker.datatype.boolean(),
+    value: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
+  ...overrideResponse,
+});
+
 export const getGetContentTypeSettingsResponseSettingSpaceFieldMock = (
   overrideResponse: Partial<SettingSpaceField> = {},
 ): SettingSpaceField => ({
@@ -1201,6 +1234,7 @@ export const getGetContentTypeSettingsResponseMock = (
       { ...getGetContentTypeSettingsResponseSettingRateFieldMock() },
       { ...getGetContentTypeSettingsResponseSettingAddressFieldMock() },
       { ...getGetContentTypeSettingsResponseSettingFolderFieldMock() },
+      { ...getGetContentTypeSettingsResponseSettingFileFieldMock() },
       { ...getGetContentTypeSettingsResponseSettingSpaceFieldMock() },
       { ...getGetContentTypeSettingsResponseSettingTemplateFieldMock() },
       { ...getGetContentTypeSettingsResponseSettingListFieldMock() },
@@ -1536,6 +1570,38 @@ export const getUpdateContentTypeSettingsResponseSettingFolderFieldMock = (
   ...overrideResponse,
 });
 
+export const getUpdateContentTypeSettingsResponseSettingFileFieldMock = (
+  overrideResponse: Partial<SettingFileField> = {},
+): SettingFileField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["file"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    nodeId: faker.string.uuid(),
+    pendingRestart: faker.datatype.boolean(),
+    running: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    unsupported: faker.datatype.boolean(),
+    value: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
+  ...overrideResponse,
+});
+
 export const getUpdateContentTypeSettingsResponseSettingSpaceFieldMock = (
   overrideResponse: Partial<SettingSpaceField> = {},
 ): SettingSpaceField => ({
@@ -1728,6 +1794,7 @@ export const getUpdateContentTypeSettingsResponseMock = (
       { ...getUpdateContentTypeSettingsResponseSettingRateFieldMock() },
       { ...getUpdateContentTypeSettingsResponseSettingAddressFieldMock() },
       { ...getUpdateContentTypeSettingsResponseSettingFolderFieldMock() },
+      { ...getUpdateContentTypeSettingsResponseSettingFileFieldMock() },
       { ...getUpdateContentTypeSettingsResponseSettingSpaceFieldMock() },
       { ...getUpdateContentTypeSettingsResponseSettingTemplateFieldMock() },
       { ...getUpdateContentTypeSettingsResponseSettingListFieldMock() },
@@ -2245,6 +2312,38 @@ export const getAddWorkResponseSettingFolderFieldMock = (
   ...overrideResponse,
 });
 
+export const getAddWorkResponseSettingFileFieldMock = (
+  overrideResponse: Partial<SettingFileField> = {},
+): SettingFileField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["file"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    nodeId: faker.string.uuid(),
+    pendingRestart: faker.datatype.boolean(),
+    running: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    unsupported: faker.datatype.boolean(),
+    value: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
+  ...overrideResponse,
+});
+
 export const getAddWorkResponseSettingSpaceFieldMock = (
   overrideResponse: Partial<SettingSpaceField> = {},
 ): SettingSpaceField => ({
@@ -2608,6 +2707,7 @@ export const getAddWorkResponseMock = (
           { ...getAddWorkResponseSettingRateFieldMock() },
           { ...getAddWorkResponseSettingAddressFieldMock() },
           { ...getAddWorkResponseSettingFolderFieldMock() },
+          { ...getAddWorkResponseSettingFileFieldMock() },
           { ...getAddWorkResponseSettingSpaceFieldMock() },
           { ...getAddWorkResponseSettingTemplateFieldMock() },
           { ...getAddWorkResponseSettingListFieldMock() },
@@ -3622,6 +3722,38 @@ export const getGetWorkResponseSettingFolderFieldMock = (
   ...overrideResponse,
 });
 
+export const getGetWorkResponseSettingFileFieldMock = (
+  overrideResponse: Partial<SettingFileField> = {},
+): SettingFileField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["file"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    nodeId: faker.string.uuid(),
+    pendingRestart: faker.datatype.boolean(),
+    running: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    unsupported: faker.datatype.boolean(),
+    value: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
+  ...overrideResponse,
+});
+
 export const getGetWorkResponseSettingSpaceFieldMock = (
   overrideResponse: Partial<SettingSpaceField> = {},
 ): SettingSpaceField => ({
@@ -3977,6 +4109,7 @@ export const getGetWorkResponseMock = (
       { ...getGetWorkResponseSettingRateFieldMock() },
       { ...getGetWorkResponseSettingAddressFieldMock() },
       { ...getGetWorkResponseSettingFolderFieldMock() },
+      { ...getGetWorkResponseSettingFileFieldMock() },
       { ...getGetWorkResponseSettingSpaceFieldMock() },
       { ...getGetWorkResponseSettingTemplateFieldMock() },
       { ...getGetWorkResponseSettingListFieldMock() },
@@ -4333,6 +4466,38 @@ export const getSetWorkOptionsResponseSettingFolderFieldMock = (
   ...overrideResponse,
 });
 
+export const getSetWorkOptionsResponseSettingFileFieldMock = (
+  overrideResponse: Partial<SettingFileField> = {},
+): SettingFileField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["file"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    nodeId: faker.string.uuid(),
+    pendingRestart: faker.datatype.boolean(),
+    running: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    unsupported: faker.datatype.boolean(),
+    value: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
+  ...overrideResponse,
+});
+
 export const getSetWorkOptionsResponseSettingSpaceFieldMock = (
   overrideResponse: Partial<SettingSpaceField> = {},
 ): SettingSpaceField => ({
@@ -4527,6 +4692,7 @@ export const getSetWorkOptionsResponseMock = (
       { ...getSetWorkOptionsResponseSettingRateFieldMock() },
       { ...getSetWorkOptionsResponseSettingAddressFieldMock() },
       { ...getSetWorkOptionsResponseSettingFolderFieldMock() },
+      { ...getSetWorkOptionsResponseSettingFileFieldMock() },
       { ...getSetWorkOptionsResponseSettingSpaceFieldMock() },
       { ...getSetWorkOptionsResponseSettingTemplateFieldMock() },
       { ...getSetWorkOptionsResponseSettingListFieldMock() },

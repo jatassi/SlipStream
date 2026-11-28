@@ -70,6 +70,10 @@ var nodeSettings = []settingRow{
 		desc:  setting.Folder{Key: "converting.scratch", Label: "Scratch folder", Purpose: setting.FolderConverting},
 		rowOf: rowOf[string]{at: func(c *Config) *string { return &c.Converting.Scratch }},
 	},
+	fileRow{
+		desc:  setting.File{Key: "converting.ffmpeg", Label: "ffmpeg path", Unsupported: true},
+		rowOf: rowOf[string]{at: func(c *Config) *string { return &c.Converting.FFmpeg }},
+	},
 }
 
 var logLevels = []setting.Option[logs.Level]{
@@ -127,16 +131,18 @@ type view struct {
 }
 
 // edit is what a row's text reads besides the value: the saved Config the
-// change applies to, the defaults and the Node's judge of a folder.
+// change applies to, the defaults and the Node's judge of a folder or a
+// program.
 type edit struct {
 	saved, defaults *Config
 	folders         folderJudge
 }
 
 // folderJudge is the Node's Storage judging a folder for a purpose, apart
-// from the roots it holds.
+// from the roots it holds, and a program to run.
 type folderJudge interface {
 	Judge(ctx context.Context, path string, purpose storing.Purpose) (storing.CheckResult, error)
+	JudgeProgram(ctx context.Context, path string) (string, storing.Unrunnable, error)
 }
 
 // textOf is a value sent as text: a word from the API, text from the CLI.
@@ -458,6 +464,57 @@ func unusable(key, sentence string) error {
 
 func (r folderRow) check(*Config) error { return nil }
 
+// fileRow is a program on the Node. Empty runs the one SlipStream
+// bundles.
+type fileRow struct {
+	rowOf[string]
+	desc setting.File
+}
+
+func (r fileRow) key() string { return r.desc.Key }
+
+func (r fileRow) field(v view) setting.Field {
+	d := r.desc
+	d.Default = *r.at(v.defaults)
+	f := d.Field(r.at(v.saved), v.self.String())
+	f.Running = *r.at(v.running)
+	f.About = r.about(v, f.About)
+	return f
+}
+
+// text takes a file its Node's Storage can run, cleaned as the judge
+// cleans it.
+func (r fileRow) text(ctx context.Context, v nodesystem.Value, e edit) (*string, error) {
+	if v.IsReset() {
+		return nil, nil
+	}
+	path, ok := textOf(v)
+	if !ok {
+		return nil, unusable(r.key(), "A program's full path.")
+	}
+	if _, err := r.desc.Parse(&path); err != nil {
+		return nil, unusable(r.key(), refused(err).Error())
+	}
+	judged, why, err := e.folders.JudgeProgram(ctx, path)
+	if err != nil {
+		return nil, err
+	}
+	if why != 0 {
+		return nil, unusable(r.key(), "Can't run this file because "+unrunnable[why]+".")
+	}
+	return &judged, nil
+}
+
+func (r fileRow) check(*Config) error { return nil }
+
+var unrunnable = map[storing.Unrunnable]string{
+	storing.UnrunnableNotAbsolute:  "it isn't a full path",
+	storing.UnrunnableMissing:      "it doesn't exist",
+	storing.UnrunnableDenied:       "SlipStream can't read it",
+	storing.UnrunnableNotAProgram:  "it isn't a program SlipStream can run",
+	storing.UnrunnableUnresponsive: "the Node didn't respond in time",
+}
+
 // because is why the Node's Storage refused a folder. A Node knows its
 // roots by id alone, so it names none.
 var because = map[storing.Reason]string{
@@ -473,6 +530,8 @@ var because = map[storing.Reason]string{
 	storing.ReasonContainsDownloads: "it contains the downloads folder",
 	storing.ReasonUnresponsive:      "the Node didn't respond in time",
 	storing.ReasonNetworkShare:      "it's on a network share",
+	storing.ReasonInsideBackups:     "it's inside the Backups folder",
+	storing.ReasonContainsBackups:   "it contains the Backups folder",
 }
 
 // configFile is a Node's config.yaml, loaded and written under the table.

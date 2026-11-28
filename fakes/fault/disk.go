@@ -517,6 +517,13 @@ func (d *disk) Writable(ctx context.Context, dir string) (bool, error) {
 	return d.base.Writable(ctx, dir)
 }
 
+func (d *disk) Runnable(ctx context.Context, path string) (bool, error) {
+	if _, err := d.read(ctx, "stat", path); err != nil {
+		return false, err
+	}
+	return d.base.Runnable(ctx, path)
+}
+
 func (d *disk) Volume(ctx context.Context, path string) (storing.Volume, error) {
 	pl, err := d.read(ctx, "statfs", path)
 	if err != nil {

@@ -2,6 +2,7 @@ import type { SettingAddressField } from "./settingAddressField.ts";
 import type { SettingChoiceField } from "./settingChoiceField.ts";
 import type { SettingCountField } from "./settingCountField.ts";
 import type { SettingDurationField } from "./settingDurationField.ts";
+import type { SettingFileField } from "./settingFileField.ts";
 import type { SettingFolderField } from "./settingFolderField.ts";
 import type { SettingIPField } from "./settingIPField.ts";
 import type { SettingListenField } from "./settingListenField.ts";
@@ -23,6 +24,7 @@ export type SettingField =
   | SettingRateField
   | SettingAddressField
   | SettingFolderField
+  | SettingFileField
   | SettingSpaceField
   | SettingTemplateField
   | SettingListField

@@ -8,6 +8,7 @@ import type {
   SettingChoiceField,
   SettingCountField,
   SettingDurationField,
+  SettingFileField,
   SettingFolderField,
   SettingIPField,
   SettingListField,
@@ -32,6 +33,7 @@ export type Fields = {
   rate: SettingRateField;
   address: SettingAddressField;
   folder: SettingFolderField;
+  file: SettingFileField;
   space: SettingSpaceField;
   template: SettingTemplateField;
   list: SettingListField;
@@ -49,6 +51,7 @@ export type Values = {
   rate: number;
   address: string;
   folder: string;
+  file: string;
   space: SettingAmount;
   template: string;
   list: string[];

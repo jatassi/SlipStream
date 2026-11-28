@@ -14,6 +14,7 @@ import type {
   SettingChoiceField,
   SettingCountField,
   SettingDurationField,
+  SettingFileField,
   SettingFolderField,
   SettingIPField,
   SettingListField,
@@ -442,6 +443,38 @@ export const getGetBackupSettingsResponseSettingFolderFieldMock = (
   ...overrideResponse,
 });
 
+export const getGetBackupSettingsResponseSettingFileFieldMock = (
+  overrideResponse: Partial<SettingFileField> = {},
+): SettingFileField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["file"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    nodeId: faker.string.uuid(),
+    pendingRestart: faker.datatype.boolean(),
+    running: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    unsupported: faker.datatype.boolean(),
+    value: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
+  ...overrideResponse,
+});
+
 export const getGetBackupSettingsResponseSettingSpaceFieldMock = (
   overrideResponse: Partial<SettingSpaceField> = {},
 ): SettingSpaceField => ({
@@ -634,6 +667,7 @@ export const getGetBackupSettingsResponseMock = (
       { ...getGetBackupSettingsResponseSettingRateFieldMock() },
       { ...getGetBackupSettingsResponseSettingAddressFieldMock() },
       { ...getGetBackupSettingsResponseSettingFolderFieldMock() },
+      { ...getGetBackupSettingsResponseSettingFileFieldMock() },
       { ...getGetBackupSettingsResponseSettingSpaceFieldMock() },
       { ...getGetBackupSettingsResponseSettingTemplateFieldMock() },
       { ...getGetBackupSettingsResponseSettingListFieldMock() },
@@ -969,6 +1003,38 @@ export const getUpdateBackupSettingsResponseSettingFolderFieldMock = (
   ...overrideResponse,
 });
 
+export const getUpdateBackupSettingsResponseSettingFileFieldMock = (
+  overrideResponse: Partial<SettingFileField> = {},
+): SettingFileField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["file"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    nodeId: faker.string.uuid(),
+    pendingRestart: faker.datatype.boolean(),
+    running: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    unsupported: faker.datatype.boolean(),
+    value: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
+  ...overrideResponse,
+});
+
 export const getUpdateBackupSettingsResponseSettingSpaceFieldMock = (
   overrideResponse: Partial<SettingSpaceField> = {},
 ): SettingSpaceField => ({
@@ -1161,6 +1227,7 @@ export const getUpdateBackupSettingsResponseMock = (
       { ...getUpdateBackupSettingsResponseSettingRateFieldMock() },
       { ...getUpdateBackupSettingsResponseSettingAddressFieldMock() },
       { ...getUpdateBackupSettingsResponseSettingFolderFieldMock() },
+      { ...getUpdateBackupSettingsResponseSettingFileFieldMock() },
       { ...getUpdateBackupSettingsResponseSettingSpaceFieldMock() },
       { ...getUpdateBackupSettingsResponseSettingTemplateFieldMock() },
       { ...getUpdateBackupSettingsResponseSettingListFieldMock() },

@@ -4,6 +4,7 @@ import { useState } from "react";
 
 import {
   type ControlProps,
+  type Draft,
   type Kind,
   SaveButton,
   defaultHint,
@@ -91,4 +92,50 @@ export const ipKind: Kind<"ip"> = {
   words: (field) => field.value ?? "None",
   hints: () => ["Empty by default."],
   Control: IPControl,
+};
+
+function parseFile(path: string): Draft<"file"> {
+  const file = path.trim();
+  return file === "" ? { refused: "Choose a file." } : { value: file };
+}
+
+/** A program's path on the setting's Node, which judges it on save. */
+function FileControl({ field, busy, invalid, disabled, submit, onEdit }: ControlProps<"file">) {
+  const [text, setText] = useState(field.value);
+  return (
+    <form
+      onSubmit={onSubmit(() => {
+        submit(parseFile(text));
+      })}
+      className="flex flex-col items-start gap-1.5"
+    >
+      <Field.Root
+        invalid={invalid}
+        disabled={disabled}
+        className="flex flex-col gap-1.5 self-stretch"
+      >
+        <Field.Label className={labelLook}>{field.label}</Field.Label>
+        <Input
+          autoComplete="off"
+          spellCheck={false}
+          value={text}
+          onValueChange={(next) => {
+            setText(next);
+            onEdit();
+          }}
+          className={`w-full ${inputLook}`}
+        />
+      </Field.Root>
+      <SaveButton shown={text.trim() !== field.value} busy={busy} />
+    </form>
+  );
+}
+
+export const fileKind: Kind<"file"> = {
+  words: (field) => (field.value === "" ? "Bundled" : field.value),
+  hints: (field) => [
+    "Empty by default, which runs the one SlipStream bundles.",
+    ...(field.unsupported ? ["Unsupported."] : []),
+  ],
+  Control: FileControl,
 };

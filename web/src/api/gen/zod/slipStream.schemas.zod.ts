@@ -543,6 +543,38 @@ export const SettingFolderField = zod.object({
 export type SettingFolderField = zod.input<typeof SettingFolderField>;
 export type SettingFolderFieldOutput = zod.output<typeof SettingFolderField>;
 
+export const SettingFileField = zod.object({
+  applies: zod.enum(["live", "restart"]),
+  default: zod.string().describe("Empty runs the program SlipStream bundles"),
+  defaultFrom: zod
+    .string()
+    .exactOptional()
+    .describe("Where the default comes from, when it is another setting's value"),
+  isDefault: zod
+    .boolean()
+    .describe("The setting has no override; Reset to default leaves it unchanged"),
+  key: zod.string(),
+  kind: zod.enum(["file"]),
+  label: zod.string(),
+  lockedBy: zod
+    .string()
+    .exactOptional()
+    .describe("The environment variable that sets the value; the control is read-only"),
+  nodeId: zod
+    .uuid()
+    .describe("The Node the path is on, which checks that the program is there and runs"),
+  pendingRestart: zod
+    .boolean()
+    .describe("The saved value differs from the running one until the Node restarts"),
+  running: zod.string(),
+  source: zod.enum(["database", "default", "config.yaml", ".env", "env"]),
+  unsupported: zod.boolean().describe("SlipStream's support doesn't cover a program set here"),
+  value: zod.string(),
+});
+
+export type SettingFileField = zod.input<typeof SettingFileField>;
+export type SettingFileFieldOutput = zod.output<typeof SettingFileField>;
+
 export const settingAmountAmountMin = 0;
 
 export const SettingAmount = zod.object({
@@ -718,6 +750,7 @@ export const SettingField = zod.discriminatedUnion("kind", [
   SettingRateField,
   SettingAddressField,
   SettingFolderField,
+  SettingFileField,
   SettingSpaceField,
   SettingTemplateField,
   SettingListField,
@@ -13296,6 +13329,8 @@ export const RootsRefusal = zod.object({
       "unresponsive",
       "network_share",
       "outside",
+      "inside_backups",
+      "contains_backups",
       "node_offline",
     ])
     .describe("Why the folder can't serve its purpose"),

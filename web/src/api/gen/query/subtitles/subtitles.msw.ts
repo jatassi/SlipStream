@@ -8,6 +8,7 @@ import type {
   SettingChoiceField,
   SettingCountField,
   SettingDurationField,
+  SettingFileField,
   SettingFolderField,
   SettingIPField,
   SettingListField,
@@ -463,6 +464,38 @@ export const getGetSubtitleNodeSettingsResponseSettingFolderFieldMock = (
   ...overrideResponse,
 });
 
+export const getGetSubtitleNodeSettingsResponseSettingFileFieldMock = (
+  overrideResponse: Partial<SettingFileField> = {},
+): SettingFileField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["file"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    nodeId: faker.string.uuid(),
+    pendingRestart: faker.datatype.boolean(),
+    running: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    unsupported: faker.datatype.boolean(),
+    value: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
+  ...overrideResponse,
+});
+
 export const getGetSubtitleNodeSettingsResponseSettingSpaceFieldMock = (
   overrideResponse: Partial<SettingSpaceField> = {},
 ): SettingSpaceField => ({
@@ -655,6 +688,7 @@ export const getGetSubtitleNodeSettingsResponseMock = (
       { ...getGetSubtitleNodeSettingsResponseSettingRateFieldMock() },
       { ...getGetSubtitleNodeSettingsResponseSettingAddressFieldMock() },
       { ...getGetSubtitleNodeSettingsResponseSettingFolderFieldMock() },
+      { ...getGetSubtitleNodeSettingsResponseSettingFileFieldMock() },
       { ...getGetSubtitleNodeSettingsResponseSettingSpaceFieldMock() },
       { ...getGetSubtitleNodeSettingsResponseSettingTemplateFieldMock() },
       { ...getGetSubtitleNodeSettingsResponseSettingListFieldMock() },
@@ -990,6 +1024,38 @@ export const getUpdateSubtitleNodeSettingsResponseSettingFolderFieldMock = (
   ...overrideResponse,
 });
 
+export const getUpdateSubtitleNodeSettingsResponseSettingFileFieldMock = (
+  overrideResponse: Partial<SettingFileField> = {},
+): SettingFileField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["file"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    nodeId: faker.string.uuid(),
+    pendingRestart: faker.datatype.boolean(),
+    running: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    unsupported: faker.datatype.boolean(),
+    value: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
+  ...overrideResponse,
+});
+
 export const getUpdateSubtitleNodeSettingsResponseSettingSpaceFieldMock = (
   overrideResponse: Partial<SettingSpaceField> = {},
 ): SettingSpaceField => ({
@@ -1182,6 +1248,7 @@ export const getUpdateSubtitleNodeSettingsResponseMock = (
       { ...getUpdateSubtitleNodeSettingsResponseSettingRateFieldMock() },
       { ...getUpdateSubtitleNodeSettingsResponseSettingAddressFieldMock() },
       { ...getUpdateSubtitleNodeSettingsResponseSettingFolderFieldMock() },
+      { ...getUpdateSubtitleNodeSettingsResponseSettingFileFieldMock() },
       { ...getUpdateSubtitleNodeSettingsResponseSettingSpaceFieldMock() },
       { ...getUpdateSubtitleNodeSettingsResponseSettingTemplateFieldMock() },
       { ...getUpdateSubtitleNodeSettingsResponseSettingListFieldMock() },
@@ -1830,6 +1897,38 @@ export const getGetSubtitleSettingsResponseSettingFolderFieldMock = (
   ...overrideResponse,
 });
 
+export const getGetSubtitleSettingsResponseSettingFileFieldMock = (
+  overrideResponse: Partial<SettingFileField> = {},
+): SettingFileField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["file"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    nodeId: faker.string.uuid(),
+    pendingRestart: faker.datatype.boolean(),
+    running: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    unsupported: faker.datatype.boolean(),
+    value: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
+  ...overrideResponse,
+});
+
 export const getGetSubtitleSettingsResponseSettingSpaceFieldMock = (
   overrideResponse: Partial<SettingSpaceField> = {},
 ): SettingSpaceField => ({
@@ -2052,6 +2151,7 @@ export const getGetSubtitleSettingsResponseMock = (
       { ...getGetSubtitleSettingsResponseSettingRateFieldMock() },
       { ...getGetSubtitleSettingsResponseSettingAddressFieldMock() },
       { ...getGetSubtitleSettingsResponseSettingFolderFieldMock() },
+      { ...getGetSubtitleSettingsResponseSettingFileFieldMock() },
       { ...getGetSubtitleSettingsResponseSettingSpaceFieldMock() },
       { ...getGetSubtitleSettingsResponseSettingTemplateFieldMock() },
       { ...getGetSubtitleSettingsResponseSettingListFieldMock() },
@@ -2387,6 +2487,38 @@ export const getUpdateSubtitleSettingsResponseSettingFolderFieldMock = (
   ...overrideResponse,
 });
 
+export const getUpdateSubtitleSettingsResponseSettingFileFieldMock = (
+  overrideResponse: Partial<SettingFileField> = {},
+): SettingFileField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["file"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    nodeId: faker.string.uuid(),
+    pendingRestart: faker.datatype.boolean(),
+    running: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    unsupported: faker.datatype.boolean(),
+    value: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
+  ...overrideResponse,
+});
+
 export const getUpdateSubtitleSettingsResponseSettingSpaceFieldMock = (
   overrideResponse: Partial<SettingSpaceField> = {},
 ): SettingSpaceField => ({
@@ -2609,6 +2741,7 @@ export const getUpdateSubtitleSettingsResponseMock = (
       { ...getUpdateSubtitleSettingsResponseSettingRateFieldMock() },
       { ...getUpdateSubtitleSettingsResponseSettingAddressFieldMock() },
       { ...getUpdateSubtitleSettingsResponseSettingFolderFieldMock() },
+      { ...getUpdateSubtitleSettingsResponseSettingFileFieldMock() },
       { ...getUpdateSubtitleSettingsResponseSettingSpaceFieldMock() },
       { ...getUpdateSubtitleSettingsResponseSettingTemplateFieldMock() },
       { ...getUpdateSubtitleSettingsResponseSettingListFieldMock() },
