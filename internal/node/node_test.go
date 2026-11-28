@@ -53,7 +53,7 @@ func testEnv(t *testing.T) (Env, *syncBuffer) {
 		OpenLog:    logs.Open,
 		Media:      mediatest.Prober{},
 		Speech:     speechtest.Fixed{Runs: []speechtest.Run{{Start: time.Second, End: 2 * time.Second}}, Length: 4 * time.Second},
-		Converting: simconv.Default,
+		Converting: simconv.NewMade(mediatest.Prober{}).Converting,
 		Disk:       OSDisk,
 		Test:       Test{SeedLibrary: storagetest.SeedLibrary},
 	}, stderr

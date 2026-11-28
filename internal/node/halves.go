@@ -1293,6 +1293,7 @@ func (n *Node) startHolding(ctx context.Context, self role.NodeID, upstream role
 		Sources:   opener{store: n.store, torrents: n.downloading},
 		Roots:     n.store,
 		Downloads: n.downloading,
+		Scratch:   n.scratch,
 		Timings:   n.cfg.Timings.Transfers,
 		Retry:     n.cfg.Timings.Backups.WindowsRetry,
 		Hooks:     n.env.Test.Transfers,
@@ -1396,7 +1397,8 @@ func scratchVolume(role.NodeID) (string, bool) { return "", false }
 // every Node holds, one held line each.
 func (n *Node) heldRoles(local *storage.DB[storage.Local], dispatch *rpc.Dispatch, copier *transfers.Node) []role.Held {
 	convert := converting.Hold(converting.HolderConfig{
-		Converter: n.converter, Proofs: n.proofs, Media: n.env.Media, Scratch: n.scratch, Local: n.store.Local,
+		Converter: n.converter, Proofs: n.proofs, Media: n.env.Media, Scratch: n.scratch, Override: n.ffmpegPath,
+		Local: n.store.Local, Disk: n.disk, DB: local,
 		Timings: n.cfg.Timings.Converting, Log: n.rootLog.With("subsystem", "converting"),
 	})
 	return []role.Held{

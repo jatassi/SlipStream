@@ -351,17 +351,16 @@ func (n *Node) JoinOp(ctx context.Context, code joincode.Code) (pairing.JoinRepl
 
 func (n *Node) env() node.Env {
 	env := node.Env{
-		DataDir:    n.dir,
-		Environ:    []string{},
-		Stderr:     io.Discard,
-		Version:    n.w.opts.version,
-		Net:        n.host,
-		Engine:     enginetest.Open,
-		OpenLog:    node.OpenFileLog,
-		Media:      mediatest.Prober{},
-		Speech:     talk,
-		Converting: simconv.Default,
-		Scripts:    &n.scripts,
+		DataDir: n.dir,
+		Environ: []string{},
+		Stderr:  io.Discard,
+		Version: n.w.opts.version,
+		Net:     n.host,
+		Engine:  enginetest.Open,
+		OpenLog: node.OpenFileLog,
+		Media:   mediatest.Prober{},
+		Speech:  talk,
+		Scripts: &n.scripts,
 		Disk: func(data string) (storing.Disk, error) {
 			d, err := node.OSDisk(data)
 			if err != nil {
@@ -378,6 +377,8 @@ func (n *Node) env() node.Env {
 	if n.w.walk != nil {
 		n.w.walk.env(n, &env)
 	}
+	made := simconv.NewMade(env.Media)
+	env.Media, env.Converting = made, made.Converting
 	for _, edit := range n.w.opts.edits {
 		edit(n.spec.Name, &env)
 	}
