@@ -703,15 +703,15 @@ func (s *Store) check(ctx context.Context, path string, purpose Purpose, others 
 
 // reserved is every folder a folder for purpose may not overlap: for a
 // root, others and the Node's data and downloads folders; for downloads
-// and a client folder, every root the Node holds; for Backups, every root
-// the Node holds and its downloads folders.
+// and a client folder, every root the Node holds; for Backups and the
+// scratch folder, every root the Node holds and its downloads folders.
 func (s *Store) reserved(purpose Purpose, others []Other) []reserved {
 	switch purpose {
 	case PurposeRoot:
 		return append(apartFrom(others), forRoot(s.host.Data, s.cfg.Downloads())...)
 	case PurposeDownloads, PurposeClientFolder:
 		return apartFrom(s.held())
-	case PurposeBackups:
+	case PurposeBackups, PurposeConverting:
 		return append(apartFrom(s.held()), downloadsFolders(s.cfg.Downloads())...)
 	case PurposeImport:
 	}

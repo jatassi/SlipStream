@@ -244,6 +244,10 @@ enum Purpose {
   // writable and apart from every root the Node holds and its downloads
   // folders. It may sit in the data dir.
   PURPOSE_BACKUPS = 5;
+  // CONVERTING: a Node's scratch folder for Conversions: writable and
+  // apart from every root the Node holds, its downloads folders and the
+  // Backups folder. It may sit in the data dir.
+  PURPOSE_CONVERTING = 6;
 }
 
 message Other {

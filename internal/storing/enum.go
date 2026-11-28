@@ -146,6 +146,8 @@ const (
 	// from every root the Node holds and its downloads folders. It may sit
 	// in the data dir, where the Controller's is by default.
 	PurposeBackups
+	// PurposeConverting is a Node's scratch folder for Conversions.
+	PurposeConverting
 )
 
 var purposes = enum[Purpose, storagev1.Purpose]{
@@ -154,6 +156,7 @@ var purposes = enum[Purpose, storagev1.Purpose]{
 	{PurposeClientFolder, storagev1.Purpose_PURPOSE_CLIENT_FOLDER, "client_folder"},
 	{PurposeImport, storagev1.Purpose_PURPOSE_IMPORT, "import"},
 	{PurposeBackups, storagev1.Purpose_PURPOSE_BACKUPS, "backups"},
+	{PurposeConverting, storagev1.Purpose_PURPOSE_CONVERTING, "converting"},
 }
 
 func (p Purpose) String() string                    { return purposes.of(p).word }
