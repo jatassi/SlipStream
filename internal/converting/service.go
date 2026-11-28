@@ -3,12 +3,11 @@ package converting
 import (
 	"context"
 
-	"connectrpc.com/connect/v2"
-
 	"github.com/jatassi/slipstream/internal/converting/clip"
 	"github.com/jatassi/slipstream/internal/encode"
 	cv1 "github.com/jatassi/slipstream/internal/pb/slipstream/converting/v1"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/converting/v1/convertingv1connect"
+	"github.com/jatassi/slipstream/internal/rpc"
 )
 
 // Service is ConvertingService on this Node, mounted in both halves.
@@ -25,7 +24,7 @@ func (s service) Test(ctx context.Context, req *cv1.TestRequest) (*cv1.TestRespo
 	}
 	proved, err := s.proofs.Test(ctx, k)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, "the test run didn't finish: "+err.Error())
+		return nil, rpc.Errorf(rpc.CodeInternal, "the test run didn't finish: %v", err)
 	}
 	res := &cv1.TestResponse{
 		Passed: proved.Passed, Device: proved.Device, Speed: proved.Speed, Pauses: proved.Pauses,
@@ -50,11 +49,11 @@ func keyOf(req *cv1.TestRequest) (encode.Key, error) {
 		Audio: string(encode.CopyAudio), Container: string(encode.MKV),
 	})
 	if err != nil {
-		return encode.Key{}, connect.NewError(connect.CodeInvalidArgument, err.Error())
+		return encode.Key{}, rpc.Errorf(rpc.CodeInvalidArgument, "%v", err)
 	}
 	c := encode.Class(req.GetClass())
 	if clip.VideoOf(c, clip.Trial, "").Codec == nil {
-		return encode.Key{}, connect.NewError(connect.CodeInvalidArgument, "the class "+string(c)+" has no clip")
+		return encode.Key{}, rpc.Errorf(rpc.CodeInvalidArgument, "the class %s has no clip", c)
 	}
 	return encode.Key{Shape: s.Shape(), Class: c}, nil
 }

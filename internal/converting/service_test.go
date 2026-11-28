@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"connectrpc.com/connect/v2"
+	"github.com/jatassi/slipstream/internal/rpc"
 
 	"github.com/jatassi/slipstream/internal/encode"
 	cv1 "github.com/jatassi/slipstream/internal/pb/slipstream/converting/v1"
@@ -36,7 +36,7 @@ func TestTheServiceTestsOnlyAShapeSettingsHoldAndAClassWithAClip(t *testing.T) {
 		p := &keyProofs{}
 		res, err := Service(p).Test(t.Context(), c.req)
 		if !c.asked {
-			if connect.CodeOf(err) != connect.CodeInvalidArgument || len(p.asked) > 0 {
+			if rpc.CodeOf(err) != rpc.CodeInvalidArgument || len(p.asked) > 0 {
 				t.Errorf("%s: %v after %d tests, want invalid_argument before any", c.name, err, len(p.asked))
 			}
 			continue
