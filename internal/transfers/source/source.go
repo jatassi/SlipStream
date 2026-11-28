@@ -17,6 +17,7 @@ const (
 	PathKind    Kind = "path"
 	BackupKind  Kind = "backup"
 	LibraryKind Kind = "library"
+	ScratchKind Kind = "scratch"
 )
 
 // Ref names one file a sender reads: a Torrent, a Path, a Backup or a
@@ -62,6 +63,13 @@ type Library struct {
 
 func (Library) Kind() Kind { return LibraryKind }
 func (Library) ref()       {}
+
+// Scratch is the file Name, '/' separated, under the source Node's
+// scratch folder, where a Conversion writes its made file.
+type Scratch struct{ Name string }
+
+func (Scratch) Kind() Kind { return ScratchKind }
+func (Scratch) ref()       {}
 
 // Reason is why a sender can't read a source.
 type Reason uint8

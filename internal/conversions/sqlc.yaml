@@ -1,0 +1,84 @@
+version: "2"
+sql:
+  - engine: sqlite
+    schema: schema
+    queries: queries
+    gen:
+      go:
+        package: db
+        out: internal/db
+        emit_pointers_for_null_types: true
+        overrides:
+          - column: "*.*_at"
+            go_type:
+              import: github.com/jatassi/slipstream/internal/storage
+              type: Time
+          - column: conversions_conversion.not_before
+            go_type:
+              import: github.com/jatassi/slipstream/internal/storage
+              type: Time
+          - column: conversions_nudge.since
+            go_type:
+              import: github.com/jatassi/slipstream/internal/storage
+              type: Time
+          - column: conversions_conversion.id
+            go_type:
+              type: ConversionID
+          - column: "*.conversion_id"
+            go_type:
+              type: ConversionID
+          - column: conversions_backfill.id
+            go_type:
+              type: BackfillID
+          - column: "*.backfill_id"
+            go_type:
+              type: BackfillID
+          - column: conversions_nudge.id
+            go_type:
+              type: NudgeID
+          - column: "*.work_id"
+            go_type:
+              import: github.com/jatassi/slipstream/internal/works
+              type: WorkID
+          - column: conversions_conversion.type
+            go_type:
+              import: github.com/jatassi/slipstream/internal/works
+              type: TypeID
+          - column: conversions_conversion.edition
+            go_type:
+              import: github.com/jatassi/slipstream/internal/targets
+              type: Edition
+          - column: "*.target_id"
+            go_type:
+              import: github.com/jatassi/slipstream/internal/targets
+              type: TargetID
+          - column: "*.profile_id"
+            go_type:
+              import: github.com/jatassi/slipstream/internal/targets
+              type: ProfileID
+          - column: "*.source_file_id"
+            go_type:
+              import: github.com/jatassi/slipstream/internal/files
+              type: ID
+          - column: conversions_conversion.output_file_id
+            go_type:
+              import: github.com/jatassi/slipstream/internal/files
+              type: ID
+          - column: "*.node_id"
+            go_type:
+              import: github.com/jatassi/slipstream/internal/role
+              type: NodeID
+          - column: conversions_conversion.pin_node_id
+            go_type:
+              import: github.com/jatassi/slipstream/internal/role
+              type: NodeID
+          - column: conversions_conversion.root_id
+            go_type:
+              import: github.com/jatassi/slipstream/internal/roots
+              type: ID
+          - column: conversions_proof.pauses
+            go_type: bool
+          - column: conversions_node.hours_on
+            go_type: bool
+          - column: conversions_node.processor
+            go_type: bool

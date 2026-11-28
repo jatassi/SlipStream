@@ -122,7 +122,7 @@ func (im *Imports) List(ctx context.Context, _ identity.Admin, f Filter) (List, 
 		if out.Imports, out.Next, err = f.page(out.Imports); err != nil {
 			return err
 		}
-		if f.Source == nil || *f.Source == FromRoot {
+		if f.Source == nil || sourceRules[*f.Source].landsInPlace {
 			out.Leads, err = leads(ctx, r, f.Root)
 		}
 		return err

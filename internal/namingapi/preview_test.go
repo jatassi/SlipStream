@@ -10,6 +10,7 @@ import (
 	"github.com/jatassi/slipstream/internal/api"
 	"github.com/jatassi/slipstream/internal/api/ownertest"
 	"github.com/jatassi/slipstream/internal/contenttype/contenttypetest"
+	"github.com/jatassi/slipstream/internal/conversions"
 	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/grabs"
@@ -54,7 +55,7 @@ func attic(t *testing.T) (o *ownertest.Owner, work string) {
 	t.Helper()
 	ctx := t.Context()
 	admin := identity.Admin{}
-	lib := storagetest.Library(t, secret.Schema(), identity.Schema(), nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), downloadclients.Schema(), grabs.Schema(), indexers.Schema(), files.Schema(), naming.Schema(), imports.Schema())
+	lib := storagetest.Library(t, secret.Schema(), identity.Schema(), nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), downloadclients.Schema(), grabs.Schema(), indexers.Schema(), files.Schema(), conversions.Schema(), naming.Schema(), imports.Schema())
 	fx := contenttypetest.New()
 	w := must[*works.Works](t)(works.Open(ctx, works.Config{
 		Library: lib, Catalogs: map[works.TypeID]works.Catalog{contenttypetest.ID: fx}, Source: fx.Source(), Artwork: fx,

@@ -105,3 +105,12 @@ sql:
             go_type:
               import: github.com/jatassi/slipstream/internal/storage
               type: Time
+          - column: files_file.derived_from_file_id
+            go_type:
+              type: FileID
+          - column: files_file.derived_target_id
+            go_type:
+              import: github.com/jatassi/slipstream/internal/targets
+              type: TargetID
+          - column: files_file.derived
+            go_type: bool

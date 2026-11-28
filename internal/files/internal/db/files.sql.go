@@ -803,7 +803,7 @@ func (q *Queries) ListEveryBriefFile(ctx context.Context) ([]ListEveryBriefFileR
 }
 
 const listEveryFile = `-- name: ListEveryFile :many
-SELECT id, work_id, cut, root_id, path, size, probe, grab_id, quality, label, extra, release_name, title_read, modified_at, node_file_id, node_volume_id, gone_at, probe_version, probed_at, probe_error, source_name, placed_by FROM files_file ORDER BY rowid
+SELECT id, work_id, cut, root_id, path, size, probe, grab_id, quality, label, extra, release_name, title_read, modified_at, node_file_id, node_volume_id, gone_at, probe_version, probed_at, probe_error, source_name, placed_by, derived_from_file_id, derived_target_id, conversion_version, derived FROM files_file ORDER BY rowid
 `
 
 func (q *Queries) ListEveryFile(ctx context.Context) ([]FilesFile, error) {
@@ -838,6 +838,10 @@ func (q *Queries) ListEveryFile(ctx context.Context) ([]FilesFile, error) {
 			&i.ProbeError,
 			&i.SourceName,
 			&i.PlacedBy,
+			&i.DerivedFromFileID,
+			&i.DerivedTargetID,
+			&i.ConversionVersion,
+			&i.Derived,
 		); err != nil {
 			return nil, err
 		}
@@ -1082,7 +1086,7 @@ func (q *Queries) ListFileReadsOfWorks(ctx context.Context, workIds []works.Work
 }
 
 const listFilesByID = `-- name: ListFilesByID :many
-SELECT id, work_id, cut, root_id, path, size, probe, grab_id, quality, label, extra, release_name, title_read, modified_at, node_file_id, node_volume_id, gone_at, probe_version, probed_at, probe_error, source_name, placed_by FROM files_file WHERE id IN (/*SLICE:ids*/?) ORDER BY id
+SELECT id, work_id, cut, root_id, path, size, probe, grab_id, quality, label, extra, release_name, title_read, modified_at, node_file_id, node_volume_id, gone_at, probe_version, probed_at, probe_error, source_name, placed_by, derived_from_file_id, derived_target_id, conversion_version, derived FROM files_file WHERE id IN (/*SLICE:ids*/?) ORDER BY id
 `
 
 func (q *Queries) ListFilesByID(ctx context.Context, ids []FileID) ([]FilesFile, error) {
@@ -1127,6 +1131,10 @@ func (q *Queries) ListFilesByID(ctx context.Context, ids []FileID) ([]FilesFile,
 			&i.ProbeError,
 			&i.SourceName,
 			&i.PlacedBy,
+			&i.DerivedFromFileID,
+			&i.DerivedTargetID,
+			&i.ConversionVersion,
+			&i.Derived,
 		); err != nil {
 			return nil, err
 		}
@@ -1142,7 +1150,7 @@ func (q *Queries) ListFilesByID(ctx context.Context, ids []FileID) ([]FilesFile,
 }
 
 const listFilesOfWorks = `-- name: ListFilesOfWorks :many
-SELECT id, work_id, cut, root_id, path, size, probe, grab_id, quality, label, extra, release_name, title_read, modified_at, node_file_id, node_volume_id, gone_at, probe_version, probed_at, probe_error, source_name, placed_by FROM files_file WHERE work_id IN (/*SLICE:work_ids*/?) ORDER BY id
+SELECT id, work_id, cut, root_id, path, size, probe, grab_id, quality, label, extra, release_name, title_read, modified_at, node_file_id, node_volume_id, gone_at, probe_version, probed_at, probe_error, source_name, placed_by, derived_from_file_id, derived_target_id, conversion_version, derived FROM files_file WHERE work_id IN (/*SLICE:work_ids*/?) ORDER BY id
 `
 
 func (q *Queries) ListFilesOfWorks(ctx context.Context, workIds []works.WorkID) ([]FilesFile, error) {
@@ -1187,6 +1195,10 @@ func (q *Queries) ListFilesOfWorks(ctx context.Context, workIds []works.WorkID) 
 			&i.ProbeError,
 			&i.SourceName,
 			&i.PlacedBy,
+			&i.DerivedFromFileID,
+			&i.DerivedTargetID,
+			&i.ConversionVersion,
+			&i.Derived,
 		); err != nil {
 			return nil, err
 		}
@@ -1526,7 +1538,7 @@ func (q *Queries) ListLandingsOf(ctx context.Context, importIds []storage.UUID) 
 }
 
 const listLeftIn = `-- name: ListLeftIn :many
-SELECT f.id, f.work_id, f.cut, f.root_id, f.path, f.size, f.probe, f.grab_id, f.quality, f.label, f.extra, f.release_name, f.title_read, f.modified_at, f.node_file_id, f.node_volume_id, f.gone_at, f.probe_version, f.probed_at, f.probe_error, f.source_name, f.placed_by FROM files_file f
+SELECT f.id, f.work_id, f.cut, f.root_id, f.path, f.size, f.probe, f.grab_id, f.quality, f.label, f.extra, f.release_name, f.title_read, f.modified_at, f.node_file_id, f.node_volume_id, f.gone_at, f.probe_version, f.probed_at, f.probe_error, f.source_name, f.placed_by, f.derived_from_file_id, f.derived_target_id, f.conversion_version, f.derived FROM files_file f
 WHERE f.work_id IN (/*SLICE:work_ids*/?) AND f.gone_at IS NULL AND NOT EXISTS (SELECT 1 FROM files_move m WHERE m.file_id = f.id)
 ORDER BY f.id
 `
@@ -1573,6 +1585,10 @@ func (q *Queries) ListLeftIn(ctx context.Context, workIds []works.WorkID) ([]Fil
 			&i.ProbeError,
 			&i.SourceName,
 			&i.PlacedBy,
+			&i.DerivedFromFileID,
+			&i.DerivedTargetID,
+			&i.ConversionVersion,
+			&i.Derived,
 		); err != nil {
 			return nil, err
 		}

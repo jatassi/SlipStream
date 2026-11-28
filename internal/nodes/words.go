@@ -47,6 +47,13 @@ type (
 		From, To Named
 		Held     Held
 	}
+	// Requeues is portable work leaving a Node that lost Role, back to its
+	// owner's queue.
+	Requeues struct {
+		Role role.Name
+		From Named
+		Held Held
+	}
 	WritesOff struct {
 		Node Named
 		Role role.Name
@@ -61,6 +68,7 @@ func (Drains) effect()     {}
 func (HandedBack) effect() {}
 func (Pinned) effect()     {}
 func (Moves) effect()      {}
+func (Requeues) effect()   {}
 func (WritesOff) effect()  {}
 func (Leaves) effect()     {}
 
@@ -91,18 +99,16 @@ func (e Drains) Words() string {
 		start, ending, goals, kept, noSeedingGoal(kept), stays(kept), kept.pronoun())
 }
 
-func noSeedingGoal(h Held) string {
-	if h.Units == 1 {
-		return "has no seeding goal"
-	}
-	return "have no seeding goal"
-}
+func noSeedingGoal(h Held) string { return agree(h, "has no seeding goal", "have no seeding goal") }
 
-func stays(h Held) string {
+func stays(h Held) string { return agree(h, "stays", "stay") }
+
+// agree is one when h is a single Unit and many otherwise.
+func agree(h Held, one, many string) string {
 	if h.Units == 1 {
-		return "stays"
+		return one
 	}
-	return "stay"
+	return many
 }
 
 func (e HandedBack) Words() string {
@@ -124,6 +130,23 @@ func (e Moves) Words() string {
 		verb = "moves"
 	}
 	return fmt.Sprintf("%s %s to %s.", e.Held, verb, e.To.Name)
+}
+
+// Words says what stops and what waits: "2 Conversions running on Attic
+// stop. They start again from the beginning on a Node that can run them.",
+// then "3 Conversions waiting on Attic go back to the queue."
+func (e Requeues) Words() string {
+	running := Held{Units: e.Held.Started, Noun: e.Held.Noun}
+	waiting := Held{Units: e.Held.Units - e.Held.Started, Noun: e.Held.Noun}
+	var out []string
+	if running.Units > 0 {
+		out = append(out, fmt.Sprintf("%s running on %s %s. %s again from the beginning on a Node that can run %s.",
+			running, e.From.Name, agree(running, "stops", "stop"), agree(running, "It starts", "They start"), running.pronoun()))
+	}
+	if waiting.Units > 0 {
+		out = append(out, fmt.Sprintf("%s waiting on %s %s back to the queue.", waiting, e.From.Name, agree(waiting, "goes", "go")))
+	}
+	return strings.Join(out, " ")
 }
 
 func (e WritesOff) Words() string {

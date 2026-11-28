@@ -44,6 +44,7 @@ type ImportsFile struct {
 	SourceRemovedAt storage.Time
 	Seeded          int64
 	ToldAt          storage.Time
+	TitleRead       *string
 }
 
 type ImportsFileFill struct {
@@ -63,24 +64,25 @@ type ImportsFileItem struct {
 }
 
 type ImportsImport struct {
-	ID          ImportID
-	Source      string
-	GrabID      grabs.GrabID
-	NodeID      role.NodeID
-	InfoHash    []byte
-	RootID      roots.ID
-	Folder      *string
-	ContentType works.TypeID
-	Hint        string
-	Suggestion  *string
-	WorkID      works.WorkID
-	Edition     *release.CutKey
-	MoveFiles   int64
-	FailureCode *string
-	Ended       *string
-	CreatedAt   storage.Time
-	IgnoredAt   storage.Time
-	FinishedAt  storage.Time
+	ID           ImportID
+	Source       string
+	GrabID       grabs.GrabID
+	NodeID       role.NodeID
+	InfoHash     []byte
+	RootID       roots.ID
+	Folder       *string
+	ContentType  works.TypeID
+	Hint         string
+	Suggestion   *string
+	WorkID       works.WorkID
+	Edition      *release.CutKey
+	MoveFiles    int64
+	FailureCode  *string
+	Ended        *string
+	CreatedAt    storage.Time
+	IgnoredAt    storage.Time
+	FinishedAt   storage.Time
+	ConversionID storage.UUID
 }
 
 type ImportsRoot struct {

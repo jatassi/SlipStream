@@ -9,6 +9,7 @@ import (
 	"github.com/jatassi/slipstream/internal/api"
 	"github.com/jatassi/slipstream/internal/api/ownertest"
 	"github.com/jatassi/slipstream/internal/contenttype/contenttypetest"
+	"github.com/jatassi/slipstream/internal/conversions"
 	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/grabs"
@@ -77,7 +78,7 @@ FROM works_item`
 func TestActivityCountsTheGrabsNeitherImportedNorFailed(t *testing.T) {
 	ctx := t.Context()
 	lib := storagetest.Library(t, secret.Schema(), identity.Schema(), nodes.Schema(), role.LibrarySchema(), works.Schema(), targets.Schema(),
-		roots.Schema(), downloadclients.Schema(), grabs.Schema(), indexers.Schema(), files.Schema(), imports.Schema(), health.Schema(), reconciling.Schema())
+		roots.Schema(), downloadclients.Schema(), grabs.Schema(), indexers.Schema(), files.Schema(), conversions.Schema(), imports.Schema(), health.Schema(), reconciling.Schema())
 	fx := contenttypetest.New()
 	w, err := works.Open(ctx, works.Config{
 		Library: lib, Catalogs: map[works.TypeID]works.Catalog{contenttypetest.ID: fx}, Source: fx.Source(), Artwork: fx,
@@ -221,7 +222,7 @@ func TestTheAlertsCarryHealthsWorstLevels(t *testing.T) {
 
 func TestPendingImportsCountsTheImportsWithAFileWaitingForTheAdmin(t *testing.T) {
 	ctx := t.Context()
-	lib := storagetest.Library(t, secret.Schema(), identity.Schema(), nodes.Schema(), role.LibrarySchema(), works.Schema(), targets.Schema(), roots.Schema(), downloadclients.Schema(), grabs.Schema(), indexers.Schema(), files.Schema(), imports.Schema(), health.Schema(), reconciling.Schema())
+	lib := storagetest.Library(t, secret.Schema(), identity.Schema(), nodes.Schema(), role.LibrarySchema(), works.Schema(), targets.Schema(), roots.Schema(), downloadclients.Schema(), grabs.Schema(), indexers.Schema(), files.Schema(), conversions.Schema(), imports.Schema(), health.Schema(), reconciling.Schema())
 	roster, err := nodes.Open(ctx, nodes.Config{Library: lib, Name: "home", Link: unlinked{}, Owners: nodestest.Unowned(), Log: slog.New(slog.DiscardHandler)})
 	if err != nil {
 		t.Fatal(err)

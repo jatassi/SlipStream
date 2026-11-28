@@ -464,6 +464,8 @@ type Config struct {
 	Subtitles Subtitles
 	// Moves is S48 (Moves)'s hooks, NoMoves when nil.
 	Moves Moves
+	// Conversions is S44 (Conversion)'s hooks, NoConversions when nil.
+	Conversions Conversions
 	// Homes homes a switched Work in its new root: *roots.Roots.
 	Homes Homes
 	// Queue is told, in the Write that saves a Change, the Works it

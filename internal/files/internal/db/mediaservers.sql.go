@@ -12,7 +12,7 @@ import (
 )
 
 const listFilesOfItems = `-- name: ListFilesOfItems :many
-SELECT f.id, f.work_id, f.cut, f.root_id, f.path, f.size, f.probe, f.grab_id, f.quality, f.label, f.extra, f.release_name, f.title_read, f.modified_at, f.node_file_id, f.node_volume_id, f.gone_at, f.probe_version, f.probed_at, f.probe_error, f.source_name, f.placed_by, i.item_id FROM files_file f
+SELECT f.id, f.work_id, f.cut, f.root_id, f.path, f.size, f.probe, f.grab_id, f.quality, f.label, f.extra, f.release_name, f.title_read, f.modified_at, f.node_file_id, f.node_volume_id, f.gone_at, f.probe_version, f.probed_at, f.probe_error, f.source_name, f.placed_by, f.derived_from_file_id, f.derived_target_id, f.conversion_version, f.derived, i.item_id FROM files_file f
 JOIN files_file_item i ON i.file_id = f.id
 WHERE f.gone_at IS NULL AND f.id IN (
     SELECT h.file_id FROM files_file_item h
@@ -59,6 +59,10 @@ func (q *Queries) ListFilesOfItems(ctx context.Context, itemIds string) ([]ListF
 			&i.FilesFile.ProbeError,
 			&i.FilesFile.SourceName,
 			&i.FilesFile.PlacedBy,
+			&i.FilesFile.DerivedFromFileID,
+			&i.FilesFile.DerivedTargetID,
+			&i.FilesFile.ConversionVersion,
+			&i.FilesFile.Derived,
 			&i.ItemID,
 		); err != nil {
 			return nil, err
@@ -75,7 +79,7 @@ func (q *Queries) ListFilesOfItems(ctx context.Context, itemIds string) ([]ListF
 }
 
 const listPlayedFile = `-- name: ListPlayedFile :many
-SELECT f.id, f.work_id, f.cut, f.root_id, f.path, f.size, f.probe, f.grab_id, f.quality, f.label, f.extra, f.release_name, f.title_read, f.modified_at, f.node_file_id, f.node_volume_id, f.gone_at, f.probe_version, f.probed_at, f.probe_error, f.source_name, f.placed_by, i.item_id FROM files_file f
+SELECT f.id, f.work_id, f.cut, f.root_id, f.path, f.size, f.probe, f.grab_id, f.quality, f.label, f.extra, f.release_name, f.title_read, f.modified_at, f.node_file_id, f.node_volume_id, f.gone_at, f.probe_version, f.probed_at, f.probe_error, f.source_name, f.placed_by, f.derived_from_file_id, f.derived_target_id, f.conversion_version, f.derived, i.item_id FROM files_file f
 JOIN files_file_item i ON i.file_id = f.id
 WHERE f.id = ?1 AND f.gone_at IS NULL
 ORDER BY i.position
@@ -120,6 +124,10 @@ func (q *Queries) ListPlayedFile(ctx context.Context, id FileID) ([]ListPlayedFi
 			&i.FilesFile.ProbeError,
 			&i.FilesFile.SourceName,
 			&i.FilesFile.PlacedBy,
+			&i.FilesFile.DerivedFromFileID,
+			&i.FilesFile.DerivedTargetID,
+			&i.FilesFile.ConversionVersion,
+			&i.FilesFile.Derived,
 			&i.ItemID,
 		); err != nil {
 			return nil, err

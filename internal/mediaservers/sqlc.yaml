@@ -184,3 +184,5 @@ sql:
             go_type:
               type: ProblemCode
               pointer: true
+          - column: mediaservers_server.pauses_conversions
+            go_type: bool

@@ -132,12 +132,12 @@ func (s *Service) reach(ctx context.Context, node ID, t nodesystem.Target) Reach
 
 // Apply runs the reach tests c needs, then plans c again inside one Write
 // and stores its Outcome: the Role rows, the forfeits, the portable work
-// each owner moves to its heir and the tombstone of a removed Node. A stale
-// Basis or a block refuses c, and an Outcome that stores nothing new writes
-// nothing. After the commit a removed Node's key is refused and its session
-// closed, the roster reads the rows again, each other Node whose rows
-// changed is sent its new intent, and Apply waits until those in step apply
-// it or ctx ends.
+// each owner moves to its heir or requeues, and the tombstone of a removed
+// Node. A stale Basis or a block refuses c, and an Outcome that stores
+// nothing new writes nothing. After the commit a removed Node's key is
+// refused and its session closed, the roster reads the rows again, each
+// other Node whose rows changed is sent its new intent, and Apply waits
+// until those in step apply it or ctx ends.
 func (s *Service) Apply(ctx context.Context, c Change) (Outcome, error) {
 	reach, err := s.tests(ctx, c)
 	if err != nil {
@@ -200,8 +200,8 @@ func (s *Service) plan(ctx context.Context, r storage.Reader[file], c Change, re
 }
 
 // store writes out over sit: each Node's Role rows and forfeits, the work
-// each Moves effect names through its Role's owner, then the tombstone of
-// the Node it removes. It returns every other Node whose rows changed.
+// each Moves or Requeues effect names through its Role's owner, then the
+// tombstone of the Node it removes. It returns every other Node whose rows changed.
 func (s *Service) store(ctx context.Context, tx *storage.Tx[file], sit Situation, out Outcome) ([]ID, error) {
 	q := db.New(tx)
 	now := storage.Now()
@@ -217,9 +217,14 @@ func (s *Service) store(ctx context.Context, tx *storage.Tx[file], sit Situation
 		}
 	}
 	for _, e := range out.Effects {
-		if m, ok := e.(Moves); ok {
-			if err := s.owners[m.Role].Unassigned(ctx, tx, m.From.ID, m.To.ID); err != nil {
-				return nil, fmt.Errorf("move %s work from node %s to %s: %w", m.Role, m.From.ID, m.To.ID, err)
+		switch e := e.(type) {
+		case Moves:
+			if err := s.owners[e.Role].Unassigned(ctx, tx, e.From.ID, e.To.ID); err != nil {
+				return nil, fmt.Errorf("move %s work from node %s to %s: %w", e.Role, e.From.ID, e.To.ID, err)
+			}
+		case Requeues:
+			if err := s.owners[e.Role].Unassigned(ctx, tx, e.From.ID, ID{}); err != nil {
+				return nil, fmt.Errorf("requeue %s work from node %s: %w", e.Role, e.From.ID, err)
 			}
 		}
 	}

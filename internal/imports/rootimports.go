@@ -36,12 +36,12 @@ func (im *Imports) EndOf(ctx context.Context, tx *storage.Tx[file], ws []works.W
 	for _, id := range ids {
 		_, err := im.writeIn(ctx, tx, id, &after{}, func(_ context.Context, _ *storage.Tx[file], cur *Import, _ *after) error {
 			for i, f := range cur.Files {
-				if f.Outcome.Final() || cur.Source == FromRoot && f.Outcome == Waiting {
+				if f.Outcome.Final() || sourceRules[cur.Source].landsInPlace && f.Outcome == Waiting {
 					continue
 				}
 				cur.Files[i].Outcome, cur.Files[i].Reason, cur.Files[i].Hold, cur.Files[i].PlacedBy = Declined, &Reason{Code: WorkDeleted}, nil, ""
 			}
-			if cur.Source == FromRoot {
+			if sourceRules[cur.Source].landsInPlace {
 				cur.Work = works.WorkID{}
 			}
 			return nil

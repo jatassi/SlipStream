@@ -320,10 +320,10 @@ func save(ctx context.Context, tx *storage.Tx[file], im *Import) error {
 	if err != nil {
 		return err
 	}
-	if im.Source != FromGrab && len(im.Files) == 0 {
+	if !sourceRules[im.Source].download && len(im.Files) == 0 {
 		return q.DeleteImport(ctx, im.ID)
 	}
-	if im.Source == FromRoot && im.Finished.IsZero() && !slices.ContainsFunc(im.Files, func(f File) bool { return !f.Outcome.Final() }) {
+	if sourceRules[im.Source].landsInPlace && im.Finished.IsZero() && !slices.ContainsFunc(im.Files, func(f File) bool { return !f.Outcome.Final() }) {
 		im.Finished = storage.Now()
 	}
 	if err := saveFiles(ctx, q, im.ID, stored.Files, im.Files); err != nil {

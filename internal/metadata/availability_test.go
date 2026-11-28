@@ -15,6 +15,7 @@ import (
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/live"
 	"github.com/jatassi/slipstream/internal/metadata"
+	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/setting"
 	"github.com/jatassi/slipstream/internal/storage"
@@ -42,7 +43,7 @@ type library struct {
 func openLibrary(t *testing.T) *library {
 	t.Helper()
 	hub := live.NewHub([]live.Event{works.ChangedEvent, works.ContentTypesChangedEvent, works.TypeChangedEvent})
-	lib := storagetest.Library(t, works.Schema(), targets.Schema())
+	lib := storagetest.Library(t, nodes.Schema(), works.Schema(), targets.Schema())
 	fx := contenttypetest.New()
 	w, err := works.Open(t.Context(), works.Config{
 		Library:      lib,

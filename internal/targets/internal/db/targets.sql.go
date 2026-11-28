@@ -644,7 +644,7 @@ func (q *Queries) ListCutsOfProfile(ctx context.Context, profileID ProfileID) ([
 }
 
 const listEntriesOfProfile = `-- name: ListEntriesOfProfile :many
-SELECT profile_id, position, target_id, sourcing FROM targets_profile_target WHERE profile_id = ?1 ORDER BY position
+SELECT profile_id, position, target_id, sourcing, from_target_id, grace_seconds FROM targets_profile_target WHERE profile_id = ?1 ORDER BY position
 `
 
 func (q *Queries) ListEntriesOfProfile(ctx context.Context, profileID ProfileID) ([]TargetsProfileTarget, error) {
@@ -661,6 +661,8 @@ func (q *Queries) ListEntriesOfProfile(ctx context.Context, profileID ProfileID)
 			&i.Position,
 			&i.TargetID,
 			&i.Sourcing,
+			&i.FromTargetID,
+			&i.GraceSeconds,
 		); err != nil {
 			return nil, err
 		}
@@ -953,7 +955,7 @@ func (q *Queries) ListProfileLanguages(ctx context.Context) ([]TargetsProfileLan
 }
 
 const listProfileTargets = `-- name: ListProfileTargets :many
-SELECT profile_id, position, target_id, sourcing FROM targets_profile_target ORDER BY profile_id, position
+SELECT profile_id, position, target_id, sourcing, from_target_id, grace_seconds FROM targets_profile_target ORDER BY profile_id, position
 `
 
 func (q *Queries) ListProfileTargets(ctx context.Context) ([]TargetsProfileTarget, error) {
@@ -970,6 +972,8 @@ func (q *Queries) ListProfileTargets(ctx context.Context) ([]TargetsProfileTarge
 			&i.Position,
 			&i.TargetID,
 			&i.Sourcing,
+			&i.FromTargetID,
+			&i.GraceSeconds,
 		); err != nil {
 			return nil, err
 		}

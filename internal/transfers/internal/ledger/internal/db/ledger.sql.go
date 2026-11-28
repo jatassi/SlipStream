@@ -102,7 +102,7 @@ func (q *Queries) GetNodeSettings(ctx context.Context, nodeID role.NodeID) (Tran
 }
 
 const getTransfer = `-- name: GetTransfer :one
-SELECT id, purpose, job, source_node, destination_kind, destination_root, destination_backup, destination_node, destination_folder, destination_client, destination_content_type, destination_info_hash, priority, created_at, failure_code, failure_position, failure_detail FROM transfers_record WHERE id = ?1
+SELECT id, purpose, job, source_node, destination_kind, destination_root, destination_backup, destination_node, destination_folder, destination_client, destination_content_type, destination_info_hash, destination_name, priority, created_at, failure_code, failure_position, failure_detail FROM transfers_record WHERE id = ?1
 `
 
 func (q *Queries) GetTransfer(ctx context.Context, id local.TransferID) (TransfersRecord, error) {
@@ -121,6 +121,7 @@ func (q *Queries) GetTransfer(ctx context.Context, id local.TransferID) (Transfe
 		&i.DestinationClient,
 		&i.DestinationContentType,
 		&i.DestinationInfoHash,
+		&i.DestinationName,
 		&i.Priority,
 		&i.CreatedAt,
 		&i.FailureCode,
@@ -387,7 +388,7 @@ func (q *Queries) ListTransferIDs(ctx context.Context) ([]local.TransferID, erro
 }
 
 const listTransfers = `-- name: ListTransfers :many
-SELECT id, purpose, job, source_node, destination_kind, destination_root, destination_backup, destination_node, destination_folder, destination_client, destination_content_type, destination_info_hash, priority, created_at, failure_code, failure_position, failure_detail FROM transfers_record ORDER BY created_at, id
+SELECT id, purpose, job, source_node, destination_kind, destination_root, destination_backup, destination_node, destination_folder, destination_client, destination_content_type, destination_info_hash, destination_name, priority, created_at, failure_code, failure_position, failure_detail FROM transfers_record ORDER BY created_at, id
 `
 
 func (q *Queries) ListTransfers(ctx context.Context) ([]TransfersRecord, error) {
@@ -412,6 +413,7 @@ func (q *Queries) ListTransfers(ctx context.Context) ([]TransfersRecord, error) 
 			&i.DestinationClient,
 			&i.DestinationContentType,
 			&i.DestinationInfoHash,
+			&i.DestinationName,
 			&i.Priority,
 			&i.CreatedAt,
 			&i.FailureCode,

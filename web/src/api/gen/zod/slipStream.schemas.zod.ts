@@ -10558,6 +10558,28 @@ export const NodesMoves = zod.object({
 export type NodesMoves = zod.input<typeof NodesMoves>;
 export type NodesMovesOutput = zod.output<typeof NodesMoves>;
 
+export const NodesRequeues = zod.object({
+  from: NodesNamed,
+  held: NodesHeld,
+  kind: zod.enum(["requeues"]),
+  role: zod.enum([
+    "searching",
+    "downloading",
+    "storage",
+    "converting",
+    "subtitles",
+    "metadata",
+    "media-server-link",
+    "notifying",
+    "relaying",
+    "serving",
+  ]),
+  words: zod.string(),
+});
+
+export type NodesRequeues = zod.input<typeof NodesRequeues>;
+export type NodesRequeuesOutput = zod.output<typeof NodesRequeues>;
+
 export const NodesWritesOff = zod.object({
   held: NodesHeld,
   kind: zod.enum(["writes-off"]),
@@ -10596,6 +10618,7 @@ export const NodesEffect = zod.discriminatedUnion("kind", [
   NodesHandedBack,
   NodesPinned,
   NodesMoves,
+  NodesRequeues,
   NodesWritesOff,
   NodesLeaves,
 ]);

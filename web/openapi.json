@@ -19132,6 +19132,7 @@
             "lets-go": "#/components/schemas/NodesLetsGo",
             "moves": "#/components/schemas/NodesMoves",
             "pinned": "#/components/schemas/NodesPinned",
+            "requeues": "#/components/schemas/NodesRequeues",
             "writes-off": "#/components/schemas/NodesWritesOff"
           },
           "propertyName": "kind"
@@ -19154,6 +19155,9 @@
           },
           {
             "$ref": "#/components/schemas/NodesMoves"
+          },
+          {
+            "$ref": "#/components/schemas/NodesRequeues"
           },
           {
             "$ref": "#/components/schemas/NodesWritesOff"
@@ -19945,6 +19949,49 @@
         },
         "required": [
           "name"
+        ],
+        "type": "object"
+      },
+      "NodesRequeues": {
+        "additionalProperties": false,
+        "properties": {
+          "from": {
+            "$ref": "#/components/schemas/NodesNamed"
+          },
+          "held": {
+            "$ref": "#/components/schemas/NodesHeld"
+          },
+          "kind": {
+            "enum": [
+              "requeues"
+            ],
+            "type": "string"
+          },
+          "role": {
+            "enum": [
+              "searching",
+              "downloading",
+              "storage",
+              "converting",
+              "subtitles",
+              "metadata",
+              "media-server-link",
+              "notifying",
+              "relaying",
+              "serving"
+            ],
+            "type": "string"
+          },
+          "words": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "role",
+          "from",
+          "held",
+          "words"
         ],
         "type": "object"
       },

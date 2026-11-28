@@ -88,7 +88,7 @@ func (im *Imports) writeIn(ctx context.Context, tx *storage.Tx[file], id ImportI
 	if !imp.Root.IsZero() {
 		a.roots = append(a.roots, imp.Root)
 	}
-	a.sent = a.sent || imp.Source != FromRoot
+	a.sent = a.sent || !sourceRules[imp.Source].landsInPlace
 	if err := save(ctx, tx, &imp); err != nil {
 		return imp, err
 	}
@@ -109,12 +109,12 @@ func (im *Imports) converge(ctx context.Context, tx *storage.Tx[file], imp *Impo
 	if err != nil {
 		return err
 	}
-	if imp.Source == FromGrab {
+	if sourceRules[imp.Source].download {
 		if err := im.reportFaults(ctx, tx, imp, causes, a); err != nil {
 			return err
 		}
 	}
-	if imp.Source != FromRoot {
+	if !sourceRules[imp.Source].landsInPlace {
 		if _, err := im.cfg.Transfers.Want(ctx, tx, imp.transferRequest()); err != nil {
 			return err
 		}
@@ -130,7 +130,7 @@ func (im *Imports) decideIfReady(ctx context.Context, tx *storage.Tx[file], imp 
 		return nil, nil
 	}
 	var causes []grabs.BlockCause
-	if imp.Source == FromGrab {
+	if sourceRules[imp.Source].download {
 		mis, err := im.misdescribed(ctx, tx, *imp)
 		if err != nil {
 			return nil, err
@@ -238,7 +238,7 @@ func holdingOf(id ImportID, f File) (storing.Rel, error) {
 // destOf is where f's bytes go in root: for a root Import the path they
 // already sit at.
 func (im Import) destOf(root roots.ID, f File) (*Dest, error) {
-	if im.Source == FromRoot {
+	if sourceRules[im.Source].landsInPlace {
 		rel, err := storing.ParseRel(f.Path)
 		return &Dest{Root: root, Holding: rel}, err
 	}
@@ -287,7 +287,7 @@ func (im *Imports) decide(ctx context.Context, tx *storage.Tx[file], imp *Import
 	if err != nil {
 		return err
 	}
-	c := imp.outcomeContext(judged, imp.Source != FromRoot && imp.Node != root.Node)
+	c := imp.outcomeContext(judged, !sourceRules[imp.Source].landsInPlace && imp.Node != root.Node)
 	for k, o := range outcomes(vs, c) {
 		f := &imp.Files[judged[k]]
 		dest, err := imp.destOf(root.ID, *f)
@@ -302,7 +302,7 @@ func (im *Imports) decide(ctx context.Context, tx *storage.Tx[file], imp *Import
 // rootOf is the root imp's files go into: a root Import's own, else its
 // Work's.
 func (im Import) rootOf(ctx context.Context, r storage.Reader[file]) (roots.Root, error) {
-	if im.Source == FromRoot {
+	if sourceRules[im.Source].landsInPlace {
 		return roots.Get(ctx, r, im.Root)
 	}
 	return roots.OfWork(ctx, r, im.Work)

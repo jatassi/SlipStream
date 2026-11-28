@@ -7,9 +7,26 @@ package db
 import (
 	"github.com/jatassi/slipstream/internal/formats"
 	"github.com/jatassi/slipstream/internal/release"
+	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/works"
 )
+
+type TargetsConversion struct {
+	TargetID       TargetID
+	Version        int64
+	VideoCodec     string
+	MaxHeight      int64
+	BitrateKbps    int64
+	BitDepth       int64
+	Range          string
+	KeepDv         bool
+	Curve          string
+	Audio          string
+	DropCommentary bool
+	Container      string
+	RunOnNodeID    role.NodeID
+}
 
 type TargetsCut struct {
 	Key       release.CutKey
@@ -80,10 +97,12 @@ type TargetsProfileLanguage struct {
 }
 
 type TargetsProfileTarget struct {
-	ProfileID ProfileID
-	Position  int64
-	TargetID  TargetID
-	Sourcing  Sourcing
+	ProfileID    ProfileID
+	Position     int64
+	TargetID     TargetID
+	Sourcing     Sourcing
+	FromTargetID TargetID
+	GraceSeconds *int64
 }
 
 type TargetsQuality struct {

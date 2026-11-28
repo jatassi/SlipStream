@@ -1,0 +1,69 @@
+# A v1-reverse-qsv: exit 0
+ffmpeg -hide_banner -nostdin -y -init_hw_device "d3d11va=dx11:,vendor=0x8086" -init_hw_device qsv=qs@dx11 -init_hw_device opencl=ocl@dx11 -filter_hw_device ocl -hwaccel d3d11va -hwaccel_output_format d3d11 -i hdr10-small.mkv -vf "hwmap=derive_device=opencl,tonemap_opencl=format=nv12:p=bt709:t=bt709:m=bt709:tonemap=bt2390:peak=100:desat=0,hwmap=derive_device=qsv:reverse=1" -c:v h264_qsv -preset veryfast -b:v 4M -maxrate 6M -bufsize 8M A-v1-small.mkv
+
+# A v2-via-d3d11: exit -40
+ffmpeg -hide_banner -nostdin -y -init_hw_device "d3d11va=dx11:,vendor=0x8086" -init_hw_device qsv=qs@dx11 -init_hw_device opencl=ocl@dx11 -filter_hw_device ocl -hwaccel d3d11va -hwaccel_output_format d3d11 -i hdr10-small.mkv -vf "hwmap=derive_device=opencl,tonemap_opencl=format=nv12:p=bt709:t=bt709:m=bt709:tonemap=bt2390:peak=100:desat=0,hwmap=derive_device=d3d11va:reverse=1,hwmap=derive_device=qsv" -c:v h264_qsv -preset veryfast -b:v 4M -maxrate 6M -bufsize 8M A-v2-small.mkv
+
+# A chain-small: exit 0
+ffmpeg -hide_banner -nostdin -y -init_hw_device "d3d11va=dx11:,vendor=0x8086" -init_hw_device qsv=qs@dx11 -init_hw_device opencl=ocl@dx11 -filter_hw_device ocl -hwaccel d3d11va -hwaccel_output_format d3d11 -i hdr10-small.mkv -vf "hwmap=derive_device=opencl,tonemap_opencl=format=nv12:p=bt709:t=bt709:m=bt709:tonemap=bt2390:peak=100:desat=0,hwmap=derive_device=qsv:reverse=1" -c:v h264_qsv -preset veryfast -b:v 4M -maxrate 6M -bufsize 8M A-small.mkv
+
+# B hw-apply_dovi-small: exit 0
+ffmpeg -hide_banner -nostdin -y -init_hw_device "d3d11va=dx11:,vendor=0x8086" -init_hw_device qsv=qs@dx11 -init_hw_device opencl=ocl@dx11 -filter_hw_device ocl -hwaccel d3d11va -hwaccel_output_format d3d11 -i dv5-small.mkv -vf "hwmap=derive_device=opencl,tonemap_opencl=format=nv12:p=bt709:t=bt709:m=bt709:tonemap=bt2390:peak=100:desat=0:apply_dovi=1,hwmap=derive_device=qsv:reverse=1" -c:v h264_qsv -preset veryfast -b:v 4M -maxrate 6M -bufsize 8M B-hw-small.mkv
+
+# B tonemapx-libx264-small: exit 0
+ffmpeg -hide_banner -nostdin -y -i dv5-small.mkv -vf tonemapx=tonemap=bt2390:desat=0:peak=100:t=bt709:m=bt709:p=bt709:format=yuv420p:apply_dovi=1 -c:v libx264 -preset veryfast -crf 23 B-sw-small.mkv
+
+# C hevc_qsv-main10-small: exit 0
+ffmpeg -hide_banner -nostdin -y -init_hw_device "d3d11va=dx11:,vendor=0x8086" -init_hw_device qsv=qs@dx11 -init_hw_device opencl=ocl@dx11 -filter_hw_device ocl -hwaccel d3d11va -hwaccel_output_format d3d11 -i hdr10-small.mkv -vf "hwmap=derive_device=qsv,format=qsv" -c:v hevc_qsv -profile:v main10 -preset veryfast -b:v 8M -maxrate 12M -bufsize 16M C-small.mkv
+
+# D chain-small: exit 0
+ffmpeg -hide_banner -nostdin -y -init_hw_device "d3d11va=dx11:,vendor=0x8086" -init_hw_device qsv=qs@dx11 -init_hw_device opencl=ocl@dx11 -filter_hw_device ocl -hwaccel d3d11va -hwaccel_output_format d3d11 -i dv8-small.mkv -vf "hwmap=derive_device=opencl,tonemap_opencl=format=nv12:p=bt709:t=bt709:m=bt709:tonemap=bt2390:peak=100:desat=0:apply_dovi=1,hwmap=derive_device=qsv:reverse=1" -c:v h264_qsv -preset veryfast -b:v 4M -maxrate 6M -bufsize 8M D-small.mkv
+
+# A chain-big: exit 0
+ffmpeg -hide_banner -nostdin -y -init_hw_device "d3d11va=dx11:,vendor=0x8086" -init_hw_device qsv=qs@dx11 -init_hw_device opencl=ocl@dx11 -filter_hw_device ocl -hwaccel d3d11va -hwaccel_output_format d3d11 -i hdr10-big.mkv -vf "hwmap=derive_device=opencl,tonemap_opencl=format=nv12:p=bt709:t=bt709:m=bt709:tonemap=bt2390:peak=100:desat=0,hwmap=derive_device=qsv:reverse=1" -c:v h264_qsv -preset veryfast -b:v 4M -maxrate 6M -bufsize 8M A-big.mkv
+
+# B hw-apply_dovi-big: exit 0
+ffmpeg -hide_banner -nostdin -y -init_hw_device "d3d11va=dx11:,vendor=0x8086" -init_hw_device qsv=qs@dx11 -init_hw_device opencl=ocl@dx11 -filter_hw_device ocl -hwaccel d3d11va -hwaccel_output_format d3d11 -i dv5-big.mkv -vf "hwmap=derive_device=opencl,tonemap_opencl=format=nv12:p=bt709:t=bt709:m=bt709:tonemap=bt2390:peak=100:desat=0:apply_dovi=1,hwmap=derive_device=qsv:reverse=1" -c:v h264_qsv -preset veryfast -b:v 4M -maxrate 6M -bufsize 8M B-hw-big.mkv
+
+# B tonemapx-libx264-big: exit 0
+ffmpeg -hide_banner -nostdin -y -i dv5-big.mkv -vf tonemapx=tonemap=bt2390:desat=0:peak=100:t=bt709:m=bt709:p=bt709:format=yuv420p:apply_dovi=1 -c:v libx264 -preset veryfast -crf 23 B-sw-big.mkv
+
+# C hevc_qsv-main10-big: exit 0
+ffmpeg -hide_banner -nostdin -y -init_hw_device "d3d11va=dx11:,vendor=0x8086" -init_hw_device qsv=qs@dx11 -init_hw_device opencl=ocl@dx11 -filter_hw_device ocl -hwaccel d3d11va -hwaccel_output_format d3d11 -i hdr10-big.mkv -vf "hwmap=derive_device=qsv,format=qsv" -c:v hevc_qsv -profile:v main10 -preset veryfast -b:v 8M -maxrate 12M -bufsize 16M C-big.mkv
+
+# D chain-big: exit 0
+ffmpeg -hide_banner -nostdin -y -init_hw_device "d3d11va=dx11:,vendor=0x8086" -init_hw_device qsv=qs@dx11 -init_hw_device opencl=ocl@dx11 -filter_hw_device ocl -hwaccel d3d11va -hwaccel_output_format d3d11 -i dv8-big.mkv -vf "hwmap=derive_device=opencl,tonemap_opencl=format=nv12:p=bt709:t=bt709:m=bt709:tonemap=bt2390:peak=100:desat=0:apply_dovi=1,hwmap=derive_device=qsv:reverse=1" -c:v h264_qsv -preset veryfast -b:v 4M -maxrate 6M -bufsize 8M D-big.mkv
+
+# B hw-apply_dovi-r_tv-small: exit 0
+ffmpeg -hide_banner -nostdin -y -init_hw_device "d3d11va=dx11:,vendor=0x8086" -init_hw_device qsv=qs@dx11 -init_hw_device opencl=ocl@dx11 -filter_hw_device ocl -hwaccel d3d11va -hwaccel_output_format d3d11 -i dv5-small.mkv -vf "hwmap=derive_device=opencl,tonemap_opencl=format=nv12:p=bt709:t=bt709:m=bt709:tonemap=bt2390:peak=100:desat=0:apply_dovi=1:r=tv,hwmap=derive_device=qsv:reverse=1" -c:v h264_qsv -preset veryfast -b:v 4M -maxrate 6M -bufsize 8M B-hw-tv-small.mkv
+
+# B tonemapx-r_tv-small: exit 0
+ffmpeg -hide_banner -nostdin -y -i dv5-small.mkv -vf tonemapx=tonemap=bt2390:desat=0:peak=100:t=bt709:m=bt709:p=bt709:r=tv:format=yuv420p:apply_dovi=1 -c:v libx264 -preset veryfast -crf 23 B-sw-tv-small.mkv
+
+# B hw-apply_dovi_0-small: exit -1073740791
+ffmpeg -hide_banner -nostdin -y -init_hw_device "d3d11va=dx11:,vendor=0x8086" -init_hw_device qsv=qs@dx11 -init_hw_device opencl=ocl@dx11 -filter_hw_device ocl -hwaccel d3d11va -hwaccel_output_format d3d11 -i dv5-small.mkv -vf "hwmap=derive_device=opencl,tonemap_opencl=format=nv12:p=bt709:t=bt709:m=bt709:tonemap=bt2390:peak=100:desat=0:apply_dovi=0,hwmap=derive_device=qsv:reverse=1" -c:v h264_qsv -preset veryfast -b:v 4M -maxrate 6M -bufsize 8M B-hw-nodovi-small.mkv
+
+# B hw-apply_dovi-r_tv-big: exit 0
+ffmpeg -hide_banner -nostdin -y -init_hw_device "d3d11va=dx11:,vendor=0x8086" -init_hw_device qsv=qs@dx11 -init_hw_device opencl=ocl@dx11 -filter_hw_device ocl -hwaccel d3d11va -hwaccel_output_format d3d11 -i dv5-big.mkv -vf "hwmap=derive_device=opencl,tonemap_opencl=format=nv12:p=bt709:t=bt709:m=bt709:tonemap=bt2390:peak=100:desat=0:apply_dovi=1:r=tv,hwmap=derive_device=qsv:reverse=1" -c:v h264_qsv -preset veryfast -b:v 4M -maxrate 6M -bufsize 8M B-hw-tv-big.mkv
+
+# B tonemapx-r_tv-big: exit 0
+ffmpeg -hide_banner -nostdin -y -i dv5-big.mkv -vf tonemapx=tonemap=bt2390:desat=0:peak=100:t=bt709:m=bt709:p=bt709:r=tv:format=yuv420p:apply_dovi=1 -c:v libx264 -preset veryfast -crf 23 B-sw-tv-big.mkv
+
+# B hw-apply_dovi_0-big: exit -1073740791
+ffmpeg -hide_banner -nostdin -y -init_hw_device "d3d11va=dx11:,vendor=0x8086" -init_hw_device qsv=qs@dx11 -init_hw_device opencl=ocl@dx11 -filter_hw_device ocl -hwaccel d3d11va -hwaccel_output_format d3d11 -i dv5-big.mkv -vf "hwmap=derive_device=opencl,tonemap_opencl=format=nv12:p=bt709:t=bt709:m=bt709:tonemap=bt2390:peak=100:desat=0:apply_dovi=0,hwmap=derive_device=qsv:reverse=1" -c:v h264_qsv -preset veryfast -b:v 4M -maxrate 6M -bufsize 8M B-hw-nodovi-big.mkv
+
+# extra av1_qsv
+ffmpeg -init_hw_device d3d11va=dx11:,vendor=0x8086 -init_hw_device qsv=qs@dx11 -hwaccel d3d11va -hwaccel_output_format d3d11 -i sdr-small.mkv -vf hwmap=derive_device=qsv,format=qsv -c:v av1_qsv -f null -
+
+# extra tonemapx-apply_dovi_0-frame
+ffmpeg -ss 10 -i dv5-big.mkv -frames:v 1 -vf tonemapx=tonemap=bt2390:desat=0:peak=100:t=bt709:m=bt709:p=bt709:r=tv:format=yuv420p:apply_dovi=0 out.png
+
+# F-pause (p after ~3 s, u after the pause)
+ffmpeg -hide_banner -y -nostats -progress pipe:1 -init_hw_device "d3d11va=dx11:,vendor=0x8086" -init_hw_device qsv=qs@dx11 -init_hw_device opencl=ocl@dx11 -filter_hw_device ocl -hwaccel d3d11va -hwaccel_output_format d3d11 -i hdr10-big.mkv -vf "hwmap=derive_device=opencl,tonemap_opencl=format=nv12:p=bt709:t=bt709:m=bt709:tonemap=bt2390:peak=100:desat=0,hwmap=derive_device=qsv:reverse=1" -c:v h264_qsv -preset veryfast -b:v 4M -maxrate 6M -bufsize 8M F-pause.mkv
+
+# G1-pause-during-plex (p after ~3 s, u after the pause)
+ffmpeg -hide_banner -y -nostats -progress pipe:1 -init_hw_device "d3d11va=dx11:,vendor=0x8086" -init_hw_device qsv=qs@dx11 -init_hw_device opencl=ocl@dx11 -filter_hw_device ocl -hwaccel d3d11va -hwaccel_output_format d3d11 -i hdr10-big.mkv -vf "hwmap=derive_device=opencl,tonemap_opencl=format=nv12:p=bt709:t=bt709:m=bt709:tonemap=bt2390:peak=100:desat=0,hwmap=derive_device=qsv:reverse=1" -c:v h264_qsv -preset veryfast -b:v 4M -maxrate 6M -bufsize 8M G1-pause-during-plex.mkv
+
+# G2-round1 (p after ~3 s, u after the pause)
+ffmpeg -hide_banner -y -nostats -progress pipe:1 -init_hw_device "d3d11va=dx11:,vendor=0x8086" -init_hw_device qsv=qs@dx11 -init_hw_device opencl=ocl@dx11 -filter_hw_device ocl -hwaccel d3d11va -hwaccel_output_format d3d11 -i hdr10-big.mkv -vf "hwmap=derive_device=opencl,tonemap_opencl=format=nv12:p=bt709:t=bt709:m=bt709:tonemap=bt2390:peak=100:desat=0,hwmap=derive_device=qsv:reverse=1" -c:v h264_qsv -preset veryfast -b:v 4M -maxrate 6M -bufsize 8M G2-round1.mkv
+

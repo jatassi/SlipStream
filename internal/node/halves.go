@@ -15,6 +15,8 @@ import (
 	"github.com/jatassi/slipstream/internal/calendar"
 	"github.com/jatassi/slipstream/internal/calls"
 	"github.com/jatassi/slipstream/internal/contenttype"
+	"github.com/jatassi/slipstream/internal/conversions"
+	"github.com/jatassi/slipstream/internal/converting"
 	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/downloading"
 	"github.com/jatassi/slipstream/internal/files"
@@ -426,6 +428,8 @@ func (n *Node) startController(ctx context.Context) error {
 	arrivals := roots.NewArrivals()
 	fenced := nodes.FencedEvent.Bind(n.hub)
 	var systems *nodesystem.Nodes
+	placeholder := conversions.New(conversions.Config{})
+	converts := converting.Def.Serve(placeholder.Derive, placeholder.Apply)
 	side, err = nodes.Open(ctx, nodes.Config{
 		Library: lib.db,
 		Key:     n.key.Public(),
@@ -436,7 +440,7 @@ func (n *Node) startController(ctx context.Context) error {
 		Traffic: nodes.TrafficEvent.Bind(n.hub),
 
 		SettingsChanged: nodes.SettingsChangedEvent.Bind(n.hub),
-		Served:          append([]role.Served{downloads, stored, transferring, linked, network}, n.env.Test.Served...),
+		Served:          append([]role.Served{downloads, stored, transferring, linked, network, converts}, n.env.Test.Served...),
 		Owners:          owners(clients, servers, n.notifications),
 		Kept:            grabs.Kept,
 		Torrents:        clients,
@@ -1310,12 +1314,14 @@ func owners(clients *downloadclients.Clients, servers *mediaservers.MediaServers
 // heldRoles is every Role this binary runs, and the Node-wide channels
 // every Node holds, one held line each.
 func (n *Node) heldRoles(local *storage.DB[storage.Local], dispatch *rpc.Dispatch, copier *transfers.Node) []role.Held {
+	convert := converting.Hold(converting.HolderConfig{})
 	return []role.Held{
 		downloading.Def.Hold(n.downloading.Run(local, downloadingv1connect.DownloadingControlService.Call(dispatch)), n.downloading.Release),
 		storing.Def.Hold(n.store.Run, n.store.Release),
 		transfers.Def.Hold(copier.Run, copier.Release),
 		mediaserverlink.Def.Hold(n.mediaLink.Run(local, mediaserverv1connect.MediaServerControlService.Call(dispatch)), n.mediaLink.Release),
 		netmodel.Def.Hold(n.network.Watch, n.network.Release),
+		converting.Def.Hold(convert.Run, convert.Release),
 	}
 }
 

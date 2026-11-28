@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/jatassi/slipstream/internal/contenttype/contenttypetest"
+	"github.com/jatassi/slipstream/internal/conversions"
 	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/grabs"
@@ -103,7 +104,7 @@ func openRetention(t *testing.T) (*storage.DB[storage.Library], retentionSeeds) 
 	if err := before.Close(); err != nil {
 		t.Fatal(err)
 	}
-	lib := open(identity.Schema(), nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), downloadclients.Schema(), grabs.Schema(), indexers.Schema(), files.Schema(), imports.Schema())
+	lib := open(identity.Schema(), nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), downloadclients.Schema(), grabs.Schema(), indexers.Schema(), files.Schema(), conversions.Schema(), imports.Schema())
 	t.Cleanup(func() { _ = lib.Close() })
 	return lib, s
 }

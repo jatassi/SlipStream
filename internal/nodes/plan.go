@@ -30,6 +30,9 @@ type Held struct {
 	// EndlessUnits is how many Units the holder can't finish on its own,
 	// which stay until they are removed, moved or written off.
 	EndlessUnits int64
+	// Started is how many Units already run, which start again from the
+	// beginning wherever they go.
+	Started int64
 }
 
 type NodeRole struct {
@@ -91,6 +94,9 @@ type Situation struct {
 	Seats      []Seat
 	Targets    map[role.Name][]Target
 	Reach      map[ReachKey]ReachResult
+	// Requeues is the Roles whose owner puts portable work back in its own
+	// queue instead of moving it to the heir.
+	Requeues role.Set
 }
 
 // Change is a write to Roles: SetRoles, WriteOff or Remove.
@@ -240,7 +246,8 @@ func (s Situation) seat(id ID) Seat {
 // Controller keeps a Controller Role, an Always Role with no holder goes
 // back to the Controller, Max blocks an added holder past it, then probes
 // and reach tests on each added Role. An unticked Role drains while its
-// Node holds work for it, and its portable work moves to the heir.
+// Node holds work for it, and its portable work moves to the heir or goes
+// back to its owner's queue.
 func Plan(s Situation, c Change) Outcome {
 	p := planner{
 		s:       s,
@@ -460,6 +467,10 @@ func (p *planner) effectOf(seat Seat, r role.Name) {
 func (p *planner) move(seat Seat, r role.Name) {
 	moved := seat.Moves[r]
 	if moved.Units == 0 || !p.was[seat.ID].Has(r) || p.next[seat.ID].Has(r) {
+		return
+	}
+	if p.s.Requeues.Has(r) {
+		p.out = append(p.out, Requeues{Role: r, From: seat.Named, Held: moved})
 		return
 	}
 	if to, ok := p.heir(r); ok {

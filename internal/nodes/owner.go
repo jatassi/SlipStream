@@ -22,6 +22,10 @@ type Owner struct {
 	// takes the Role from node. It must not publish or do IO. Exactly the
 	// owners of Portable Roles have one.
 	Unassigned func(ctx context.Context, tx *storage.Tx[storage.Library], node, heir ID) error
+	// Requeues: node's portable work goes back to the owner's own queue
+	// once node lets the Role go, heir or not, so Unassigned is called with
+	// the zero heir.
+	Requeues bool
 	// Reach is the targets a Node is tested against before it gains the
 	// Role, none while none is configured, each at its own host and port.
 	// It reads the library and nothing else. Exactly the owners of Reach

@@ -162,6 +162,10 @@ const (
 	// writable and apart from every root the Node holds and its downloads
 	// folders. It may sit in the data dir.
 	Purpose_PURPOSE_BACKUPS Purpose = 5
+	// CONVERTING: a Node's scratch folder for Conversions: writable and
+	// apart from every root the Node holds, its downloads folders and the
+	// Backups folder. It may sit in the data dir.
+	Purpose_PURPOSE_CONVERTING Purpose = 6
 )
 
 // Enum value maps for Purpose.
@@ -173,6 +177,7 @@ var (
 		3: "PURPOSE_CLIENT_FOLDER",
 		4: "PURPOSE_IMPORT",
 		5: "PURPOSE_BACKUPS",
+		6: "PURPOSE_CONVERTING",
 	}
 	Purpose_value = map[string]int32{
 		"PURPOSE_UNSPECIFIED":   0,
@@ -181,6 +186,7 @@ var (
 		"PURPOSE_CLIENT_FOLDER": 3,
 		"PURPOSE_IMPORT":        4,
 		"PURPOSE_BACKUPS":       5,
+		"PURPOSE_CONVERTING":    6,
 	}
 )
 
@@ -5226,14 +5232,15 @@ const file_slipstream_storage_v1_storage_proto_rawDesc = "" +
 	"\x17VOLUME_KIND_UNSPECIFIED\x10\x00\x12\x15\n" +
 	"\x11VOLUME_KIND_LOCAL\x10\x01\x12\x19\n" +
 	"\x15VOLUME_KIND_REMOVABLE\x10\x02\x12\x17\n" +
-	"\x13VOLUME_KIND_NETWORK\x10\x03*\x8f\x01\n" +
+	"\x13VOLUME_KIND_NETWORK\x10\x03*\xa7\x01\n" +
 	"\aPurpose\x12\x17\n" +
 	"\x13PURPOSE_UNSPECIFIED\x10\x00\x12\x10\n" +
 	"\fPURPOSE_ROOT\x10\x01\x12\x15\n" +
 	"\x11PURPOSE_DOWNLOADS\x10\x02\x12\x19\n" +
 	"\x15PURPOSE_CLIENT_FOLDER\x10\x03\x12\x12\n" +
 	"\x0ePURPOSE_IMPORT\x10\x04\x12\x13\n" +
-	"\x0fPURPOSE_BACKUPS\x10\x05*\xe6\x02\n" +
+	"\x0fPURPOSE_BACKUPS\x10\x05\x12\x16\n" +
+	"\x12PURPOSE_CONVERTING\x10\x06*\xe6\x02\n" +
 	"\x06Reason\x12\x16\n" +
 	"\x12REASON_UNSPECIFIED\x10\x00\x12\x17\n" +
 	"\x13REASON_NOT_ABSOLUTE\x10\x01\x12\x14\n" +

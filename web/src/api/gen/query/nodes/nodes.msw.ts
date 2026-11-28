@@ -17,6 +17,7 @@ import type {
   NodesOpenCodes,
   NodesOutcome,
   NodesPinned,
+  NodesRequeues,
   NodesRoleBoard,
   NodesSettings,
   NodesTopology,
@@ -507,6 +508,35 @@ export const getSetRolesResponseNodesMovesMock = (
   ...overrideResponse,
 });
 
+export const getSetRolesResponseNodesRequeuesMock = (
+  overrideResponse: Partial<NodesRequeues> = {},
+): NodesRequeues => ({
+  ...{
+    from: { id: faker.string.uuid(), name: faker.string.alpha({ length: { min: 10, max: 20 } }) },
+    held: {
+      bytes: faker.number.int(),
+      endlessUnits: faker.number.int({ min: 0 }),
+      noun: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      units: faker.number.int(),
+    },
+    kind: faker.helpers.arrayElement(["requeues"] as const),
+    role: faker.helpers.arrayElement([
+      "searching",
+      "downloading",
+      "storage",
+      "converting",
+      "subtitles",
+      "metadata",
+      "media-server-link",
+      "notifying",
+      "relaying",
+      "serving",
+    ] as const),
+    words: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
+  ...overrideResponse,
+});
+
 export const getSetRolesResponseNodesWritesOffMock = (
   overrideResponse: Partial<NodesWritesOff> = {},
 ): NodesWritesOff => ({
@@ -600,6 +630,7 @@ export const getSetRolesResponseMock = (
       { ...getSetRolesResponseNodesHandedBackMock() },
       { ...getSetRolesResponseNodesPinnedMock() },
       { ...getSetRolesResponseNodesMovesMock() },
+      { ...getSetRolesResponseNodesRequeuesMock() },
       { ...getSetRolesResponseNodesWritesOffMock() },
       { ...getSetRolesResponseNodesLeavesMock() },
     ]),
@@ -796,6 +827,35 @@ export const getPlanRolesResponseNodesMovesMock = (
   ...overrideResponse,
 });
 
+export const getPlanRolesResponseNodesRequeuesMock = (
+  overrideResponse: Partial<NodesRequeues> = {},
+): NodesRequeues => ({
+  ...{
+    from: { id: faker.string.uuid(), name: faker.string.alpha({ length: { min: 10, max: 20 } }) },
+    held: {
+      bytes: faker.number.int(),
+      endlessUnits: faker.number.int({ min: 0 }),
+      noun: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      units: faker.number.int(),
+    },
+    kind: faker.helpers.arrayElement(["requeues"] as const),
+    role: faker.helpers.arrayElement([
+      "searching",
+      "downloading",
+      "storage",
+      "converting",
+      "subtitles",
+      "metadata",
+      "media-server-link",
+      "notifying",
+      "relaying",
+      "serving",
+    ] as const),
+    words: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
+  ...overrideResponse,
+});
+
 export const getPlanRolesResponseNodesWritesOffMock = (
   overrideResponse: Partial<NodesWritesOff> = {},
 ): NodesWritesOff => ({
@@ -889,6 +949,7 @@ export const getPlanRolesResponseMock = (
       { ...getPlanRolesResponseNodesHandedBackMock() },
       { ...getPlanRolesResponseNodesPinnedMock() },
       { ...getPlanRolesResponseNodesMovesMock() },
+      { ...getPlanRolesResponseNodesRequeuesMock() },
       { ...getPlanRolesResponseNodesWritesOffMock() },
       { ...getPlanRolesResponseNodesLeavesMock() },
     ]),
@@ -1737,6 +1798,35 @@ export const getWriteOffResponseNodesMovesMock = (
   ...overrideResponse,
 });
 
+export const getWriteOffResponseNodesRequeuesMock = (
+  overrideResponse: Partial<NodesRequeues> = {},
+): NodesRequeues => ({
+  ...{
+    from: { id: faker.string.uuid(), name: faker.string.alpha({ length: { min: 10, max: 20 } }) },
+    held: {
+      bytes: faker.number.int(),
+      endlessUnits: faker.number.int({ min: 0 }),
+      noun: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      units: faker.number.int(),
+    },
+    kind: faker.helpers.arrayElement(["requeues"] as const),
+    role: faker.helpers.arrayElement([
+      "searching",
+      "downloading",
+      "storage",
+      "converting",
+      "subtitles",
+      "metadata",
+      "media-server-link",
+      "notifying",
+      "relaying",
+      "serving",
+    ] as const),
+    words: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
+  ...overrideResponse,
+});
+
 export const getWriteOffResponseNodesWritesOffMock = (
   overrideResponse: Partial<NodesWritesOff> = {},
 ): NodesWritesOff => ({
@@ -1830,6 +1920,7 @@ export const getWriteOffResponseMock = (
       { ...getWriteOffResponseNodesHandedBackMock() },
       { ...getWriteOffResponseNodesPinnedMock() },
       { ...getWriteOffResponseNodesMovesMock() },
+      { ...getWriteOffResponseNodesRequeuesMock() },
       { ...getWriteOffResponseNodesWritesOffMock() },
       { ...getWriteOffResponseNodesLeavesMock() },
     ]),

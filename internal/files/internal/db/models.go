@@ -23,28 +23,32 @@ type FilesDoomed struct {
 }
 
 type FilesFile struct {
-	ID           FileID
-	WorkID       works.WorkID
-	Cut          release.CutKey
-	RootID       roots.ID
-	Path         string
-	Size         int64
-	Probe        media.Record
-	GrabID       storage.UUID
-	Quality      release.Quality
-	Label        string
-	Extra        int64
-	ReleaseName  string
-	TitleRead    Reading
-	ModifiedAt   storage.Time
-	NodeFileID   *string
-	NodeVolumeID *string
-	GoneAt       storage.Time
-	ProbeVersion int64
-	ProbedAt     storage.Time
-	ProbeError   *string
-	SourceName   *string
-	PlacedBy     *string
+	ID                FileID
+	WorkID            works.WorkID
+	Cut               release.CutKey
+	RootID            roots.ID
+	Path              string
+	Size              int64
+	Probe             media.Record
+	GrabID            storage.UUID
+	Quality           release.Quality
+	Label             string
+	Extra             int64
+	ReleaseName       string
+	TitleRead         Reading
+	ModifiedAt        storage.Time
+	NodeFileID        *string
+	NodeVolumeID      *string
+	GoneAt            storage.Time
+	ProbeVersion      int64
+	ProbedAt          storage.Time
+	ProbeError        *string
+	SourceName        *string
+	PlacedBy          *string
+	DerivedFromFileID FileID
+	DerivedTargetID   targets.TargetID
+	ConversionVersion *int64
+	Derived           bool
 }
 
 type FilesFileItem struct {

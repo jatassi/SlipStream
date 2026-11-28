@@ -67,7 +67,7 @@ func (im *Imports) keepProbe(ctx context.Context, tx *storage.Tx[file], imp *Imp
 		return err
 	}
 	g.Probe, g.Hold = &rec, nil
-	if imp.Source == FromFolder {
+	if sourceRules[imp.Source].picked {
 		if err := im.readName(ctx, tx, imp.ContentType, imp.Edition, g); err != nil {
 			return err
 		}
@@ -78,7 +78,7 @@ func (im *Imports) keepProbe(ctx context.Context, tx *storage.Tx[file], imp *Imp
 			g.Cut = *imp.Edition
 		}
 	}
-	if imp.Source == FromRoot || imp.Work.IsZero() {
+	if imp.Work.IsZero() {
 		return nil
 	}
 	return im.sampleByRuntime(ctx, tx, imp, g)
