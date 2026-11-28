@@ -1,5 +1,6 @@
 import type {
   FilesClientError,
+  FilesConversionFailedNeed,
   FilesFailedNeed,
   FilesNotFoundNeed,
   FilesSpace,
@@ -63,6 +64,19 @@ export function failedWords(naming: Naming, need: FilesFailedNeed, grab: FailedG
   const waiting = list.format(need.waiting.map((id) => naming.targetName(id)));
   return `${failed} · ${waiting} ${need.waiting.length === 1 ? "is" : "are"} made from it and can't start`;
 }
+
+/** "Director's Cut 720p mobile Conversion failed" */
+export const conversionFailedSubject = (naming: Naming, need: FilesConversionFailedNeed): string =>
+  `${cellsOf(naming, need, [need.targetId])} Conversion failed`;
+
+/** What a failed Conversion's class means and where the Admin acts on it. */
+export const conversionFailedVerdicts: {
+  readonly [C in FilesConversionFailedNeed["class"]]: (target: string) => string;
+} = {
+  run: () => "It failed on every Node that can run it. Retry it in Conversions.",
+  source: (target) =>
+    `Its source file can't be converted with ${target}'s Conversion settings. Change them, or search for a new source file.`,
+};
 
 /** "S02E01 to S02E08 not found", or the Work's own label for a Work of one Item. */
 export function notFoundSubject(naming: Naming, need: FilesNotFoundNeed): string {

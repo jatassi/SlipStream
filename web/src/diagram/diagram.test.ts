@@ -24,7 +24,7 @@ import { chipPlan } from "./parts/tile";
 
 const landingFrom = (count: number) => {
   const { topology, board } = fixtureOf(count);
-  return landingOf(topology, board, new Set(), fixtureClock);
+  return landingOf(topology, board, new Set(), new Map(), fixtureClock);
 };
 
 const overlaps = (a: ReturnType<typeof planOf>, b: ReturnType<typeof planOf>) =>
@@ -184,7 +184,7 @@ describe("motion", () => {
 
   test("an online link carries capsules, a down one none, and a Node away winds its machines down", () => {
     const { topology, board, traffic } = fixtureOf(5);
-    const landing = landingOf(topology, board, new Set(), fixtureClock);
+    const landing = landingOf(topology, board, new Set(), new Map(), fixtureClock);
     const targets = targetsOf(landing, traffic, Number.POSITIVE_INFINITY, QUIET);
     const attic = landing.nodes.find(({ name }) => name === "attic")?.id ?? "";
     for (const flow of targets.flows) {
@@ -199,7 +199,7 @@ describe("motion", () => {
 
 function busyOn(count: number, search: number, fetch: number) {
   const { topology, board, traffic } = fixtureOf(count);
-  const landing = landingOf(topology, board, new Set(), fixtureClock);
+  const landing = landingOf(topology, board, new Set(), new Map(), fixtureClock);
   const { busy } = targetsOf(landing, traffic, 0, { search, fetch });
   return landing.nodes.flatMap(({ id, name, roles }) => {
     const held = new Set(roles.map(({ role }) => role));
@@ -244,7 +244,7 @@ describe("work", () => {
 describe("still frame", () => {
   test("a board takes pieces in at least at a trickle while its Node downloads anything, and none while it is idle", () => {
     const { topology, board, traffic } = fixtureOf(1);
-    const landing = landingOf(topology, board, new Set(), fixtureClock);
+    const landing = landingOf(topology, board, new Set(), new Map(), fixtureClock);
     const downloading = (downBps: number): TrafficPair => {
       const [, latest] = traffic;
       return [

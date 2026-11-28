@@ -32,6 +32,8 @@ export type RoleChip = {
 
 /** What giving a Node a Role also means, for a Role that means more than its work. */
 export const roleTrust: Partial<Record<RoleName, string>> = {
+  converting:
+    "A Node with this Role reads the library files it converts and writes the files made from them.",
   notifying:
     "A Node with this Role receives your notification connections' secrets to send messages.",
 };
@@ -60,6 +62,8 @@ export type NodeRow = {
   readonly listening: boolean;
   /** A Media Server it reaches responds, as its Media Server link last reported. */
   readonly television: boolean;
+  /** How many Conversions it runs, as the latest conversions.live sample said. */
+  readonly converting: number;
 };
 
 /** How much of a torrent is down, as a whole percent. */
@@ -135,6 +139,7 @@ function rowOf(
   controller: string,
   state: NodeState,
   node: NodesTopologyNode,
+  converting: number,
   clock: Clock,
 ): NodeRow {
   const { lastSeenAt } = node;
@@ -156,6 +161,7 @@ function rowOf(
     storage: node.resources.storage,
     listening: !node.probes.some(({ probe, fit }) => probe === "listener-up" && fit === "fails"),
     television: node.television,
+    converting,
   };
 }
 
@@ -164,6 +170,7 @@ export function landingOf(
   topology: NodesTopology,
   board: NodesRoleBoard,
   restarting: ReadonlySet<string>,
+  running: ReadonlyMap<string, number>,
   clock: Clock,
 ): Landing {
   const controller = topology.nodes.find((node) => node.controller);
@@ -181,6 +188,7 @@ export function landingOf(
         controller.name,
         restarting.has(node.id) ? "restarting" : node.state,
         node,
+        running.get(node.id) ?? 0,
         clock,
       ),
     ),

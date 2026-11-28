@@ -12,6 +12,8 @@ import { ServerFields } from "../server-fields";
 import { detailsOf, editOf, kindOf, reachingOf, valuesOf } from "../server-form";
 import { useServerForm } from "../use-server-form";
 import { MembersPart } from "./members-part";
+// oxlint-disable-next-line import/max-dependencies -- the tab holds the server's form, its pause switch and its Members part
+import { PauseConversions } from "./pause-conversions";
 
 /** The server's own settings, as the Add sheet took them, then its Members part. Save tests the routes a change reaches. */
 export function SettingsTab({ server }: { server: Server }) {
@@ -58,6 +60,7 @@ export function SettingsTab({ server }: { server: Server }) {
           </div>
         </form.AppForm>
       </form>
+      <PauseConversions server={server} />
       <MembersPart server={server} />
     </div>
   );
