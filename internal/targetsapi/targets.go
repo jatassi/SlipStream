@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/jatassi/slipstream/internal/api"
+	"github.com/jatassi/slipstream/internal/encode"
 	"github.com/jatassi/slipstream/internal/formats"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/release"
@@ -53,22 +54,23 @@ type profileRef struct {
 }
 
 type target struct {
-	ID         string                       `json:"id" format:"uuid"`
-	Name       string                       `json:"name"`
-	Tiers      [][]string                   `json:"tiers" nullable:"false" doc:"Quality keys, best tier first; a tier's qualities rank as equal"`
-	Cutoff     string                       `json:"cutoff" doc:"The first quality of the tier at which a file is final"`
-	Filters    []filter                     `json:"filters" nullable:"false" doc:"Every attribute that isn't Any, in attribute order"`
-	Sizes      []size                       `json:"sizes" nullable:"false" doc:"Every accepted quality's size, in tier order"`
-	Scores     scores                       `json:"scores"`
-	Propers    string                       `json:"propers" enum:"prefer_and_upgrade,prefer_no_upgrade,dont_prefer" doc:"prefer_and_upgrade ranks propers and repacks higher and has one replace a file of its Quality even past the cutoff. prefer_no_upgrade only ranks them higher. dont_prefer leaves them to the scores"`
-	Hold       int                          `json:"holdSeconds" minimum:"0" maximum:"604800" doc:"How long an automatic grab waits after a Release's publish time for a better one, in whole minutes. 0 grabs at once"`
-	Profiles   []profileRef                 `json:"profiles" nullable:"false" doc:"The Profiles holding it, by name"`
-	Contains   []string                     `json:"contains" nullable:"false" format:"uuid" doc:"The other Targets every file of which also meets this one"`
-	Conversion api.Nullable[conversionView] `json:"conversion" doc:"Its Conversion settings, which make its files from another Target's; null while it has none"`
-	CreatedAt  time.Time                    `json:"createdAt"`
+	ID          string                       `json:"id" format:"uuid"`
+	Name        string                       `json:"name"`
+	Tiers       [][]string                   `json:"tiers" nullable:"false" doc:"Quality keys, best tier first; a tier's qualities rank as equal"`
+	Cutoff      string                       `json:"cutoff" doc:"The first quality of the tier at which a file is final"`
+	Filters     []filter                     `json:"filters" nullable:"false" doc:"Every attribute that isn't Any, in attribute order"`
+	Sizes       []size                       `json:"sizes" nullable:"false" doc:"Every accepted quality's size, in tier order"`
+	Scores      scores                       `json:"scores"`
+	Propers     string                       `json:"propers" enum:"prefer_and_upgrade,prefer_no_upgrade,dont_prefer" doc:"prefer_and_upgrade ranks propers and repacks higher and has one replace a file of its Quality even past the cutoff. prefer_no_upgrade only ranks them higher. dont_prefer leaves them to the scores"`
+	Hold        int                          `json:"holdSeconds" minimum:"0" maximum:"604800" doc:"How long an automatic grab waits after a Release's publish time for a better one, in whole minutes. 0 grabs at once"`
+	Profiles    []profileRef                 `json:"profiles" nullable:"false" doc:"The Profiles holding it, by name"`
+	Contains    []string                     `json:"contains" nullable:"false" format:"uuid" doc:"The other Targets every file of which also meets this one"`
+	Conversion  api.Nullable[conversionView] `json:"conversion" doc:"Its Conversion settings, which make its files from another Target's; null while it has none"`
+	DefaultKbps int                          `json:"defaultKbps" minimum:"100" doc:"The bitrate Conversion settings turned on at 1080p start at"`
+	CreatedAt   time.Time                    `json:"createdAt"`
 }
 
-func targetOf(t targets.Target) target {
+func (m made) targetOf(t targets.Target) target {
 	s := t.Spec()
 	out := target{
 		ID: t.ID.String(), Name: t.Name, Tiers: keysOf(s.Tiers), Cutoff: s.Cutoff.String(), Filters: []filter{}, Sizes: []size{},
@@ -76,6 +78,7 @@ func targetOf(t targets.Target) target {
 			Formats: []formatScore{}, Minimum: t.Scores.Minimum, UpgradeUntil: t.Scores.UpgradeUntil, Increment: t.Scores.Increment,
 		},
 		Propers: t.Propers.String(), Hold: int(t.Hold / time.Second), Profiles: []profileRef{}, Contains: []string{}, CreatedAt: t.CreatedAt.Time(),
+		Conversion: m.viewOf(t), DefaultKbps: defaultKbps(t, encode.P1080),
 	}
 	for id, score := range t.Scores.Formats {
 		out.Scores.Formats = append(out.Scores.Formats, formatScore{FormatID: id.String(), Score: score})
@@ -115,14 +118,20 @@ type newTarget struct {
 
 // specOf parses a Target's body. Checks the document can't state answer
 // invalid at the field they name.
+func (h handlers) specOf(in newTarget) (targets.Spec, error) {
+	s, err := specOf(in)
+	if err != nil {
+		return targets.Spec{}, err
+	}
+	return s, checkRunOn(h.goals, s.Conversion)
+}
+
 func specOf(in newTarget) (targets.Spec, error) {
-	if err := conversionRequested("conversion", in.Conversion != nil); err != nil {
+	conversion, err := conversionOf(in.Conversion)
+	if err != nil {
 		return targets.Spec{}, err
 	}
-	if err := conversionRequested("remake", len(in.Remake) > 0); err != nil {
-		return targets.Spec{}, err
-	}
-	s := targets.Spec{Name: in.Name, Sizes: map[release.Quality]targets.Size{}}
+	s := targets.Spec{Name: in.Name, Sizes: map[release.Quality]targets.Size{}, Conversion: conversion}
 	var bad []api.FieldError
 	field := func(location, message string) {
 		bad = append(bad, api.FieldError{Location: location, Message: message})
@@ -238,7 +247,7 @@ func (h handlers) listQualities(context.Context, identity.Admin, *struct{}) (*qu
 }
 
 func (h handlers) createTarget(ctx context.Context, by identity.Admin, in *createTargetInput) (*targetOutput, error) {
-	s, err := specOf(in.Body)
+	s, err := h.specOf(in.Body)
 	if err != nil {
 		return nil, err
 	}
@@ -246,7 +255,7 @@ func (h handlers) createTarget(ctx context.Context, by identity.Admin, in *creat
 	if err != nil {
 		return nil, answer(err)
 	}
-	return &targetOutput{Body: targetOf(t)}, nil
+	return h.targetOutput(ctx, t)
 }
 
 func (h handlers) listTargets(ctx context.Context, by identity.Admin, _ *struct{}) (*targetListOutput, error) {
@@ -254,9 +263,13 @@ func (h handlers) listTargets(ctx context.Context, by identity.Admin, _ *struct{
 	if err != nil {
 		return nil, err
 	}
+	m, err := h.madeOf(ctx, list)
+	if err != nil {
+		return nil, err
+	}
 	out := targetList{Targets: []target{}}
 	for _, t := range list {
-		out.Targets = append(out.Targets, targetOf(t))
+		out.Targets = append(out.Targets, m.targetOf(t))
 	}
 	return &targetListOutput{Body: out}, nil
 }
@@ -286,7 +299,7 @@ func (h handlers) getTarget(ctx context.Context, by identity.Admin, in *targetIn
 	if err != nil {
 		return nil, onPath(err)
 	}
-	return &targetOutput{Body: targetOf(t)}, nil
+	return h.targetOutput(ctx, t)
 }
 
 func (h handlers) duplicateTarget(ctx context.Context, by identity.Admin, in *targetInput) (*targetOutput, error) {
@@ -298,7 +311,23 @@ func (h handlers) duplicateTarget(ctx context.Context, by identity.Admin, in *ta
 	if err != nil {
 		return nil, onPath(err)
 	}
-	return &targetOutput{Body: targetOf(t)}, nil
+	return h.targetOutput(ctx, t)
+}
+
+func (h handlers) targetOf(ctx context.Context, t targets.Target) (target, error) {
+	m, err := h.madeOf(ctx, []targets.Target{t})
+	if err != nil {
+		return target{}, err
+	}
+	return m.targetOf(t), nil
+}
+
+func (h handlers) targetOutput(ctx context.Context, t targets.Target) (*targetOutput, error) {
+	out, err := h.targetOf(ctx, t)
+	if err != nil {
+		return nil, err
+	}
+	return &targetOutput{Body: out}, nil
 }
 
 func (h handlers) deleteTarget(ctx context.Context, by identity.Admin, in *targetInput) (*struct{}, error) {

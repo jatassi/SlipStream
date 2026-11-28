@@ -3,6 +3,6 @@ export type UpdateProfile422Code =
   | "duplicate_language"
   | "invalid"
   | "no_subtitles_for_type"
-  | "not_built_yet"
+  | "profile_not_found"
   | "profile_wrong_type"
   | "target_not_found";

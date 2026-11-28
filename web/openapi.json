@@ -1862,6 +1862,10 @@
       "ConversionsSource": {
         "additionalProperties": false,
         "properties": {
+          "edition": {
+            "description": "The edition of the Work the source file fills",
+            "type": "string"
+          },
           "fileId": {
             "description": "null once the source file is gone",
             "format": "uuid",
@@ -1875,14 +1879,24 @@
             "type": "string"
           },
           "target": {
-            "description": "The name of the Target the source file fills",
+            "description": "The name of the Target the source file fills; empty once no Profile makes this Target from one",
             "type": "string"
+          },
+          "targetId": {
+            "description": "The Target the source file fills; null once no Profile makes this Target from one",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [
           "fileId",
           "name",
-          "target"
+          "targetId",
+          "target",
+          "edition"
         ],
         "type": "object"
       },
@@ -5888,6 +5902,17 @@
             "description": "The Target name its file name carries, before any suffix",
             "type": "string"
           },
+          "madeFrom": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FilesMadeFrom"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The file a Conversion made it from; null for a file no Conversion made"
+          },
           "media": {
             "anyOf": [
               {
@@ -5919,7 +5944,8 @@
               "copy",
               "transfer",
               "move",
-              "in_place"
+              "in_place",
+              "converted"
             ],
             "type": [
               "string",
@@ -5978,7 +6004,30 @@
           "probeError",
           "media",
           "placedBy",
+          "madeFrom",
           "grab"
+        ],
+        "type": "object"
+      },
+      "FilesMadeFrom": {
+        "additionalProperties": false,
+        "properties": {
+          "fileId": {
+            "description": "null once the file is gone",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "description": "The file's name, while it is one of this Work's; empty otherwise",
+            "type": "string"
+          }
+        },
+        "required": [
+          "fileId",
+          "name"
         ],
         "type": "object"
       },
@@ -27641,7 +27690,7 @@
         "additionalProperties": false,
         "properties": {
           "activity": {
-            "description": "The Grabs neither imported nor failed",
+            "description": "The Grabs neither imported nor failed, and the Conversions running",
             "format": "int64",
             "minimum": 0,
             "type": "integer"
@@ -30832,6 +30881,12 @@
             "description": "The first quality of the tier at which a file is final",
             "type": "string"
           },
+          "defaultKbps": {
+            "description": "The bitrate Conversion settings turned on at 1080p start at",
+            "format": "int64",
+            "minimum": 100,
+            "type": "integer"
+          },
           "filters": {
             "description": "Every attribute that isn't Any, in attribute order",
             "items": {
@@ -30906,6 +30961,7 @@
           "profiles",
           "contains",
           "conversion",
+          "defaultKbps",
           "createdAt"
         ],
         "type": "object"
@@ -45952,31 +46008,6 @@
               }
             },
             "description": "Internal Server Error"
-          },
-          "501": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/Problem"
-                    },
-                    {
-                      "properties": {
-                        "code": {
-                          "enum": [
-                            "not_built_yet"
-                          ],
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  ]
-                }
-              }
-            },
-            "description": "Not Implemented"
           }
         },
         "security": [
@@ -46182,31 +46213,6 @@
               }
             },
             "description": "Internal Server Error"
-          },
-          "501": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/Problem"
-                    },
-                    {
-                      "properties": {
-                        "code": {
-                          "enum": [
-                            "not_built_yet"
-                          ],
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  ]
-                }
-              }
-            },
-            "description": "Not Implemented"
           }
         },
         "security": [
@@ -46402,31 +46408,6 @@
               }
             },
             "description": "Internal Server Error"
-          },
-          "501": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/Problem"
-                    },
-                    {
-                      "properties": {
-                        "code": {
-                          "enum": [
-                            "not_built_yet"
-                          ],
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  ]
-                }
-              }
-            },
-            "description": "Not Implemented"
           }
         },
         "security": [
@@ -46625,31 +46606,6 @@
               }
             },
             "description": "Internal Server Error"
-          },
-          "501": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/Problem"
-                    },
-                    {
-                      "properties": {
-                        "code": {
-                          "enum": [
-                            "not_built_yet"
-                          ],
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  ]
-                }
-              }
-            },
-            "description": "Not Implemented"
           }
         },
         "security": [
@@ -46793,6 +46749,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "conversion_finished",
                             "conversion_not_waiting",
                             "superseded",
                             "worker_node"
@@ -46857,31 +46814,6 @@
               }
             },
             "description": "Internal Server Error"
-          },
-          "501": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/Problem"
-                    },
-                    {
-                      "properties": {
-                        "code": {
-                          "enum": [
-                            "not_built_yet"
-                          ],
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  ]
-                }
-              }
-            },
-            "description": "Not Implemented"
           }
         },
         "security": [
@@ -47015,6 +46947,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "conversion_finished",
                             "conversion_not_waiting",
                             "superseded",
                             "worker_node"
@@ -47079,31 +47012,6 @@
               }
             },
             "description": "Internal Server Error"
-          },
-          "501": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/Problem"
-                    },
-                    {
-                      "properties": {
-                        "code": {
-                          "enum": [
-                            "not_built_yet"
-                          ],
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  ]
-                }
-              }
-            },
-            "description": "Not Implemented"
           }
         },
         "security": [
@@ -47237,6 +47145,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "conversion_finished",
                             "conversion_not_failed",
                             "superseded",
                             "worker_node"
@@ -47301,31 +47210,6 @@
               }
             },
             "description": "Internal Server Error"
-          },
-          "501": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/Problem"
-                    },
-                    {
-                      "properties": {
-                        "code": {
-                          "enum": [
-                            "not_built_yet"
-                          ],
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  ]
-                }
-              }
-            },
-            "description": "Not Implemented"
           }
         },
         "security": [
@@ -47851,6 +47735,18 @@
               "minimum": 0,
               "type": "integer"
             }
+          },
+          {
+            "description": "The made file count the Admin confirmed from the preview: a save that would make more is refused with impact_changed",
+            "explode": false,
+            "in": "query",
+            "name": "confirmMade",
+            "schema": {
+              "description": "The made file count the Admin confirmed from the preview: a save that would make more is refused with impact_changed",
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
           }
         ],
         "requestBody": {
@@ -47969,6 +47865,9 @@
                             "worker_node"
                           ],
                           "type": "string"
+                        },
+                        "impact": {
+                          "$ref": "#/components/schemas/TargetsImpact"
                         }
                       },
                       "type": "object"
@@ -48234,6 +48133,18 @@
               "minimum": 0,
               "type": "integer"
             }
+          },
+          {
+            "description": "The made file count the Admin confirmed from the preview: a save that would make more is refused with impact_changed",
+            "explode": false,
+            "in": "query",
+            "name": "confirmMade",
+            "schema": {
+              "description": "The made file count the Admin confirmed from the preview: a save that would make more is refused with impact_changed",
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
           }
         ],
         "responses": {
@@ -48341,6 +48252,9 @@
                             "worker_node"
                           ],
                           "type": "string"
+                        },
+                        "impact": {
+                          "$ref": "#/components/schemas/TargetsImpact"
                         }
                       },
                       "type": "object"
@@ -48660,6 +48574,18 @@
               "minimum": 0,
               "type": "integer"
             }
+          },
+          {
+            "description": "The made file count the Admin confirmed from the preview: a save that would make more is refused with impact_changed",
+            "explode": false,
+            "in": "query",
+            "name": "confirmMade",
+            "schema": {
+              "description": "The made file count the Admin confirmed from the preview: a save that would make more is refused with impact_changed",
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
           }
         ],
         "requestBody": {
@@ -48803,6 +48729,9 @@
                             "worker_node"
                           ],
                           "type": "string"
+                        },
+                        "impact": {
+                          "$ref": "#/components/schemas/TargetsImpact"
                         }
                       },
                       "type": "object"
@@ -49620,6 +49549,18 @@
               "minimum": 0,
               "type": "integer"
             }
+          },
+          {
+            "description": "The made file count the Admin confirmed from the preview: a save that would make more is refused with impact_changed",
+            "explode": false,
+            "in": "query",
+            "name": "confirmMade",
+            "schema": {
+              "description": "The made file count the Admin confirmed from the preview: a save that would make more is refused with impact_changed",
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
           }
         ],
         "requestBody": {
@@ -49740,6 +49681,9 @@
                             "worker_node"
                           ],
                           "type": "string"
+                        },
+                        "impact": {
+                          "$ref": "#/components/schemas/TargetsImpact"
                         }
                       },
                       "type": "object"
@@ -80720,31 +80664,6 @@
               }
             },
             "description": "Internal Server Error"
-          },
-          "501": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/Problem"
-                    },
-                    {
-                      "properties": {
-                        "code": {
-                          "enum": [
-                            "not_built_yet"
-                          ],
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  ]
-                }
-              }
-            },
-            "description": "Not Implemented"
           }
         },
         "security": [
@@ -80949,31 +80868,6 @@
               }
             },
             "description": "Internal Server Error"
-          },
-          "501": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/Problem"
-                    },
-                    {
-                      "properties": {
-                        "code": {
-                          "enum": [
-                            "not_built_yet"
-                          ],
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  ]
-                }
-              }
-            },
-            "description": "Not Implemented"
           }
         },
         "security": [
@@ -81163,31 +81057,6 @@
               }
             },
             "description": "Internal Server Error"
-          },
-          "501": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/Problem"
-                    },
-                    {
-                      "properties": {
-                        "code": {
-                          "enum": [
-                            "not_built_yet"
-                          ],
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  ]
-                }
-              }
-            },
-            "description": "Not Implemented"
           }
         },
         "security": [
@@ -87461,7 +87330,6 @@
                             "duplicate_language",
                             "invalid",
                             "no_subtitles_for_type",
-                            "not_built_yet",
                             "target_not_found"
                           ],
                           "type": "string"
@@ -87579,6 +87447,18 @@
               "minimum": 0,
               "type": "integer"
             }
+          },
+          {
+            "description": "The made file count the Admin confirmed from the preview: a save that would make more is refused with impact_changed",
+            "explode": false,
+            "in": "query",
+            "name": "confirmMade",
+            "schema": {
+              "description": "The made file count the Admin confirmed from the preview: a save that would make more is refused with impact_changed",
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
           }
         ],
         "responses": {
@@ -87687,6 +87567,9 @@
                             "worker_node"
                           ],
                           "type": "string"
+                        },
+                        "impact": {
+                          "$ref": "#/components/schemas/TargetsImpact"
                         }
                       },
                       "type": "object"
@@ -87985,18 +87868,6 @@
             }
           },
           {
-            "description": "The made file count the Admin confirmed from the preview: a save that would make more is refused with impact_changed",
-            "explode": false,
-            "in": "query",
-            "name": "confirmMade",
-            "schema": {
-              "description": "The made file count the Admin confirmed from the preview: a save that would make more is refused with impact_changed",
-              "format": "int64",
-              "minimum": 0,
-              "type": "integer"
-            }
-          },
-          {
             "description": "Return the change's Impact and save nothing",
             "explode": false,
             "in": "query",
@@ -88028,6 +87899,18 @@
             "name": "confirm",
             "schema": {
               "description": "The unwanted file count the Admin confirmed from the preview: a save that would delete more is refused with impact_changed",
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The made file count the Admin confirmed from the preview: a save that would make more is refused with impact_changed",
+            "explode": false,
+            "in": "query",
+            "name": "confirmMade",
+            "schema": {
+              "description": "The made file count the Admin confirmed from the preview: a save that would make more is refused with impact_changed",
               "format": "int64",
               "minimum": 0,
               "type": "integer"
@@ -88152,6 +88035,9 @@
                           ],
                           "type": "string"
                         },
+                        "impact": {
+                          "$ref": "#/components/schemas/TargetsImpact"
+                        },
                         "profiles": {
                           "description": "The Profiles that make another Target's files from it",
                           "items": {
@@ -88184,7 +88070,7 @@
                             "duplicate_language",
                             "invalid",
                             "no_subtitles_for_type",
-                            "not_built_yet",
+                            "profile_not_found",
                             "profile_wrong_type",
                             "target_not_found"
                           ],
@@ -103839,7 +103725,6 @@
                             "conversion_refused",
                             "format_not_found",
                             "invalid",
-                            "not_built_yet",
                             "quality_not_in_target"
                           ],
                           "type": "string"
@@ -104348,6 +104233,18 @@
               "minimum": 0,
               "type": "integer"
             }
+          },
+          {
+            "description": "The made file count the Admin confirmed from the preview: a save that would make more is refused with impact_changed",
+            "explode": false,
+            "in": "query",
+            "name": "confirmMade",
+            "schema": {
+              "description": "The made file count the Admin confirmed from the preview: a save that would make more is refused with impact_changed",
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
           }
         ],
         "requestBody": {
@@ -104468,6 +104365,9 @@
                           ],
                           "type": "string"
                         },
+                        "impact": {
+                          "$ref": "#/components/schemas/TargetsImpact"
+                        },
                         "profiles": {
                           "description": "The Profiles that make another Target's files from it",
                           "items": {
@@ -104499,7 +104399,6 @@
                             "conversion_refused",
                             "format_not_found",
                             "invalid",
-                            "not_built_yet",
                             "quality_not_in_target"
                           ],
                           "type": "string"
@@ -112309,6 +112208,18 @@
               "minimum": 0,
               "type": "integer"
             }
+          },
+          {
+            "description": "The made file count the Admin confirmed from the preview: a save that would make more is refused with impact_changed",
+            "explode": false,
+            "in": "query",
+            "name": "confirmMade",
+            "schema": {
+              "description": "The made file count the Admin confirmed from the preview: a save that would make more is refused with impact_changed",
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
           }
         ],
         "requestBody": {
@@ -112401,6 +112312,9 @@
                             "worker_node"
                           ],
                           "type": "string"
+                        },
+                        "impact": {
+                          "$ref": "#/components/schemas/TargetsImpact"
                         }
                       },
                       "type": "object"
@@ -116349,6 +116263,18 @@
               "minimum": 0,
               "type": "integer"
             }
+          },
+          {
+            "description": "The made file count the Admin confirmed from the preview: a save that would make more is refused with impact_changed",
+            "explode": false,
+            "in": "query",
+            "name": "confirmMade",
+            "schema": {
+              "description": "The made file count the Admin confirmed from the preview: a save that would make more is refused with impact_changed",
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
           }
         ],
         "requestBody": {
@@ -116466,6 +116392,9 @@
                             "worker_node"
                           ],
                           "type": "string"
+                        },
+                        "impact": {
+                          "$ref": "#/components/schemas/TargetsImpact"
                         }
                       },
                       "type": "object"

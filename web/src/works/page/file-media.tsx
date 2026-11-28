@@ -92,6 +92,7 @@ const placedWords: {
   transfer: (node) => `SlipStream sent this file from ${node}.`,
   move: () => "Moved.",
   in_place: () => "This file was already in the library folder.",
+  converted: () => "SlipStream made this file in a Conversion.",
 };
 
 /** The file's import: how it was placed and the Grab it came from. */

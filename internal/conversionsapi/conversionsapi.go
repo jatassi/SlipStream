@@ -8,7 +8,8 @@ import (
 	"time"
 
 	"github.com/jatassi/slipstream/internal/api"
-	"github.com/jatassi/slipstream/internal/conversionsapi/notyet"
+	"github.com/jatassi/slipstream/internal/conversions"
+	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/setting"
 )
 
@@ -51,9 +52,11 @@ type target struct {
 }
 
 type source struct {
-	FileID *string `json:"fileId" format:"uuid" doc:"null once the source file is gone"`
-	Name   string  `json:"name" doc:"The source file's name"`
-	Target string  `json:"target" doc:"The name of the Target the source file fills"`
+	FileID   *string `json:"fileId" format:"uuid" doc:"null once the source file is gone"`
+	Name     string  `json:"name" doc:"The source file's name"`
+	TargetID *string `json:"targetId" format:"uuid" doc:"The Target the source file fills; null once no Profile makes this Target from one"`
+	Target   string  `json:"target" doc:"The name of the Target the source file fills; empty once no Profile makes this Target from one"`
+	Edition  string  `json:"edition" doc:"The edition of the Work the source file fills"`
 }
 
 type progress struct {
@@ -256,69 +259,76 @@ type updateNodeInput struct {
 
 type nodeOutput struct{ Body nodeConverting }
 
-type handlers struct{}
+// Owner is what the operations reach on a Controller. Each is false on
+// any other Node.
+type Owner interface {
+	Conversions() (*conversions.Conversions, bool)
+	Nodes() (*nodes.Service, bool)
+}
 
-func Routes(r *api.Router) {
+type handlers struct{ owner Owner }
+
+func Routes(r *api.Router, owner Owner) {
 	o := r.Owner("conversions", api.Admin)
-	h := handlers{}
+	h := handlers{owner}
 
 	api.Register(o, api.Admin, api.Op{
 		ID: "listConversions", Method: http.MethodGet, Path: "/conversions",
 		Summary: "List the Conversions tab: its counts, the ones that need attention, the ones converting, and a page of Up next by lane",
-		Status:  http.StatusOK, Errors: []*api.Code{notyet.Op}, Gzip: true,
+		Status:  http.StatusOK, Gzip: true,
 	}, h.listConversions)
 
 	api.Register(o, api.Admin, api.Op{
 		ID: "getConversionGroup", Method: http.MethodGet, Path: "/conversions/groups/{groupId}",
 		Summary: "Get a page of a folded group's Conversions",
-		Status:  http.StatusOK, Errors: []*api.Code{conversionNotFound, notyet.Op},
+		Status:  http.StatusOK, Errors: []*api.Code{conversionNotFound},
 	}, h.getConversionGroup)
 
 	api.Register(o, api.Admin, api.Op{
 		ID: "moveConversionUp", Method: http.MethodPost, Path: "/conversions/{id}/move-up",
 		Summary: "Put a waiting Conversion at the head of Moved up",
-		Status:  http.StatusOK, Errors: []*api.Code{conversionNotFound, conversionNotWaiting, notyet.Op},
+		Status:  http.StatusOK, Errors: []*api.Code{conversionNotFound, conversionFinished, conversionNotWaiting},
 	}, h.moveConversionUp)
 
 	api.Register(o, api.Admin, api.Op{
 		ID: "moveConversion", Method: http.MethodPost, Path: "/conversions/{id}/move",
 		Summary: "Put a waiting Conversion right after another in its lane",
-		Status:  http.StatusOK, Errors: []*api.Code{conversionNotFound, conversionNotWaiting, notyet.Op},
+		Status:  http.StatusOK, Errors: []*api.Code{conversionNotFound, conversionFinished, conversionNotWaiting},
 	}, h.moveConversion)
 
 	api.Register(o, api.Admin, api.Op{
 		ID: "retryConversion", Method: http.MethodPost, Path: "/conversions/{id}/retry",
 		Summary: "Queue a failed Conversion again at the head of its lane, with a fresh set of attempts",
-		Status:  http.StatusOK, Errors: []*api.Code{conversionNotFound, conversionNotFailed, notyet.Op},
+		Status:  http.StatusOK, Errors: []*api.Code{conversionNotFound, conversionFinished, conversionNotFailed},
 	}, h.retryConversion)
 
 	api.Register(o, api.Admin, api.Op{
 		ID: "cancelConversion", Method: http.MethodPost, Path: "/conversions/{id}/cancel",
 		Summary: "Cancel an unfinished Conversion. SlipStream doesn't queue it again until its source file changes or an Admin asks for it",
-		Status:  http.StatusOK, Errors: []*api.Code{conversionNotFound, conversionFinished, conversionPlacing, notyet.Op},
+		Status:  http.StatusOK, Errors: []*api.Code{conversionNotFound, conversionFinished, conversionPlacing},
 	}, h.cancelConversion)
 
 	api.Register(o, api.Admin, api.Op{
 		ID: "cancelConversionGroup", Method: http.MethodPost, Path: "/conversions/groups/{groupId}/cancel",
 		Summary: "Cancel every unfinished Conversion of a folded group",
-		Status:  http.StatusOK, Errors: []*api.Code{conversionNotFound, notyet.Op},
+		Status:  http.StatusOK, Errors: []*api.Code{conversionNotFound},
 	}, h.cancelConversionGroup)
 
 	api.Register(o, api.Admin, api.Op{
 		ID: "getNodeConverting", Method: http.MethodGet, Path: "/nodes/{id}/converting",
 		Summary: "Get a Node's Converting section: its settings, what it converts with, and its test runs",
-		Status:  http.StatusOK, Errors: []*api.Code{nodeNotFound, notyet.Op},
+		Status:  http.StatusOK, Errors: []*api.Code{nodeNotFound},
 	}, h.getNodeConverting)
 
 	api.Register(o, api.Admin, api.Op{
 		ID: "updateNodeConverting", Method: http.MethodPut, Path: "/nodes/{id}/converting",
 		Summary: "Change a Node's Conversions at once, hours and processor switch",
-		Status:  http.StatusOK, Errors: []*api.Code{nodeNotFound, notyet.Op},
+		Status:  http.StatusOK, Errors: []*api.Code{nodeNotFound},
 	}, h.updateNodeConverting)
 
 	api.Register(o, api.Admin, api.Op{
 		ID: "rerunNodeTests", Method: http.MethodPost, Path: "/nodes/{id}/converting/rerun",
 		Summary: "Run a Node's test runs again",
-		Status:  http.StatusAccepted, Errors: []*api.Code{nodeNotFound, notyet.Op},
+		Status:  http.StatusAccepted, Errors: []*api.Code{nodeNotFound},
 	}, h.rerunNodeTests)
 }

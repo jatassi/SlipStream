@@ -1,4 +1,6 @@
 export interface ConversionsSource {
+  /** The edition of the Work the source file fills */
+  edition: string;
   /**
    * null once the source file is gone
    * @nullable
@@ -6,6 +8,11 @@ export interface ConversionsSource {
   fileId: string | null;
   /** The source file's name */
   name: string;
-  /** The name of the Target the source file fills */
+  /** The name of the Target the source file fills; empty once no Profile makes this Target from one */
   target: string;
+  /**
+   * The Target the source file fills; null once no Profile makes this Target from one
+   * @nullable
+   */
+  targetId: string | null;
 }

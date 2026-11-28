@@ -217,6 +217,8 @@ type Cause struct {
 	Count int
 	// Node is the Node its sentence names, when one.
 	Node *role.NodeID
+	// Notified is when the Admin was told of it.
+	Notified time.Time
 }
 
 // CauseKey is a Why with the Class and Shape it covers, and the Target

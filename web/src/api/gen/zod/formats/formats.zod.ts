@@ -31,6 +31,8 @@ export const CreateCustomFormatResponse = FormatsCustomFormat;
 export const pasteCustomFormatsQueryUnwantedDefault = `delete`;
 export const pasteCustomFormatsQueryConfirmMin = 0;
 
+export const pasteCustomFormatsQueryConfirmMadeMin = 0;
+
 export const PasteCustomFormatsQueryParams = zod.object({
   preview: zod.boolean().exactOptional().describe("Return the change's Impact and save nothing"),
   unwanted: zod
@@ -43,6 +45,13 @@ export const PasteCustomFormatsQueryParams = zod.object({
     .exactOptional()
     .describe(
       "The unwanted file count the Admin confirmed from the preview: a save that would delete more is refused with impact_changed",
+    ),
+  confirmMade: zod
+    .int()
+    .min(pasteCustomFormatsQueryConfirmMadeMin)
+    .exactOptional()
+    .describe(
+      "The made file count the Admin confirmed from the preview: a save that would make more is refused with impact_changed",
     ),
 });
 
@@ -65,6 +74,8 @@ export const DeleteCustomFormatParams = zod.object({
 export const deleteCustomFormatQueryUnwantedDefault = `delete`;
 export const deleteCustomFormatQueryConfirmMin = 0;
 
+export const deleteCustomFormatQueryConfirmMadeMin = 0;
+
 export const DeleteCustomFormatQueryParams = zod.object({
   preview: zod.boolean().exactOptional().describe("Return the change's Impact and save nothing"),
   unwanted: zod
@@ -77,6 +88,13 @@ export const DeleteCustomFormatQueryParams = zod.object({
     .exactOptional()
     .describe(
       "The unwanted file count the Admin confirmed from the preview: a save that would delete more is refused with impact_changed",
+    ),
+  confirmMade: zod
+    .int()
+    .min(deleteCustomFormatQueryConfirmMadeMin)
+    .exactOptional()
+    .describe(
+      "The made file count the Admin confirmed from the preview: a save that would make more is refused with impact_changed",
     ),
 });
 
@@ -101,6 +119,8 @@ export const UpdateCustomFormatParams = zod.object({
 export const updateCustomFormatQueryUnwantedDefault = `delete`;
 export const updateCustomFormatQueryConfirmMin = 0;
 
+export const updateCustomFormatQueryConfirmMadeMin = 0;
+
 export const UpdateCustomFormatQueryParams = zod.object({
   preview: zod.boolean().exactOptional().describe("Return the change's Impact and save nothing"),
   unwanted: zod
@@ -113,6 +133,13 @@ export const UpdateCustomFormatQueryParams = zod.object({
     .exactOptional()
     .describe(
       "The unwanted file count the Admin confirmed from the preview: a save that would delete more is refused with impact_changed",
+    ),
+  confirmMade: zod
+    .int()
+    .min(updateCustomFormatQueryConfirmMadeMin)
+    .exactOptional()
+    .describe(
+      "The made file count the Admin confirmed from the preview: a save that would make more is refused with impact_changed",
     ),
 });
 

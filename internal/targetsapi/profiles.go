@@ -3,6 +3,7 @@ package targetsapi
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/jatassi/slipstream/internal/api"
 	"github.com/jatassi/slipstream/internal/identity"
@@ -113,7 +114,11 @@ func profileOf(p targets.Profile) Profile {
 		out.Languages = append(out.Languages, WantedLanguageOf(l))
 	}
 	for _, e := range p.Entries {
-		out.Targets = append(out.Targets, entry{TargetID: e.Target.String(), Sourcing: string(e.Sourcing)})
+		row := entry{TargetID: e.Target.String(), Sourcing: string(e.Sourcing), GraceSeconds: int(e.Grace / time.Second)}
+		if e.From != nil {
+			row.FromTargetID = e.From.String()
+		}
+		out.Targets = append(out.Targets, row)
 	}
 	return out
 }
@@ -177,19 +182,21 @@ func profileSpecOf(in newProfile) (targets.ProfileSpec, error) {
 	if err != nil {
 		return targets.ProfileSpec{}, err
 	}
-	if err := conversionRequested("backfill", in.Backfill != nil); err != nil {
-		return targets.ProfileSpec{}, err
-	}
 	s := targets.ProfileSpec{Name: in.Name, ContentType: works.TypeID(in.ContentType), Editions: list, Languages: langs}
 	for i, e := range in.Targets {
-		if err := conversionRequested(fmt.Sprintf("targets[%d].sourcing", i), e.Sourcing != string(targets.Download) || e.FromTargetID != "" || e.GraceSeconds != 0); err != nil {
-			return targets.ProfileSpec{}, err
-		}
 		u, err := storage.ParseUUID(e.TargetID)
 		if err != nil {
 			return targets.ProfileSpec{}, targetNotFound
 		}
-		s.Entries = append(s.Entries, targets.Entry{Target: targets.TargetID{UUID: u}, Sourcing: targets.Sourcing(e.Sourcing)})
+		row := targets.Entry{Target: targets.TargetID{UUID: u}, Sourcing: targets.Sourcing(e.Sourcing), Grace: time.Duration(e.GraceSeconds) * time.Second}
+		if e.FromTargetID != "" {
+			from, err := storage.ParseUUID(e.FromTargetID)
+			if err != nil {
+				return targets.ProfileSpec{}, api.Invalid.On(fmt.Sprintf("targets[%d].fromTargetId", i), "No Target has this id.")
+			}
+			row.From = &targets.TargetID{UUID: from}
+		}
+		s.Entries = append(s.Entries, row)
 	}
 	return s, nil
 }

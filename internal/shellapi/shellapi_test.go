@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 	"net/http"
+	"strconv"
 	"testing"
 
 	"github.com/jatassi/slipstream/internal/api"
@@ -44,6 +45,7 @@ type shell struct {
 	h  *health.Health
 	im *imports.Imports
 	rc *reconciling.Service
+	cv *conversions.Conversions
 }
 
 func (s shell) Grabs() (*grabs.Grabs, bool)                       { return s.g, true }
@@ -52,6 +54,7 @@ func (s shell) DownloadClients() (*downloadclients.Clients, bool) { return s.c, 
 func (s shell) Health() (*health.Health, bool)                    { return s.h, true }
 func (s shell) Imports() (*imports.Imports, bool)                 { return s.im, true }
 func (s shell) Reconciling() (*reconciling.Service, bool)         { return s.rc, true }
+func (s shell) Conversions() (*conversions.Conversions, bool)     { return s.cv, true }
 
 type unlinked struct{}
 
@@ -100,7 +103,7 @@ func TestActivityCountsTheGrabsNeitherImportedNorFailed(t *testing.T) {
 	}
 	watch := openHealth(t, lib, roster)
 	s := ownertest.Serve(t, lib, func(r *api.Router) {
-		shellapi.Routes(r, shell{grabs.New(grabs.Config{Library: lib}), roster, downloadclients.New(downloadclients.Config{Library: lib}), watch, imports.New(imports.Config{Library: lib, Transfers: transfers.New(transfers.ControllerConfig{Library: lib})}), reconciling.New(reconciling.Config{Library: lib})})
+		shellapi.Routes(r, shell{grabs.New(grabs.Config{Library: lib}), roster, downloadclients.New(downloadclients.Config{Library: lib}), watch, imports.New(imports.Config{Library: lib, Transfers: transfers.New(transfers.ControllerConfig{Library: lib})}), reconciling.New(reconciling.Config{Library: lib}), conversions.New(conversions.Config{Library: lib})})
 	})
 
 	s.Expect(t, http.MethodGet, "/api/v1/counts", "", http.StatusOK, `{"activity":0,"downloads":{"done":0,"wanted":0,"allPaused":false},"alerts":{"nodes":null,"health":null,"tasks":null,"conversions":null},"pendingImports":0,"reconciling":null}`)
@@ -122,6 +125,59 @@ func TestActivityCountsTheGrabsNeitherImportedNorFailed(t *testing.T) {
 		t.Fatal(err)
 	}
 	s.Expect(t, http.MethodGet, "/api/v1/counts", "", http.StatusOK, `{"activity":6,"downloads":{"done":0,"wanted":4096,"allPaused":false},"alerts":{"nodes":null,"health":null,"tasks":null,"conversions":null},"pendingImports":0,"reconciling":null}`)
+
+	// Each step adds rows to the ones before: running and paused
+	// Conversions count as activity, an open cause warns and a failed
+	// Conversion fails.
+	for _, c := range []struct {
+		stages     []string
+		cause      bool
+		activity   int
+		conversion string
+	}{
+		{[]string{"running", "paused", "queued", "done"}, false, 8, "null"},
+		{nil, true, 8, `"warn"`},
+		{[]string{"failed"}, false, 8, `"fail"`},
+	} {
+		for _, stage := range c.stages {
+			var node any
+			if stage == "running" || stage == "paused" {
+				node = home
+			}
+			insertConversion(t, lib, stage, node)
+		}
+		if c.cause {
+			write(t, lib, `INSERT INTO conversions_cause (key, why, count, opened_at) VALUES ('no_holder||', 'no_holder', 1, 0)`)
+		}
+		s.Expect(t, http.MethodGet, "/api/v1/counts", "", http.StatusOK, `{"activity":`+strconv.Itoa(c.activity)+`,"downloads":{"done":0,"wanted":4096,"allPaused":false},"alerts":{"nodes":null,"health":null,"tasks":null,"conversions":`+c.conversion+`},"pendingImports":0,"reconciling":null}`)
+	}
+}
+
+// insertConversion inserts a Conversion of the one Work at stage, placed
+// on node.
+func insertConversion(t *testing.T, lib *storage.DB[storage.Library], stage string, node any) {
+	t.Helper()
+	var finished, code, class, detail any
+	switch stage {
+	case "done":
+		finished = 0
+	case "failed":
+		code, class, detail = "encoder_failed", "run", ""
+	}
+	write(t, lib, `INSERT INTO conversions_conversion (id, work_id, type, items, edition, version, lane, position, stage, node_id,
+		not_before, failure_code, failure_class, failure_detail, snapshot, queued_at, finished_at)
+		SELECT ?, id, 'fixture', '[]', 'any', 1, 'new', ?, ?, ?, 0, ?, ?, ?, '{}', 0, ? FROM works_work`,
+		storage.NewUUID(), storage.NewUUID().String(), stage, node, code, class, detail, finished)
+}
+
+func write(t *testing.T, lib *storage.DB[storage.Library], query string, args ...any) {
+	t.Helper()
+	if err := lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+		_, err := tx.ExecContext(ctx, query, args...)
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
 }
 
 var quietLibrary = health.Category{
@@ -195,7 +251,7 @@ func openHealth(t *testing.T, lib *storage.DB[storage.Library], roster *nodes.Se
 }
 
 func TestTheAlertsCarryHealthsWorstLevels(t *testing.T) {
-	lib := storagetest.Library(t, secret.Schema(), identity.Schema(), nodes.Schema(), role.LibrarySchema(), works.Schema(), roots.Schema(), downloadclients.Schema(), grabs.Schema(), indexers.Schema(), imports.Schema(), health.Schema(), reconciling.Schema())
+	lib := storagetest.Library(t, secret.Schema(), identity.Schema(), nodes.Schema(), role.LibrarySchema(), works.Schema(), roots.Schema(), downloadclients.Schema(), grabs.Schema(), indexers.Schema(), imports.Schema(), health.Schema(), reconciling.Schema(), conversions.Schema())
 	roster, err := nodes.Open(t.Context(), nodes.Config{Library: lib, Name: "home", Link: unlinked{}, Owners: nodestest.Unowned(), Log: slog.New(slog.DiscardHandler)})
 	if err != nil {
 		t.Fatal(err)
@@ -215,7 +271,7 @@ func TestTheAlertsCarryHealthsWorstLevels(t *testing.T) {
 		t.Fatal(err)
 	}
 	s := ownertest.Serve(t, lib, func(r *api.Router) {
-		shellapi.Routes(r, shell{grabs.New(grabs.Config{Library: lib}), roster, downloadclients.New(downloadclients.Config{Library: lib}), watch, imports.New(imports.Config{Library: lib, Transfers: transfers.New(transfers.ControllerConfig{Library: lib})}), reconciling.New(reconciling.Config{Library: lib})})
+		shellapi.Routes(r, shell{grabs.New(grabs.Config{Library: lib}), roster, downloadclients.New(downloadclients.Config{Library: lib}), watch, imports.New(imports.Config{Library: lib, Transfers: transfers.New(transfers.ControllerConfig{Library: lib})}), reconciling.New(reconciling.Config{Library: lib}), conversions.New(conversions.Config{Library: lib})})
 	})
 	s.Expect(t, http.MethodGet, "/api/v1/counts", "", http.StatusOK, `{"activity":0,"downloads":{"done":0,"wanted":0,"allPaused":false},"alerts":{"nodes":null,"health":"warn","tasks":"warn","conversions":null},"pendingImports":0,"reconciling":null}`)
 }
@@ -257,7 +313,7 @@ func TestPendingImportsCountsTheImportsWithAFileWaitingForTheAdmin(t *testing.T)
 		t.Fatal(err)
 	}
 	s := ownertest.Serve(t, lib, func(r *api.Router) {
-		shellapi.Routes(r, shell{grabs.New(grabs.Config{Library: lib}), roster, downloadclients.New(downloadclients.Config{Library: lib}), openHealth(t, lib, roster), imports.New(imports.Config{Library: lib, Transfers: transfers.New(transfers.ControllerConfig{Library: lib})}), reconciling.New(reconciling.Config{Library: lib})})
+		shellapi.Routes(r, shell{grabs.New(grabs.Config{Library: lib}), roster, downloadclients.New(downloadclients.Config{Library: lib}), openHealth(t, lib, roster), imports.New(imports.Config{Library: lib, Transfers: transfers.New(transfers.ControllerConfig{Library: lib})}), reconciling.New(reconciling.Config{Library: lib}), conversions.New(conversions.Config{Library: lib})})
 	})
 	s.Expect(t, http.MethodGet, "/api/v1/counts", "", http.StatusOK, `{"activity":0,"downloads":{"done":0,"wanted":0,"allPaused":false},"alerts":{"nodes":null,"health":null,"tasks":null,"conversions":null},"pendingImports":2,"reconciling":null}`)
 }

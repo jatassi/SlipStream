@@ -78,9 +78,11 @@ export const getListConversionsResponseConversionsConversionRowMock = (
       null,
     ]),
     source: {
+      edition: faker.string.alpha({ length: { min: 10, max: 20 } }),
       fileId: faker.helpers.arrayElement([faker.string.uuid(), null]),
       name: faker.string.alpha({ length: { min: 10, max: 20 } }),
       target: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      targetId: faker.helpers.arrayElement([faker.string.uuid(), null]),
     },
     stage: faker.helpers.arrayElement([
       "queued",
@@ -257,9 +259,11 @@ export const getListConversionsResponseMock = (
         null,
       ]),
       source: {
+        edition: faker.string.alpha({ length: { min: 10, max: 20 } }),
         fileId: faker.helpers.arrayElement([faker.string.uuid(), null]),
         name: faker.string.alpha({ length: { min: 10, max: 20 } }),
         target: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        targetId: faker.helpers.arrayElement([faker.string.uuid(), null]),
       },
       stage: faker.helpers.arrayElement([
         "queued",
@@ -411,9 +415,11 @@ export const getListConversionsResponseMock = (
         null,
       ]),
       source: {
+        edition: faker.string.alpha({ length: { min: 10, max: 20 } }),
         fileId: faker.helpers.arrayElement([faker.string.uuid(), null]),
         name: faker.string.alpha({ length: { min: 10, max: 20 } }),
         target: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        targetId: faker.helpers.arrayElement([faker.string.uuid(), null]),
       },
       stage: faker.helpers.arrayElement([
         "queued",
@@ -588,9 +594,11 @@ export const getGetConversionGroupResponseMock = (
       null,
     ]),
     source: {
+      edition: faker.string.alpha({ length: { min: 10, max: 20 } }),
       fileId: faker.helpers.arrayElement([faker.string.uuid(), null]),
       name: faker.string.alpha({ length: { min: 10, max: 20 } }),
       target: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      targetId: faker.helpers.arrayElement([faker.string.uuid(), null]),
     },
     stage: faker.helpers.arrayElement([
       "queued",
@@ -744,9 +752,11 @@ export const getCancelConversionResponseMock = (
     null,
   ]),
   source: {
+    edition: faker.string.alpha({ length: { min: 10, max: 20 } }),
     fileId: faker.helpers.arrayElement([faker.string.uuid(), null]),
     name: faker.string.alpha({ length: { min: 10, max: 20 } }),
     target: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    targetId: faker.helpers.arrayElement([faker.string.uuid(), null]),
   },
   stage: faker.helpers.arrayElement([
     "queued",
@@ -895,9 +905,11 @@ export const getMoveConversionResponseMock = (
     null,
   ]),
   source: {
+    edition: faker.string.alpha({ length: { min: 10, max: 20 } }),
     fileId: faker.helpers.arrayElement([faker.string.uuid(), null]),
     name: faker.string.alpha({ length: { min: 10, max: 20 } }),
     target: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    targetId: faker.helpers.arrayElement([faker.string.uuid(), null]),
   },
   stage: faker.helpers.arrayElement([
     "queued",
@@ -1046,9 +1058,11 @@ export const getMoveConversionUpResponseMock = (
     null,
   ]),
   source: {
+    edition: faker.string.alpha({ length: { min: 10, max: 20 } }),
     fileId: faker.helpers.arrayElement([faker.string.uuid(), null]),
     name: faker.string.alpha({ length: { min: 10, max: 20 } }),
     target: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    targetId: faker.helpers.arrayElement([faker.string.uuid(), null]),
   },
   stage: faker.helpers.arrayElement([
     "queued",
@@ -1197,9 +1211,11 @@ export const getRetryConversionResponseMock = (
     null,
   ]),
   source: {
+    edition: faker.string.alpha({ length: { min: 10, max: 20 } }),
     fileId: faker.helpers.arrayElement([faker.string.uuid(), null]),
     name: faker.string.alpha({ length: { min: 10, max: 20 } }),
     target: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    targetId: faker.helpers.arrayElement([faker.string.uuid(), null]),
   },
   stage: faker.helpers.arrayElement([
     "queued",

@@ -247,14 +247,15 @@ func leave(outcome Outcome) effect {
 }
 
 // leaveNode ends the Transfers the Conversion held on its Node: the
-// source copy once nothing else there reads it, and a returning output.
+// source copy once nothing else there reads it, and an output returning
+// or staged for its landing.
 func (m *move) leaveNode(ctx context.Context) error {
 	if m.was.Node == nil {
 		return nil
 	}
 	node := *m.was.Node
 	m.row.Node = nil
-	if m.was.Stage == StageReturning {
+	if m.was.Stage == StageReturning || m.was.Stage == StageLanding {
 		if _, err := m.c.cfg.Transfers.Want(ctx, m.tx, transfers.Request{Purpose: transfers.Conversion, Job: outputJob(m.row.ID, m.was.Attempt)}); err != nil {
 			return fmt.Errorf("end the output's Transfer: %w", err)
 		}

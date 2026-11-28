@@ -14,6 +14,7 @@ import (
 	"github.com/jatassi/slipstream/internal/api"
 	"github.com/jatassi/slipstream/internal/api/ownertest"
 	"github.com/jatassi/slipstream/internal/contenttype/contenttypetest"
+	"github.com/jatassi/slipstream/internal/conversions"
 	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/formats"
@@ -50,6 +51,10 @@ func (g goals) Targets() (*targets.Targets, bool) { return g.t, true }
 func (g goals) Files() (*files.Files, bool) { return g.f, true }
 
 func (g goals) Grabs() (*grabs.Grabs, bool) { return g.g, true }
+
+func (goals) Conversions() (*conversions.Conversions, bool) { return nil, false }
+
+func (goals) Nodes() (*nodes.Service, bool) { return nil, false }
 
 func (goals) Minter() (artwork.Minter, bool) { return artwork.Minter{}, false }
 
@@ -164,7 +169,7 @@ func (s *served) scoreStarter(t *testing.T, id string) {
 	if err := json.Unmarshal([]byte(body), &target); err != nil {
 		t.Fatal(err)
 	}
-	for _, read := range []string{"id", "profiles", "contains", "createdAt"} {
+	for _, read := range []string{"id", "profiles", "contains", "defaultKbps", "createdAt"} {
 		delete(target, read)
 	}
 	target["scores"] = json.RawMessage(`{"formats":[{"formatId":"` + id + `","score":25}],"minimum":0,"upgradeUntil":0,"increment":1}`)

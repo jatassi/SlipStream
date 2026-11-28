@@ -157,6 +157,8 @@ export const SetWorksMonitoringResponse = WorksMonitoringList;
 export const setWorksProfileQueryUnwantedDefault = `delete`;
 export const setWorksProfileQueryConfirmMin = 0;
 
+export const setWorksProfileQueryConfirmMadeMin = 0;
+
 export const SetWorksProfileQueryParams = zod.object({
   preview: zod.boolean().exactOptional().describe("Return the change's Impact and save nothing"),
   unwanted: zod
@@ -169,6 +171,13 @@ export const SetWorksProfileQueryParams = zod.object({
     .exactOptional()
     .describe(
       "The unwanted file count the Admin confirmed from the preview: a save that would delete more is refused with impact_changed",
+    ),
+  confirmMade: zod
+    .int()
+    .min(setWorksProfileQueryConfirmMadeMin)
+    .exactOptional()
+    .describe(
+      "The made file count the Admin confirmed from the preview: a save that would make more is refused with impact_changed",
     ),
 });
 

@@ -60,7 +60,7 @@ var transitions = []transition{
 	{From: []Stage{StageRunning, StagePaused}, On: Lost, Fence: FenceAttempt, To: to(StageReady), Do: []effect{relaunch}},
 	{From: placedStages, On: PutBack, Fence: FenceNone, To: to(StageQueued), Do: []effect{leave(AttemptPutBack)}},
 	{From: []Stage{StageLanding}, On: Landed, Fence: FenceNone, To: to(StageDone), Do: []effect{landed}},
-	{From: []Stage{StageLanding}, On: Ended, Fence: FenceNone, To: to(StageCanceled), Do: []effect{canceled, declineIf(ImportDeclined)}},
+	{From: []Stage{StageLanding}, On: Ended, Fence: FenceNone, To: to(StageCanceled), Do: []effect{leave(AttemptPutBack), canceled, declineIf(ImportDeclined)}},
 	{From: openStages, On: Unneeded, Fence: FenceNone, To: unneededTo, Do: []effect{leave(AttemptPutBack), canceled}},
 	{From: openStages, On: Canceled, Fence: FenceNone, To: canceledTo, Do: []effect{leave(AttemptPutBack), canceled, declineIf(CanceledByAdmin)}},
 	{From: []Stage{StageFailed}, On: Retry, Fence: FenceNone, To: to(StageQueued), Do: []effect{retried}},
