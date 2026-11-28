@@ -48,6 +48,7 @@ const canonical: NodeRow = {
   storage: undefined,
   listening: true,
   television: true,
+  converting: 0,
 };
 
 const P = fitProjection(boxCorners(TILE, 0, 180), 1100, 900, { pad: 24, azimuth: AZIMUTH });

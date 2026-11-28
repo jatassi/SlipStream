@@ -144,7 +144,7 @@ func (im *Imports) step(imp Import, f File) func(context.Context) error {
 	switch {
 	case f.Hold != nil && f.Hold.offered():
 		return nil
-	case f.Outcome == Pending && f.Probe == nil && imp.Source != FromRoot:
+	case f.Outcome == Pending && f.Probe == nil && sourceRules[imp.Source].probe == onImportNode:
 		return func(ctx context.Context) error { return im.probeFile(ctx, imp, f) }
 	case f.Outcome == Placing:
 		return func(ctx context.Context) error { return im.place(ctx, imp, f) }

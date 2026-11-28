@@ -92,6 +92,20 @@ func (t *Transfers) Speeds(ctx context.Context) ([]Pair, error) {
 	return out, nil
 }
 
+// Rates is each pair's recent speed in bytes a second, read in rd, keyed
+// by (source, destination). A pair with no measurement is left out.
+func Rates(ctx context.Context, rd storage.Reader[storage.Library]) (map[[2]role.NodeID]float64, error) {
+	rows, err := ledger.New(rd).ListPairs(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[[2]role.NodeID]float64, len(rows))
+	for _, row := range rows {
+		out[[2]role.NodeID{row.SourceNode, row.DestinationNode}] = float64(row.Rate)
+	}
+	return out, nil
+}
+
 // JobNames is the name in words of each of vs' jobs, by Transfer, as its
 // purpose's Names reads it.
 func (t *Transfers) JobNames(ctx context.Context, vs []View) (map[ID]string, error) {

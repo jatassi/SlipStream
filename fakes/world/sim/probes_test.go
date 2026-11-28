@@ -17,7 +17,12 @@ import (
 	"github.com/jatassi/slipstream/internal/node"
 )
 
-var fitting = []worldtest.Probe{{Probe: "engine-starts", Fit: "fits"}, {Probe: "data-writable", Fit: "fits"}, {Probe: "listener-up", Fit: "fits"}}
+// probed is every probe on a simulated Node, whose ffmpeg converts on the
+// processor alone.
+var probed = []worldtest.Probe{
+	{Probe: "engine-starts", Fit: "fits"}, {Probe: "data-writable", Fit: "fits"},
+	{Probe: "ffmpeg-runs", Fit: "weak", Reason: "no_gpu"}, {Probe: "listener-up", Fit: "fits"},
+}
 
 // suggested is what home's role board ticks first for the Node named name.
 func suggested(t *testing.T, a *worldtest.API, name string) []string {
@@ -74,7 +79,7 @@ func awaitSeedboxProbes(t *testing.T, a *worldtest.API, want []worldtest.Probe) 
 }
 
 // TestADownloadsFolderSeedboxCantWriteBlocksDownloadingThere lists every
-// probe fitting on both Nodes, and the board suggests Searching and
+// probe on both Nodes, and the board suggests Searching and
 // Downloading for seedbox. Restarted with its downloads folder on a file,
 // seedbox's engine-starts probe fails on listNodes and in the topology,
 // the board suggests Searching alone, and giving seedbox Downloading back
@@ -85,8 +90,8 @@ func TestADownloadsFolderSeedboxCantWriteBlocksDownloadingThere(t *testing.T) {
 		w := sim.Launch(t, simtest.Home(t))
 		a := w.API()
 		for _, r := range a.Nodes("home") {
-			if got := r.Probes; !slices.Equal(got, fitting) {
-				t.Fatalf("listNodes has %s's probes %+v, want each fitting", r.Name, got)
+			if got := r.Probes; !slices.Equal(got, probed) {
+				t.Fatalf("listNodes has %s's probes %+v, want %+v", r.Name, got, probed)
 			}
 		}
 		if got := suggested(t, a, "seedbox"); !slices.Equal(got, []string{"searching", "downloading"}) {
@@ -102,7 +107,7 @@ func TestADownloadsFolderSeedboxCantWriteBlocksDownloadingThere(t *testing.T) {
 		box := w.Node("seedbox")
 		box.Stop()
 		box.Start(func(e *node.Env) { e.Environ = append(e.Environ, "SLIPSTREAM_TORRENT_DOWNLOADS="+file) })
-		want := slices.Clone(fitting)
+		want := slices.Clone(probed)
 		want[0] = worldtest.Probe{Probe: "engine-starts", Fit: "fails", Reason: "downloads_not_writable"}
 		awaitSeedboxProbes(t, a, want)
 		if got := topologyProbes(t, a, "seedbox"); !slices.Equal(got, want) {

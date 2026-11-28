@@ -1,0 +1,105 @@
+# yaml-language-server: $schema=../scenario.schema.json
+description: >-
+  One Node set up as the Controller, holding every Role, whose movies want
+  the starter 1080p and 720p mobile, a Target whose file is made from the
+  1080p file: H.264 at 720p, 2,000 kbps, with stereo AAC in Matroska. SD
+  ranks the 480p qualities, has no Conversion settings and is in no
+  Profile. fixture-site lists a 1080p WEB-DL of The Quiet Orchard, The
+  Salt Road and Meadowlark, each a real H.264 encode that home converts on
+  its processor, of 6 seconds but Meadowlark's of 60, whose run lasts
+  long enough to watch. Living room Plex runs on home, so a video
+  transcode there pauses home's Conversions. At launch Office PC direct
+  plays Grandma's 80th Birthday from shelf, a folder no root names, so a
+  plex-play of it can transcode before any library file exists. Backlog
+  search and RSS sync are off.
+seed: conversion
+admin:
+  email: ada@example.test
+  display_name: Ada Okafor
+  pin: "2468"
+nodes:
+  - name: home
+    setup: controller
+    media_servers:
+      - kind: plex
+        name: Living room Plex
+        runs_on: home
+        plays:
+          - player: {name: Office PC, key: office-pc, platform: Windows, product: Plex for Windows}
+            user: plex-admin
+            file: "shelf/Grandma's 80th Birthday (2019).mkv"
+            video: direct
+            audio: direct
+            subtitles: none
+timings:
+  node:
+    stop_deadline: 15s
+tmdb:
+  movies:
+    - id: 9000001
+      imdb_id: tt9000001
+      title: The Quiet Orchard
+      released: 2021-04-16
+      runtime: 104m
+    - id: 9000005
+      imdb_id: tt9000005
+      title: The Salt Road
+      released: 2022-09-14
+      runtime: 112m
+    - id: 9000006
+      imdb_id: tt9000006
+      title: Meadowlark
+      released: 2023-05-12
+      runtime: 98m
+releases:
+  - name: The.Quiet.Orchard.2021.1080p.WEB-DL.H264-FKW
+    tmdb_id: 9000001
+    video: {width: 1920, height: 1080, seconds: 6}
+    seeders: 12
+    seeded: true
+    advertised_size: 8.2GiB
+  - name: The.Salt.Road.2022.1080p.WEB-DL.H264-FKW
+    tmdb_id: 9000005
+    video: {width: 1920, height: 1080, seconds: 6}
+    seeders: 10
+    seeded: true
+    advertised_size: 8.6GiB
+  - name: Meadowlark.2023.1080p.WEB-DL.H264-FKW
+    tmdb_id: 9000006
+    video: {width: 1920, height: 1080, seconds: 60}
+    seeders: 8
+    seeded: true
+    advertised_size: 7.9GiB
+library:
+  storage_levels: {warn_below: 0B, error_below: 0B}
+  automatic_search: {backlog_search: false, rss_sync: false}
+  roots: [{content_type: movie, folder: movies}]
+  targets:
+    - name: 720p mobile
+      tiers: [[webdl-720p, webrip-720p, hdtv-720p, bluray-720p]]
+      cutoff: webdl-720p
+      sizes:
+        - {quality: webdl-720p, min: 0}
+        - {quality: webrip-720p, min: 0}
+        - {quality: hdtv-720p, min: 0}
+        - {quality: bluray-720p, min: 0}
+      conversion: {codec: h264, height: 720, kbps: 2000, audio: stereo_aac, container: mkv}
+    - name: SD
+      tiers: [[webrip-480p, dvd, sdtv]]
+      cutoff: webrip-480p
+      sizes:
+        - {quality: webrip-480p, min: 0}
+        - {quality: dvd, min: 0}
+        - {quality: sdtv, min: 0}
+  profiles:
+    - name: Films
+      content_type: movie
+      targets: [1080p, {target: 720p mobile, from: 1080p}]
+      default: true
+  indexers: [{name: Fixture Site, kind: torznab, site: torznab}]
+  folders:
+    - folder: shelf
+      files:
+        - path: Grandma's 80th Birthday (2019).mkv
+          video: {width: 1280, height: 720, seconds: 1, hdr: sdr}
+          audio: [{codec: aac, channels: 2, language: eng, default: true}]

@@ -26,6 +26,8 @@ import (
 	"github.com/jatassi/slipstream/internal/backups"
 	"github.com/jatassi/slipstream/internal/buildinfo"
 	"github.com/jatassi/slipstream/internal/contenttype"
+	"github.com/jatassi/slipstream/internal/converting"
+	"github.com/jatassi/slipstream/internal/converting/clip"
 	"github.com/jatassi/slipstream/internal/downloading"
 	"github.com/jatassi/slipstream/internal/history"
 	"github.com/jatassi/slipstream/internal/identity"
@@ -83,6 +85,10 @@ type Env struct {
 	// Speech builds Speech Maps: the bundled ffmpeg and libfvad for a
 	// process.
 	Speech speech.Mapper
+	// Converting is how this Node runs ffmpeg and proves what it can
+	// convert, given its scratch folder, ffmpeg path, prober and timings:
+	// converting.Real over the bundled tools for a process.
+	Converting func(cfg converting.RealConfig) (converting.Converter, converting.Proofs)
 	// Scripts runs the Notifying Role's Custom Scripts: a ProcessRunner for
 	// a process.
 	Scripts notifying.Runner
@@ -268,6 +274,9 @@ type Node struct {
 	downloading *downloading.Node
 	// mediaLink is the running half's Media Server link holder.
 	mediaLink *mediaserverlink.Link
+	// converter runs this Node's ffmpeg, and proofs are its test runs.
+	converter converting.Converter
+	proofs    converting.Proofs
 	// network is the running half's network facts, and web the web
 	// listener they report as SlipStream's own, once HTTP binds.
 	network *netfacts.Netfacts
@@ -492,6 +501,7 @@ func (n *Node) startSubsystems(ctx context.Context, cfg Config, l *Listeners) (s
 		return 0, "", err
 	}
 	n.startStorage(cfg)
+	n.startConverting(cfg)
 	// The claimed half stops before the torrent engine closes under it.
 	n.claimed = n.stack.Sub("claimed")
 	if err := n.restoreFromEnv(ctx); err != nil {
@@ -608,11 +618,37 @@ func OSDisk(data string) (storing.Disk, error) { return storing.NewOSDisk(data) 
 
 // startStorage opens the Node's Storage over its Disk, claimed or not.
 func (n *Node) startStorage(cfg Config) {
+	scratch, backupsAt := n.env.DataDir.Resolve(cfg.Converting.Scratch), n.env.DataDir.Resolve(cfg.Backups.Folder)
 	n.store = storing.NewStore(storing.Config{
-		Disk: n.disk, Payloads: n.downloading, Downloads: n.downloading.Folders, Torrents: n.downloading.Torrents, Timings: cfg.Timings.Storing,
+		Disk: n.disk, Payloads: n.downloading, Downloads: n.downloading.Folders, Torrents: n.downloading.Torrents,
+		Scratch: func() string { return scratch }, Backups: func() string { return backupsAt }, Timings: cfg.Timings.Storing,
 		Prober: n.env.Media, ProbeTimeout: cfg.Timings.Media.Probe, PathLimit: cfg.Storage.PathLimit,
 		RemoveRetry: cfg.Timings.Moves.RemoveRetry, RemoveBound: cfg.Timings.Moves.RemoveBound,
 	})
+}
+
+// startConverting opens the Node's ffmpeg and runs its base test run,
+// claimed or not, so Add a Node can suggest Converting.
+func (n *Node) startConverting(cfg Config) {
+	n.converter, n.proofs = n.env.Converting(converting.RealConfig{
+		Scratch: n.scratch, Override: n.ffmpegPath, Media: n.env.Media, Timings: cfg.Timings.Converting,
+	})
+	n.stack.Go("ffmpeg test run", func(ctx context.Context) error { return n.proofs.Warm(ctx, n.reportHost) })
+}
+
+// scratch is the Node's scratch folder now, clean.
+func (n *Node) scratch() string {
+	n.cfgMu.Lock()
+	defer n.cfgMu.Unlock()
+	return filepath.Clean(n.env.DataDir.Resolve(n.cfg.Converting.Scratch))
+}
+
+// ffmpegPath is the ffmpeg the Admin set in place of the bundled one, ""
+// for the bundled one.
+func (n *Node) ffmpegPath() string {
+	n.cfgMu.Lock()
+	defer n.cfgMu.Unlock()
+	return n.cfg.Converting.FFmpeg
 }
 
 // checkpoint ends the startup early once the Node is asked to stop or fails.
@@ -661,20 +697,20 @@ func changedTimings(keys []Key) []Key {
 
 var ErrInterrupted = errors.New("interrupted again while stopping")
 
-// bundledTools are the ffprobe and ffmpeg the release ships beside the
-// executable (ADR 0015).
-func bundledTools() (media.Decoder, error) {
+// bundledTools are the ffprobe, ffmpeg and dovi_tool the release ships
+// beside the executable (ADR 0015), run with environ.
+func bundledTools(environ []string) (clip.Tools, error) {
 	exe, err := os.Executable()
 	if err != nil {
-		return media.Decoder{}, fmt.Errorf("find the executable: %w", err)
+		return clip.Tools{}, fmt.Errorf("find the executable: %w", err)
 	}
 	beside := func(tool string) string { return filepath.Join(filepath.Dir(exe), tool+filepath.Ext(exe)) }
-	for _, tool := range []string{"ffprobe", "ffmpeg"} {
+	for _, tool := range []string{"ffprobe", "ffmpeg", "dovi_tool"} {
 		if info, err := os.Stat(beside(tool)); err != nil || !info.Mode().IsRegular() {
-			return media.Decoder{}, fmt.Errorf("%s not found beside %s", tool, exe)
+			return clip.Tools{}, fmt.Errorf("%s not found beside %s", tool, exe)
 		}
 	}
-	return media.Decoder{FFmpeg: beside("ffmpeg"), FFprobe: beside("ffprobe")}, nil
+	return clip.Tools{FFmpeg: beside("ffmpeg"), FFprobe: beside("ffprobe"), DoviTool: beside("dovi_tool"), Environ: environ}, nil
 }
 
 // Run is Start plus signals: SIGINT or SIGTERM stops the Node, and a second
@@ -685,13 +721,17 @@ func Run(ctx context.Context, env Env) error {
 }
 
 func serve(ctx context.Context, env Env, front func(n *Node, exit <-chan struct{})) error {
-	tools, err := bundledTools()
+	tools, err := bundledTools(env.Environ)
 	if err != nil {
 		_, _ = fmt.Fprintln(env.Stderr, err)
 		return err
 	}
 	env.Media = media.FFprobe{Path: tools.FFprobe}
-	env.Speech = fvad.Mapper{Decoder: tools}
+	env.Speech = fvad.Mapper{Decoder: media.Decoder{FFmpeg: tools.FFmpeg, FFprobe: tools.FFprobe}}
+	env.Converting = func(cfg converting.RealConfig) (converting.Converter, converting.Proofs) {
+		cfg.Tools = tools
+		return converting.Real(cfg)
+	}
 	// Without a Notify for SIGPIPE, Go kills the process on a write to a
 	// broken pipe on stderr. With one, the write fails and the log file
 	// still gets the record.

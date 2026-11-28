@@ -15,8 +15,9 @@ import { Solid } from "@anatomy/react/draw";
 import { type Drawn, type Item, box, faded, halo, item, line, mark, post, screws } from "./part";
 import { faceX, faceY, roundRect } from "./face";
 
-// Converting's machine: a roller press that film runs through. It stands
-// still until S44 (Conversion) gives it live figures.
+// Converting's machine: a roller press that film runs through. While its
+// Node converts, one lamp lights for each running Conversion and the gears
+// turn.
 
 const PRESS: Plan = { x: -8, y: 26, w: 150, d: 68, r: 4 };
 const NIP_X = 76;
@@ -76,7 +77,7 @@ function stand(P: Projection, name: string, y: number): Drawn[] {
   ];
 }
 
-function bedFace(P: Projection): Drawn {
+function bedFace(P: Projection, running: number): Drawn {
   return mark(
     <g transform={faceY(P, PRESS.y + PRESS.d)}>
       <path
@@ -86,7 +87,14 @@ function bedFace(P: Projection): Drawn {
       />
       <path className="window" d={roundRect(PRESS.x + 7, 5.2, PRESS.x + 22, 8, 0.6)} />
       {Array.from({ length: LANES }, (_, index) => (
-        <circle key={index} className="lamp-dot" cx={PRESS.x + 44 + index * 5} cy={-6.6} r={1.1} />
+        <circle
+          key={index}
+          className="lamp-dot"
+          data-lit={index < running ? "" : undefined}
+          cx={PRESS.x + 44 + index * 5}
+          cy={-6.6}
+          r={1.1}
+        />
       ))}
       <path
         className="iso-line"
@@ -105,12 +113,12 @@ function bedFace(P: Projection): Drawn {
   );
 }
 
-function gears(P: Projection): Drawn {
+function gears(P: Projection, turning: boolean): Drawn {
   return mark(
-    <g transform={faceY(P, ROLL_Y[1] + 7)}>
+    <g transform={faceY(P, ROLL_Y[1] + 7)} data-turning={turning ? "" : undefined}>
       <path className="gear-back" d={gearPath(NIP_X, ROLL_LOW_Z, 6.4, 14)} />
       {[ROLL_LOW_Z, ROLL_HIGH_Z].map((z) => (
-        <g key={z}>
+        <g key={z} className="gear-turn">
           <path className="gear" d={gearPath(NIP_X, z, 6.4, 14)} />
           <path
             className="iso-line"
@@ -180,7 +188,7 @@ function tables(P: Projection): Drawn[] {
   ];
 }
 
-export function press(P: Projection): Item {
+export function press(P: Projection, running: number): Item {
   return item(
     "converting",
     [PRESS.x + PRESS.w / 2, PRESS.y + PRESS.d / 2, 0],
@@ -194,13 +202,13 @@ export function press(P: Projection): Item {
       box(P, "converting.bed", PRESS, 3, 7, { steps: 4, bevel: 0.8 }),
       line(planOutline(insetPlan(PRESS, 3), 10, P, 4), "faint"),
       ...screws(P, corners(PRESS, 6), 10),
-      bedFace(P),
+      bedFace(P, running),
       ...stand(P, "converting.stand.back", ROLL_Y[0] - 7),
       ...tables(P),
       roller(P, "converting.roller.low", ROLL_LOW_Z),
       roller(P, "converting.roller.high", ROLL_HIGH_Z),
       ...stand(P, "converting.stand.front", ROLL_Y[1]),
-      gears(P),
+      gears(P, running > 0),
       ...outbox(P),
     ],
   );

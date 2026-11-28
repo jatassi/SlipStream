@@ -172,7 +172,7 @@ export function homeServer(
 export const quietCounts: ShellCounts = {
   activity: 0,
   downloads: { done: 0, wanted: 0, allPaused: false },
-  alerts: { nodes: null, health: null, tasks: null },
+  alerts: { nodes: null, health: null, tasks: null, conversions: null },
   pendingImports: 0,
   reconciling: null,
 };

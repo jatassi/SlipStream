@@ -9,6 +9,9 @@ import (
 	"strings"
 	"time"
 
+	"go.yaml.in/yaml/v3"
+
+	"github.com/jatassi/slipstream/internal/encode"
 	"github.com/jatassi/slipstream/internal/ports/all"
 	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/targets"
@@ -98,7 +101,18 @@ type LibraryTarget struct {
 	Scores  *LibraryScores  `yaml:"scores,omitempty"`
 	// Hold is how long an automatic grab waits for a better Release, 0 to
 	// 7 days in whole minutes.
-	Hold time.Duration `yaml:"hold,omitempty"`
+	Hold       time.Duration      `yaml:"hold,omitempty"`
+	Conversion *LibraryConversion `yaml:"conversion,omitempty"`
+}
+
+// LibraryConversion is a Target's Conversion settings as the Target editor
+// turns them on, with these fields changed.
+type LibraryConversion struct {
+	Codec     encode.Codec     `jsonschema:"required,enum=h264,enum=hevc,enum=av1"                        yaml:"codec"`
+	Height    encode.Height    `jsonschema:"required,enum=2160,enum=1080,enum=720,enum=480"               yaml:"height"`
+	Kbps      int              `jsonschema:"required,minimum=100,maximum=200000"                          yaml:"kbps"`
+	Audio     encode.Audio     `jsonschema:"required,enum=copy,enum=stereo_aac,enum=ac3_51_and_stereo_aac" yaml:"audio"`
+	Container encode.Container `jsonschema:"required,enum=mkv,enum=mp4"                                   yaml:"container"`
 }
 
 // LibraryScores are a Target's scores: the lowest score a Release may
@@ -170,6 +184,11 @@ func (t LibraryTarget) Spec() (targets.Spec, error) {
 	if err := errors.Join(errs...); err != nil {
 		return targets.Spec{}, err
 	}
+	if c := t.Conversion; c != nil {
+		settings := encode.Defaults()
+		settings.Codec, settings.MaxHeight, settings.Kbps, settings.Audio, settings.Container = c.Codec, c.Height, c.Kbps, c.Audio, c.Container
+		s.Conversion = &targets.Conversion{Settings: settings}
+	}
 	return s, nil
 }
 
@@ -178,11 +197,45 @@ func (t LibraryTarget) Spec() (targets.Spec, error) {
 // Default is set. Cuts are the built-in cuts it lists by key, in order;
 // none takes any cut.
 type LibraryProfile struct {
-	Name        string   `jsonschema:"required"                                 yaml:"name"`
-	ContentType string   `jsonschema:"required,pattern=^[a-z][a-z0-9]{1\\,15}$" yaml:"content_type"`
-	Targets     []string `jsonschema:"required,uniqueItems=true"                yaml:"targets"`
-	Default     bool     `yaml:"default,omitempty"`
-	Cuts        []string `jsonschema:"uniqueItems=true" yaml:"cuts,omitempty"`
+	Name        string         `jsonschema:"required"                                 yaml:"name"`
+	ContentType string         `jsonschema:"required,pattern=^[a-z][a-z0-9]{1\\,15}$" yaml:"content_type"`
+	Targets     []LibraryEntry `jsonschema:"required,uniqueItems=true"                yaml:"targets"`
+	Default     bool           `yaml:"default,omitempty"`
+	Cuts        []string       `jsonschema:"uniqueItems=true" yaml:"cuts,omitempty"`
+}
+
+// LibraryEntry is one of a Profile's Targets, written as its name alone
+// when it is downloaded. With From it is made from the file of From, a
+// Target above it, and with Grace too it is downloaded, or made from
+// From's file once Grace has passed with no download.
+type LibraryEntry struct {
+	Target string        `yaml:"target"`
+	From   string        `yaml:"from,omitempty"`
+	Grace  time.Duration `yaml:"grace,omitempty"`
+}
+
+func (e *LibraryEntry) UnmarshalYAML(n *yaml.Node) error {
+	if n.Kind == yaml.ScalarNode {
+		e.Target = n.Value
+		return nil
+	}
+	type entry LibraryEntry
+	if err := n.Decode((*entry)(e)); err != nil {
+		return fmt.Errorf("line %d: a profile target: %w", n.Line, err)
+	}
+	return nil
+}
+
+// Sourcing is how the Profiles API names e's sourcing.
+func (e LibraryEntry) Sourcing() string {
+	switch {
+	case e.From == "":
+		return "download"
+	case e.Grace == 0:
+		return "derive"
+	default:
+		return "download_then_derive"
+	}
 }
 
 // LibraryIndexer is one Indexer an Admin adds, on a site of fixture-site.
@@ -389,11 +442,30 @@ func (l Library) checkProfiles(add func(format string, args ...any)) {
 				add("library profile %s lists cut %s, which is no built-in cut's key", p.Name, c)
 			}
 		}
-		for _, t := range p.Targets {
-			if t != targets.StarterName && !slices.ContainsFunc(l.Targets, func(lt LibraryTarget) bool { return lt.Name == t }) {
-				add("library profile %s names target %s, which library.targets does not list and isn't the starter", p.Name, t)
+		for i, e := range p.Targets {
+			if e.Target != targets.StarterName && !slices.ContainsFunc(l.Targets, func(lt LibraryTarget) bool { return lt.Name == e.Target }) {
+				add("library profile %s names target %s, which library.targets does not list and isn't the starter", p.Name, e.Target)
 			}
+			l.checkEntry(add, p.Name, e, p.Targets[:i])
 		}
+	}
+}
+
+func (l Library) checkEntry(add func(format string, args ...any), profile string, e LibraryEntry, above []LibraryEntry) {
+	if e.From == "" {
+		if e.Grace != 0 {
+			add("library profile %s gives target %s a grace and nothing to make its file from", profile, e.Target)
+		}
+		return
+	}
+	if !slices.ContainsFunc(above, func(a LibraryEntry) bool { return a.Target == e.From && a.From == "" }) {
+		add("library profile %s makes target %s from %s, which isn't a downloaded target above it", profile, e.Target, e.From)
+	}
+	if !slices.ContainsFunc(l.Targets, func(lt LibraryTarget) bool { return lt.Name == e.Target && lt.Conversion != nil }) {
+		add("library profile %s makes target %s from a file, and it has no conversion settings", profile, e.Target)
+	}
+	if e.Grace != 0 && (e.Grace < time.Hour || e.Grace > 90*24*time.Hour || e.Grace%time.Second != 0) {
+		add("library profile %s waits %s for target %s; a grace is 1 hour to 90 days in whole seconds", profile, e.Grace, e.Target)
 	}
 }
 

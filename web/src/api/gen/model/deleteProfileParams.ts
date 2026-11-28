@@ -18,4 +18,9 @@ export type DeleteProfileParams = {
    * @minimum 0
    */
   confirm?: number;
+  /**
+   * The made file count the Admin confirmed from the preview: a save that would make more is refused with impact_changed
+   * @minimum 0
+   */
+  confirmMade?: number;
 };

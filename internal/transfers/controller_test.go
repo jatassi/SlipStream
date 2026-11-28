@@ -111,9 +111,18 @@ type purpose struct {
 	after    []string
 }
 
+// register registers Import, and Conversion, which yields, with the same
+// hooks.
 func (p *purpose) register(tr *transfers.Transfers) {
-	tr.Register(transfers.Purpose{
-		Kind: transfers.Import,
+	tr.Register(p.of(transfers.Import))
+	c := p.of(transfers.Conversion)
+	c.Yields = true
+	tr.Register(c)
+}
+
+func (p *purpose) of(kind transfers.PurposeKind) transfers.Purpose {
+	return transfers.Purpose{
+		Kind: kind,
 		Verified: func(_ context.Context, _ *storage.Tx[storage.Library], t transfers.Transfer, group string) error {
 			p.mu.Lock()
 			defer p.mu.Unlock()
@@ -138,7 +147,7 @@ func (p *purpose) register(tr *transfers.Transfers) {
 			}
 			return out, nil
 		},
-	})
+	}
 }
 
 func (p *purpose) seen() (verified, failed, after []string) {
@@ -275,11 +284,12 @@ func newCluster(t *testing.T) *cluster {
 		Paused: func(context.Context, storage.Reader[storage.Library]) (bool, error) {
 			return r.blocked.Load(), nil
 		},
-		Sample:  func(context.Context, role.NodeID) error { return nil },
-		Hub:     live.NewHub([]live.Event{roots.ChangedEvent, roots.VolumesChangedEvent, health.ChangedEvent, nodes.ChangedEvent, transfers.ChangedEvent}),
-		Changed: r.published,
-		Timings: transfers.DefaultTimings(),
-		Log:     discard,
+		Sample:        func(context.Context, role.NodeID) error { return nil },
+		ScratchVolume: func(id role.NodeID) (string, bool) { return "v2", id == r.home },
+		Hub:           live.NewHub([]live.Event{roots.ChangedEvent, roots.VolumesChangedEvent, health.ChangedEvent, nodes.ChangedEvent, transfers.ChangedEvent}),
+		Changed:       r.published,
+		Timings:       transfers.DefaultTimings(),
+		Log:           discard,
 	})
 	r.purpose.register(r.tr)
 	c = transfers.Def.Serve(r.tr.Derive, r.tr.Apply)

@@ -277,11 +277,11 @@ func goals(ctx context.Context, c *http.Client, lib *scenario.Library, controlle
 		targets[t.Name] = id
 	}
 	for _, p := range lib.Profiles {
-		ids := make([]string, len(p.Targets))
-		for i, name := range p.Targets {
-			ids[i] = targets[name]
+		entries := make([]nodeapi.ProfileEntry, len(p.Targets))
+		for i, e := range p.Targets {
+			entries[i] = nodeapi.ProfileEntry{TargetID: targets[e.Target], Sourcing: e.Sourcing(), FromTargetID: targets[e.From], Grace: int64(e.Grace / time.Second)}
 		}
-		id, err := nodeapi.CreateProfile(ctx, c, controller, apiKey, p.Name, p.ContentType, ids, p.Cuts)
+		id, err := nodeapi.CreateProfile(ctx, c, controller, apiKey, p.Name, p.ContentType, entries, p.Cuts)
 		if err != nil {
 			return err
 		}

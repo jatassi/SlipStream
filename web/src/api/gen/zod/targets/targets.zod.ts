@@ -51,6 +51,8 @@ export const UpdateCutParams = zod.object({
 export const updateCutQueryUnwantedDefault = `delete`;
 export const updateCutQueryConfirmMin = 0;
 
+export const updateCutQueryConfirmMadeMin = 0;
+
 export const UpdateCutQueryParams = zod.object({
   preview: zod.boolean().exactOptional().describe("Return the change's Impact and save nothing"),
   unwanted: zod
@@ -63,6 +65,13 @@ export const UpdateCutQueryParams = zod.object({
     .exactOptional()
     .describe(
       "The unwanted file count the Admin confirmed from the preview: a save that would delete more is refused with impact_changed",
+    ),
+  confirmMade: zod
+    .int()
+    .min(updateCutQueryConfirmMadeMin)
+    .exactOptional()
+    .describe(
+      "The made file count the Admin confirmed from the preview: a save that would make more is refused with impact_changed",
     ),
 });
 
@@ -92,6 +101,8 @@ export const DeleteProfileParams = zod.object({
 export const deleteProfileQueryUnwantedDefault = `delete`;
 export const deleteProfileQueryConfirmMin = 0;
 
+export const deleteProfileQueryConfirmMadeMin = 0;
+
 export const DeleteProfileQueryParams = zod.object({
   moveTo: zod.uuid().describe("The Profile of the same Content Type that its Works move to"),
   preview: zod.boolean().exactOptional().describe("Return the change's Impact and save nothing"),
@@ -105,6 +116,13 @@ export const DeleteProfileQueryParams = zod.object({
     .exactOptional()
     .describe(
       "The unwanted file count the Admin confirmed from the preview: a save that would delete more is refused with impact_changed",
+    ),
+  confirmMade: zod
+    .int()
+    .min(deleteProfileQueryConfirmMadeMin)
+    .exactOptional()
+    .describe(
+      "The made file count the Admin confirmed from the preview: a save that would make more is refused with impact_changed",
     ),
 });
 
@@ -131,6 +149,8 @@ export const updateProfileQueryConfirmSubtitlesMin = 0;
 export const updateProfileQueryUnwantedDefault = `delete`;
 export const updateProfileQueryConfirmMin = 0;
 
+export const updateProfileQueryConfirmMadeMin = 0;
+
 export const UpdateProfileQueryParams = zod.object({
   confirmSubtitles: zod
     .int()
@@ -150,6 +170,13 @@ export const UpdateProfileQueryParams = zod.object({
     .exactOptional()
     .describe(
       "The unwanted file count the Admin confirmed from the preview: a save that would delete more is refused with impact_changed",
+    ),
+  confirmMade: zod
+    .int()
+    .min(updateProfileQueryConfirmMadeMin)
+    .exactOptional()
+    .describe(
+      "The made file count the Admin confirmed from the preview: a save that would make more is refused with impact_changed",
     ),
 });
 
@@ -208,10 +235,21 @@ export const UpdateTargetParams = zod.object({
   targetId: zod.uuid(),
 });
 
+export const updateTargetQueryConfirmRemakeMin = 0;
+
 export const updateTargetQueryUnwantedDefault = `delete`;
 export const updateTargetQueryConfirmMin = 0;
 
+export const updateTargetQueryConfirmMadeMin = 0;
+
 export const UpdateTargetQueryParams = zod.object({
+  confirmRemake: zod
+    .int()
+    .min(updateTargetQueryConfirmRemakeMin)
+    .exactOptional()
+    .describe(
+      "The remade file count the Admin confirmed from the preview: a save that would remake more is refused with impact_changed",
+    ),
   preview: zod.boolean().exactOptional().describe("Return the change's Impact and save nothing"),
   unwanted: zod
     .enum(["delete", "keep"])
@@ -223,6 +261,13 @@ export const UpdateTargetQueryParams = zod.object({
     .exactOptional()
     .describe(
       "The unwanted file count the Admin confirmed from the preview: a save that would delete more is refused with impact_changed",
+    ),
+  confirmMade: zod
+    .int()
+    .min(updateTargetQueryConfirmMadeMin)
+    .exactOptional()
+    .describe(
+      "The made file count the Admin confirmed from the preview: a save that would make more is refused with impact_changed",
     ),
 });
 
@@ -258,6 +303,8 @@ export const SetWorkWantsParams = zod.object({
 export const setWorkWantsQueryUnwantedDefault = `delete`;
 export const setWorkWantsQueryConfirmMin = 0;
 
+export const setWorkWantsQueryConfirmMadeMin = 0;
+
 export const SetWorkWantsQueryParams = zod.object({
   preview: zod.boolean().exactOptional().describe("Return the change's Impact and save nothing"),
   unwanted: zod
@@ -270,6 +317,13 @@ export const SetWorkWantsQueryParams = zod.object({
     .exactOptional()
     .describe(
       "The unwanted file count the Admin confirmed from the preview: a save that would delete more is refused with impact_changed",
+    ),
+  confirmMade: zod
+    .int()
+    .min(setWorkWantsQueryConfirmMadeMin)
+    .exactOptional()
+    .describe(
+      "The made file count the Admin confirmed from the preview: a save that would make more is refused with impact_changed",
     ),
 });
 

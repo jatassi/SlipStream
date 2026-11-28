@@ -178,6 +178,7 @@ type settled struct {
 	intents  []db.SubtitlesWrite
 	// held is the bytes of intents this process checked, by attempt.
 	held     map[storage.UUID][]byte
+	copies   map[storage.UUID]sibling
 	parked   []db.SubtitlesParked
 	removals []db.SubtitlesRemoval
 	langs    []targets.WantedLanguage
@@ -263,24 +264,28 @@ func (k *keeper) commit(ctx context.Context, sub files.Subject, fn func(context.
 var errNotReady = errors.New("the root's Storage Node isn't ready")
 
 // settle converges one key: the gate, a survey of a live file at its
-// name, its intents, retimes and strays, the rows parked from it, then
-// the removals of the key's bytes. Each step is derived from rows and
-// listings, so a settle that stops anywhere is finished by the next.
+// name, its copies' bytes once its map is built, its intents, retimes and
+// strays, the rows parked from it, then the removals of the key's bytes.
+// Each step is derived from rows and listings, so a settle that stops
+// anywhere is finished by the next.
 func (k *keeper) settle(ctx context.Context, f files.ID) error {
 	in, err := k.read(ctx, f)
 	if err != nil || in.reconciling {
 		return err
 	}
-	in.held = k.bytes.held(f, in.intents)
 	placed := in.subject != nil && in.subject.AtName
-	if placed && in.surveys() {
+	err = k.hold(ctx, f, &in)
+	if err == nil && placed && in.surveys() {
 		if err = k.survey(ctx, in); err == nil {
-			in, err = k.read(ctx, f)
-			in.held = k.bytes.held(f, in.intents)
+			if in, err = k.read(ctx, f); err == nil {
+				err = k.hold(ctx, f, &in)
+			}
 		}
 	}
 	if err == nil && placed && in.row != nil {
-		err = k.converge(ctx, in)
+		if err = k.fetch(ctx, in); err == nil {
+			err = k.converge(ctx, in)
+		}
 	}
 	if err == nil && len(in.parked) > 0 {
 		err = k.claimAll(ctx, in)
@@ -296,10 +301,10 @@ func (k *keeper) settle(ctx context.Context, f files.ID) error {
 
 // surveys is whether a settle lists the file's companions: when a survey
 // is due, when it never had one while it has a want or a Sidecar, or
-// when an intent's bytes aren't in this process.
+// when an intent's bytes aren't in this process and copy no other file's.
 func (in *settled) surveys() bool {
 	never := in.row.SurveyedAt.IsZero() && (len(in.wants) > 0 || len(in.sidecars) > 0)
-	unheld := slices.ContainsFunc(in.intents, func(w db.SubtitlesWrite) bool { return in.held[w.AttemptID] == nil })
+	unheld := slices.ContainsFunc(in.intents, func(w db.SubtitlesWrite) bool { return in.held[w.AttemptID] == nil && !in.copying(w) })
 	return in.row.SurveyDue || never || unheld
 }
 
@@ -344,7 +349,8 @@ func (k *keeper) survey(ctx context.Context, in settled) error {
 	if err != nil {
 		return callError(err)
 	}
-	plan := match(sub.ID, sub.Path.String(), in.sidecars, in.intents, listed[0].Companions, in.langs)
+	intents := slices.DeleteFunc(slices.Clone(in.intents), in.copying)
+	plan := match(sub.ID, sub.Path.String(), in.sidecars, intents, listed[0].Companions, in.langs)
 	err = k.commit(ctx, *sub, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		return k.finishSurvey(ctx, tx, in, plan)
 	})

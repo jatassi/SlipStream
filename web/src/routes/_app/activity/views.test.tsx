@@ -57,10 +57,17 @@ test("on a phone Jobs and Torrents are a segmented control under the large title
   await expect.element(sentence()).toBeVisible();
 });
 
-test("History is Activity's fourth view, a tab on a desktop and a radio on a phone", async () => {
+test("Activity has five views, a tab each on a desktop and a radio each on a phone", async () => {
   const { router } = renderApp({ path: "/activity", handlers });
   const tabs = page.getByRole("main").getByRole("navigation", { name: "Activity" });
-  await expect.poll(() => tabs.getByRole("link").all().length).toBe(4);
+  await expect
+    .poll(() =>
+      tabs
+        .getByRole("link")
+        .all()
+        .map((link) => link.element().textContent),
+    )
+    .toEqual(["Jobs", "Torrents", "Conversions", "Blocklist", "History"]);
   await userEvent.click(tabs.getByRole("link", { name: "History" }));
   await expect.poll(() => router.state.location.pathname).toBe("/activity/history");
   await expect
@@ -69,6 +76,6 @@ test("History is Activity's fourth view, a tab on a desktop and a radio on a pho
 
   await asPhone();
   const views = page.getByRole("radiogroup", { name: "View" });
-  await expect.poll(() => views.getByRole("radio").all().length).toBe(4);
+  await expect.poll(() => views.getByRole("radio").all().length).toBe(5);
   await expect.element(views.getByRole("radio", { name: "History" })).toBeChecked();
 });

@@ -52,7 +52,7 @@ func TestTheRuleColumnsMatchTheSpec(t *testing.T) {
 	if want := []role.Name{role.Notifying}; !slices.Equal(reach, want) {
 		t.Errorf("Reach = %v, want %v", reach, want)
 	}
-	if got, want := role.Probes(), []role.Probe{role.EngineStarts, role.DataWritable, role.ListenerUp}; !slices.Equal(got, want) {
+	if got, want := role.Probes(), []role.Probe{role.EngineStarts, role.DataWritable, role.FFmpegRuns, role.ListenerUp}; !slices.Equal(got, want) {
 		t.Errorf("Probes() = %v, want %v", got, want)
 	}
 }

@@ -16,13 +16,14 @@ import { ZoomControls } from "./zoom-controls";
 // Only what the art draws: a change to anything else keeps the drawing.
 const sceneKeyOf = (landing: Landing): string =>
   JSON.stringify([
-    landing.nodes.map(({ id, name, state, plaque, listening, television, roles }) => [
+    landing.nodes.map(({ id, name, state, plaque, listening, television, converting, roles }) => [
       id,
       name,
       state,
       plaque,
       listening,
       television,
+      converting,
       roles.map(({ role, label, note, state: held }) => [role, label, note, held]),
     ]),
     landing.links,

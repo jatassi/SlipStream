@@ -123,6 +123,7 @@ type dialect struct {
 	languages   map[string]release.Language
 	flags       map[string]release.Flag
 	spans       map[string]release.Span
+	derived     bool
 }
 
 var dialects = map[Dialect]*dialect{
@@ -149,6 +150,7 @@ var dialects = map[Dialect]*dialect{
 		modifiers:   named(release.ModRemux, release.ModScreener, same[release.Modifier]),
 		flags:       flagsByName(),
 		spans:       named(release.One, release.Levels, same[release.Span]),
+		derived:     true,
 	},
 }
 

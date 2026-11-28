@@ -244,6 +244,10 @@ enum Purpose {
   // writable and apart from every root the Node holds and its downloads
   // folders. It may sit in the data dir.
   PURPOSE_BACKUPS = 5;
+  // CONVERTING: a Node's scratch folder for Conversions: writable and
+  // apart from every root the Node holds, its downloads folders and the
+  // Backups folder. It may sit in the data dir.
+  PURPOSE_CONVERTING = 6;
 }
 
 message Other {
@@ -277,6 +281,9 @@ enum Reason {
   REASON_UNRESPONSIVE = 11;
   REASON_NETWORK_SHARE = 12;
   REASON_OUTSIDE = 13;
+  // The scratch folder may not overlap the Node's Backups folder.
+  REASON_INSIDE_BACKUPS = 14;
+  REASON_CONTAINS_BACKUPS = 15;
 }
 
 message VerifyRequest {

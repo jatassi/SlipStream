@@ -1,9 +1,9 @@
 -- name: InsertTransfer :exec
 INSERT INTO transfers_record (id, purpose, job, source_node, destination_kind, destination_root, destination_backup, destination_node, destination_folder,
-    destination_client, destination_content_type, destination_info_hash, priority, created_at)
+    destination_client, destination_content_type, destination_info_hash, destination_name, priority, created_at)
 VALUES (sqlc.arg(id), sqlc.arg(purpose), sqlc.arg(job), sqlc.arg(source_node), sqlc.arg(destination_kind), sqlc.arg(destination_root),
     sqlc.arg(destination_backup), sqlc.arg(destination_node), sqlc.arg(destination_folder), sqlc.arg(destination_client), sqlc.arg(destination_content_type),
-    sqlc.arg(destination_info_hash), sqlc.arg(priority), sqlc.arg(created_at));
+    sqlc.arg(destination_info_hash), sqlc.arg(destination_name), sqlc.arg(priority), sqlc.arg(created_at));
 
 -- name: InsertFile :exec
 INSERT INTO transfers_file (transfer_id, position, group_key, name, source_kind, info_hash, file_index, path, source_folder, source_root, size)

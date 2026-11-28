@@ -39,7 +39,7 @@ func (im *Imports) hold(ctx context.Context, imp Import, f File, at StepAt) {
 
 // sourceOf is where f's bytes are on imp's Node.
 func (f *File) sourceOf(imp Import) storing.Source {
-	if imp.Source == FromGrab {
+	if sourceRules[imp.Source].download {
 		return storing.Payload{InfoHash: *imp.InfoHash, FileIndex: *f.SourceIndex}
 	}
 	return storing.NodePath{Abs: f.Path}
@@ -48,12 +48,14 @@ func (f *File) sourceOf(imp Import) storing.Source {
 // place puts f's bytes at its Dest on the root's Node and lands it. A
 // root Import's file already sits in its root and lands where it is, and
 // a file sent from another Node moves there from its staged copy, once
-// its Transfer counts the copy verified. A link or a clone needs no room.
-// A copy asks for it first, in a Write, so the grant is a row the next
-// file's check reads.
+// its Transfer counts the copy verified. A conversion's file sits at its
+// Dest once a Transfer it doesn't own staged it and moved there. A link
+// or a clone needs no room. A copy asks for it first, in a Write, so the
+// grant is a row the next file's check reads.
 func (im *Imports) place(ctx context.Context, imp Import, f File) error {
 	im.hold(ctx, imp, f, AtPlace)
-	if f.Sent != nil {
+	rule := sourceRules[imp.Source]
+	if f.Sent != nil && rule.sends {
 		var again bool
 		err := im.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
 			var err error
@@ -64,15 +66,21 @@ func (im *Imports) place(ctx context.Context, imp Import, f File) error {
 			return err
 		}
 	}
-	if imp.Source == FromRoot {
-		var seen storing.Seen
-		if f.Seen != nil {
-			seen = *f.Seen
+	if rule.landsInPlace {
+		return im.land(ctx, imp, f, f.seen(), InPlace)
+	}
+	if f.Sent != nil && !rule.sends {
+		seen, err := im.unstage(ctx, imp, f)
+		if err != nil || seen == nil {
+			return err
 		}
-		return im.land(ctx, imp, f, seen, InPlace)
+		f.Sent, f.Seen = nil, seen
 	}
 	var placed storing.Placed
 	err := im.vacant(ctx, imp, f)
+	if err == nil && rule.placedBy != "" {
+		return im.land(ctx, imp, f, f.seen(), rule.placedBy)
+	}
 	switch {
 	case err != nil:
 	case f.Sent != nil:
@@ -87,14 +95,7 @@ func (im *Imports) place(ctx context.Context, imp Import, f File) error {
 		return err
 	}
 	if err != nil {
-		_, werr := im.write(ctx, imp.ID, func(ctx context.Context, tx *storage.Tx[file], cur *Import, _ *after) error {
-			again, rerr := im.sentAgain(ctx, tx, *cur, f.Position)
-			if g := fileAt(cur, f.Position); rerr == nil && !again && g.Outcome == Placing {
-				g.holdOrFail(err)
-			}
-			return rerr
-		})
-		return werr
+		return im.holdPlacing(ctx, imp, f, err)
 	}
 	by := PlacedBy(placed.Step.String())
 	if f.Sent != nil {
@@ -104,6 +105,50 @@ func (im *Imports) place(ctx context.Context, imp Import, f File) error {
 		by = ByMove
 	}
 	return im.land(ctx, imp, f, placed.Seen, by)
+}
+
+// holdPlacing holds or fails f for err, its place's, unless f
+// left placing meanwhile or waits for its Transfer to send it again.
+func (im *Imports) holdPlacing(ctx context.Context, imp Import, f File, err error) error {
+	_, werr := im.write(ctx, imp.ID, func(ctx context.Context, tx *storage.Tx[file], cur *Import, _ *after) error {
+		again, rerr := im.sentAgain(ctx, tx, *cur, f.Position)
+		if g := fileAt(cur, f.Position); rerr == nil && !again && g.Outcome == Placing {
+			g.holdOrFail(err)
+		}
+		return rerr
+	})
+	return werr
+}
+
+// unstage moves f's bytes from the copy a Transfer imports doesn't own
+// staged to f's Dest, and marks the Transfer's file placed. It answers
+// where they sit, nil when the move waits or failed, or f left placing.
+func (im *Imports) unstage(ctx context.Context, imp Import, f File) (*storing.Seen, error) {
+	placed, err := im.cfg.Roots.Move(ctx, f.Dest.Root, transfers.StagedRel(f.Sent.Transfer, f.Sent.Order), f.Dest.Holding, false)
+	if err != nil {
+		return nil, im.holdPlacing(ctx, imp, f, err)
+	}
+	var seen *storing.Seen
+	_, err = im.write(ctx, imp.ID, func(ctx context.Context, tx *storage.Tx[file], cur *Import, _ *after) error {
+		g := fileAt(cur, f.Position)
+		if g.Outcome != Placing || g.Sent == nil {
+			return nil
+		}
+		if err := im.cfg.Transfers.Placed(ctx, tx, g.Sent.Transfer, g.Sent.Order); err != nil {
+			return err
+		}
+		g.Sent, g.Seen, seen = nil, &placed.Seen, &placed.Seen
+		return nil
+	})
+	return seen, err
+}
+
+// seen is where f's bytes were last seen, zero when unknown.
+func (f *File) seen() storing.Seen {
+	if f.Seen == nil {
+		return storing.Seen{}
+	}
+	return *f.Seen
 }
 
 // vacant is nil when nothing SlipStream doesn't track sits at the name
@@ -261,7 +306,7 @@ func (im *Imports) land(ctx context.Context, imp Import, f File, seen storing.Se
 		}
 		landed, err := im.cfg.Files.Import(ctx, tx, files.Landing{
 			Batch: files.Batch{Work: cur.Work, Root: g.Dest.Root, Import: cur.ID.UUID, Candidates: cands},
-			Seen:  seen, Grab: cur.Grab.UUID, PlacedBy: string(by),
+			Seen:  seen, Grab: cur.Grab.UUID, PlacedBy: string(by), Arrival: sourceRules[cur.Source].arrival,
 		})
 		var refused *files.Refused
 		switch {
@@ -277,6 +322,11 @@ func (im *Imports) land(ctx context.Context, imp Import, f File, seen storing.Se
 		}
 		if err := im.cfg.Subtitles.Landed(ctx, tx, landed.File); err != nil {
 			return err
+		}
+		if d := cands[0].Derived; d != nil {
+			if err := im.cfg.Subtitles.Derived(ctx, tx, d.From, landed.File.ID); err != nil {
+				return err
+			}
 		}
 		g.Outcome, g.Reason, g.Hold, g.PlacedBy, g.FileID = Placed, nil, nil, by, landed.File.ID
 		g.Fills = fillsOf(landed.Fills, g.forced())

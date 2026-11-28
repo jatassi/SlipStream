@@ -121,6 +121,8 @@ export const starter: TargetsTarget = {
   id: "0199e1f2-7a3b-7c4d-8e5f-6a7b8c9d0e1f",
   name: "1080p",
   createdAt: "2026-10-17T09:00:00Z",
+  conversion: null,
+  defaultKbps: 2185,
   tiers: [
     ["bluray-1080p", "remux-1080p"],
     ["hdtv-1080p", "webrip-1080p", "webdl-1080p"],
@@ -152,6 +154,8 @@ export const keeper: TargetsTarget = {
   id: "0199e1f2-7a3b-7c4d-8e5f-6a7b8c9d0e2a",
   name: "2160p HDR",
   createdAt: "2026-10-17T09:05:00Z",
+  conversion: null,
+  defaultKbps: 4791,
   tiers: [["remux-2160p"], ["webdl-2160p", "webrip-2160p"]],
   cutoff: "webdl-2160p",
   filters: [{ attribute: "hdr", mode: "only", values: ["HDR10"] }],

@@ -19,7 +19,7 @@ import type { Part } from "../parts-order";
 
 const params = new URLSearchParams(location.search);
 const fixture = fixtureOf(Number(params.get("fixture") ?? "2"));
-const landing = landingOf(fixture.topology, fixture.board, new Set(), fixtureClock);
+const landing = landingOf(fixture.topology, fixture.board, new Set(), new Map(), fixtureClock);
 
 const [first, second] = fixture.traffic;
 takeTraffic(first);

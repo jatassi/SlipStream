@@ -12,12 +12,13 @@ import {
 import { getListMetadataProvidersQueryKey } from "../api/gen/query/metadata/metadata";
 import { backupEffects } from "./backup-effects";
 import { withCalendar } from "./calendar-effects";
+import { conversionEffects } from "./conversion-effects";
 import { downloadEffects } from "./download-effects";
 import { historyEffects } from "./history-effects";
 import { withHome } from "./home-effects";
 import { indexerEffects } from "./indexer-effects";
-import { libraryEffects, renameCounts } from "./library-effects";
 // oxlint-disable-next-line import/max-dependencies -- every product event's effects meet in this one table
+import { libraryEffects, renameCounts } from "./library-effects";
 import { mediaServerEffects } from "./media-server-effects";
 import { moveEffects } from "./move-effects";
 import { notificationEffects } from "./notification-effects";
@@ -42,6 +43,7 @@ export const effects = withCalendar(
     ...targetsEffects,
     ...mediaServerEffects,
     ...moveEffects,
+    ...conversionEffects,
     ...notificationEffects,
     ...historyEffects,
     ...searchEffects,

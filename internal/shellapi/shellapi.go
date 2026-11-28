@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/jatassi/slipstream/internal/api"
+	"github.com/jatassi/slipstream/internal/conversions"
 	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/health"
@@ -25,10 +26,11 @@ type Shell interface {
 	Health() (*health.Health, bool)
 	Imports() (*imports.Imports, bool)
 	Reconciling() (*reconciling.Service, bool)
+	Conversions() (*conversions.Conversions, bool)
 }
 
 type counts struct {
-	Activity    int                       `json:"activity" minimum:"0" doc:"The Grabs neither imported nor failed"`
+	Activity    int                       `json:"activity" minimum:"0" doc:"The Grabs neither imported nor failed, and the Conversions running"`
 	Downloads   downloadclients.Aggregate `json:"downloads" doc:"Every download at once; torrents.live keeps it current"`
 	Alerts      alerts                    `json:"alerts"`
 	Pending     int                       `json:"pendingImports" minimum:"0" doc:"The Imports, of any source, with a file waiting for the Admin, ignored ones aside"`
@@ -42,15 +44,22 @@ type banner struct {
 }
 
 type alerts struct {
-	Nodes  *string `json:"nodes" enum:"warn,fail" doc:"warn while a Node has been offline longer than a brief drop, or the Controller is doing a Role's work for an offline Node; fail while a Node has been offline or on another version longer than the offline grace; null otherwise"`
-	Health *string `json:"health" enum:"warn,fail" doc:"The worst level across every Health category, null while nothing is wrong"`
-	Tasks  *string `json:"tasks" enum:"warn,fail" doc:"The worst level in the Scheduled tasks Health category, null while nothing is wrong"`
+	Nodes       *string `json:"nodes" enum:"warn,fail" doc:"warn while a Node has been offline longer than a brief drop, or the Controller is doing a Role's work for an offline Node; fail while a Node has been offline or on another version longer than the offline grace; null otherwise"`
+	Health      *string `json:"health" enum:"warn,fail" doc:"The worst level across every Health category, null while nothing is wrong"`
+	Tasks       *string `json:"tasks" enum:"warn,fail" doc:"The worst level in the Scheduled tasks Health category, null while nothing is wrong"`
+	Conversions *string `json:"conversions" enum:"warn,fail" doc:"fail while a Conversion failed and waits for an Admin, warn while no Node can convert one; null otherwise"`
 }
 
-func alertsOf(a nodes.Alert, h *health.Health) alerts {
+func alertsOf(a nodes.Alert, h *health.Health, c conversions.Shell) alerts {
 	out := alerts{Health: level(h.Worst()), Tasks: level(h.Worst(health.ScheduledTasksID))}
 	if a != nodes.NoAlert {
 		out.Nodes = new(a.String())
+	}
+	switch {
+	case c.Failed:
+		out.Conversions = new(health.Fail.String())
+	case c.NoNode:
+		out.Conversions = new(health.Warn.String())
 	}
 	return out
 }
@@ -80,7 +89,8 @@ func Routes(r *api.Router, sh Shell) {
 		watch, healthOK := sh.Health()
 		pending, importsOK := sh.Imports()
 		keeper, reconcilingOK := sh.Reconciling()
-		if !grabsOK || !nodesOK || !clientsOK || !healthOK || !importsOK || !reconcilingOK {
+		converts, conversionsOK := sh.Conversions()
+		if !grabsOK || !nodesOK || !clientsOK || !healthOK || !importsOK || !reconcilingOK || !conversionsOK {
 			panic("shellapi: getCounts ran on a Node that is no Controller")
 		}
 		n, err := g.InFlight(ctx, by)
@@ -99,7 +109,11 @@ func Routes(r *api.Router, sh Shell) {
 		if err != nil {
 			return nil, err
 		}
-		out := counts{Activity: n, Downloads: downloads, Alerts: alertsOf(roster.Board().Alert(), watch), Pending: waiting}
+		c, err := converts.Shell(ctx)
+		if err != nil {
+			return nil, err
+		}
+		out := counts{Activity: n + c.Running, Downloads: downloads, Alerts: alertsOf(roster.Board().Alert(), watch, c), Pending: waiting}
 		if b != nil {
 			out.Reconciling = api.Some(banner{Rehome: b.Rehome, Nodes: b.Nodes, Roots: b.Roots})
 		}

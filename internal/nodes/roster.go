@@ -465,6 +465,9 @@ func (s *Service) situation(ctx context.Context, r storage.Reader[file], board *
 	}
 	sit := Situation{Controller: s.self, Seats: seats, Targets: map[role.Name][]Target{}}
 	for _, name := range role.Names() {
+		if s.owners[name].Requeues {
+			sit.Requeues = sit.Requeues.With(name)
+		}
 		if !name.Rule().Reach {
 			continue
 		}

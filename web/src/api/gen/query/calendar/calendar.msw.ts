@@ -29,6 +29,7 @@ export const getGetCalendarResponseMock = (
             "failed",
             "missing",
             "downloading",
+            "converting",
             "upgradable",
             "unreleased",
             "met",

@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/jatassi/slipstream/internal/release"
+	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/works"
 )
@@ -92,6 +93,15 @@ func (q *Queries) DefaultProfile(ctx context.Context, contentType works.TypeID) 
 		&i.Editions,
 	)
 	return i, err
+}
+
+const deleteConversion = `-- name: DeleteConversion :exec
+DELETE FROM targets_conversion WHERE target_id = ?1
+`
+
+func (q *Queries) DeleteConversion(ctx context.Context, targetID TargetID) error {
+	_, err := q.db.ExecContext(ctx, deleteConversion, targetID)
+	return err
 }
 
 const deleteCut = `-- name: DeleteCut :exec
@@ -209,6 +219,31 @@ type FoldTargetNameParams struct {
 func (q *Queries) FoldTargetName(ctx context.Context, arg FoldTargetNameParams) error {
 	_, err := q.db.ExecContext(ctx, foldTargetName, arg.Name, arg.NameFolded, arg.ID)
 	return err
+}
+
+const getConversion = `-- name: GetConversion :one
+SELECT target_id, version, video_codec, max_height, bitrate_kbps, bit_depth, "range", keep_dv, curve, audio, drop_commentary, container, run_on_node_id FROM targets_conversion WHERE target_id = ?1
+`
+
+func (q *Queries) GetConversion(ctx context.Context, targetID TargetID) (TargetsConversion, error) {
+	row := q.db.QueryRowContext(ctx, getConversion, targetID)
+	var i TargetsConversion
+	err := row.Scan(
+		&i.TargetID,
+		&i.Version,
+		&i.VideoCodec,
+		&i.MaxHeight,
+		&i.BitrateKbps,
+		&i.BitDepth,
+		&i.Range,
+		&i.KeepDv,
+		&i.Curve,
+		&i.Audio,
+		&i.DropCommentary,
+		&i.Container,
+		&i.RunOnNodeID,
+	)
+	return i, err
 }
 
 const getProfile = `-- name: GetProfile :one
@@ -418,15 +453,18 @@ func (q *Queries) InsertProfileLanguage(ctx context.Context, arg InsertProfileLa
 }
 
 const insertProfileTarget = `-- name: InsertProfileTarget :exec
-INSERT INTO targets_profile_target (profile_id, position, target_id, sourcing)
-VALUES (?1, ?2, ?3, ?4)
+INSERT INTO targets_profile_target (profile_id, position, target_id, sourcing, from_target_id, grace_seconds)
+VALUES (?1, ?2, ?3, ?4, ?5,
+    ?6)
 `
 
 type InsertProfileTargetParams struct {
-	ProfileID ProfileID
-	Position  int64
-	TargetID  TargetID
-	Sourcing  Sourcing
+	ProfileID    ProfileID
+	Position     int64
+	TargetID     TargetID
+	Sourcing     Sourcing
+	FromTargetID TargetID
+	GraceSeconds *int64
 }
 
 func (q *Queries) InsertProfileTarget(ctx context.Context, arg InsertProfileTargetParams) error {
@@ -435,6 +473,8 @@ func (q *Queries) InsertProfileTarget(ctx context.Context, arg InsertProfileTarg
 		arg.Position,
 		arg.TargetID,
 		arg.Sourcing,
+		arg.FromTargetID,
+		arg.GraceSeconds,
 	)
 	return err
 }
@@ -562,6 +602,47 @@ func (q *Queries) InsertWantsCut(ctx context.Context, arg InsertWantsCutParams) 
 	return err
 }
 
+const listConversions = `-- name: ListConversions :many
+SELECT target_id, version, video_codec, max_height, bitrate_kbps, bit_depth, "range", keep_dv, curve, audio, drop_commentary, container, run_on_node_id FROM targets_conversion ORDER BY target_id
+`
+
+func (q *Queries) ListConversions(ctx context.Context) ([]TargetsConversion, error) {
+	rows, err := q.db.QueryContext(ctx, listConversions)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []TargetsConversion
+	for rows.Next() {
+		var i TargetsConversion
+		if err := rows.Scan(
+			&i.TargetID,
+			&i.Version,
+			&i.VideoCodec,
+			&i.MaxHeight,
+			&i.BitrateKbps,
+			&i.BitDepth,
+			&i.Range,
+			&i.KeepDv,
+			&i.Curve,
+			&i.Audio,
+			&i.DropCommentary,
+			&i.Container,
+			&i.RunOnNodeID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listCutAliases = `-- name: ListCutAliases :many
 SELECT cut, position, alias FROM targets_cut_alias ORDER BY cut, position
 `
@@ -644,7 +725,7 @@ func (q *Queries) ListCutsOfProfile(ctx context.Context, profileID ProfileID) ([
 }
 
 const listEntriesOfProfile = `-- name: ListEntriesOfProfile :many
-SELECT profile_id, position, target_id, sourcing FROM targets_profile_target WHERE profile_id = ?1 ORDER BY position
+SELECT profile_id, position, target_id, sourcing, from_target_id, grace_seconds FROM targets_profile_target WHERE profile_id = ?1 ORDER BY position
 `
 
 func (q *Queries) ListEntriesOfProfile(ctx context.Context, profileID ProfileID) ([]TargetsProfileTarget, error) {
@@ -661,6 +742,8 @@ func (q *Queries) ListEntriesOfProfile(ctx context.Context, profileID ProfileID)
 			&i.Position,
 			&i.TargetID,
 			&i.Sourcing,
+			&i.FromTargetID,
+			&i.GraceSeconds,
 		); err != nil {
 			return nil, err
 		}
@@ -953,7 +1036,7 @@ func (q *Queries) ListProfileLanguages(ctx context.Context) ([]TargetsProfileLan
 }
 
 const listProfileTargets = `-- name: ListProfileTargets :many
-SELECT profile_id, position, target_id, sourcing FROM targets_profile_target ORDER BY profile_id, position
+SELECT profile_id, position, target_id, sourcing, from_target_id, grace_seconds FROM targets_profile_target ORDER BY profile_id, position
 `
 
 func (q *Queries) ListProfileTargets(ctx context.Context) ([]TargetsProfileTarget, error) {
@@ -970,6 +1053,8 @@ func (q *Queries) ListProfileTargets(ctx context.Context) ([]TargetsProfileTarge
 			&i.Position,
 			&i.TargetID,
 			&i.Sourcing,
+			&i.FromTargetID,
+			&i.GraceSeconds,
 		); err != nil {
 			return nil, err
 		}
@@ -1007,6 +1092,36 @@ func (q *Queries) ListProfiles(ctx context.Context) ([]TargetsProfile, error) {
 			return nil, err
 		}
 		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listProfilesMaking = `-- name: ListProfilesMaking :many
+SELECT DISTINCT p.name FROM targets_profile_target pt
+JOIN targets_profile p ON p.id = pt.profile_id
+WHERE pt.target_id = ?1 AND pt.sourcing <> 'download'
+ORDER BY p.name
+`
+
+func (q *Queries) ListProfilesMaking(ctx context.Context, targetID TargetID) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, listProfilesMaking, targetID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			return nil, err
+		}
+		items = append(items, name)
 	}
 	if err := rows.Close(); err != nil {
 		return nil, err
@@ -1453,6 +1568,53 @@ func (q *Queries) ProfileNameTakenByOther(ctx context.Context, arg ProfileNameTa
 	var exists bool
 	err := row.Scan(&exists)
 	return exists, err
+}
+
+const putConversion = `-- name: PutConversion :exec
+INSERT INTO targets_conversion (target_id, version, video_codec, max_height, bitrate_kbps, bit_depth, range, keep_dv, curve, audio,
+    drop_commentary, container, run_on_node_id)
+VALUES (?1, ?2, ?3, ?4, ?5, ?6,
+    ?7, ?8, ?9, ?10, ?11, ?12,
+    ?13)
+ON CONFLICT (target_id) DO UPDATE SET version = excluded.version, video_codec = excluded.video_codec, max_height = excluded.max_height,
+    bitrate_kbps = excluded.bitrate_kbps, bit_depth = excluded.bit_depth, range = excluded.range, keep_dv = excluded.keep_dv,
+    curve = excluded.curve, audio = excluded.audio, drop_commentary = excluded.drop_commentary, container = excluded.container,
+    run_on_node_id = excluded.run_on_node_id
+`
+
+type PutConversionParams struct {
+	TargetID       TargetID
+	Version        int64
+	VideoCodec     string
+	MaxHeight      int64
+	BitrateKbps    int64
+	BitDepth       int64
+	Range          string
+	KeepDv         bool
+	Curve          string
+	Audio          string
+	DropCommentary bool
+	Container      string
+	RunOnNodeID    role.NodeID
+}
+
+func (q *Queries) PutConversion(ctx context.Context, arg PutConversionParams) error {
+	_, err := q.db.ExecContext(ctx, putConversion,
+		arg.TargetID,
+		arg.Version,
+		arg.VideoCodec,
+		arg.MaxHeight,
+		arg.BitrateKbps,
+		arg.BitDepth,
+		arg.Range,
+		arg.KeepDv,
+		arg.Curve,
+		arg.Audio,
+		arg.DropCommentary,
+		arg.Container,
+		arg.RunOnNodeID,
+	)
+	return err
 }
 
 const renameCut = `-- name: RenameCut :exec

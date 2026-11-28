@@ -8,6 +8,7 @@ import (
 
 	"github.com/jatassi/slipstream/internal/backups"
 	"github.com/jatassi/slipstream/internal/calendar"
+	"github.com/jatassi/slipstream/internal/conversions"
 	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/firstrun"
@@ -380,6 +381,14 @@ func (s surfaceNode) Moves() (*moves.Moves, bool) {
 		return nil, false
 	}
 	return h.moves, true
+}
+
+func (s surfaceNode) Conversions() (*conversions.Conversions, bool) {
+	h := s.n.half.Load()
+	if h == nil || h.conversions == nil {
+		return nil, false
+	}
+	return h.conversions, true
 }
 
 func (s surfaceNode) MediaServers() (mediaservers.Service, bool) {

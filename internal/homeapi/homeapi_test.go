@@ -15,6 +15,7 @@ import (
 	"github.com/jatassi/slipstream/internal/api/ownertest"
 	"github.com/jatassi/slipstream/internal/bencode"
 	"github.com/jatassi/slipstream/internal/contenttype/contenttypetest"
+	"github.com/jatassi/slipstream/internal/conversions"
 	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/grabs"
@@ -124,7 +125,7 @@ type world struct {
 func newWorld(t *testing.T) *world {
 	ctx := t.Context()
 	lib := storagetest.Library(t, secret.Schema(), identity.Schema(), nodes.Schema(), role.LibrarySchema(), works.Schema(), targets.Schema(),
-		roots.Schema(), downloadclients.Schema(), grabs.Schema(), indexers.Schema(), files.Schema(), transfers.LibrarySchema(), imports.Schema(), home.Schema())
+		roots.Schema(), downloadclients.Schema(), grabs.Schema(), indexers.Schema(), files.Schema(), conversions.Schema(), transfers.LibrarySchema(), imports.Schema(), home.Schema())
 	fx := contenttypetest.New()
 	film := films{fx}
 	w := &world{lib: lib, fx: fx, r: roster{self: role.NodeID{UUID: storage.NewUUID()}, away: role.NodeID{UUID: storage.NewUUID()}}}

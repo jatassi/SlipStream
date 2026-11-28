@@ -96,6 +96,7 @@ type World struct {
 	rehomed  chan struct{}
 	mu       sync.Mutex
 	changed  []mediaservers.Changed
+	touched  int
 	sessions []mediaservers.SessionsChanged
 	plays    []mediaservers.PlaysChanged
 	// hub carries the events Health follows.
@@ -165,6 +166,11 @@ func New(t *testing.T) *World {
 			MyAccessChanged: mediaservers.MyAccessChangedEvent.Bind(w.hub),
 		},
 		Touch: w.links.touch,
+		Touched: func() {
+			w.mu.Lock()
+			defer w.mu.Unlock()
+			w.touched++
+		},
 		Facts: w.links.factsOf,
 		Zone:  time.UTC,
 		Log:   log,
@@ -621,6 +627,30 @@ func (w *World) filePlaces(_ context.Context, _ storage.Reader[storage.Library],
 
 // Moves is the Controller's Media Servers, for the calls a Move makes.
 func (w *World) Moves() *mediaservers.MediaServers { return w.ms.Load() }
+
+// Touched is how many times the Media Servers told Converting's holders
+// that which servers pause them changed.
+func (w *World) Touched() int {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.touched
+}
+
+// TranscodingOn is every server that pauses node's Conversions, as
+// conversions reads it.
+func (w *World) TranscodingOn(t *testing.T, node role.NodeID) []mediaservers.Transcoding {
+	t.Helper()
+	var out []mediaservers.Transcoding
+	err := w.Lib.Read(t.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {
+		var err error
+		out, err = w.ms.Load().TranscodingOn(ctx, r, node)
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return out
+}
 
 // Exposure is what server id publishes, as S51 (Reachability diagnostic)
 // reads it.

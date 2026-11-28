@@ -5,4 +5,5 @@ export type ListHistoryGroupsItem =
   | "subtitles"
   | "health"
   | "backups"
-  | "moves";
+  | "moves"
+  | "conversions";

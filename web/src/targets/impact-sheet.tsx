@@ -130,8 +130,9 @@ function ImpactSheet({ state: { showing, onSave, onClose } }: { state: ImpactShe
 
 export function useImpactSheet(): {
   readonly save: (change: ImpactChange) => Promise<void>;
+  readonly saveFrom: (change: ImpactChange, impact: TargetsImpact) => Promise<void>;
   readonly sheet: ReactElement;
 } {
-  const { save, sheet } = useImpactSave();
-  return { save, sheet: <ImpactSheet state={sheet} /> };
+  const { save, saveFrom, sheet } = useImpactSave();
+  return { save, saveFrom, sheet: <ImpactSheet state={sheet} /> };
 }

@@ -36,4 +36,5 @@ export type ImportsReasonCode =
   | "removed"
   | "canceled"
   | "blocklisted"
-  | "work_deleted";
+  | "work_deleted"
+  | "conversion_canceled";

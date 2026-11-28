@@ -105,7 +105,7 @@ type listInput struct {
 	Before      int64     `query:"before" minimum:"1" doc:"Only entries with a smaller id: the next member of the previous page; left out, the newest"`
 	Limit       int       `query:"limit" minimum:"1" maximum:"100" default:"50"`
 	ContentType string    `query:"contentType" pattern:"^[a-z][a-z0-9]{1,15}$" doc:"Only entries about this Content Type's Works; left out, every entry, Health included"`
-	Groups      []string  `query:"groups" enum:"grabs,imports,library,subtitles,health,backups,moves" doc:"Only these groups; left out, all seven"`
+	Groups      []string  `query:"groups" enum:"grabs,imports,library,subtitles,health,backups,moves,conversions" doc:"Only these groups; left out, all eight"`
 	Kinds       []string  `query:"kinds" doc:"A comma list of the kinds GET /history/kinds lists. Each kind narrows its own group, and groups, when given, must include that group"`
 	Since       time.Time `query:"since" doc:"Only entries captured at or after this instant"`
 	Work        string    `query:"work" format:"uuid" doc:"Only entries about this Work"`
@@ -121,7 +121,7 @@ type listOutput struct{ Body listed }
 type listEntry struct {
 	ID    int64                     `json:"id"`
 	Kind  string                    `json:"kind" doc:"A kind GET /history/kinds lists"`
-	Group string                    `json:"group" enum:"grabs,imports,library,subtitles,health,backups,moves"`
+	Group string                    `json:"group" enum:"grabs,imports,library,subtitles,health,backups,moves,conversions"`
 	At    time.Time                 `json:"at" doc:"When it was captured"`
 	Words string                    `json:"words" doc:"Such as Imported 10 episodes of Severance"`
 	Tone  string                    `json:"tone" enum:"info,good,warn,fail"`
@@ -404,7 +404,7 @@ type kindsAnswer struct {
 }
 
 type group struct {
-	Group string `json:"group" enum:"grabs,imports,library,subtitles,health,backups,moves"`
+	Group string `json:"group" enum:"grabs,imports,library,subtitles,health,backups,moves,conversions"`
 	Label string `json:"label"`
 	Kinds []kind `json:"kinds" nullable:"false"`
 }

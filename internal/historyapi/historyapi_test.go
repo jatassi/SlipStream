@@ -18,6 +18,7 @@ import (
 	"github.com/jatassi/slipstream/internal/api"
 	"github.com/jatassi/slipstream/internal/api/ownertest"
 	"github.com/jatassi/slipstream/internal/contenttype/contenttypetest"
+	"github.com/jatassi/slipstream/internal/conversions"
 	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/grabs"
@@ -133,7 +134,7 @@ func over(t *testing.T, owner notificationstest.Owner, f func(t *testing.T, w *w
 	synctest.Test(t, func(t *testing.T) {
 		ctx := t.Context()
 		lib := storagetest.Library(t, secret.Schema(), identity.Schema(), mail.Schema(), nodes.Schema(), works.Schema(), targets.Schema(),
-			roots.Schema(), downloadclients.Schema(), grabs.Schema(), indexers.Schema(), files.Schema(), imports.Schema(),
+			roots.Schema(), downloadclients.Schema(), grabs.Schema(), indexers.Schema(), files.Schema(), conversions.Schema(), imports.Schema(),
 			health.Schema(), history.Schema(), notifications.Schema())
 		nw := notificationstest.Over(t, lib, filepath.Join(t.TempDir(), secret.KeyFile), notifications.DefaultTimings(),
 			owner)

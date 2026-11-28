@@ -132,7 +132,7 @@ func (b *Builder) commands(c Capture) []byte {
 		fmt.Fprintf(&s, "cat > %s <<'EOF'\n%sEOF\n", f.name, f.text)
 	}
 	for _, st := range r.steps {
-		s.WriteString(shell(append([]string{st.tool}, st.args...)) + "\n")
+		s.WriteString(shell(append([]string{string(st.Tool)}, st.Args...)) + "\n")
 	}
 	for _, p := range probes {
 		fmt.Fprintf(&s, "ffprobe %s %s > %s%s\n", p.args, r.out, c.Name, p.suffix)

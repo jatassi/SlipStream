@@ -69,8 +69,45 @@ export const getUpdateCutResponseMock = (
   },
   impact: {
     downloading: faker.number.int({ min: 0 }),
+    made: {
+      bytes: faker.number.int({ min: 0 }),
+      files: faker.number.int({ min: 0 }),
+      matching: faker.number.int({ min: 0 }),
+      nodes: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => faker.string.alpha({ length: { min: 10, max: 20 } }),
+      ),
+      rows: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => ({
+          addedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+          bytes: faker.number.int({ min: 0 }),
+          files: faker.number.int({ min: 0 }),
+          seconds: faker.number.int({ min: 0 }),
+          title: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          workId: faker.string.uuid(),
+        }),
+      ),
+      seconds: faker.number.int({ min: 0 }),
+      unconvertible: Array.from(
+        { length: faker.number.int({ min: 1, max: 10 }) },
+        (_, i) => i + 1,
+      ).map(() => faker.string.uuid()),
+      works: faker.number.int({ min: 0 }),
+    },
     newlyWanted: faker.number.int({ min: 0 }),
     ownList: faker.number.int({ min: 0 }),
+    remake: {
+      older: faker.number.int({ min: 0 }),
+      rows: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => ({
+          addedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+          bytes: faker.number.int({ min: 0 }),
+          files: faker.number.int({ min: 0 }),
+          seconds: faker.number.int({ min: 0 }),
+          title: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          workId: faker.string.uuid(),
+        }),
+      ),
+    },
     renamed: faker.number.int({ min: 0 }),
     renames: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
       () => ({
@@ -151,7 +188,15 @@ export const getListProfilesResponseMock = (
       name: faker.string.alpha({ length: { min: 10, max: 20 } }),
       targets: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
         () => ({
-          sourcing: faker.helpers.arrayElement(["download"] as const),
+          ...(faker.datatype.boolean() ? { fromTargetId: faker.string.uuid() } : {}),
+          ...(faker.datatype.boolean()
+            ? { graceSeconds: faker.number.int({ min: 3600, max: 7776000 }) }
+            : {}),
+          sourcing: faker.helpers.arrayElement([
+            "download",
+            "derive",
+            "download_then_derive",
+          ] as const),
           targetId: faker.string.uuid(),
         }),
       ),
@@ -201,7 +246,11 @@ export const getCreateProfileResponseMock = (
   name: faker.string.alpha({ length: { min: 10, max: 20 } }),
   targets: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
     () => ({
-      sourcing: faker.helpers.arrayElement(["download"] as const),
+      ...(faker.datatype.boolean() ? { fromTargetId: faker.string.uuid() } : {}),
+      ...(faker.datatype.boolean()
+        ? { graceSeconds: faker.number.int({ min: 3600, max: 7776000 }) }
+        : {}),
+      sourcing: faker.helpers.arrayElement(["download", "derive", "download_then_derive"] as const),
       targetId: faker.string.uuid(),
     }),
   ),
@@ -233,8 +282,45 @@ export const getDeleteProfileResponseMock = (
 ): TargetsProfileChange => ({
   impact: {
     downloading: faker.number.int({ min: 0 }),
+    made: {
+      bytes: faker.number.int({ min: 0 }),
+      files: faker.number.int({ min: 0 }),
+      matching: faker.number.int({ min: 0 }),
+      nodes: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => faker.string.alpha({ length: { min: 10, max: 20 } }),
+      ),
+      rows: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => ({
+          addedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+          bytes: faker.number.int({ min: 0 }),
+          files: faker.number.int({ min: 0 }),
+          seconds: faker.number.int({ min: 0 }),
+          title: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          workId: faker.string.uuid(),
+        }),
+      ),
+      seconds: faker.number.int({ min: 0 }),
+      unconvertible: Array.from(
+        { length: faker.number.int({ min: 1, max: 10 }) },
+        (_, i) => i + 1,
+      ).map(() => faker.string.uuid()),
+      works: faker.number.int({ min: 0 }),
+    },
     newlyWanted: faker.number.int({ min: 0 }),
     ownList: faker.number.int({ min: 0 }),
+    remake: {
+      older: faker.number.int({ min: 0 }),
+      rows: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => ({
+          addedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+          bytes: faker.number.int({ min: 0 }),
+          files: faker.number.int({ min: 0 }),
+          seconds: faker.number.int({ min: 0 }),
+          title: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          workId: faker.string.uuid(),
+        }),
+      ),
+    },
     renamed: faker.number.int({ min: 0 }),
     renames: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
       () => ({
@@ -289,7 +375,15 @@ export const getDeleteProfileResponseMock = (
     name: faker.string.alpha({ length: { min: 10, max: 20 } }),
     targets: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
       () => ({
-        sourcing: faker.helpers.arrayElement(["download"] as const),
+        ...(faker.datatype.boolean() ? { fromTargetId: faker.string.uuid() } : {}),
+        ...(faker.datatype.boolean()
+          ? { graceSeconds: faker.number.int({ min: 3600, max: 7776000 }) }
+          : {}),
+        sourcing: faker.helpers.arrayElement([
+          "download",
+          "derive",
+          "download_then_derive",
+        ] as const),
         targetId: faker.string.uuid(),
       }),
     ),
@@ -348,7 +442,11 @@ export const getGetProfileResponseMock = (
   name: faker.string.alpha({ length: { min: 10, max: 20 } }),
   targets: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
     () => ({
-      sourcing: faker.helpers.arrayElement(["download"] as const),
+      ...(faker.datatype.boolean() ? { fromTargetId: faker.string.uuid() } : {}),
+      ...(faker.datatype.boolean()
+        ? { graceSeconds: faker.number.int({ min: 3600, max: 7776000 }) }
+        : {}),
+      sourcing: faker.helpers.arrayElement(["download", "derive", "download_then_derive"] as const),
       targetId: faker.string.uuid(),
     }),
   ),
@@ -380,8 +478,45 @@ export const getUpdateProfileResponseMock = (
 ): TargetsProfileChange => ({
   impact: {
     downloading: faker.number.int({ min: 0 }),
+    made: {
+      bytes: faker.number.int({ min: 0 }),
+      files: faker.number.int({ min: 0 }),
+      matching: faker.number.int({ min: 0 }),
+      nodes: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => faker.string.alpha({ length: { min: 10, max: 20 } }),
+      ),
+      rows: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => ({
+          addedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+          bytes: faker.number.int({ min: 0 }),
+          files: faker.number.int({ min: 0 }),
+          seconds: faker.number.int({ min: 0 }),
+          title: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          workId: faker.string.uuid(),
+        }),
+      ),
+      seconds: faker.number.int({ min: 0 }),
+      unconvertible: Array.from(
+        { length: faker.number.int({ min: 1, max: 10 }) },
+        (_, i) => i + 1,
+      ).map(() => faker.string.uuid()),
+      works: faker.number.int({ min: 0 }),
+    },
     newlyWanted: faker.number.int({ min: 0 }),
     ownList: faker.number.int({ min: 0 }),
+    remake: {
+      older: faker.number.int({ min: 0 }),
+      rows: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => ({
+          addedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+          bytes: faker.number.int({ min: 0 }),
+          files: faker.number.int({ min: 0 }),
+          seconds: faker.number.int({ min: 0 }),
+          title: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          workId: faker.string.uuid(),
+        }),
+      ),
+    },
     renamed: faker.number.int({ min: 0 }),
     renames: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
       () => ({
@@ -436,7 +571,15 @@ export const getUpdateProfileResponseMock = (
     name: faker.string.alpha({ length: { min: 10, max: 20 } }),
     targets: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
       () => ({
-        sourcing: faker.helpers.arrayElement(["download"] as const),
+        ...(faker.datatype.boolean() ? { fromTargetId: faker.string.uuid() } : {}),
+        ...(faker.datatype.boolean()
+          ? { graceSeconds: faker.number.int({ min: 3600, max: 7776000 }) }
+          : {}),
+        sourcing: faker.helpers.arrayElement([
+          "download",
+          "derive",
+          "download_then_derive",
+        ] as const),
         targetId: faker.string.uuid(),
       }),
     ),
@@ -485,7 +628,11 @@ export const getMakeDefaultProfileResponseMock = (
   name: faker.string.alpha({ length: { min: 10, max: 20 } }),
   targets: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
     () => ({
-      sourcing: faker.helpers.arrayElement(["download"] as const),
+      ...(faker.datatype.boolean() ? { fromTargetId: faker.string.uuid() } : {}),
+      ...(faker.datatype.boolean()
+        ? { graceSeconds: faker.number.int({ min: 3600, max: 7776000 }) }
+        : {}),
+      sourcing: faker.helpers.arrayElement(["download", "derive", "download_then_derive"] as const),
       targetId: faker.string.uuid(),
     }),
   ),
@@ -564,8 +711,74 @@ export const getListTargetsResponseMock = (
       contains: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
         () => faker.string.uuid(),
       ),
+      conversion: faker.helpers.arrayElement([
+        {
+          audio: faker.helpers.arrayElement([
+            "copy",
+            "stereo_aac",
+            "ac3_51_and_stereo_aac",
+          ] as const),
+          causes: Array.from(
+            { length: faker.number.int({ min: 1, max: 10 }) },
+            (_, i) => i + 1,
+          ).map(() => ({
+            class: faker.helpers.arrayElement([
+              "h264_8",
+              "hevc_8",
+              "hevc_10",
+              "av1_8",
+              "av1_10",
+              "hdr10",
+              "hlg",
+              "dv5",
+              "dv81",
+              "decode_sdr",
+              "decode_hdr10",
+            ] as const),
+            count: faker.number.int({ min: 1 }),
+            node: faker.helpers.arrayElement([
+              {
+                id: faker.string.uuid(),
+                name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+              },
+              null,
+            ]),
+            notifiedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+            shape: faker.string.alpha({ length: { min: 10, max: 20 } }),
+            why: faker.helpers.arrayElement([
+              "no_role",
+              "lapsed",
+              "runs_elsewhere",
+              "pinned_elsewhere",
+              "failed_here",
+              "untested",
+              "test_failed",
+              "retesting",
+              "proof_lost",
+              "processor_off",
+              "none_online",
+              "no_holder",
+            ] as const),
+          })),
+          codec: faker.helpers.arrayElement(["h264", "hevc", "av1"] as const),
+          container: faker.helpers.arrayElement(["mkv", "mp4"] as const),
+          curve: faker.helpers.arrayElement(["bt2390", "hable", "mobius", "reinhard"] as const),
+          defaultKbps: faker.number.int({ min: 100 }),
+          depth: faker.helpers.arrayElement([8, 10] as const),
+          dropCommentary: faker.datatype.boolean(),
+          kbps: faker.number.int({ min: 100, max: 200000 }),
+          keepDolbyVision: faker.datatype.boolean(),
+          maxHeight: faker.helpers.arrayElement([2160, 1080, 720, 480] as const),
+          older: faker.number.int({ min: 0 }),
+          range: faker.helpers.arrayElement(["sdr", "hdr10", "source"] as const),
+          runOnNodeId: faker.helpers.arrayElement([faker.string.uuid(), null]),
+          version: faker.number.int({ min: 1 }),
+        },
+        null,
+      ]),
       createdAt: faker.date.past().toISOString().slice(0, 19) + "Z",
       cutoff: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      defaultKbps: faker.number.int({ min: 100 }),
       filters: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
         () => ({
           attribute: faker.helpers.arrayElement([
@@ -650,8 +863,66 @@ export const getCreateTargetResponseMock = (
   contains: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
     faker.string.uuid(),
   ),
+  conversion: faker.helpers.arrayElement([
+    {
+      audio: faker.helpers.arrayElement(["copy", "stereo_aac", "ac3_51_and_stereo_aac"] as const),
+      causes: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => ({
+          class: faker.helpers.arrayElement([
+            "h264_8",
+            "hevc_8",
+            "hevc_10",
+            "av1_8",
+            "av1_10",
+            "hdr10",
+            "hlg",
+            "dv5",
+            "dv81",
+            "decode_sdr",
+            "decode_hdr10",
+          ] as const),
+          count: faker.number.int({ min: 1 }),
+          node: faker.helpers.arrayElement([
+            { id: faker.string.uuid(), name: faker.string.alpha({ length: { min: 10, max: 20 } }) },
+            null,
+          ]),
+          notifiedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+          shape: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          why: faker.helpers.arrayElement([
+            "no_role",
+            "lapsed",
+            "runs_elsewhere",
+            "pinned_elsewhere",
+            "failed_here",
+            "untested",
+            "test_failed",
+            "retesting",
+            "proof_lost",
+            "processor_off",
+            "none_online",
+            "no_holder",
+          ] as const),
+        }),
+      ),
+      codec: faker.helpers.arrayElement(["h264", "hevc", "av1"] as const),
+      container: faker.helpers.arrayElement(["mkv", "mp4"] as const),
+      curve: faker.helpers.arrayElement(["bt2390", "hable", "mobius", "reinhard"] as const),
+      defaultKbps: faker.number.int({ min: 100 }),
+      depth: faker.helpers.arrayElement([8, 10] as const),
+      dropCommentary: faker.datatype.boolean(),
+      kbps: faker.number.int({ min: 100, max: 200000 }),
+      keepDolbyVision: faker.datatype.boolean(),
+      maxHeight: faker.helpers.arrayElement([2160, 1080, 720, 480] as const),
+      older: faker.number.int({ min: 0 }),
+      range: faker.helpers.arrayElement(["sdr", "hdr10", "source"] as const),
+      runOnNodeId: faker.helpers.arrayElement([faker.string.uuid(), null]),
+      version: faker.number.int({ min: 1 }),
+    },
+    null,
+  ]),
   createdAt: faker.date.past().toISOString().slice(0, 19) + "Z",
   cutoff: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  defaultKbps: faker.number.int({ min: 100 }),
   filters: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
     () => ({
       attribute: faker.helpers.arrayElement([
@@ -724,8 +995,66 @@ export const getGetTargetResponseMock = (
   contains: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
     faker.string.uuid(),
   ),
+  conversion: faker.helpers.arrayElement([
+    {
+      audio: faker.helpers.arrayElement(["copy", "stereo_aac", "ac3_51_and_stereo_aac"] as const),
+      causes: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => ({
+          class: faker.helpers.arrayElement([
+            "h264_8",
+            "hevc_8",
+            "hevc_10",
+            "av1_8",
+            "av1_10",
+            "hdr10",
+            "hlg",
+            "dv5",
+            "dv81",
+            "decode_sdr",
+            "decode_hdr10",
+          ] as const),
+          count: faker.number.int({ min: 1 }),
+          node: faker.helpers.arrayElement([
+            { id: faker.string.uuid(), name: faker.string.alpha({ length: { min: 10, max: 20 } }) },
+            null,
+          ]),
+          notifiedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+          shape: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          why: faker.helpers.arrayElement([
+            "no_role",
+            "lapsed",
+            "runs_elsewhere",
+            "pinned_elsewhere",
+            "failed_here",
+            "untested",
+            "test_failed",
+            "retesting",
+            "proof_lost",
+            "processor_off",
+            "none_online",
+            "no_holder",
+          ] as const),
+        }),
+      ),
+      codec: faker.helpers.arrayElement(["h264", "hevc", "av1"] as const),
+      container: faker.helpers.arrayElement(["mkv", "mp4"] as const),
+      curve: faker.helpers.arrayElement(["bt2390", "hable", "mobius", "reinhard"] as const),
+      defaultKbps: faker.number.int({ min: 100 }),
+      depth: faker.helpers.arrayElement([8, 10] as const),
+      dropCommentary: faker.datatype.boolean(),
+      kbps: faker.number.int({ min: 100, max: 200000 }),
+      keepDolbyVision: faker.datatype.boolean(),
+      maxHeight: faker.helpers.arrayElement([2160, 1080, 720, 480] as const),
+      older: faker.number.int({ min: 0 }),
+      range: faker.helpers.arrayElement(["sdr", "hdr10", "source"] as const),
+      runOnNodeId: faker.helpers.arrayElement([faker.string.uuid(), null]),
+      version: faker.number.int({ min: 1 }),
+    },
+    null,
+  ]),
   createdAt: faker.date.past().toISOString().slice(0, 19) + "Z",
   cutoff: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  defaultKbps: faker.number.int({ min: 100 }),
   filters: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
     () => ({
       attribute: faker.helpers.arrayElement([
@@ -797,8 +1126,45 @@ export const getUpdateTargetResponseMock = (
 ): TargetsTargetChange => ({
   impact: {
     downloading: faker.number.int({ min: 0 }),
+    made: {
+      bytes: faker.number.int({ min: 0 }),
+      files: faker.number.int({ min: 0 }),
+      matching: faker.number.int({ min: 0 }),
+      nodes: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => faker.string.alpha({ length: { min: 10, max: 20 } }),
+      ),
+      rows: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => ({
+          addedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+          bytes: faker.number.int({ min: 0 }),
+          files: faker.number.int({ min: 0 }),
+          seconds: faker.number.int({ min: 0 }),
+          title: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          workId: faker.string.uuid(),
+        }),
+      ),
+      seconds: faker.number.int({ min: 0 }),
+      unconvertible: Array.from(
+        { length: faker.number.int({ min: 1, max: 10 }) },
+        (_, i) => i + 1,
+      ).map(() => faker.string.uuid()),
+      works: faker.number.int({ min: 0 }),
+    },
     newlyWanted: faker.number.int({ min: 0 }),
     ownList: faker.number.int({ min: 0 }),
+    remake: {
+      older: faker.number.int({ min: 0 }),
+      rows: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => ({
+          addedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+          bytes: faker.number.int({ min: 0 }),
+          files: faker.number.int({ min: 0 }),
+          seconds: faker.number.int({ min: 0 }),
+          title: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          workId: faker.string.uuid(),
+        }),
+      ),
+    },
     renamed: faker.number.int({ min: 0 }),
     renames: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
       () => ({
@@ -838,8 +1204,69 @@ export const getUpdateTargetResponseMock = (
     contains: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
       () => faker.string.uuid(),
     ),
+    conversion: faker.helpers.arrayElement([
+      {
+        audio: faker.helpers.arrayElement(["copy", "stereo_aac", "ac3_51_and_stereo_aac"] as const),
+        causes: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+          () => ({
+            class: faker.helpers.arrayElement([
+              "h264_8",
+              "hevc_8",
+              "hevc_10",
+              "av1_8",
+              "av1_10",
+              "hdr10",
+              "hlg",
+              "dv5",
+              "dv81",
+              "decode_sdr",
+              "decode_hdr10",
+            ] as const),
+            count: faker.number.int({ min: 1 }),
+            node: faker.helpers.arrayElement([
+              {
+                id: faker.string.uuid(),
+                name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+              },
+              null,
+            ]),
+            notifiedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+            shape: faker.string.alpha({ length: { min: 10, max: 20 } }),
+            why: faker.helpers.arrayElement([
+              "no_role",
+              "lapsed",
+              "runs_elsewhere",
+              "pinned_elsewhere",
+              "failed_here",
+              "untested",
+              "test_failed",
+              "retesting",
+              "proof_lost",
+              "processor_off",
+              "none_online",
+              "no_holder",
+            ] as const),
+          }),
+        ),
+        codec: faker.helpers.arrayElement(["h264", "hevc", "av1"] as const),
+        container: faker.helpers.arrayElement(["mkv", "mp4"] as const),
+        curve: faker.helpers.arrayElement(["bt2390", "hable", "mobius", "reinhard"] as const),
+        defaultKbps: faker.number.int({ min: 100 }),
+        depth: faker.helpers.arrayElement([8, 10] as const),
+        dropCommentary: faker.datatype.boolean(),
+        kbps: faker.number.int({ min: 100, max: 200000 }),
+        keepDolbyVision: faker.datatype.boolean(),
+        maxHeight: faker.helpers.arrayElement([2160, 1080, 720, 480] as const),
+        older: faker.number.int({ min: 0 }),
+        range: faker.helpers.arrayElement(["sdr", "hdr10", "source"] as const),
+        runOnNodeId: faker.helpers.arrayElement([faker.string.uuid(), null]),
+        version: faker.number.int({ min: 1 }),
+      },
+      null,
+    ]),
     createdAt: faker.date.past().toISOString().slice(0, 19) + "Z",
     cutoff: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    defaultKbps: faker.number.int({ min: 100 }),
     filters: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
       () => ({
         attribute: faker.helpers.arrayElement([
@@ -918,8 +1345,66 @@ export const getDuplicateTargetResponseMock = (
   contains: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
     faker.string.uuid(),
   ),
+  conversion: faker.helpers.arrayElement([
+    {
+      audio: faker.helpers.arrayElement(["copy", "stereo_aac", "ac3_51_and_stereo_aac"] as const),
+      causes: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => ({
+          class: faker.helpers.arrayElement([
+            "h264_8",
+            "hevc_8",
+            "hevc_10",
+            "av1_8",
+            "av1_10",
+            "hdr10",
+            "hlg",
+            "dv5",
+            "dv81",
+            "decode_sdr",
+            "decode_hdr10",
+          ] as const),
+          count: faker.number.int({ min: 1 }),
+          node: faker.helpers.arrayElement([
+            { id: faker.string.uuid(), name: faker.string.alpha({ length: { min: 10, max: 20 } }) },
+            null,
+          ]),
+          notifiedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+          shape: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          why: faker.helpers.arrayElement([
+            "no_role",
+            "lapsed",
+            "runs_elsewhere",
+            "pinned_elsewhere",
+            "failed_here",
+            "untested",
+            "test_failed",
+            "retesting",
+            "proof_lost",
+            "processor_off",
+            "none_online",
+            "no_holder",
+          ] as const),
+        }),
+      ),
+      codec: faker.helpers.arrayElement(["h264", "hevc", "av1"] as const),
+      container: faker.helpers.arrayElement(["mkv", "mp4"] as const),
+      curve: faker.helpers.arrayElement(["bt2390", "hable", "mobius", "reinhard"] as const),
+      defaultKbps: faker.number.int({ min: 100 }),
+      depth: faker.helpers.arrayElement([8, 10] as const),
+      dropCommentary: faker.datatype.boolean(),
+      kbps: faker.number.int({ min: 100, max: 200000 }),
+      keepDolbyVision: faker.datatype.boolean(),
+      maxHeight: faker.helpers.arrayElement([2160, 1080, 720, 480] as const),
+      older: faker.number.int({ min: 0 }),
+      range: faker.helpers.arrayElement(["sdr", "hdr10", "source"] as const),
+      runOnNodeId: faker.helpers.arrayElement([faker.string.uuid(), null]),
+      version: faker.number.int({ min: 1 }),
+    },
+    null,
+  ]),
   createdAt: faker.date.past().toISOString().slice(0, 19) + "Z",
   cutoff: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  defaultKbps: faker.number.int({ min: 100 }),
   filters: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
     () => ({
       attribute: faker.helpers.arrayElement([
@@ -1042,8 +1527,45 @@ export const getSetWorkWantsResponseMock = (
 ): TargetsWantsChange => ({
   impact: {
     downloading: faker.number.int({ min: 0 }),
+    made: {
+      bytes: faker.number.int({ min: 0 }),
+      files: faker.number.int({ min: 0 }),
+      matching: faker.number.int({ min: 0 }),
+      nodes: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => faker.string.alpha({ length: { min: 10, max: 20 } }),
+      ),
+      rows: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => ({
+          addedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+          bytes: faker.number.int({ min: 0 }),
+          files: faker.number.int({ min: 0 }),
+          seconds: faker.number.int({ min: 0 }),
+          title: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          workId: faker.string.uuid(),
+        }),
+      ),
+      seconds: faker.number.int({ min: 0 }),
+      unconvertible: Array.from(
+        { length: faker.number.int({ min: 1, max: 10 }) },
+        (_, i) => i + 1,
+      ).map(() => faker.string.uuid()),
+      works: faker.number.int({ min: 0 }),
+    },
     newlyWanted: faker.number.int({ min: 0 }),
     ownList: faker.number.int({ min: 0 }),
+    remake: {
+      older: faker.number.int({ min: 0 }),
+      rows: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => ({
+          addedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+          bytes: faker.number.int({ min: 0 }),
+          files: faker.number.int({ min: 0 }),
+          seconds: faker.number.int({ min: 0 }),
+          title: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          workId: faker.string.uuid(),
+        }),
+      ),
+    },
     renamed: faker.number.int({ min: 0 }),
     renames: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
       () => ({

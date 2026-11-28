@@ -39,6 +39,9 @@ const (
 	// Move copies a Work's files to another library root, or a torrent's
 	// payload to another Download Client's folder.
 	Move PurposeKind = "move"
+	// Conversion copies a Conversion's source into a Node's scratch
+	// folder, and its made file back to its root.
+	Conversion PurposeKind = "conversion"
 )
 
 // Destination is where a Transfer's files go. A root's Node is never
@@ -78,16 +81,27 @@ type DownloadFolder struct {
 	InfoHash    bencode.InfoHash
 }
 
+// Scratch is a file named Name, '/' separated, under Node's scratch
+// folder, where a Conversion reads its source. Its receiver stages in the
+// folder's .transfers/ and renames the file into place once it verifies.
+// It has no space step: placement's room check is its admission.
+type Scratch struct {
+	Node role.NodeID
+	Name string
+}
+
 func (Root) kind() string              { return rootKind }
 func (BackupDestination) kind() string { return backupKind }
 func (BackupsFolder) kind() string     { return backupsFolderKind }
 func (DownloadFolder) kind() string    { return downloadFolderKind }
+func (Scratch) kind() string           { return scratchKind }
 
 const (
 	rootKind           = "root"
 	backupKind         = "backup"
 	backupsFolderKind  = "backups_folder"
 	downloadFolderKind = "download_folder"
+	scratchKind        = "scratch"
 )
 
 // backupPlace is the place of a Backup kind and of a download folder,
@@ -161,7 +175,8 @@ const (
 	Rerouted         Code = "rerouted"
 	// FolderFailed is a Backup kind's receiver that couldn't write the
 	// Backup into its folder, out of space or refused: a copy fails rather
-	// than waiting for room.
+	// than waiting for room. A scratch destination's receiver fails with it
+	// when it can't rename the file into place.
 	FolderFailed Code = "folder_failed"
 )
 
@@ -198,6 +213,9 @@ type Purpose struct {
 	// Names is each of jobs' name in words, such as "Heat (1995)", read
 	// in rd. A job it leaves out has no name.
 	Names func(ctx context.Context, rd storage.Reader[storage.Library], jobs []string) (map[string]string, error)
+	// Yields steps a running Transfer of it behind a Normal one queued on
+	// its pair. It resumes from its verified chunks.
+	Yields bool
 }
 
 // Publisher publishes transfers.changed.
@@ -246,6 +264,9 @@ type ControllerConfig struct {
 	FoldersNoted func(node role.NodeID)
 	// Sample asks node for a fresh sample of its volumes.
 	Sample func(ctx context.Context, node role.NodeID) error
+	// ScratchVolume is the id of the volume that holds node's scratch
+	// folder, and whether it is known.
+	ScratchVolume func(node role.NodeID) (string, bool)
 	// Hub wakes the loop on the events of the inputs above that publish
 	// one: roots, volumes, Health and Nodes.
 	Hub     *live.Hub
@@ -375,6 +396,8 @@ func record(ctx context.Context, q *ledger.Queries, r Request) (id ID, failed, o
 		if d.Client != nil {
 			row.DestinationClient = d.Client[:]
 		}
+	case Scratch:
+		row.DestinationNode, row.DestinationName = d.Node, &d.Name
 	}
 	if err = q.InsertTransfer(ctx, row); err != nil {
 		return ID{}, false, false, fmt.Errorf("record the Transfer: %w", err)
@@ -437,6 +460,8 @@ func fileRow(id ID, position int, f FileRequest) ledger.InsertFileParams {
 		p.SourceFolder = &s.Folder
 	case source.Library:
 		p.Path, p.SourceRoot = &s.Rel, s.Root[:]
+	case source.Scratch:
+		p.Path = &s.Name
 	}
 	return p
 }
@@ -590,15 +615,17 @@ func destinationOf(row ledger.Transfer) Destination {
 			d.Client = (*[16]byte)(row.DestinationClient)
 		}
 		return d
+	case scratchKind:
+		return Scratch{Node: row.DestinationNode, Name: *row.DestinationName}
 	}
 	panic("transfers: a destination of no known kind")
 }
 
 // fromPath is whether f's source is a file the sender reads from its
-// disk itself: a path or a library file.
+// disk itself: a path, a library file or a scratch file.
 func (f File) fromPath() bool {
 	switch f.Source.(type) {
-	case source.Path, source.Library:
+	case source.Path, source.Library, source.Scratch:
 		return true
 	}
 	return false
@@ -619,6 +646,8 @@ func refOf(f ledger.File) (source.Ref, error) {
 		return source.Backup{Folder: *f.SourceFolder, Name: f.Name}, nil
 	case source.LibraryKind:
 		return source.Library{Root: [16]byte(f.SourceRoot), Rel: *f.Path}, nil
+	case source.ScratchKind:
+		return source.Scratch{Name: *f.Path}, nil
 	}
 	return nil, fmt.Errorf("file %d of Transfer %s has the source kind %q", f.Position, f.TransferID, f.SourceKind)
 }

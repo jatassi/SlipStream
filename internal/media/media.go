@@ -15,7 +15,9 @@ import (
 
 	"github.com/jatassi/slipstream/internal/bencode"
 	mediav1 "github.com/jatassi/slipstream/internal/pb/slipstream/media/v1"
+	"github.com/jatassi/slipstream/internal/proctree"
 	"github.com/jatassi/slipstream/internal/rpc"
+	"github.com/jatassi/slipstream/internal/storage"
 )
 
 type Prober interface {
@@ -55,7 +57,7 @@ func (f FFprobe) run(ctx context.Context, args ...string) ([]byte, error) {
 	cmd.WaitDelay = waitDelay
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
-	out, err := cmd.Output()
+	out, err := proctree.Output(cmd)
 	if ctx.Err() != nil {
 		return nil, fmt.Errorf("run ffprobe: %w", ctx.Err())
 	}
@@ -88,13 +90,19 @@ type Service struct {
 	prober   Prober
 	payloads Payloads
 	// holds is the Node's fence: whether an absolute path lies in one of
-	// its library roots or download folders once its links are followed.
+	// its library roots, download folders or its scratch folder once its
+	// links are followed.
 	holds   func(ctx context.Context, path string) bool
+	library Library
 	timings Timings
 }
 
-func NewService(p Prober, payloads Payloads, holds func(ctx context.Context, path string) bool, t Timings) *Service {
-	return &Service{prober: p, payloads: payloads, holds: holds, timings: t}
+// Library is where rel lies in root on this Node, or the call's error as
+// the Node's Storage answers it.
+type Library func(ctx context.Context, root storage.UUID, rel string) (string, error)
+
+func NewService(p Prober, payloads Payloads, holds func(ctx context.Context, path string) bool, library Library, t Timings) *Service {
+	return &Service{prober: p, payloads: payloads, holds: holds, library: library, timings: t}
 }
 
 func (s *Service) Probe(ctx context.Context, req *mediav1.ProbeRequest) (*mediav1.ProbeResponse, error) {
@@ -136,10 +144,24 @@ func (s *Service) file(ctx context.Context, req *mediav1.ProbeRequest) (string, 
 		}
 		return file, nil
 	case *mediav1.ProbeRequest_Path:
-		if !s.holds(ctx, src.Path) {
-			return "", rpc.ErrorWith(rpc.CodeFailedPrecondition, &mediav1.Outside{Path: src.Path}, src.Path+" isn't in a library root or a download folder on this Node")
+		return s.fenced(ctx, src.Path)
+	case *mediav1.ProbeRequest_Library:
+		root, err := storage.UUIDFromBytes(src.Library.GetRootId())
+		if err != nil {
+			return "", rpc.Errorf(rpc.CodeInvalidArgument, "root id: %v", err)
 		}
-		return src.Path, nil
+		file, err := s.library(ctx, root, src.Library.GetRel())
+		if err != nil {
+			return "", err
+		}
+		return s.fenced(ctx, file)
 	}
 	return "", rpc.Errorf(rpc.CodeInvalidArgument, "a probe names no file")
+}
+
+func (s *Service) fenced(ctx context.Context, path string) (string, error) {
+	if !s.holds(ctx, path) {
+		return "", rpc.ErrorWith(rpc.CodeFailedPrecondition, &mediav1.Outside{Path: path}, path+" isn't in a library root, a download folder or the scratch folder on this Node")
+	}
+	return path, nil
 }

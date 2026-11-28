@@ -1,15 +1,21 @@
-import type { TargetsEstimate } from "../api/gen/model";
+import type { TargetsEstimate, TargetsTarget } from "../api/gen/model";
 import { useGetProfileSuspense, useListTargetsSuspense } from "../api/gen/query/targets/targets";
 import { RankedList, type RankedRow, tiersOf } from "../ui/ranked-list";
 import type { SectionProps } from "./editor";
 import { PickMenu, RemoveButton } from "./list-controls";
-import type { ProfileDraft } from "./profile-draft";
+import {
+  type EntryDraft,
+  type ProfileDraft,
+  downloaded,
+  sourceLost,
+  sourcesAbove,
+} from "./profile-draft";
 import { TargetRow, containersOf } from "./profile-target-row";
 
 type Estimates = ReadonlyMap<string, TargetsEstimate>;
 
-const rowsOf = (ids: readonly string[]): RankedRow<string>[] =>
-  ids.map((id) => ({ kind: "item", id, value: id, tiedAbove: false }));
+const rowsOf = (entries: readonly EntryDraft[]): RankedRow<EntryDraft>[] =>
+  entries.map((entry) => ({ kind: "item", id: entry.targetId, value: entry, tiedAbove: false }));
 
 function WantsNothing() {
   return (
@@ -32,15 +38,49 @@ function AddTarget({ held, onPick }: { held: readonly string[]; onPick: (id: str
   );
 }
 
-function TargetRanks({
-  ids,
-  estimates,
-  onSet,
+type Ranks = {
+  readonly entries: readonly EntryDraft[];
+  readonly contentType: string;
+  readonly estimates: Estimates;
+  readonly onSet: (entries: readonly EntryDraft[]) => void;
+};
+
+function EntryRow({
+  row,
+  byId,
+  ranks: { entries, contentType, estimates, onSet },
 }: {
-  ids: readonly string[];
-  estimates: Estimates;
-  onSet: (ids: readonly string[]) => void;
+  row: EntryDraft;
+  byId: ReadonlyMap<string, TargetsTarget>;
+  ranks: Ranks;
 }) {
+  const index = entries.indexOf(row);
+  return (
+    <TargetRow
+      name={byId.get(row.targetId)?.name ?? row.targetId}
+      target={byId.get(row.targetId)}
+      contentType={contentType}
+      estimate={estimates.get(row.targetId)}
+      containers={containersOf(
+        row.targetId,
+        entries.map((entry) => entry.targetId),
+        byId,
+      )}
+      sourcing={{
+        entry: row,
+        sources: sourcesAbove(entries, index),
+        lost: sourceLost(entries, index),
+        nameOf: (id) => byId.get(id)?.name ?? id,
+        onEntry: (entry) => {
+          onSet(entries.map((other) => (other === row ? entry : other)));
+        },
+      }}
+    />
+  );
+}
+
+function TargetRanks(ranks: Ranks) {
+  const { entries, onSet } = ranks;
   const { targets } = useListTargetsSuspense().data;
   const byId = new Map(targets.map((target) => [target.id, target]));
   const nameOf = (id: string) => byId.get(id)?.name ?? id;
@@ -48,23 +88,17 @@ function TargetRanks({
     <RankedList
       label="Targets"
       caption="Each Work wants a file at every Target. A file is named after the first Target it fills."
-      rows={rowsOf(ids)}
-      name={nameOf}
+      rows={rowsOf(entries)}
+      name={(entry) => nameOf(entry.targetId)}
       onChange={(next) => {
         onSet(tiersOf(next).flat());
       }}
-      renderRow={(id) => (
-        <TargetRow
-          name={nameOf(id)}
-          estimate={estimates.get(id)}
-          containers={containersOf(id, ids, byId)}
-        />
-      )}
-      renderTrailing={(id) => (
+      renderRow={(row) => <EntryRow row={row} byId={byId} ranks={ranks} />}
+      renderTrailing={(row) => (
         <RemoveButton
-          name={nameOf(id)}
+          name={nameOf(row.targetId)}
           onRemove={() => {
-            onSet(ids.filter((other) => other !== id));
+            onSet(entries.filter((other) => other !== row));
           }}
         />
       )}
@@ -77,22 +111,28 @@ function TargetList({
   onChange,
   estimates,
 }: SectionProps<ProfileDraft> & { estimates: Estimates }) {
-  const set = (ids: readonly string[]) => {
-    onChange({ ...draft, targets: ids });
+  const set = (targets: readonly EntryDraft[]) => {
+    onChange({ ...draft, targets });
   };
+  const held = draft.targets.map((entry) => entry.targetId);
   return (
     <div className="flex flex-col items-start gap-3">
       <div className="w-full">
         {draft.targets.length === 0 ? (
           <WantsNothing />
         ) : (
-          <TargetRanks ids={draft.targets} estimates={estimates} onSet={set} />
+          <TargetRanks
+            entries={draft.targets}
+            contentType={draft.contentType}
+            estimates={estimates}
+            onSet={set}
+          />
         )}
       </div>
       <AddTarget
-        held={draft.targets}
+        held={held}
         onPick={(id) => {
-          set([...draft.targets, id]);
+          set([...draft.targets, downloaded(id)]);
         }}
       />
     </div>

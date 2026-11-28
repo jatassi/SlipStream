@@ -139,7 +139,7 @@ export const failedCells = (failed: string): FilesCellList => ({
       targetName: "2160p HDR",
       wanted: true,
       state: "failed",
-      grabId: failed,
+      cause: { kind: "grab", grabId: failed },
       file: null,
     },
   ],
@@ -184,6 +184,7 @@ export function filesOf({ cells }: FilesCellList): FilesFileList {
         goneAt: null,
         probeError: null,
         placedBy: null,
+        madeFrom: null,
         grab: null,
         media: {
           container: "matroska,webm",

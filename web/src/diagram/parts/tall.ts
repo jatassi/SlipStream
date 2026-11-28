@@ -12,6 +12,6 @@ import { tower } from "./tower";
 export const TALL = {
   downloading: board,
   storage: (P: Projection, node: NodeRow): Item[] => [cabinet(P, drawersOf(node.storage))],
-  converting: (P: Projection): Item[] => [press(P)],
+  converting: (P: Projection, node: NodeRow): Item[] => [press(P, node.converting)],
   relaying: (P: Projection): Item[] => [tower(P)],
 };

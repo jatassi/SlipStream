@@ -1,1 +1,8 @@
-export type FilesState = "failed" | "missing" | "downloading" | "upgradable" | "unreleased" | "met";
+export type FilesState =
+  | "failed"
+  | "missing"
+  | "downloading"
+  | "converting"
+  | "upgradable"
+  | "unreleased"
+  | "met";

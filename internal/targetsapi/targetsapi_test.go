@@ -3,6 +3,7 @@ package targetsapi_test
 import (
 	"context"
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"regexp"
 	"strings"
@@ -12,6 +13,7 @@ import (
 	"github.com/jatassi/slipstream/internal/api"
 	"github.com/jatassi/slipstream/internal/api/ownertest"
 	"github.com/jatassi/slipstream/internal/contenttype/contenttypetest"
+	"github.com/jatassi/slipstream/internal/conversions"
 	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/formats"
@@ -21,6 +23,7 @@ import (
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/naming"
 	"github.com/jatassi/slipstream/internal/nodes"
+	"github.com/jatassi/slipstream/internal/nodes/nodestest"
 	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
@@ -40,11 +43,17 @@ func (p *published) Publish(context.Context, targets.Changed) { p.n++ }
 type goals struct {
 	t *targets.Targets
 	f *files.Files
+	c *conversions.Conversions
+	n *nodes.Service
 }
 
 func (g goals) Targets() (*targets.Targets, bool) { return g.t, true }
 
 func (g goals) Files() (*files.Files, bool) { return g.f, true }
+
+func (g goals) Conversions() (*conversions.Conversions, bool) { return g.c, true }
+
+func (g goals) Nodes() (*nodes.Service, bool) { return g.n, true }
 
 type served struct {
 	*ownertest.Owner
@@ -66,7 +75,7 @@ func (discard[T]) Publish(context.Context, T) {}
 
 func serve(t *testing.T) *served {
 	t.Helper()
-	lib := storagetest.Library(t, secret.Schema(), identity.Schema(), nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), downloadclients.Schema(), grabs.Schema(), indexers.Schema(), files.Schema(), naming.Schema())
+	lib := storagetest.Library(t, secret.Schema(), identity.Schema(), nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), downloadclients.Schema(), grabs.Schema(), indexers.Schema(), files.Schema(), naming.Schema(), conversions.Schema())
 	fx := contenttypetest.New()
 	w, err := works.Open(t.Context(), works.Config{
 		Library: lib, Catalogs: map[works.TypeID]works.Catalog{contenttypetest.ID: fx}, Source: fx.Source(), Artwork: fx,
@@ -94,7 +103,12 @@ func serve(t *testing.T) *served {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s := &served{Owner: ownertest.Serve(t, lib, func(r *api.Router) { targetsapi.Routes(r, goals{svc, shelf}) }), lib: lib, changed: changed, works: w, fx: fx, files: shelf, subtitled: &subtitled}
+	roster, err := nodes.Open(t.Context(), nodes.Config{Library: lib, Name: "home", Owners: nodestest.Unowned(), Log: slog.New(slog.DiscardHandler)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	g := goals{svc, shelf, conversions.New(conversions.Config{Library: lib}), roster}
+	s := &served{Owner: ownertest.Serve(t, lib, func(r *api.Router) { targetsapi.Routes(r, g) }), lib: lib, changed: changed, works: w, fx: fx, files: shelf, subtitled: &subtitled}
 	_, body := s.Call(t, http.MethodGet, "/api/v1/targets", "")
 	s.starter = ownertest.FirstID(body)
 	_, body = s.Call(t, http.MethodGet, "/api/v1/profiles", "")
@@ -170,16 +184,16 @@ func TestTargetsAreCreatedReadDuplicatedAndDeletedWithTheirRules(t *testing.T) {
 	_, body := s.Call(t, http.MethodPost, "/api/v1/targets", hdBody)
 	ids["hd"] = ownertest.FirstID(body)
 	get(t, s, "/api/v1/targets/"+ids["hd"],
-		`{"id":"@hd","name":"HD",`+hdRules+`,"holdSeconds":0,"profiles":[],"contains":[],"createdAt":"T"}`, ids)
+		`{"id":"@hd","name":"HD",`+hdRules+`,"holdSeconds":0,"profiles":[],"contains":[],"conversion":null,"defaultKbps":3495,"createdAt":"T"}`, ids)
 	_, body = s.Call(t, http.MethodPost, "/api/v1/targets", webBody)
 	ids["web"] = ownertest.FirstID(body)
 	get(t, s, "/api/v1/targets/"+ids["web"],
-		`{"id":"@web","name":"Web",`+webRules+`,"holdSeconds":0,"profiles":[],"contains":[],"createdAt":"T"}`, ids)
+		`{"id":"@web","name":"Web",`+webRules+`,"holdSeconds":0,"profiles":[],"contains":[],"conversion":null,"defaultKbps":2936,"createdAt":"T"}`, ids)
 
 	_, body = s.Call(t, http.MethodPost, "/api/v1/targets/"+ids["hd"]+"/duplicate", "")
 	ids["copy"] = ownertest.FirstID(body)
 	get(t, s, "/api/v1/targets/"+ids["copy"],
-		`{"id":"@copy","name":"HD copy",`+hdRules+`,"holdSeconds":0,"profiles":[],"contains":["@hd","@web"],"createdAt":"T"}`, ids)
+		`{"id":"@copy","name":"HD copy",`+hdRules+`,"holdSeconds":0,"profiles":[],"contains":["@hd","@web"],"conversion":null,"defaultKbps":3495,"createdAt":"T"}`, ids)
 	_, body = s.Call(t, http.MethodPost, "/api/v1/targets/"+ids["hd"]+"/duplicate", "")
 	ids["again"] = ownertest.FirstID(body)
 
@@ -188,11 +202,11 @@ func TestTargetsAreCreatedReadDuplicatedAndDeletedWithTheirRules(t *testing.T) {
 	_, body = s.Call(t, http.MethodPost, "/api/v1/profiles", profileBody("Small", ids["web"]))
 	ids["small"] = ownertest.FirstID(body)
 	get(t, s, "/api/v1/targets", `{"targets":[`+
-		`{"id":"@starter","name":"1080p",`+starterRules+`,"holdSeconds":0,"profiles":[{"id":"@fixture","name":"Fixture"}],"contains":[],"createdAt":"T"},`+
-		`{"id":"@hd","name":"HD",`+hdRules+`,"holdSeconds":0,"profiles":[{"id":"@standard","name":"Standard"}],"contains":["@copy","@again","@web"],"createdAt":"T"},`+
-		`{"id":"@copy","name":"HD copy",`+hdRules+`,"holdSeconds":0,"profiles":[],"contains":["@hd","@again","@web"],"createdAt":"T"},`+
-		`{"id":"@again","name":"HD copy 2",`+hdRules+`,"holdSeconds":0,"profiles":[],"contains":["@hd","@copy","@web"],"createdAt":"T"},`+
-		`{"id":"@web","name":"Web",`+webRules+`,"holdSeconds":0,"profiles":[{"id":"@small","name":"Small"},{"id":"@standard","name":"Standard"}],"contains":[],"createdAt":"T"}]}`, ids)
+		`{"id":"@starter","name":"1080p",`+starterRules+`,"holdSeconds":0,"profiles":[{"id":"@fixture","name":"Fixture"}],"contains":[],"conversion":null,"defaultKbps":2185,"createdAt":"T"},`+
+		`{"id":"@hd","name":"HD",`+hdRules+`,"holdSeconds":0,"profiles":[{"id":"@standard","name":"Standard"}],"contains":["@copy","@again","@web"],"conversion":null,"defaultKbps":3495,"createdAt":"T"},`+
+		`{"id":"@copy","name":"HD copy",`+hdRules+`,"holdSeconds":0,"profiles":[],"contains":["@hd","@again","@web"],"conversion":null,"defaultKbps":3495,"createdAt":"T"},`+
+		`{"id":"@again","name":"HD copy 2",`+hdRules+`,"holdSeconds":0,"profiles":[],"contains":["@hd","@copy","@web"],"conversion":null,"defaultKbps":3495,"createdAt":"T"},`+
+		`{"id":"@web","name":"Web",`+webRules+`,"holdSeconds":0,"profiles":[{"id":"@small","name":"Small"},{"id":"@standard","name":"Standard"}],"contains":[],"conversion":null,"defaultKbps":2936,"createdAt":"T"}]}`, ids)
 
 	s.Expect(t, http.MethodDelete, "/api/v1/targets/"+ids["hd"], "", http.StatusConflict,
 		`{"status":409,"code":"target_in_use","title":"Profiles use the Target","detail":"Standard uses this Target. Remove it from that Profile first."}`)
@@ -274,7 +288,8 @@ func TestEachTargetsErrorAnswersItsProblem(t *testing.T) {
 		},
 		{
 			http.MethodPost, "/api/v1/profiles", `{"name":"Standard","contentType":"fixture","targets":[{"targetId":"` + id + `","sourcing":"derive"}],"editions":{"kind":"any"},"languages":[]}`,
-			http.StatusUnprocessableEntity, `@invalid`,
+			http.StatusUnprocessableEntity,
+			`{"status":422,"code":"invalid","title":"Some fields have values SlipStream can't accept","detail":"A made-from Target needs the Target it's made from, and only a Downloaded, or made from Target takes a wait.","errors":[{"location":"body.targets","message":"A made-from Target needs the Target it's made from, and only a Downloaded, or made from Target takes a wait."}]}`,
 		},
 		{
 			http.MethodPost, "/api/v1/profiles", profileBody("Standard", id), http.StatusCreated,
@@ -425,7 +440,7 @@ func TestATargetScoresCustomFormatsAndSetsHowItTakesPropers(t *testing.T) {
 		`"scores":{"formats":[{"formatId":"`+hdr.ID.String()+`","score":25},{"formatId":"`+targets.NewFormatID().String()+`","score":0}],"minimum":-10,"upgradeUntil":100,"increment":5},"propers":"dont_prefer"}`)
 	ids := map[string]string{"scored": ownertest.FirstID(body)}
 	get(t, s, "/api/v1/targets/"+ids["scored"], `{"id":"@scored","name":"Scored","tiers":[["webdl-1080p"]],"cutoff":"webdl-1080p","filters":[],`+
-		`"sizes":[{"quality":"webdl-1080p","min":12.5,"max":null}],`+scored+`,"holdSeconds":0,"profiles":[],"contains":[],"createdAt":"T"}`, ids)
+		`"sizes":[{"quality":"webdl-1080p","min":12.5,"max":null}],`+scored+`,"holdSeconds":0,"profiles":[],"contains":[],"conversion":null,"defaultKbps":2185,"createdAt":"T"}`, ids)
 
 	ghost := targets.NewFormatID().String()
 	for _, c := range []struct{ scores, want string }{

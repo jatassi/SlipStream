@@ -28,7 +28,7 @@ type attic struct {
 func newAttic(t *testing.T) *attic {
 	web := newTarget(t, "Web", []release.Quality{release.WEBDL1080p})
 	scarf := works.Item{ID: works.ItemID{UUID: storage.NewUUID()}}
-	w := shelved(t, planned, targets.Goals{Targets: []targets.Target{web}}, scarf)
+	w := shelved(t, planned, downloaded(web), scarf)
 	w.tree.ID = works.WorkID{UUID: storage.NewUUID()}
 	w.fills = map[CellKey]Fill{}
 	return &attic{w: w, web: web, scarf: scarf, ids: map[string]ID{}}

@@ -95,7 +95,7 @@ func newEnd(t *testing.T, name string) (*end, linktest.Side) {
 func (e *end) start() {
 	e.node = transfers.NewNode(transfers.NodeConfig{
 		Local: e.local, Disk: e.disk, Link: e.ln.Link, Sources: e.sources, Roots: e.stager, Downloads: e.downloads,
-		Timings: e.timings, Hooks: e.hooks, Log: slog.New(slog.DiscardHandler),
+		Scratch: e.scratch, Timings: e.timings, Hooks: e.hooks, Log: slog.New(slog.DiscardHandler),
 	})
 	e.lanes.set(e.node)
 	ctx, cancel := context.WithCancel(e.t.Context())
@@ -140,6 +140,9 @@ func (e *end) payload(i, n int, seed byte) *tv1.File {
 	e.sources.put(source.Torrent{Hash: hash}, path, nil)
 	return &tv1.File{Position: uint32(i), Size: int64(n), Source: &tv1.Source{Ref: &tv1.Source_Torrent{Torrent: &tv1.TorrentPayload{InfoHash: hash[:]}}}} //nolint:gosec // a test file
 }
+
+// scratch is the end's scratch folder.
+func (e *end) scratch() string { return filepath.Join(e.dir, "scratch") }
 
 func (e *end) source(i int) string { return filepath.Join(e.dir, "payload", strconv.Itoa(i)+".mkv") }
 
@@ -217,10 +220,13 @@ func (tr *transfer) expectArrived() {
 	}
 }
 
-func verified(rs []*tv1.Result, id storage.UUID) []int {
+func verified(rs []*tv1.Result, id storage.UUID) []int { return verifiedAt(rs, id, place) }
+
+// verifiedAt is the positions of id that FileVerified named at at.
+func verifiedAt(rs []*tv1.Result, id storage.UUID, at int64) []int {
 	var out []int
 	for _, r := range rs {
-		if v := r.GetVerified(); v != nil && bytes.Equal(v.GetTransferId(), id.Bytes()) && v.GetPlace() == place {
+		if v := r.GetVerified(); v != nil && bytes.Equal(v.GetTransferId(), id.Bytes()) && v.GetPlace() == at {
 			out = append(out, int(v.GetPosition()))
 		}
 	}

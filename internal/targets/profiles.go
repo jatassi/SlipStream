@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"slices"
+	"time"
 
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/release"
@@ -12,16 +13,48 @@ import (
 	"github.com/jatassi/slipstream/internal/works"
 )
 
-// Sourcing is how a Profile's Target gets its file. Conversion adds
-// derive and download-then-derive.
+// Sourcing is how a Profile's Target gets its file: downloaded, made
+// from a Target above it, or downloaded and made from one after a wait
+// with no download.
 type Sourcing = db.Sourcing
 
-const Download = db.Download
+const (
+	Download                    = db.Download
+	Derive             Sourcing = "derive"
+	DownloadThenDerive Sourcing = "download_then_derive"
+)
 
-// Entry is one Target of a Profile and how it is sourced.
+// The wait for a download of a DownloadThenDerive row.
+const (
+	DefaultGrace = 3 * 24 * time.Hour
+	MinGrace     = time.Hour
+	MaxGrace     = 90 * 24 * time.Hour
+)
+
+// Entry is one Target of a Profile and how it is sourced. From is the
+// Target whose file a made-from row is made from, nil exactly for
+// Download, and Grace is how long a DownloadThenDerive row waits for a
+// download, counted from its source's import.
 type Entry struct {
 	Target   TargetID
 	Sourcing Sourcing
+	From     *TargetID
+	Grace    time.Duration
+}
+
+func (e Entry) equal(o Entry) bool {
+	return e.Target == o.Target && e.Sourcing == o.Sourcing && e.Grace == o.Grace && (e.From == nil) == (o.From == nil) && (e.From == nil || *e.From == *o.From)
+}
+
+func entryOf(row db.TargetsProfileTarget) Entry {
+	e := Entry{Target: row.TargetID, Sourcing: row.Sourcing}
+	if !row.FromTargetID.IsZero() {
+		e.From = &row.FromTargetID
+	}
+	if row.GraceSeconds != nil {
+		e.Grace = time.Duration(*row.GraceSeconds) * time.Second
+	}
+	return e
 }
 
 // Profile is the Targets a Work wants, in Profile order: the first a file
@@ -111,8 +144,15 @@ func insertProfileCuts(ctx context.Context, q *db.Queries, id ProfileID, e Editi
 	return nil
 }
 
-// checkEntries refuses a Target named twice or that doesn't exist.
+// checkEntries refuses a Target named twice or that doesn't exist, and a
+// made-from row whose Target has no Conversion settings, whose source
+// isn't a downloaded Target above it, or whose wait is outside MinGrace
+// to MaxGrace.
 func checkEntries(ctx context.Context, q *db.Queries, entries []Entry) error {
+	made, err := readConversions(ctx, q)
+	if err != nil {
+		return err
+	}
 	for i, e := range entries {
 		if slices.ContainsFunc(entries[:i], func(o Entry) bool { return o.Target == e.Target }) {
 			return ErrTargetTwice
@@ -123,13 +163,65 @@ func checkEntries(ctx context.Context, q *db.Queries, entries []Entry) error {
 		case !has:
 			return ErrNoTarget
 		}
+		if err := checkSourcing(e); err != nil {
+			return err
+		}
+		if e.Sourcing == Download {
+			continue
+		}
+		if made[e.Target] == nil {
+			return ErrNoConversion
+		}
+		j := slices.IndexFunc(entries[:i], func(o Entry) bool { return o.Target == *e.From })
+		if j < 0 || entries[j].Sourcing == Derive {
+			return ErrSourceNotAbove
+		}
 	}
 	return nil
 }
 
+func checkSourcing(e Entry) error {
+	switch e.Sourcing {
+	case Download:
+		if e.From == nil && e.Grace == 0 {
+			return nil
+		}
+	case Derive:
+		if e.From != nil && e.Grace == 0 {
+			return nil
+		}
+	case DownloadThenDerive:
+		switch {
+		case e.From == nil:
+		case e.Grace < MinGrace || e.Grace > MaxGrace || e.Grace%time.Second != 0:
+			return ErrBadGrace
+		default:
+			return nil
+		}
+	}
+	return ErrBadSourcing
+}
+
+// sourceBelow reports a made-from row whose source Target sits below it.
+func sourceBelow(entries []Entry) bool {
+	for i, e := range entries {
+		if e.From != nil && slices.ContainsFunc(entries[i+1:], func(o Entry) bool { return o.Target == *e.From }) {
+			return true
+		}
+	}
+	return false
+}
+
 func insertEntries(ctx context.Context, q *db.Queries, id ProfileID, entries []Entry) error {
 	for i, e := range entries {
-		err := q.InsertProfileTarget(ctx, db.InsertProfileTargetParams{ProfileID: id, Position: int64(i + 1), TargetID: e.Target, Sourcing: e.Sourcing})
+		row := db.InsertProfileTargetParams{ProfileID: id, Position: int64(i + 1), TargetID: e.Target, Sourcing: e.Sourcing}
+		if e.From != nil {
+			row.FromTargetID = *e.From
+		}
+		if e.Sourcing == DownloadThenDerive {
+			row.GraceSeconds = new(int64(e.Grace / time.Second))
+		}
+		err := q.InsertProfileTarget(ctx, row)
 		if err != nil {
 			return err
 		}
@@ -183,7 +275,10 @@ func (t *Targets) MakeDefault(ctx context.Context, by identity.Admin, id Profile
 // only when it isn't already. changed is whether it wrote. Its caller
 // publishes targets.changed after commit when it did.
 func MakeDefaultIn(ctx context.Context, tx *storage.Tx[file], id ProfileID) (changed bool, err error) {
-	q := db.New(tx)
+	return makeDefault(ctx, db.New(tx), id)
+}
+
+func makeDefault(ctx context.Context, q *db.Queries, id ProfileID) (changed bool, err error) {
 	p, err := q.GetProfile(ctx, id)
 	switch {
 	case errors.Is(err, storage.ErrNoRows):
@@ -222,7 +317,7 @@ func listProfiles(ctx context.Context, q *db.Queries) ([]Profile, error) {
 	}
 	held := map[ProfileID][]Entry{}
 	for _, m := range members {
-		held[m.ProfileID] = append(held[m.ProfileID], Entry{Target: m.TargetID, Sourcing: m.Sourcing})
+		held[m.ProfileID] = append(held[m.ProfileID], entryOf(m))
 	}
 	named := map[ProfileID][]release.CutKey{}
 	for _, c := range cuts {

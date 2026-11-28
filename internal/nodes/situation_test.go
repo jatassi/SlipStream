@@ -109,19 +109,13 @@ func TestSeatsCarryTiedWorkAsHeldAndPortableWorkAsMoves(t *testing.T) {
 	}
 }
 
-// Unticking Searching on seedbox, which has Indexers homed on it, moves
-// them in the same Write to home, the Controller that keeps Searching.
-func TestApplyMovesPortableWorkToTheHeir(t *testing.T) {
-	seedbox := ID{UUID: storage.NewUUID()}
-	searching := counted(role.Searching, seedbox, 2, Noun{"Indexer", "Indexers"})
-	var moved [][2]ID
-	searching.Unassigned = func(_ context.Context, _ *storage.Tx[storage.Library], node, heir ID) error {
-		moved = append(moved, [2]ID{node, heir})
-		return nil
-	}
-	owners := []Owner{searching}
+// holding is a Controller whose only Worker, seedbox, is assigned owner's Role and
+// keeps its work with owner.
+func holding(t *testing.T, owner Owner, seedbox ID) *Service {
+	t.Helper()
+	owners := []Owner{owner}
 	for _, r := range role.Names() {
-		if r != role.Searching {
+		if r != owner.Role {
 			owners = append(owners, Unowned(r))
 		}
 	}
@@ -134,7 +128,7 @@ func TestApplyMovesPortableWorkToTheHeir(t *testing.T) {
 		if _, err := tx.ExecContext(ctx, "INSERT INTO nodes_node (id, public_key, name, paired_at) VALUES (?, randomblob(32), 'seedbox', 0)", seedbox); err != nil {
 			return err
 		}
-		_, err := tx.ExecContext(ctx, "INSERT INTO nodes_role (node_id, role, assigned_at) VALUES (?, 'searching', 0)", seedbox)
+		_, err := tx.ExecContext(ctx, "INSERT INTO nodes_role (node_id, role, assigned_at) VALUES (?, ?, 0)", seedbox, owner.Role)
 		return err
 	})
 	if err != nil {
@@ -143,14 +137,41 @@ func TestApplyMovesPortableWorkToTheHeir(t *testing.T) {
 	if err := s.reload(t.Context()); err != nil {
 		t.Fatal(err)
 	}
-	board, err := s.RoleBoard(t.Context())
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := s.Apply(t.Context(), SetRoles{Basis: board.Basis(), Want: Roles{seedbox: 0}}); err != nil {
-		t.Fatal(err)
-	}
-	if want := [][2]ID{{seedbox, s.Self()}}; !reflect.DeepEqual(moved, want) {
-		t.Fatalf("the Searching owner moved %v, want seedbox's Indexers to home", moved)
+	return s
+}
+
+// Unticking a portable Role on seedbox hands its work to the owner in the
+// same Write: Searching's Indexers move to home, the Controller that keeps
+// Searching, and Converting's work goes back to its queue with no heir.
+func TestApplyHandsPortableWorkToItsOwner(t *testing.T) {
+	for _, tc := range []struct {
+		role     role.Name
+		requeues bool
+		heir     func(s *Service) ID
+	}{
+		{role.Searching, false, (*Service).Self},
+		{role.Converting, true, func(*Service) ID { return ID{} }},
+	} {
+		t.Run(string(tc.role), func(t *testing.T) {
+			seedbox := ID{UUID: storage.NewUUID()}
+			owner := counted(tc.role, seedbox, 2, Noun{"unit", "units"})
+			owner.Requeues = tc.requeues
+			var moved [][2]ID
+			owner.Unassigned = func(_ context.Context, _ *storage.Tx[storage.Library], node, heir ID) error {
+				moved = append(moved, [2]ID{node, heir})
+				return nil
+			}
+			s := holding(t, owner, seedbox)
+			board, err := s.RoleBoard(t.Context())
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := s.Apply(t.Context(), SetRoles{Basis: board.Basis(), Want: Roles{seedbox: 0}}); err != nil {
+				t.Fatal(err)
+			}
+			if want := [][2]ID{{seedbox, tc.heir(s)}}; !reflect.DeepEqual(moved, want) {
+				t.Fatalf("the %s owner was handed %v, want %v", tc.role, moved, want)
+			}
+		})
 	}
 }

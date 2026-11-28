@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -62,6 +63,7 @@ func TestTheNodeSettingsTableReadsItsDefaultsFromDefaults(t *testing.T) {
 	}
 	downloads := jsonText(t, filepath.Join(testDataPath, "downloads"))
 	folder := jsonText(t, filepath.Join(testDataPath, "backups"))
+	scratch := jsonText(t, filepath.Join(testDataPath, "converting"))
 	want := `[` +
 		`{"key":"http.listen","label":"Listen on","source":"default","applies":"restart","isDefault":true,"pendingRestart":false,"kind":"listen","value":{"host":"all","port":8484,"address":"[::]:8484"},"running":{"host":"all","port":8484,"address":"[::]:8484"},"default":{"host":"all","port":8484,"address":"[::]:8484"}},` +
 		`{"key":"http.ports_to_try","label":"Ports to try","source":"default","applies":"restart","isDefault":true,"pendingRestart":false,"kind":"count","value":1,"running":1,"default":1,"min":1,"max":100,"unit":{"one":"port","many":"ports"}},` +
@@ -73,7 +75,9 @@ func TestTheNodeSettingsTableReadsItsDefaultsFromDefaults(t *testing.T) {
 		`{"key":"log.viewer_lines","label":"Lines kept for the viewer","source":"default","applies":"live","isDefault":true,"pendingRestart":false,"kind":"count","value":2000,"running":2000,"default":2000,"min":100,"max":50000,"unit":{"one":"line","many":"lines"}},` +
 		`{"key":"torrent.listen","label":"Listen address","source":"default","applies":"restart","isDefault":true,"pendingRestart":false,"kind":"address","value":"0.0.0.0:6881","running":"0.0.0.0:6881","default":"0.0.0.0:6881"},` +
 		`{"key":"torrent.downloads","label":"Downloads folder","source":"default","applies":"restart","isDefault":true,"pendingRestart":false,"kind":"folder","value":` + downloads + `,"running":` + downloads + `,"default":` + downloads + `,"nodeId":"` + testNodeID.String() + `","purpose":"downloads"},` +
-		`{"key":"backups.folder","label":"Backups folder","source":"default","applies":"restart","isDefault":true,"pendingRestart":false,"kind":"folder","value":` + folder + `,"running":` + folder + `,"default":` + folder + `,"nodeId":"` + testNodeID.String() + `","purpose":"backups"}` +
+		`{"key":"backups.folder","label":"Backups folder","source":"default","applies":"restart","isDefault":true,"pendingRestart":false,"kind":"folder","value":` + folder + `,"running":` + folder + `,"default":` + folder + `,"nodeId":"` + testNodeID.String() + `","purpose":"backups"},` +
+		`{"key":"converting.scratch","label":"Scratch folder","source":"default","applies":"restart","isDefault":true,"pendingRestart":false,"kind":"folder","value":` + scratch + `,"running":` + scratch + `,"default":` + scratch + `,"nodeId":"` + testNodeID.String() + `","purpose":"converting"},` +
+		`{"key":"converting.ffmpeg","label":"ffmpeg path","source":"default","applies":"restart","isDefault":true,"pendingRestart":false,"kind":"file","value":"","running":"","default":"","nodeId":"` + testNodeID.String() + `","unsupported":true}` +
 		`]`
 	if string(got) != want {
 		t.Fatalf("fields =\n%s\nwant\n%s", got, want)
@@ -285,6 +289,52 @@ func TestSetConfigWritesThroughTheRunningNode(t *testing.T) {
 	}
 	if got := changedLine("log.level", keys, online); got != "log.level: info" {
 		t.Fatalf("line = %q", got)
+	}
+}
+
+func TestAStoppedNodeJudgesFolderAndProgramRows(t *testing.T) {
+	env, _ := testEnv(t)
+	data := env.DataDir.Path()
+	for _, d := range []string{filepath.Join("downloads", "kept"), "backups", "converting", "other"} {
+		if err := os.MkdirAll(filepath.Join(data, d), 0o750); err != nil {
+			t.Fatal(err)
+		}
+	}
+	program := filepath.Join(data, "other", "ffmpeg")
+	writeFile(t, program, "#!/bin/sh\n")
+	if err := os.Chmod(program, 0o700); err != nil { //nolint:gosec // a program to run needs its execute bit
+		t.Fatal(err)
+	}
+	notes := filepath.Join(data, "other", "notes.txt")
+	writeFile(t, notes, "x")
+	notesRefusal := "Can't run this file because it isn't a program SlipStream can run."
+	if runtime.GOOS == "windows" {
+		notesRefusal = ""
+	}
+	for _, c := range []struct {
+		key, value, refusal string
+	}{
+		{"backups.folder", filepath.Join(data, "downloads", "kept"), "Can't use this folder because it's inside the downloads folder."},
+		{"converting.scratch", filepath.Join(data, "backups"), "Can't use this folder because it's inside the Backups folder."},
+		{"converting.scratch", data, "Can't use this folder because it contains the downloads folder."},
+		{"converting.scratch", filepath.Join(data, "converting"), ""},
+		{"converting.ffmpeg", filepath.Join(data, "other", "gone"), "Can't run this file because it doesn't exist."},
+		{"converting.ffmpeg", notes, notesRefusal},
+		{"converting.ffmpeg", filepath.Join(data, "other"), "Can't run this file because it isn't a program SlipStream can run."},
+		{"converting.ffmpeg", "ffmpeg", "Can't run this file because it isn't a full path."},
+		{"converting.ffmpeg", program, ""},
+	} {
+		value := c.value
+		keys, online, err := SetConfig(t.Context(), env, []ConfigChange{{Key: c.key, Value: &value}})
+		if c.refusal != "" {
+			if want := (nodesystem.Refusal{Key: c.key, Reason: nodesystem.UnusableFolder, Sentence: c.refusal}); !refusedAs(err, want) {
+				t.Errorf("%s = %s: err = %v, want %q", c.key, c.value, err, c.refusal)
+			}
+			continue
+		}
+		if err != nil || online || changedLine(c.key, keys, online) != c.key+": "+c.value {
+			t.Errorf("%s = %s: line %q, online %t, %v; want saved offline", c.key, c.value, changedLine(c.key, keys, online), online, err)
+		}
 	}
 }
 

@@ -27,7 +27,14 @@ import {
   scoresBody,
   totalsOf,
 } from "./scores";
+import {
+  type ConversionDraft,
+  conversionBody,
+  conversionDraftOf,
+  kbpsProblem,
+} from "./conversion-draft";
 import type { Rules } from "./upgrade-sentence";
+
 import { type Attribute, attributes } from "./vocab";
 
 export type Rule =
@@ -51,6 +58,10 @@ export type TargetDraft = {
   readonly scores: ScoresDraft;
   readonly propers: TargetsTargetPropers;
   readonly hold: HoldDraft;
+  /** Its Conversion settings, null while it has none. */
+  readonly conversion: ConversionDraft | null;
+  /** The bitrate the Conversion settings start at, once the Target has had them. */
+  readonly defaultKbps: number | undefined;
 };
 
 export type HoldUnit = "minutes" | "hours" | "days";
@@ -120,6 +131,8 @@ export function newDraft(
     scores: scoresDraftOf({ formats: [], minimum: 0, upgradeUntil: 0, increment: 1 }, formats),
     propers: "prefer_and_upgrade",
     hold: holdDraftOf(0),
+    conversion: null,
+    defaultKbps: undefined,
   };
 }
 
@@ -149,6 +162,8 @@ export function draftOf(
     scores: scoresDraftOf(target.scores, formats),
     propers: target.propers,
     hold: holdDraftOf(target.holdSeconds),
+    conversion: target.conversion === null ? null : conversionDraftOf(target.conversion),
+    defaultKbps: target.conversion?.defaultKbps,
   };
 }
 
@@ -221,6 +236,9 @@ export function problemsOf(draft: TargetDraft): string[] {
   if (holdProblem(draft.hold) !== undefined) {
     problems.push("Fix the Hold marked below.");
   }
+  if (draft.conversion !== null && kbpsProblem(draft.conversion.kbps) !== undefined) {
+    problems.push("Fix the Conversion settings marked below.");
+  }
   return problems;
 }
 
@@ -248,5 +266,8 @@ export function bodyOf(draft: TargetDraft): TargetsNewTarget {
     scores: scoresBody(draft.scores),
     propers: draft.propers,
     holdSeconds: holdSecondsOf(draft.hold),
+    ...(draft.conversion !== null && {
+      conversion: conversionBody(draft.conversion),
+    }),
   };
 }

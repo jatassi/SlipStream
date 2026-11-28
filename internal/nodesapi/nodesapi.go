@@ -81,9 +81,9 @@ type node struct {
 }
 
 type probe struct {
-	Probe  string    `json:"probe" enum:"engine-starts,data-writable,listener-up"`
+	Probe  string    `json:"probe" enum:"engine-starts,data-writable,listener-up,ffmpeg-runs"`
 	Fit    string    `json:"fit" enum:"fits,weak,fails"`
-	Reason string    `json:"reason,omitempty" enum:"engine_not_listening,downloads_not_writable,downloads_on_network_share,data_not_writable,http_not_listening" doc:"Why it is weak or fails; absent when it fits"`
+	Reason string    `json:"reason,omitempty" enum:"engine_not_listening,downloads_not_writable,downloads_on_network_share,data_not_writable,http_not_listening,ffmpeg_fails,no_gpu,ffmpeg_testing" doc:"Why it is weak or fails; absent when it fits"`
 	Words  string    `json:"words,omitempty" doc:"What it found, as a sentence; absent when it fits"`
 	At     time.Time `json:"at"`
 }
@@ -366,7 +366,7 @@ type check struct {
 type effect struct{}
 
 func (effect) Variants() (discriminator string, variants []any) {
-	return "kind", []any{gains{}, letsGo{}, drains{}, handedBack{}, pinned{}, moves{}, writesOff{}, leaves{}}
+	return "kind", []any{gains{}, letsGo{}, drains{}, handedBack{}, pinned{}, moves{}, requeues{}, writesOff{}, leaves{}}
 }
 
 type gains struct {
@@ -415,6 +415,14 @@ type moves struct {
 	Words string `json:"words"`
 }
 
+type requeues struct {
+	Kind  string `json:"kind" enum:"requeues"`
+	Role  string `json:"role" enum:"searching,downloading,storage,converting,subtitles,metadata,media-server-link,notifying,relaying,serving"`
+	From  named  `json:"from"`
+	Held  held   `json:"held"`
+	Words string `json:"words"`
+}
+
 type writesOff struct {
 	Kind  string `json:"kind" enum:"writes-off"`
 	Node  named  `json:"node"`
@@ -447,6 +455,8 @@ func effectOf(e nodes.Effect) any {
 		return pinned{Kind: "pinned", Node: namedOf(e.Node), Role: string(e.Role), Words: e.Words()}
 	case nodes.Moves:
 		return moves{Kind: "moves", Role: string(e.Role), From: namedOf(e.From), To: namedOf(e.To), Held: heldOf(e.Held), Words: e.Words()}
+	case nodes.Requeues:
+		return requeues{Kind: "requeues", Role: string(e.Role), From: namedOf(e.From), Held: heldOf(e.Held), Words: e.Words()}
 	case nodes.WritesOff:
 		return writesOff{Kind: "writes-off", Node: namedOf(e.Node), Role: string(e.Role), Held: heldOf(e.Held), Words: e.Words()}
 	case nodes.Leaves:
@@ -475,7 +485,7 @@ type roleGroup struct {
 type roleEntry struct {
 	Role   string `json:"role" enum:"searching,downloading,storage,converting,subtitles,metadata,media-server-link,notifying,relaying,serving"`
 	Label  string `json:"label"`
-	Probe  string `json:"probe,omitempty" enum:"engine-starts,data-writable,listener-up" doc:"The probe a Node runs before it is given the Role; absent for none"`
+	Probe  string `json:"probe,omitempty" enum:"engine-starts,data-writable,listener-up,ffmpeg-runs" doc:"The probe a Node runs before it is given the Role; absent for none"`
 	Pinned bool   `json:"pinned" doc:"The Controller holds it whatever the Admin ticks"`
 }
 

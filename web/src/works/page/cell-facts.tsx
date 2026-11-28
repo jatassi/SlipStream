@@ -16,6 +16,7 @@ import { type Clock, useClock } from "../../ui/clock";
 import { Data } from "../../ui/data";
 // oxlint-disable-next-line import/max-dependencies -- a cell names its file, its download, its held step and its wait, each on the shared clock
 import { whenWords } from "../../ui/time-words";
+import { ConvertingFacts } from "./converting-facts";
 import { GrabNowButton } from "./grab-now";
 
 function FileFacts({ file }: { file: FilesLibraryFile }) {
@@ -130,7 +131,8 @@ function StateFacts({ cell, grabs }: { cell: FilesCell; grabs: readonly GrabsGra
       );
     }
     case "failed": {
-      const grab = grabs.find(({ id }) => id === cell.grabId);
+      const { cause } = cell;
+      const grab = cause.kind === "grab" ? grabs.find(({ id }) => id === cause.grabId) : undefined;
       return (
         <>
           {grab !== undefined && isFailed(grab) && (
@@ -140,6 +142,7 @@ function StateFacts({ cell, grabs }: { cell: FilesCell; grabs: readonly GrabsGra
         </>
       );
     }
+    case "converting":
     case "missing":
     case "unreleased":
       return null;
@@ -151,8 +154,9 @@ function StateFacts({ cell, grabs }: { cell: FilesCell; grabs: readonly GrabsGra
 /**
  * What a cell's state adds under its chip: its file's quality, its download,
  * the step a Grab holding it is at and the file it replaces, or why it failed
- * and the file it kept. A downloading cell's Import names its own step. A
- * cell a search can fill adds what its search is doing.
+ * and the file it kept, or its Conversion's stage and wait. A downloading
+ * cell's Import names its own step. A cell a search can fill adds what its
+ * search is doing.
  */
 export function CellFacts({
   cell,
@@ -167,7 +171,11 @@ export function CellFacts({
     cell.state === "missing" || cell.state === "failed" || cell.state === "upgradable";
   return (
     <>
-      <StateFacts cell={cell} grabs={grabs} />
+      {cell.state === "converting" ? (
+        <ConvertingFacts cell={cell} workId={workId} />
+      ) : (
+        <StateFacts cell={cell} grabs={grabs} />
+      )}
       {searchable && <SearchFacts cell={cell} workId={workId} />}
     </>
   );

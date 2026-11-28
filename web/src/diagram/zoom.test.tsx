@@ -13,7 +13,7 @@ import { fixtureClock, fixtureOf } from "./fixtures";
 import type { Part } from "./parts-order";
 
 const fixture = fixtureOf(3);
-const landing = landingOf(fixture.topology, fixture.board, new Set(), fixtureClock);
+const landing = landingOf(fixture.topology, fixture.board, new Set(), new Map(), fixtureClock);
 const [home, left, right] = landing.nodes.map(({ id }) => id);
 
 const tile = (node: string | undefined) => `[data-node="${String(node)}"] [data-item="tile.base"]`;

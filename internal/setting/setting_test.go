@@ -421,6 +421,29 @@ func TestFolderParse(t *testing.T) {
 	}
 }
 
+func TestFileParse(t *testing.T) {
+	ffmpeg := setting.File{Key: "converting.ffmpeg", Label: "ffmpeg", Unsupported: true}
+	for _, tc := range []struct {
+		name     string
+		path     *string
+		override *string
+		refusal  string
+	}{
+		{"null resets", nil, nil, ""},
+		{"a Windows path", ptr(`C:\ffmpeg\bin\ffmpeg.exe`), ptr(`C:\ffmpeg\bin\ffmpeg.exe`), ""},
+		{"a Unix path", ptr("/usr/bin/ffmpeg"), ptr("/usr/bin/ffmpeg"), ""},
+		{"blank", ptr("  "), nil, "Choose a file."},
+	} {
+		got, err := ffmpeg.Parse(tc.path)
+		if (err == nil) != (tc.refusal == "") || err != nil && sentence(err) != tc.refusal {
+			t.Errorf("%s: Parse = %v, want refusal %q", tc.name, err, tc.refusal)
+		}
+		if o := got.Override(); (o == nil) != (tc.override == nil) || o != nil && *o != *tc.override {
+			t.Errorf("%s: override = %v, want %v", tc.name, o, tc.override)
+		}
+	}
+}
+
 var warnBelow = setting.Space{
 	Key: "health.storageWarnBelow", Label: "Warn when free space is below",
 	Default: setting.Amount{N: 100 * setting.GB, Unit: setting.BytesUnit}, DefaultFrom: "Storage levels",

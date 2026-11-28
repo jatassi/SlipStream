@@ -1,5 +1,6 @@
 import type { ComponentType } from "react";
 
+import { ConversionSection } from "./conversion-section";
 import type { TargetDraft } from "./draft";
 import { FiltersSection } from "./filters";
 import { HoldField } from "./hold-field";
@@ -30,4 +31,5 @@ export const targetSections: readonly EditorSection<TargetDraft>[] = [
   { id: "scores", label: "Scores", component: ScoresSection },
   { id: "propers", label: "Propers and repacks", component: PropersSection },
   { id: "hold", label: "Hold", component: HoldField },
+  { id: "conversion", label: "Conversion settings", component: ConversionSection },
 ];

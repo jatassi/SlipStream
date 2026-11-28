@@ -1,9 +1,11 @@
 package subtitles
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"io/fs"
+	"slices"
 
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/mediaservers"
@@ -404,4 +406,87 @@ func (k *keeper) bytesOf(ctx context.Context, sub files.Subject, at string, sha 
 		})
 	}
 	return b, err
+}
+
+// hold reads which of in's intents this process holds the bytes of, and
+// which copy another file's Sidecar unchanged: an intent Derived made,
+// whose bytes the Keeper reads from beside that file.
+func (k *keeper) hold(ctx context.Context, f files.ID, in *settled) error {
+	in.held = k.bytes.held(f, in.intents)
+	in.copies = map[storage.UUID]sibling{}
+	if in.subject == nil {
+		return nil
+	}
+	for _, w := range in.intents {
+		if in.held[w.AttemptID] != nil {
+			continue
+		}
+		sc, err := decodeSidecar(w.Sidecar)
+		if err != nil {
+			return err
+		}
+		if sc.Source != FromSibling || sc.SiblingOf.IsZero() {
+			continue
+		}
+		from, ok, err := k.copied(ctx, *in.subject, w, sc.SiblingOf)
+		if err != nil {
+			return err
+		}
+		if ok {
+			in.copies[w.AttemptID] = from
+		}
+	}
+	return nil
+}
+
+func (in *settled) copying(w db.SubtitlesWrite) bool {
+	_, ok := in.copies[w.AttemptID]
+	return ok
+}
+
+// fetch reads each copy's bytes once the file's map is built, when its
+// identity is known, so converge writes them.
+func (k *keeper) fetch(ctx context.Context, in settled) error {
+	if in.row.MapState != "built" {
+		return nil
+	}
+	for a, from := range in.copies {
+		b, err := k.bytesOf(ctx, from.of, from.at, from.SHA256)
+		if err != nil {
+			return err
+		}
+		if b != nil {
+			k.bytes.hand(in.subject.ID, a, b)
+			in.held[a] = b
+		}
+	}
+	return nil
+}
+
+// copied is the Sidecar of sub's Work with id that holds intent w's bytes,
+// on a file at its name.
+func (k *keeper) copied(ctx context.Context, sub files.Subject, w db.SubtitlesWrite, id storage.UUID) (sibling, bool, error) {
+	var out sibling
+	var ok bool
+	err := k.s.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[storage.Library]) error {
+		rows, err := db.New(r).ListSiblings(ctx, db.ListSiblingsParams{WorkID: sub.Work, FileID: sub.ID, Language: w.Language, Forced: w.Forced})
+		if err != nil {
+			return err
+		}
+		i := slices.IndexFunc(rows, func(row db.SubtitlesSidecar) bool { return row.ID == id && bytes.Equal(row.Sha256, w.Sha256) })
+		if i < 0 {
+			return nil
+		}
+		subjects, err := k.s.cfg.Files.SubjectsOf(ctx, r, []files.ID{rows[i].FileID})
+		if err != nil || len(subjects) != 1 || !subjects[0].AtName {
+			return err
+		}
+		sc, err := sidecarOf(rows[i])
+		if err != nil {
+			return err
+		}
+		out, ok = sibling{Sidecar: sc, at: sc.at(subjects[0].Path.String()), of: subjects[0]}, true
+		return nil
+	})
+	return out, ok, err
 }

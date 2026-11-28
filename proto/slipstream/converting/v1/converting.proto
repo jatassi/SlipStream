@@ -1,0 +1,218 @@
+// The Converting Role's messages (internal/converting): the Conversions
+// the Controller places on a Node, what the Node reports of its ffmpeg and
+// the runs in flight, the results it reports once, and the test run the
+// Controller asks for. Codecs, ranges, curves, audio choices, containers,
+// paths, APIs, classes and fault codes are the text of internal/encode's
+// and internal/converting's lists, so a new value adds nothing here.
+syntax = "proto3";
+
+package slipstream.converting.v1;
+
+import "slipstream/node/v1/options.proto";
+
+// Intent is what one Node converts now.
+message Intent {
+  // jobs are the ready, running and paused Conversions placed on this
+  // Node, in run order.
+  repeated Job jobs = 1;
+  // hold is set while a Media Server that runs on this Node transcodes
+  // video: pause every run and start nothing.
+  bool hold = 2;
+  // keep is every scratch name, under in/ and out/, that an unfinished
+  // Conversion on this Node reads or writes. The Node deletes the rest.
+  repeated string keep = 3;
+  uint32 at_once = 4;
+}
+
+message Job {
+  // conversion_id is 16 bytes.
+  bytes conversion_id = 1;
+  // attempt fences every result and names the output c-<id>-<attempt>.
+  uint32 attempt = 2;
+  oneof input {
+    LibraryPath library = 3;
+    // scratch is the source copy's name under the scratch folder.
+    string scratch = 4;
+  }
+  oneof output {
+    // holding is the output's place in the root's holding folder.
+    LibraryPath holding = 5;
+    // scratch_out is the output's name under the scratch folder.
+    string scratch_out = 6;
+  }
+  Settings settings = 7;
+  Source source = 8;
+  // pipeline is the proof's row.
+  Pipeline pipeline = 9;
+  // start is set while the Node is inside its hours.
+  bool start = 10;
+  // stage lets a restarted holder report Lost for a run it no longer has.
+  Stage stage = 11;
+  // keep_languages are the Work's original language and the Target's
+  // filter, empty to keep every track.
+  repeated string keep_languages = 12;
+  // device is the adapter the proof opened.
+  string device = 13;
+}
+
+// LibraryPath is a file in a library root, named by the root and its path
+// inside it. The Node resolves it under its own folders.
+message LibraryPath {
+  bytes root_id = 1;
+  string rel = 2;
+}
+
+// Settings are a Target's Conversion settings.
+message Settings {
+  string codec = 1;
+  uint32 max_height = 2;
+  uint32 kbps = 3;
+  uint32 depth = 4;
+  string range = 5;
+  bool keep_dv = 6;
+  string curve = 7;
+  string audio = 8;
+  bool drop_commentary = 9;
+  string container = 10;
+}
+
+// Source is the stream facts the arguments are built from.
+message Source {
+  // record is media.Record as JSON, the shape files_file.probe keeps.
+  bytes record = 1;
+}
+
+message Pipeline {
+  string path = 1;
+  // api is empty for the processor.
+  string api = 2;
+}
+
+enum Stage {
+  STAGE_UNSPECIFIED = 0;
+  STAGE_READY = 1;
+  STAGE_RUNNING = 2;
+  STAGE_PAUSED = 3;
+}
+
+// Facts are the Node's ffmpeg and its runs, replaced on every change.
+message Facts {
+  // signature is 64 hex characters: SHA-256 over ffmpeg -version and each
+  // adapter's driver version. A new one replaces the Node's proofs.
+  string signature = 1;
+  // devices are at most 8.
+  repeated Device devices = 2;
+  Volume scratch = 3;
+  // progress is one entry per run of a job in the intent.
+  repeated Progress progress = 4;
+  // override is set while an unsupported ffmpeg path is configured.
+  bool override = 5;
+}
+
+message Device {
+  string name = 1;
+  string vendor = 2;
+  string driver = 3;
+}
+
+// Volume is the scratch folder's volume, in bytes.
+message Volume {
+  int64 free = 1;
+  int64 total = 2;
+  // id is the fsid on Unix, or the volume serial on Windows, as Storage
+  // names a volume.
+  string id = 3;
+  // name reads "D: (Media)", "/mnt/media", "/Volumes/Archive" or "\\nas\media".
+  string name = 4;
+  string mount = 5;
+  int64 sampled_at_unix_ms = 6;
+}
+
+message Progress {
+  bytes conversion_id = 1;
+  uint32 attempt = 2;
+  int64 out_time_us = 3;
+  float speed = 4;
+  bool paused = 5;
+}
+
+// Result goes through the Node's outbox. The Controller applies it once,
+// and only while the Conversion is placed on this Node at that attempt.
+message Result {
+  bytes conversion_id = 1;
+  uint32 attempt = 2;
+  oneof result {
+    Started started = 3;
+    Paused paused = 4;
+    Resumed resumed = 5;
+    Exited exited = 6;
+    Fault fault = 7;
+    DiskFull disk_full = 8;
+    Lost lost = 9;
+  }
+}
+
+message Started {}
+
+message Paused {}
+
+message Resumed {}
+
+// Exited is a run that ended with exit 0 and an output whose own probe
+// matched.
+message Exited {
+  int64 bytes = 1;
+}
+
+message Fault {
+  string code = 1;
+  // tail is the last 2 KiB of ffmpeg's error output.
+  string tail = 2;
+}
+
+message DiskFull {}
+
+// Lost is a job the intent says runs that has no run on this Node, after
+// a restart.
+message Lost {}
+
+service ConvertingService {
+  option (slipstream.node.v1.served_by) = {role: "converting"};
+  // Test makes a short clip of the class and converts it with each
+  // pipeline row for this Node's OS in order, answering the first that
+  // passes.
+  rpc Test(TestRequest) returns (TestResponse);
+}
+
+message TestRequest {
+  Shape shape = 1;
+  string class = 2;
+}
+
+// Shape is what a proof covers of Settings.
+message Shape {
+  string codec = 1;
+  uint32 depth = 2;
+  string range = 3;
+  bool keep_dv = 4;
+  string curve = 5;
+}
+
+message TestResponse {
+  bool passed = 1;
+  Pipeline pipeline = 2;
+  string device = 3;
+  // speed is a real-time factor, scaled to 1080p.
+  double speed = 4;
+  // pauses is whether p froze progress and u resumed it.
+  bool pauses = 5;
+  string signature = 6;
+  // tries are each row tried, in order, at most 8.
+  repeated Try tries = 7;
+}
+
+message Try {
+  Pipeline pipeline = 1;
+  // error is empty for the row that passed.
+  string error = 2;
+}

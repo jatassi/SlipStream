@@ -21,8 +21,13 @@ func (v View) Reason(names map[role.NodeID]string) string {
 	case NeedsSpace:
 		return fmt.Sprintf("Waiting for %s free on %s (%s).", setting.Amount{N: v.Space.Need, Unit: setting.BytesUnit}.Words(), names[v.Space.Node], v.Space.Volume)
 	case Waiting:
-		if _, ok := v.Destination.(DownloadFolder); ok && v.Wait.Kind == FolderNotReady {
-			return fmt.Sprintf("Waiting for the Download Client's folder on %s.", names[v.Wait.Node])
+		if v.Wait.Kind == FolderNotReady {
+			switch v.Destination.(type) {
+			case DownloadFolder:
+				return fmt.Sprintf("Waiting for the Download Client's folder on %s.", names[v.Wait.Node])
+			case Scratch:
+				return fmt.Sprintf("Waiting for the scratch folder on %s.", names[v.Wait.Node])
+			}
 		}
 		return v.Wait.words(names, source, dest)
 	case Copying, Failed:
@@ -86,6 +91,9 @@ func sentence(t Transfer, dest role.NodeID, code Code, position int, detail stri
 	case Rerouted:
 		return fmt.Sprintf("The library root moved to %s, which already has these files. Nothing needs copying.", from)
 	case FolderFailed:
+		if _, ok := t.Destination.(Scratch); ok {
+			return fmt.Sprintf("%s couldn't move %s into its scratch folder. Check that SlipStream can write to the folder.", names[dest], file)
+		}
 		return fmt.Sprintf("%s couldn't write %s to its Backup destination. Check that the folder has room and that SlipStream can write to it.", names[dest], file)
 	}
 	panic("transfers: a failure of no known code")

@@ -14,6 +14,7 @@ import (
 	"github.com/jatassi/slipstream/internal/api"
 	"github.com/jatassi/slipstream/internal/api/ownertest"
 	"github.com/jatassi/slipstream/internal/contenttype/contenttypetest"
+	"github.com/jatassi/slipstream/internal/conversions"
 	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/formats"
@@ -50,6 +51,10 @@ func (g goals) Targets() (*targets.Targets, bool) { return g.t, true }
 func (g goals) Files() (*files.Files, bool) { return g.f, true }
 
 func (g goals) Grabs() (*grabs.Grabs, bool) { return g.g, true }
+
+func (goals) Conversions() (*conversions.Conversions, bool) { return nil, false }
+
+func (goals) Nodes() (*nodes.Service, bool) { return nil, false }
 
 func (goals) Minter() (artwork.Minter, bool) { return artwork.Minter{}, false }
 
@@ -164,7 +169,7 @@ func (s *served) scoreStarter(t *testing.T, id string) {
 	if err := json.Unmarshal([]byte(body), &target); err != nil {
 		t.Fatal(err)
 	}
-	for _, read := range []string{"id", "profiles", "contains", "createdAt"} {
+	for _, read := range []string{"id", "profiles", "contains", "defaultKbps", "createdAt"} {
 		delete(target, read)
 	}
 	target["scores"] = json.RawMessage(`{"formats":[{"formatId":"` + id + `","score":25}],"minimum":0,"upgradeUntil":0,"increment":1}`)
@@ -186,7 +191,7 @@ const (
 		`{"name":"Bluray","kind":"SourceSpecification","negate":false,"required":true,"fields":{"value":"bluray"}}]`
 	hdr       = `{"id":"ID","name":"HDR","includeWhenRenaming":true,"dialect":"slipstream",` + hdrConditions + `,"scoredBy":[],"slowReleases":0}`
 	hdrScored = `{"id":"ID","name":"HDR","includeWhenRenaming":true,"dialect":"slipstream",` + hdrConditions + `,"scoredBy":[{"id":"ID","name":"1080p"}],"slowReleases":0}`
-	noImpact  = `{"works":0,"ownList":0,"unwanted":{"files":0,"bytes":0},"renamed":0,"renames":[],"newlyWanted":0,"downloading":0,"subtitles":{"gained":[],"dropped":[],"days":0}}`
+	noImpact  = `{"works":0,"ownList":0,"unwanted":{"files":0,"bytes":0},"renamed":0,"renames":[],"newlyWanted":0,"downloading":0,"subtitles":{"gained":[],"dropped":[],"days":0},"made":{"files":0,"works":0,"seconds":0,"bytes":0,"nodes":[],"unconvertible":[],"matching":0,"rows":[]},"remake":{"older":0,"rows":[]}}`
 )
 
 func TestCustomFormatsAreMadeReadChangedAndDeletedWithTheTargetsThatScoreThem(t *testing.T) {
@@ -427,7 +432,7 @@ func TestTheSchemaListsEachAppsKindsAndTheirValuesInWords(t *testing.T) {
 		}
 	}
 	for d, want := range map[string]string{
-		"slipstream": "Release title, Edition, Language, Indexer flag, Source, Resolution, Quality modifier, Size, Release group, Release type, Year",
+		"slipstream": "Release title, Edition, Language, Indexer flag, Source, Resolution, Quality modifier, Size, Release group, Release type, Year, Is derived",
 		"radarr":     "Release title, Edition, Language, Indexer flag, Source, Resolution, Quality modifier, Size, Release group, Year",
 		"sonarr":     "Release title, Language, Indexer flag, Source, Resolution, Size, Release group, Release type",
 	} {

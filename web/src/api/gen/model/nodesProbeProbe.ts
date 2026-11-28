@@ -1,1 +1,1 @@
-export type NodesProbeProbe = "engine-starts" | "data-writable" | "listener-up";
+export type NodesProbeProbe = "engine-starts" | "data-writable" | "listener-up" | "ffmpeg-runs";

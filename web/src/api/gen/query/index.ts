@@ -1,5 +1,6 @@
 export * from "./backups/backups.ts";
 export * from "./calendar/calendar.ts";
+export * from "./conversions/conversions.ts";
 export * from "./downloadclients/downloadclients.ts";
 export * from "./files/files.ts";
 export * from "./firstrun/firstrun.ts";

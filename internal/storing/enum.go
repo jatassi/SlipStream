@@ -109,6 +109,8 @@ const (
 	// ReasonOutside is a folder to import from outside the Node's library
 	// roots and download folders.
 	ReasonOutside
+	ReasonInsideBackups
+	ReasonContainsBackups
 )
 
 var reasons = enum[Reason, storagev1.Reason]{
@@ -125,6 +127,8 @@ var reasons = enum[Reason, storagev1.Reason]{
 	{ReasonUnresponsive, storagev1.Reason_REASON_UNRESPONSIVE, "unresponsive"},
 	{ReasonNetworkShare, storagev1.Reason_REASON_NETWORK_SHARE, "network_share"},
 	{ReasonOutside, storagev1.Reason_REASON_OUTSIDE, "outside"},
+	{ReasonInsideBackups, storagev1.Reason_REASON_INSIDE_BACKUPS, "inside_backups"},
+	{ReasonContainsBackups, storagev1.Reason_REASON_CONTAINS_BACKUPS, "contains_backups"},
 }
 
 func (r Reason) String() string         { return reasons.of(r).word }
@@ -146,6 +150,9 @@ const (
 	// from every root the Node holds and its downloads folders. It may sit
 	// in the data dir, where the Controller's is by default.
 	PurposeBackups
+	// PurposeConverting is a Node's scratch folder for Conversions: as
+	// Backups, and apart from the Backups folder too.
+	PurposeConverting
 )
 
 var purposes = enum[Purpose, storagev1.Purpose]{
@@ -154,6 +161,7 @@ var purposes = enum[Purpose, storagev1.Purpose]{
 	{PurposeClientFolder, storagev1.Purpose_PURPOSE_CLIENT_FOLDER, "client_folder"},
 	{PurposeImport, storagev1.Purpose_PURPOSE_IMPORT, "import"},
 	{PurposeBackups, storagev1.Purpose_PURPOSE_BACKUPS, "backups"},
+	{PurposeConverting, storagev1.Purpose_PURPOSE_CONVERTING, "converting"},
 }
 
 func (p Purpose) String() string                    { return purposes.of(p).word }

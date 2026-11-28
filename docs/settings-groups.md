@@ -10,7 +10,7 @@ An Admin comes to Settings with a question, such as "where do my files go?" or "
 | --- | --- | --- | --- |
 | Library | What do I collect, where does it live, and what is it called? | Content Types, Library roots, Library scan, Importing, Naming | |
 | Metadata and subtitles | Which outside services describe and subtitle my library? | Metadata, Subtitles | |
-| Targets and Profiles | Which versions of each Work do I want? | Targets, Profiles, Custom Formats, Editions | Conversion |
+| Targets and Profiles | Which versions of each Work do I want? | Targets, Profiles, Custom Formats, Editions | |
 | Search and download | How does SlipStream find and fetch releases? | Indexers, Automatic search, Trackers, Download Clients (built-in and external) | |
 | Access | Who can reach SlipStream, and how? | Address, Remote access, Sign-in, API key | Requests, Member portal |
 | System | How do the Nodes and the server itself run? | Nodes, Backups, Email, Media Servers, Notifications | Updates |
@@ -18,6 +18,8 @@ An Admin comes to Settings with a question, such as "where do my files go?" or "
 The first four groups follow the media pipeline in order. An Admin sets up a library, picks the services that describe and subtitle it, says what to keep in it, then says where to get it. The last two are about running the server and come after, because an Admin visits them less often once setup is done.
 
 The "Sections expected later" column is a plan, not a promise. A section's own spec decides where it goes, using the rules below.
+
+S44 (Conversion) adds no section. A Target's Conversion settings and Run on sit in the Target editor, and a Profile row's sourcing and its wait for a download sit in that row, both under Targets and Profiles. A Node's Conversions at once, hours, processor switch, scratch folder and ffmpeg path sit in that Node's Converting section, under Nodes. A Media Server's pause switch sits in its Settings tab, under Media Servers.
 
 ## Place a new section
 

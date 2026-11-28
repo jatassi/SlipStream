@@ -27,7 +27,7 @@ func (q *Queries) DeleteServer(ctx context.Context, id link.ServerID) (int64, er
 }
 
 const getServer = `-- name: GetServer :one
-SELECT id, kind, name, address, fallback_address, browser_address, identity, version, monitor_delay_ms, reaching_node_id, runs_on_node_id, device_id, secrets_sealed, settings_version, fallback, checked_at, contact, contact_since, contact_found, last_contact_at, sends, sends_since, last_send_at, unhealthy_since, unhealthy_reason, created_at, updated_at, members_see, member_address, plays_since FROM mediaservers_server WHERE id = ?1
+SELECT id, kind, name, address, fallback_address, browser_address, identity, version, monitor_delay_ms, reaching_node_id, runs_on_node_id, device_id, secrets_sealed, settings_version, fallback, checked_at, contact, contact_since, contact_found, last_contact_at, sends, sends_since, last_send_at, unhealthy_since, unhealthy_reason, created_at, updated_at, members_see, member_address, plays_since, pauses_conversions FROM mediaservers_server WHERE id = ?1
 `
 
 func (q *Queries) GetServer(ctx context.Context, id link.ServerID) (MediaserversServer, error) {
@@ -64,6 +64,7 @@ func (q *Queries) GetServer(ctx context.Context, id link.ServerID) (Mediaservers
 		&i.MembersSee,
 		&i.MemberAddress,
 		&i.PlaysSince,
+		&i.PausesConversions,
 	)
 	return i, err
 }
@@ -157,7 +158,7 @@ func (q *Queries) ListHolders(ctx context.Context, serverID link.ServerID) ([]Li
 }
 
 const listServers = `-- name: ListServers :many
-SELECT id, kind, name, address, fallback_address, browser_address, identity, version, monitor_delay_ms, reaching_node_id, runs_on_node_id, device_id, secrets_sealed, settings_version, fallback, checked_at, contact, contact_since, contact_found, last_contact_at, sends, sends_since, last_send_at, unhealthy_since, unhealthy_reason, created_at, updated_at, members_see, member_address, plays_since FROM mediaservers_server ORDER BY name, id
+SELECT id, kind, name, address, fallback_address, browser_address, identity, version, monitor_delay_ms, reaching_node_id, runs_on_node_id, device_id, secrets_sealed, settings_version, fallback, checked_at, contact, contact_since, contact_found, last_contact_at, sends, sends_since, last_send_at, unhealthy_since, unhealthy_reason, created_at, updated_at, members_see, member_address, plays_since, pauses_conversions FROM mediaservers_server ORDER BY name, id
 `
 
 func (q *Queries) ListServers(ctx context.Context) ([]MediaserversServer, error) {
@@ -200,6 +201,7 @@ func (q *Queries) ListServers(ctx context.Context) ([]MediaserversServer, error)
 			&i.MembersSee,
 			&i.MemberAddress,
 			&i.PlaysSince,
+			&i.PausesConversions,
 		); err != nil {
 			return nil, err
 		}
@@ -254,30 +256,32 @@ SET name = ?1,
     monitor_delay_ms = ?7,
     reaching_node_id = ?8,
     runs_on_node_id = ?9,
-    secrets_sealed = ?10,
-    settings_version = ?11,
-    fallback = ?12,
-    checked_at = ?13,
-    updated_at = ?14
-WHERE id = ?15
+    pauses_conversions = ?10,
+    secrets_sealed = ?11,
+    settings_version = ?12,
+    fallback = ?13,
+    checked_at = ?14,
+    updated_at = ?15
+WHERE id = ?16
 `
 
 type UpdateServerParams struct {
-	Name            string
-	Address         string
-	FallbackAddress *string
-	BrowserAddress  *string
-	Identity        string
-	Version         string
-	MonitorDelayMs  *int64
-	ReachingNodeID  role.NodeID
-	RunsOnNodeID    role.NodeID
-	SecretsSealed   secret.Sealed
-	SettingsVersion int64
-	Fallback        string
-	CheckedAt       storage.Time
-	At              storage.Time
-	ID              link.ServerID
+	Name              string
+	Address           string
+	FallbackAddress   *string
+	BrowserAddress    *string
+	Identity          string
+	Version           string
+	MonitorDelayMs    *int64
+	ReachingNodeID    role.NodeID
+	RunsOnNodeID      role.NodeID
+	PausesConversions bool
+	SecretsSealed     secret.Sealed
+	SettingsVersion   int64
+	Fallback          string
+	CheckedAt         storage.Time
+	At                storage.Time
+	ID                link.ServerID
 }
 
 // UpdateServer writes the configuration the API owns. The contact, sends
@@ -293,6 +297,7 @@ func (q *Queries) UpdateServer(ctx context.Context, arg UpdateServerParams) erro
 		arg.MonitorDelayMs,
 		arg.ReachingNodeID,
 		arg.RunsOnNodeID,
+		arg.PausesConversions,
 		arg.SecretsSealed,
 		arg.SettingsVersion,
 		arg.Fallback,

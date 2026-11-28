@@ -7,7 +7,9 @@ import (
 	"strings"
 
 	"github.com/jatassi/slipstream/internal/api"
+	"github.com/jatassi/slipstream/internal/conversions"
 	"github.com/jatassi/slipstream/internal/files"
+	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/works"
 )
@@ -19,6 +21,12 @@ type Goals interface {
 	// Files is the library's files, for disk estimates, false unless the
 	// Node is a Controller.
 	Files() (*files.Files, bool)
+	// Conversions is the Conversions, for what a Target's editor shows of
+	// them, false unless the Node is a Controller.
+	Conversions() (*conversions.Conversions, bool)
+	// Nodes is the roster, for the Nodes that convert, false unless the
+	// Node is a Controller.
+	Nodes() (*nodes.Service, bool)
 }
 
 func open(g Goals) *targets.Targets {
@@ -27,6 +35,22 @@ func open(g Goals) *targets.Targets {
 		panic("targetsapi: an operation ran on a Node that is no Controller")
 	}
 	return t
+}
+
+func converts(g Goals) *conversions.Conversions {
+	c, ok := g.Conversions()
+	if !ok {
+		panic("targetsapi: an operation ran on a Node that is no Controller")
+	}
+	return c
+}
+
+func roster(g Goals) *nodes.Service {
+	n, ok := g.Nodes()
+	if !ok {
+		panic("targetsapi: an operation ran on a Node that is no Controller")
+	}
+	return n
 }
 
 func shelf(g Goals) *files.Files {
@@ -66,6 +90,9 @@ var codes = []struct {
 }
 
 func answer(err error) error {
+	if refused := conversionAnswer(err); refused != nil {
+		return refused
+	}
 	if dup, ok := errors.AsType[*targets.DuplicateLanguageError](err); ok {
 		return duplicateLanguage.On(fmt.Sprintf("languages[%d]", dup.Index), kindWords(dup.Wanted.Forced)+" "+dup.Wanted.Language.Name()+" subtitles are already on this list.")
 	}
@@ -170,7 +197,7 @@ func Routes(r *api.Router, goals Goals) {
 		Path:    "/targets",
 		Summary: "Create a Target from its tiers of qualities, cutoff, filters, sizes, Custom Format scores and propers setting",
 		Status:  http.StatusCreated,
-		Errors:  []*api.Code{targetNameTaken, qualityNotInTarget, formatNotFound},
+		Errors:  []*api.Code{targetNameTaken, qualityNotInTarget, formatNotFound, conversionRefused.Code},
 	}, h.createTarget)
 	api.Register(o, api.Admin, api.Op{
 		ID:      "listTargets",
@@ -193,7 +220,7 @@ func Routes(r *api.Router, goals Goals) {
 		Path:    "/targets/{targetId}",
 		Summary: "Replace a Target's name and rules, renaming and refilling its Works' files, or preview the change's Impact",
 		Status:  http.StatusOK,
-		Errors:  []*api.Code{noSuchTarget, targetNameTaken, qualityNotInTarget, formatNotFound, ImpactChanged},
+		Errors:  []*api.Code{noSuchTarget, targetNameTaken, qualityNotInTarget, formatNotFound, ImpactChanged, conversionRefused.Code, targetIsASource.Code},
 	}, h.updateTarget)
 	api.Register(o, api.Admin, api.Op{
 		ID:      "duplicateTarget",
@@ -241,7 +268,7 @@ func Routes(r *api.Router, goals Goals) {
 		Path:    "/profiles/{profileId}",
 		Summary: "Replace a Profile's name, Targets, Edition list and subtitle languages, refilling and renaming its Works' files when its Targets or Edition list change, or preview the change's Impact",
 		Status:  http.StatusOK,
-		Errors:  []*api.Code{noSuchProfile, profileNameTaken, targetNotFound, cutNotFound, profileWrongType, duplicateLanguage, noSubtitlesForType, ImpactChanged},
+		Errors:  []*api.Code{noSuchProfile, profileNameTaken, targetNotFound, cutNotFound, profileWrongType, profileNotFound, duplicateLanguage, noSubtitlesForType, ImpactChanged, targetIsASource.Code},
 	}, h.updateProfile)
 	api.Register(o, api.Admin, api.Op{
 		ID:      "deleteProfile",

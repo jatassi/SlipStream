@@ -4,6 +4,7 @@ import {
   CircleArrowUp01Icon,
   DashedLineCircleIcon,
   Download04Icon,
+  Exchange01Icon,
   Tick02Icon,
 } from "@hugeicons/core-free-icons";
 import type { IconSvgElement } from "@hugeicons/react";
@@ -61,6 +62,14 @@ export const statusMarks = {
     square:
       "overflow-hidden shadow-live-glow ring-1 ring-[hsl(var(--h)_90%_65%/.32)] ring-inset after:absolute after:inset-x-0 after:bottom-0 after:h-1/2 after:bg-linear-to-t after:from-glow after:to-solid",
     bar: "bg-linear-to-r from-glow to-solid shadow-live-glow",
+  },
+  converting: {
+    word: "Converting",
+    icon: Exchange01Icon,
+    tone: "live",
+    square:
+      "overflow-hidden shadow-live-glow ring-1 ring-[hsl(var(--h)_90%_65%/.32)] ring-inset after:absolute after:inset-y-0 after:left-0 after:w-1/2 after:bg-linear-to-r after:from-glow after:to-solid",
+    bar: "bg-linear-to-r from-solid to-glow shadow-live-glow",
   },
   upgradable: {
     word: "Upgrade available",

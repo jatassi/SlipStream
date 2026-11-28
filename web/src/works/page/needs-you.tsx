@@ -1,4 +1,5 @@
 import type {
+  FilesConversionFailedNeed,
   FilesFailedNeed,
   FilesNeed,
   FilesNotFoundNeed,
@@ -15,8 +16,9 @@ import { Section } from "../../ui/section";
 import { SignalRow } from "../../ui/signal-row";
 import { stageLabel } from "../../ui/stage-track";
 import { NoRoot, NotFound, Upgrades } from "./need-rows";
-import { type FailedEntry, type Naming, failedKey, failedWords } from "./need-words";
+import { ConversionFailed } from "./conversion-failed";
 // oxlint-disable-next-line import/max-dependencies -- Needs you lists every kind of need, a stopped cell's card included
+import { type FailedEntry, type Naming, failedKey, failedWords } from "./need-words";
 import { Waiting } from "./waiting";
 
 const cardsShown = 3;
@@ -69,6 +71,7 @@ function Failed({
 
 type Grouped = {
   readonly failed: FailedEntry[];
+  readonly conversions: FilesConversionFailedNeed[];
   readonly upgrades: FilesUpgradeNeed[];
   readonly notFound: FilesNotFoundNeed[];
   readonly waiting: FilesWaitingNeed[];
@@ -77,7 +80,14 @@ type Grouped = {
 
 // The server lists failures, then upgrades, then not found, then waiting jobs, then no_root.
 function grouped(needs: readonly FilesNeed[], grabs: readonly GrabsGrab[]): Grouped {
-  const out: Grouped = { failed: [], upgrades: [], notFound: [], waiting: [], noRoot: false };
+  const out: Grouped = {
+    failed: [],
+    conversions: [],
+    upgrades: [],
+    notFound: [],
+    waiting: [],
+    noRoot: false,
+  };
   for (const need of needs) {
     switch (need.kind) {
       case "failed": {
@@ -99,12 +109,18 @@ function grouped(needs: readonly FilesNeed[], grabs: readonly GrabsGrab[]): Grou
       case "no_root":
         out.noRoot = true;
         break;
+      case "conversion_failed":
+        out.conversions.push(need);
+        break;
       default:
         return need satisfies never;
     }
   }
   return out;
 }
+
+const countOf = ({ noRoot, ...lists }: Grouped): number =>
+  Object.values(lists).reduce((sum, list) => sum + list.length, noRoot ? 1 : 0);
 
 /** The stop of a failed need's cell, when failed Grabs stopped SlipStream searching it again. */
 const stopOf = (stops: readonly GrabsStopped[], need: FilesFailedNeed) =>
@@ -133,9 +149,8 @@ export function NeedsYou({
   /** The cells failed Grabs stopped SlipStream searching again. */
   stops: readonly GrabsStopped[];
 }) {
-  const { failed, upgrades, notFound, waiting, noRoot } = grouped(needs, grabs);
-  const count =
-    failed.length + upgrades.length + notFound.length + waiting.length + (noRoot ? 1 : 0);
+  const { failed, conversions, upgrades, notFound, waiting, noRoot } = grouped(needs, grabs);
+  const count = countOf({ failed, conversions, upgrades, notFound, waiting, noRoot });
   if (count === 0) {
     return null;
   }
@@ -151,6 +166,9 @@ export function NeedsYou({
             stop={stopOf(stops, entry.need)}
             card={index < cardsShown}
           />
+        ))}
+        {conversions.map((need) => (
+          <ConversionFailed key={need.conversionId} naming={naming} need={need} />
         ))}
         {upgrades.length > 0 && <Upgrades naming={naming} needs={upgrades} />}
         {notFound.length > 0 && <NotFound naming={naming} needs={notFound} />}

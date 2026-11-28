@@ -12,6 +12,7 @@ import (
 	"github.com/jatassi/slipstream/internal/api/apitest"
 	"github.com/jatassi/slipstream/internal/backups"
 	"github.com/jatassi/slipstream/internal/calendar"
+	"github.com/jatassi/slipstream/internal/conversions"
 	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/firstrun"
@@ -107,6 +108,7 @@ func (worker) Tasks() (*tasks.Scheduler, bool) { return nil, false }
 func (worker) DownloadClients() (*downloadclients.Clients, bool) { return nil, false }
 func (worker) Transfers() (*transfers.Transfers, bool)           { return nil, false }
 func (worker) Moves() (*moves.Moves, bool)                       { return nil, false }
+func (worker) Conversions() (*conversions.Conversions, bool)     { return nil, false }
 func (worker) Backups() (*backups.Backups, bool)                 { return nil, false }
 
 func (worker) Health() (*health.Health, bool) { return nil, false }

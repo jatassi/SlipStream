@@ -16,6 +16,12 @@ const activityViews = [
   { id: "jobs", label: "Jobs", to: "/activity", route: "/_app/activity/" },
   { id: "torrents", label: "Torrents", to: "/activity/torrents", route: "/_app/activity/torrents" },
   {
+    id: "conversions",
+    label: "Conversions",
+    to: "/activity/conversions",
+    route: "/_app/activity/conversions",
+  },
+  {
     id: "blocklist",
     label: "Blocklist",
     to: "/activity/blocklist",
@@ -25,7 +31,7 @@ const activityViews = [
 ] as const;
 
 // Shared by every view, so a Node, Content Type or search survives a switch.
-// The Blocklist reads only q, and History only type.
+// The Blocklist reads only q, and History only type. Conversions reads all three.
 const activitySearch = z.object({
   node: z.uuid().optional().catch(undefined),
   type: z.string().optional().catch(undefined),

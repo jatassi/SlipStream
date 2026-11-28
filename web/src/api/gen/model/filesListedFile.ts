@@ -2,6 +2,7 @@ import type { FilesFileGrab } from "./filesFileGrab.ts";
 import type { FilesFill } from "./filesFill.ts";
 import type { FilesListedFilePlacedBy } from "./filesListedFilePlacedBy.ts";
 import type { FilesListedFileQuality } from "./filesListedFileQuality.ts";
+import type { FilesMadeFrom } from "./filesMadeFrom.ts";
 import type { FilesMediaInfo } from "./filesMediaInfo.ts";
 import type { FilesVideoCodec } from "./filesVideoCodec.ts";
 
@@ -26,6 +27,8 @@ export interface FilesListedFile {
   kept: boolean;
   /** The Target name its file name carries, before any suffix */
   label: string;
+  /** The file a Conversion made it from; null for a file no Conversion made */
+  madeFrom: FilesMadeFrom | null;
   /** What ffprobe read of it; null for a file read before SlipStream kept its tracks */
   media: FilesMediaInfo | null;
   /**

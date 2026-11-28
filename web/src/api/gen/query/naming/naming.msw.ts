@@ -12,6 +12,7 @@ import type {
   SettingChoiceField,
   SettingCountField,
   SettingDurationField,
+  SettingFileField,
   SettingFolderField,
   SettingIPField,
   SettingListField,
@@ -335,7 +336,7 @@ export const getListNamingResponseSettingFolderFieldMock = (
       : {}),
     nodeId: faker.string.uuid(),
     pendingRestart: faker.datatype.boolean(),
-    purpose: faker.helpers.arrayElement(["downloads", "backups"] as const),
+    purpose: faker.helpers.arrayElement(["downloads", "backups", "converting"] as const),
     running: faker.string.alpha({ length: { min: 10, max: 20 } }),
     source: faker.helpers.arrayElement([
       "database",
@@ -344,6 +345,38 @@ export const getListNamingResponseSettingFolderFieldMock = (
       ".env",
       "env",
     ] as const),
+    value: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
+  ...overrideResponse,
+});
+
+export const getListNamingResponseSettingFileFieldMock = (
+  overrideResponse: Partial<SettingFileField> = {},
+): SettingFileField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["file"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    nodeId: faker.string.uuid(),
+    pendingRestart: faker.datatype.boolean(),
+    running: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    unsupported: faker.datatype.boolean(),
     value: faker.string.alpha({ length: { min: 10, max: 20 } }),
   },
   ...overrideResponse,
@@ -551,6 +584,7 @@ export const getListNamingResponseMock = (
             { ...getListNamingResponseSettingRateFieldMock() },
             { ...getListNamingResponseSettingAddressFieldMock() },
             { ...getListNamingResponseSettingFolderFieldMock() },
+            { ...getListNamingResponseSettingFileFieldMock() },
             { ...getListNamingResponseSettingSpaceFieldMock() },
             { ...getListNamingResponseSettingTemplateFieldMock() },
             { ...getListNamingResponseSettingListFieldMock() },
@@ -874,7 +908,7 @@ export const getSetNamingResponseSettingFolderFieldMock = (
       : {}),
     nodeId: faker.string.uuid(),
     pendingRestart: faker.datatype.boolean(),
-    purpose: faker.helpers.arrayElement(["downloads", "backups"] as const),
+    purpose: faker.helpers.arrayElement(["downloads", "backups", "converting"] as const),
     running: faker.string.alpha({ length: { min: 10, max: 20 } }),
     source: faker.helpers.arrayElement([
       "database",
@@ -883,6 +917,38 @@ export const getSetNamingResponseSettingFolderFieldMock = (
       ".env",
       "env",
     ] as const),
+    value: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
+  ...overrideResponse,
+});
+
+export const getSetNamingResponseSettingFileFieldMock = (
+  overrideResponse: Partial<SettingFileField> = {},
+): SettingFileField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["file"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    nodeId: faker.string.uuid(),
+    pendingRestart: faker.datatype.boolean(),
+    running: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    unsupported: faker.datatype.boolean(),
     value: faker.string.alpha({ length: { min: 10, max: 20 } }),
   },
   ...overrideResponse,
@@ -1087,6 +1153,7 @@ export const getSetNamingResponseMock = (
       { ...getSetNamingResponseSettingRateFieldMock() },
       { ...getSetNamingResponseSettingAddressFieldMock() },
       { ...getSetNamingResponseSettingFolderFieldMock() },
+      { ...getSetNamingResponseSettingFileFieldMock() },
       { ...getSetNamingResponseSettingSpaceFieldMock() },
       { ...getSetNamingResponseSettingTemplateFieldMock() },
       { ...getSetNamingResponseSettingListFieldMock() },

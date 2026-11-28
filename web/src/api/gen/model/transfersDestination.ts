@@ -8,7 +8,7 @@ export interface TransfersDestination {
   backupDestinationId?: string;
   /** The folder on its Node, for backup and backups_folder */
   folder?: string;
-  /** root is a library root, backup a Backup destination, backups_folder the Controller's Backups folder, and download_folder a Download Client's folder */
+  /** root is a library root, backup a Backup destination, backups_folder the Controller's Backups folder, download_folder a Download Client's folder, and scratch a Node's scratch folder for Conversions */
   kind: TransfersDestinationKind;
   /** The Node that holds it now */
   nodeId: string;

@@ -741,6 +741,7 @@ A Work's status is a mark of a word and an icon, so colour never carries it alon
 - **Failed:** The fail signal chip.
 - **Missing:** A dashed circle, in `ink-2`.
 - **Downloading:** A download arrow in `glow`, with the word in `ink-1`.
+- **Converting:** Two exchange arrows in `glow`, with the word in `ink-1`.
 - **Upgrade available:** An up arrow, in `ink-2`.
 - **Unreleased:** A calendar, in `ink-3`.
 - **Met:** A check, in `ink-1`.
@@ -748,7 +749,7 @@ A Work's status is a mark of a word and an icon, so colour never carries it alon
 - **Gone from TMDB:** The warn signal chip, naming the Work's metadata source.
 - **Technical state:** A state in the industry's term, such as Stalled or Direct stream, underlines its word with a dotted `ink-4` line. Hovering, tapping or pressing Enter on it opens its one-sentence definition in the tooltip's glass label, and a signal chip opens one the same way.
 
-A Work of many Items adds its tally to the status, such as "Missing · 12 of 40 met". Failed carries the count of failed cells, such as "Failed 3 · 12 of 40 met". Any failed cell makes the status Failed. The status is the first state any of the Work's Items holds in the glossary's order, what needs attention first: failed, missing, downloading, upgradable, unreleased, met. The web maps every status the API names to a mark, so a state added later fails the build until it has one.
+A Work of many Items adds its tally to the status, such as "Missing · 12 of 40 met". Failed carries the count of failed cells, such as "Failed 3 · 12 of 40 met". Any failed cell makes the status Failed. The status is the first state any of the Work's Items holds in the glossary's order, what needs attention first: failed, missing, downloading, converting, upgradable, unreleased, met. The web maps every status the API names to a mark, so a state added later fails the build until it has one.
 
 ### Search state
 
@@ -772,10 +773,11 @@ A 940px Dialog on desktop and a full Sheet on phone, as Manual search's, opened 
 
 ### Edition × Target matrix and state squares
 
-The Work page's grid of wanted cuts and versions. Every cell is in one of six states, in the glossary's order: failed, missing, downloading, upgrade, unreleased and Met. Each state has a chip and a square. The same order rolls up an Item's and a Work's status and orders the episode strip's name, the hero's counts, the Status sort and the Status filter. The matrix orders its cells by Edition and Target, and Needs you by kind, failures first. A cell is downloading while any unfinished Grab holds it, and failed when its latest Grab failed in a way that needs the Admin and SlipStream isn't searching the cell again, even when a file fills it. A cell SlipStream searches again after a failed Grab reads missing or upgrade, so it never shows Failed while a search is coming. A stopped cell reads Failed. A final file reads Met whatever its Grabs.
+The Work page's grid of wanted cuts and versions. Every cell is in one of seven states, in the glossary's order: failed, missing, downloading, converting, upgrade, unreleased and Met. Each state has a chip and a square. The same order rolls up an Item's and a Work's status and orders the episode strip's name, the hero's counts, the Status sort and the Status filter. The matrix orders its cells by Edition and Target, and Needs you by kind, failures first. A cell is downloading while any unfinished Grab holds it, and converting while an unfinished Conversion makes its file and it would otherwise read missing or upgrade. A "Downloaded, or made from" cell whose Conversion still waits for a download reads missing or upgrade. A "Made from" cell whose Conversion failed reads Failed. A cell is failed when its latest Grab failed in a way that needs the Admin and SlipStream isn't searching the cell again, even when a file fills it. A cell SlipStream searches again after a failed Grab reads missing or upgrade, so it never shows Failed while a search is coming. A stopped cell reads Failed. A final file reads Met whatever its Grabs.
 - **Failed:** Solid `fail`.
 - **Missing:** A hatch.
 - **Live:** A fill rising from the bottom with the glow.
+- **Converting:** A fill from the left edge with the glow.
 - **Upgrade:** A white ring with a centre dot.
 - **Unreleased:** A hairline ring.
 - **Met:** Solid white.

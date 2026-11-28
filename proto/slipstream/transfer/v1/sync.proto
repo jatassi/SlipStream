@@ -96,6 +96,10 @@ message Destination {
     // download_folder is a torrent payload's folder in a Download Client
     // on the receiver, which the receiver resolves and stages in.
     DownloadFolder download_folder = 4;
+    // scratch is a name, '/' separated, under the receiver's scratch
+    // folder. The receiver stages in the folder's .transfers/ and renames
+    // the one file into place once it verifies.
+    string scratch = 5;
   }
 }
 
@@ -138,6 +142,9 @@ message Source {
     // library is a file in a library root the sender holds, which it
     // opens only while its Storage intent lists the root.
     LibrarySource library = 4;
+    // scratch is a name, '/' separated, the sender opens only under its
+    // own scratch folder.
+    string scratch = 5;
   }
 }
 

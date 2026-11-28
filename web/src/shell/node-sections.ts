@@ -2,6 +2,7 @@ import {
   ArrowDataTransferHorizontalIcon,
   DatabaseRestoreIcon,
   Download04Icon,
+  Exchange01Icon,
   Globe02Icon,
   InformationCircleIcon,
   Search01Icon,
@@ -64,6 +65,13 @@ export const nodeSections = [
     icon: Tv01Icon,
     to: "/nodes/$nodeId/media-servers",
     shows: standsIn("media-server-link"),
+  },
+  {
+    id: "converting",
+    label: "Converting",
+    icon: Exchange01Icon,
+    to: "/nodes/$nodeId/converting",
+    shows: standsIn("converting"),
   },
   {
     id: "transfers",

@@ -58,8 +58,9 @@ INSERT INTO targets_profile (id, name, content_type, is_default, editions)
 VALUES (sqlc.arg(id), sqlc.arg(name), sqlc.arg(content_type), sqlc.arg(is_default), sqlc.arg(editions));
 
 -- name: InsertProfileTarget :exec
-INSERT INTO targets_profile_target (profile_id, position, target_id, sourcing)
-VALUES (sqlc.arg(profile_id), sqlc.arg(position), sqlc.arg(target_id), sqlc.arg(sourcing));
+INSERT INTO targets_profile_target (profile_id, position, target_id, sourcing, from_target_id, grace_seconds)
+VALUES (sqlc.arg(profile_id), sqlc.arg(position), sqlc.arg(target_id), sqlc.arg(sourcing), sqlc.arg(from_target_id),
+    sqlc.narg(grace_seconds));
 
 -- name: ListProfiles :many
 SELECT * FROM targets_profile ORDER BY content_type, name, id;
@@ -237,3 +238,29 @@ SELECT w.work_id, w.profile_id, p.content_type FROM targets_wants w
 JOIN targets_profile p ON p.id = w.profile_id
 WHERE w.work_id IN (sqlc.slice(work_ids))
 ORDER BY w.work_id;
+
+-- name: ListConversions :many
+SELECT * FROM targets_conversion ORDER BY target_id;
+
+-- name: GetConversion :one
+SELECT * FROM targets_conversion WHERE target_id = sqlc.arg(target_id);
+
+-- name: PutConversion :exec
+INSERT INTO targets_conversion (target_id, version, video_codec, max_height, bitrate_kbps, bit_depth, range, keep_dv, curve, audio,
+    drop_commentary, container, run_on_node_id)
+VALUES (sqlc.arg(target_id), sqlc.arg(version), sqlc.arg(video_codec), sqlc.arg(max_height), sqlc.arg(bitrate_kbps), sqlc.arg(bit_depth),
+    sqlc.arg(range), sqlc.arg(keep_dv), sqlc.arg(curve), sqlc.arg(audio), sqlc.arg(drop_commentary), sqlc.arg(container),
+    sqlc.arg(run_on_node_id))
+ON CONFLICT (target_id) DO UPDATE SET version = excluded.version, video_codec = excluded.video_codec, max_height = excluded.max_height,
+    bitrate_kbps = excluded.bitrate_kbps, bit_depth = excluded.bit_depth, range = excluded.range, keep_dv = excluded.keep_dv,
+    curve = excluded.curve, audio = excluded.audio, drop_commentary = excluded.drop_commentary, container = excluded.container,
+    run_on_node_id = excluded.run_on_node_id;
+
+-- name: DeleteConversion :exec
+DELETE FROM targets_conversion WHERE target_id = sqlc.arg(target_id);
+
+-- name: ListProfilesMaking :many
+SELECT DISTINCT p.name FROM targets_profile_target pt
+JOIN targets_profile p ON p.id = pt.profile_id
+WHERE pt.target_id = sqlc.arg(target_id) AND pt.sourcing <> 'download'
+ORDER BY p.name;

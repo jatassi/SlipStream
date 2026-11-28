@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/jatassi/slipstream/internal/converting/clip"
 	"github.com/jatassi/slipstream/internal/media/speech/speechtest"
 )
 
@@ -34,12 +35,12 @@ func (b *Builder) Speech(ctx context.Context, r SpeechRecipe) (string, error) {
 }
 
 func (r SpeechRecipe) recipe() recipe {
-	video := fmt.Sprintf("color=c=black:s=64x64:r=%d:d=%s", fps, seconds(r.Length+r.Delay))
+	video := fmt.Sprintf("color=c=black:s=64x64:r=%d:d=%s", clip.FPS, seconds(r.Length+r.Delay))
 	args := []string{"-v", "error", "-y", "-f", "lavfi", "-i", video, "-itsoffset", seconds(r.Delay), "-i", "speech.wav",
 		"-map", "0:v", "-map", "1:a", "-c:v", "libx264", "-preset", "ultrafast", "-threads", "1", "-c:a", "pcm_s16le"}
 	return recipe{
 		files: []file{{name: "speech.wav", text: string(speechtest.WAV(r.Runs, r.Length))}},
-		steps: []step{{"ffmpeg", append(append(args, bitexact...), "speech.mkv")}},
+		steps: []clip.Step{{Tool: clip.FFmpeg, Args: append(append(args, bitexact...), "speech.mkv")}},
 		out:   "speech.mkv",
 	}
 }

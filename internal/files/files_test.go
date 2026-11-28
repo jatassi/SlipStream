@@ -91,6 +91,9 @@ type library struct {
 	// subtitles is what its files owners tell subtitles, NoSubtitles
 	// when nil.
 	subtitles files.Subtitles
+	// conversions is what its files owners tell Conversions,
+	// NoConversions when nil.
+	conversions files.Conversions
 }
 
 type moves struct {
@@ -176,7 +179,7 @@ func (l *library) on(cells files.Inflight, disk files.Disk) *files.Files {
 		Today: func() time.Time { return today },
 		Disk:  disk, Changed: &l.changed, Moved: &l.moved, MediaServers: &l.servers, Timings: files.Timings{RetryMin: time.Millisecond, RetryMax: 4 * time.Millisecond},
 		Rand: rand.New(rand.NewPCG(1, 2)), Log: slog.New(slog.DiscardHandler), //nolint:gosec // seeded on purpose so tests replay
-		Queue: l.queue, Subtitles: l.subtitles, Homes: l.held, Moves: l.moving,
+		Queue: l.queue, Subtitles: l.subtitles, Homes: l.held, Moves: l.moving, Conversions: l.conversions,
 	})
 	if err != nil {
 		l.t.Fatal(err)
@@ -347,6 +350,8 @@ func TestAnItemsStatusIsItsCellsStateThatNeedsAttentionFirst(t *testing.T) {
 		{cells(files.Met, files.Downloading, files.Failed), files.Failed},
 		{cells(files.Unreleased, files.Missing, files.Met), files.Missing},
 		{cells(files.Unreleased, files.Downloading), files.Downloading},
+		{cells(files.Converting, files.Downloading), files.Downloading},
+		{cells(files.Upgradable, files.Converting), files.Converting},
 		{cells(files.Unreleased, files.Upgradable), files.Upgradable},
 		{cells(files.Met, files.Unreleased), files.Unreleased},
 		{cells(files.Met), files.Met},
@@ -513,7 +518,7 @@ func holdingOf(tree works.Tree, item int, holding string, size int64, probe medi
 
 // land imports c into work in tx, at l's root, as a Grab's import does.
 func (l *library) land(ctx context.Context, tx *storage.Tx[storage.Library], svc *files.Files, work works.WorkID, c files.Candidate) (files.Landed, error) {
-	return svc.Import(ctx, tx, files.Landing{Batch: files.Batch{Work: work, Root: l.root.ID, Candidates: []files.Candidate{c}}, PlacedBy: "copy"})
+	return svc.Import(ctx, tx, files.Landing{Batch: files.Batch{Work: work, Root: l.root.ID, Candidates: []files.Candidate{c}}, PlacedBy: "copy", Arrival: files.ArrivalNew})
 }
 
 // judge is what svc's judge answers of c, landing in work at l's root.

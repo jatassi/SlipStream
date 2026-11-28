@@ -3,6 +3,7 @@ package targetsapi
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/jatassi/slipstream/internal/api"
 	"github.com/jatassi/slipstream/internal/identity"
@@ -14,8 +15,10 @@ import (
 )
 
 type entry struct {
-	TargetID string `json:"targetId" format:"uuid"`
-	Sourcing string `json:"sourcing" enum:"download" doc:"How the Target gets its file"`
+	TargetID     string `json:"targetId" format:"uuid"`
+	Sourcing     string `json:"sourcing" enum:"download,derive,download_then_derive" doc:"How the Target gets its file: download, made from another Target's file (derive), or downloaded, or made from another Target's file after a wait (download_then_derive)"`
+	FromTargetID string `json:"fromTargetId,omitempty" format:"uuid" doc:"For derive and download_then_derive: the Target above it whose file it is made from"`
+	GraceSeconds int    `json:"graceSeconds,omitempty" minimum:"3600" maximum:"7776000" doc:"For download_then_derive: how long SlipStream searches for a download before it makes the file"`
 }
 
 // editions is an Edition list: any cut, or named cuts, which the union
@@ -111,7 +114,11 @@ func profileOf(p targets.Profile) Profile {
 		out.Languages = append(out.Languages, WantedLanguageOf(l))
 	}
 	for _, e := range p.Entries {
-		out.Targets = append(out.Targets, entry{TargetID: e.Target.String(), Sourcing: string(e.Sourcing)})
+		row := entry{TargetID: e.Target.String(), Sourcing: string(e.Sourcing), GraceSeconds: int(e.Grace / time.Second)}
+		if e.From != nil {
+			row.FromTargetID = e.From.String()
+		}
+		out.Targets = append(out.Targets, row)
 	}
 	return out
 }
@@ -133,6 +140,7 @@ type newProfile struct {
 	Targets     []entry             `json:"targets" nullable:"false" uniqueItems:"true" doc:"In Profile order; none is a Profile whose Works need no files"`
 	Editions    api.OneOf[editions] `json:"editions"`
 	Languages   []WantedLanguage    `json:"languages" nullable:"false" doc:"In the Admin's order, each language once as full and once as forced only at most; none for a Content Type without subtitles"`
+	Backfill    *backfill           `json:"backfill,omitempty" doc:"A replace that adds a made-from Target only: which Works to convert, where the rest go, and the default for new Works"`
 }
 
 type createProfileInput struct{ Body newProfile }
@@ -175,12 +183,20 @@ func profileSpecOf(in newProfile) (targets.ProfileSpec, error) {
 		return targets.ProfileSpec{}, err
 	}
 	s := targets.ProfileSpec{Name: in.Name, ContentType: works.TypeID(in.ContentType), Editions: list, Languages: langs}
-	for _, e := range in.Targets {
+	for i, e := range in.Targets {
 		u, err := storage.ParseUUID(e.TargetID)
 		if err != nil {
 			return targets.ProfileSpec{}, targetNotFound
 		}
-		s.Entries = append(s.Entries, targets.Entry{Target: targets.TargetID{UUID: u}, Sourcing: targets.Sourcing(e.Sourcing)})
+		row := targets.Entry{Target: targets.TargetID{UUID: u}, Sourcing: targets.Sourcing(e.Sourcing), Grace: time.Duration(e.GraceSeconds) * time.Second}
+		if e.FromTargetID != "" {
+			from, err := storage.ParseUUID(e.FromTargetID)
+			if err != nil {
+				return targets.ProfileSpec{}, api.Invalid.On(fmt.Sprintf("targets[%d].fromTargetId", i), "No Target has this id.")
+			}
+			row.From = &targets.TargetID{UUID: from}
+		}
+		s.Entries = append(s.Entries, row)
 	}
 	return s, nil
 }

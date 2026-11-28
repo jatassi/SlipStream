@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/netip"
 	"slices"
+	"sync/atomic"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/backups"
@@ -15,6 +16,8 @@ import (
 	"github.com/jatassi/slipstream/internal/calendar"
 	"github.com/jatassi/slipstream/internal/calls"
 	"github.com/jatassi/slipstream/internal/contenttype"
+	"github.com/jatassi/slipstream/internal/conversions"
+	"github.com/jatassi/slipstream/internal/converting"
 	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/downloading"
 	"github.com/jatassi/slipstream/internal/files"
@@ -45,6 +48,8 @@ import (
 	"github.com/jatassi/slipstream/internal/notifications"
 	notificationproviders "github.com/jatassi/slipstream/internal/notifications/providers"
 	"github.com/jatassi/slipstream/internal/notifying"
+	cv1 "github.com/jatassi/slipstream/internal/pb/slipstream/converting/v1"
+	"github.com/jatassi/slipstream/internal/pb/slipstream/converting/v1/convertingv1connect"
 	dlv1 "github.com/jatassi/slipstream/internal/pb/slipstream/downloading/v1"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/downloading/v1/downloadingv1connect"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/housekeeping/v1/housekeepingv1connect"
@@ -162,6 +167,11 @@ type half struct {
 	copier    *transfers.Node
 	// moves drives every Move, on a Controller.
 	moves *moves.Moves
+	// conversions queues, places and lands every Conversion, on a
+	// Controller.
+	conversions *conversions.Conversions
+	// scratch is each Converting Node's scratch volume, on a Controller.
+	scratch func(node role.NodeID) *cv1.Volume
 	// serving proxies to the Controller while a Worker holds Serving.
 	serving *serving.Worker
 }
@@ -177,23 +187,30 @@ func (n *Node) startController(ctx context.Context) error {
 	holder := n.openHolder(client)
 	opened := n.openLibraries()
 	var (
-		downloads    *role.Control[*dlv1.Intent, *dlv1.Facts, *dlv1.Report]
-		transferring *role.Control[*tv1.Intent, *tv1.Facts, *tv1.Result]
-		linked       *role.Control[*msv1.Intent, *msv1.Facts, *msv1.Report]
-		side         *nodes.Service
-		cluster      *rpc.Cluster
-		homes        *roots.Roots
-		seeding      *trackers.Trackers
-		mover        *moves.Moves
-		pipeline     *grabs.Grabs
-		scheduler    *tasks.Scheduler
-		meta         *metadata.Metadata
-		found        *imports.Imports
-		shelf        *files.Files
-		searchQueue  = &searches.Late{}
-		kept         *backups.Backups
-		goals        *targets.Targets
+		downloads      *role.Control[*dlv1.Intent, *dlv1.Facts, *dlv1.Report]
+		transferring   *role.Control[*tv1.Intent, *tv1.Facts, *tv1.Result]
+		linked         *role.Control[*msv1.Intent, *msv1.Facts, *msv1.Report]
+		side           *nodes.Service
+		cluster        *rpc.Cluster
+		homes          *roots.Roots
+		seeding        *trackers.Trackers
+		mover          *moves.Moves
+		pipeline       *grabs.Grabs
+		scheduler      *tasks.Scheduler
+		meta           *metadata.Metadata
+		found          *imports.Imports
+		shelf          *files.Files
+		searchQueue    = &searches.Late{}
+		kept           *backups.Backups
+		goals          *targets.Targets
+		converts       *conversions.Conversions
+		built          atomic.Pointer[conversions.Conversions]
+		conversionRuns *role.Control[*cv1.Intent, *cv1.Facts, *cv1.Result]
 	)
+	scratchOf := func(node role.NodeID) *cv1.Volume {
+		f, _ := conversionRuns.Facts(node)
+		return conversions.ScratchOf(f)
+	}
 	var keeping entry.Recorder
 	keeper := reconciling.New(reconciling.Config{
 		Library: lib.db,
@@ -300,14 +317,19 @@ func (n *Node) startController(ctx context.Context) error {
 		Folders:      func(id role.NodeID) []transfers.BackupFolder { return kept.Folders(id) },
 		FoldersNoted: func(id role.NodeID) { kept.FoldersNoted(id) },
 		Sample:       func(ctx context.Context, id role.NodeID) error { return homes.Sample(ctx, id) },
-		Hub:          n.hub,
-		Changed:      transfers.ChangedEvent.Bind(n.hub),
-		Timings:      n.cfg.Timings.Transfers,
-		Log:          n.rootLog.With("subsystem", "transfers"),
+		ScratchVolume: func(node role.NodeID) (string, bool) {
+			v := scratchOf(node)
+			return v.GetId(), v != nil
+		},
+		Hub:     n.hub,
+		Changed: transfers.ChangedEvent.Bind(n.hub),
+		Timings: n.cfg.Timings.Transfers,
+		Log:     n.rootLog.With("subsystem", "transfers"),
 	})
 	transferring = transfers.Def.Serve(copies.Derive, copies.Apply)
 	servers := mediaservers.New(mediaservers.Config{
 		Library: lib.db,
+		Touched: func() { converts.TouchHolders() },
 		Sealer:  lib.sealer,
 		Roster:  openedRoster{&side},
 		Kinds:   mediaserverlink.Kinds,
@@ -426,6 +448,12 @@ func (n *Node) startController(ctx context.Context) error {
 	arrivals := roots.NewArrivals()
 	fenced := nodes.FencedEvent.Bind(n.hub)
 	var systems *nodesystem.Nodes
+	conversionRuns = converting.Def.Serve(
+		deriveConversions(&built),
+		func(ctx context.Context, tx *storage.Tx[storage.Library], id role.NodeID, res *cv1.Result) error {
+			return converts.Apply(ctx, tx, id, res)
+		},
+	)
 	side, err = nodes.Open(ctx, nodes.Config{
 		Library: lib.db,
 		Key:     n.key.Public(),
@@ -436,7 +464,7 @@ func (n *Node) startController(ctx context.Context) error {
 		Traffic: nodes.TrafficEvent.Bind(n.hub),
 
 		SettingsChanged: nodes.SettingsChangedEvent.Bind(n.hub),
-		Served:          append([]role.Served{downloads, stored, transferring, linked, network}, n.env.Test.Served...),
+		Served:          append([]role.Served{downloads, stored, transferring, linked, network, conversionRuns}, n.env.Test.Served...),
 		Owners:          owners(clients, servers, n.notifications),
 		Kept:            grabs.Kept,
 		Torrents:        clients,
@@ -450,6 +478,7 @@ func (n *Node) startController(ctx context.Context) error {
 			copies.Noted(id, scope)
 			servers.Noted(id, scope)
 			reach.Noted(id, scope)
+			notedConversions(&built, id, scope)
 		},
 		Applied: func(id role.NodeID, scope string) {
 			clients.Applied(id, scope)
@@ -489,7 +518,7 @@ func (n *Node) startController(ctx context.Context) error {
 	searchv1connect.SearchingService.Mount(dispatch, n.searchingService())
 	metadatav1connect.MetadataService.Mount(dispatch, metadata.NewHolder(holder))
 	subtitlesv1connect.SubtitlesService.Mount(dispatch, n.subtitlesHolder(client))
-	mediav1connect.MediaService.Mount(dispatch, media.NewService(n.env.Media, n.downloading, n.store.Holds, n.cfg.Timings.Media))
+	mediav1connect.MediaService.Mount(dispatch, media.NewService(n.env.Media, n.downloading, n.store.Holds, n.store.LibraryFile, n.cfg.Timings.Media))
 	notifyv1connect.NotifyingService.Mount(dispatch, notifying.Serve(n.cfg.Timings.Mail, n.env.Net.DialContext, n.env.Scripts))
 	if err := n.mountSidecars(ctx, dispatch, local); err != nil {
 		return err
@@ -498,6 +527,7 @@ func (n *Node) startController(ctx context.Context) error {
 	storagev1connect.FolderService.Mount(dispatch, n.store)
 	downloadingv1connect.DownloadingService.Mount(dispatch, n.downloading)
 	mediaserverv1connect.MediaServerLinkService.Mount(dispatch, n.mediaLink.Service())
+	convertingv1connect.ConvertingService.Mount(dispatch, converting.Service(n.proofs))
 	n.serveSystem(dispatch)
 	networkv1connect.NodeNetworkService.Mount(dispatch, netfacts.NewService(n.network))
 	providers := make([]calls.Provider, len(holder.Testers))
@@ -642,6 +672,7 @@ func (n *Node) startController(ctx context.Context) error {
 		Describe: tree.Describe, Budget: roots.SmallestBudget, Changed: naming.ChangedEvent.Bind(n.hub),
 	})
 	subs := &lateSubtitles{Subtitles: files.NoSubtitles{}}
+	poke := conversions.NewPoke()
 	shelf, err = files.Open(ctx, files.Config{
 		Queue:   searchQueue,
 		Library: lib.db, Targets: goals, Grabs: imports.Cells{Grabs: grabs.GrabCells{InStep: side.InStep, Router: router}}, Transfers: transfers.LiveIn, MediaServers: servers, Subtitles: subs,
@@ -655,6 +686,7 @@ func (n *Node) startController(ctx context.Context) error {
 		Rand:        n.filesRand,
 		Reconciling: reconciling.Blocked,
 		Moves:       moves.FilesHooks{},
+		Conversions: conversions.Seam{Poke: poke, Conversions: func() *conversions.Conversions { return converts }},
 		Homes:       homes,
 		Log:         n.rootLog.With("subsystem", "files"),
 	})
@@ -733,6 +765,9 @@ func (n *Node) startController(ctx context.Context) error {
 	})
 	searchQueue.Bind(pipeline)
 	var composer *library.Library
+	probes := func(node role.NodeID) mediav1connect.MediaServiceHandler {
+		return mediav1connect.MediaService.On(cluster, node)
+	}
 	found = imports.New(imports.Config{
 		Library: lib.db,
 		Remote:  stores,
@@ -753,12 +788,11 @@ func (n *Node) startController(ctx context.Context) error {
 		Hub:          n.hub,
 		Changed:      imports.ChangedEvent.Bind(n.hub),
 		FilesChanged: files.ChangedEvent.Bind(n.hub),
-		Probes: func(node role.NodeID) mediav1connect.MediaServiceHandler {
-			return mediav1connect.MediaService.On(cluster, node)
-		},
+		Probes:       probes,
 		Transfers:    copies,
-		OtherCopies:  moves.OtherCopies,
+		OtherCopies:  otherCopies(&converts),
 		Grabs:        pipeline,
+		Conversions:  lateConversions{converts: &converts},
 		Timings:      imports.Timings{RetryMin: n.cfg.Timings.Grabs.RetryMin, RetryMax: n.cfg.Timings.Grabs.RetryMax},
 		Rand:         n.importsRand,
 		BeforeStep:   n.env.Test.BeforeScanStep,
@@ -774,7 +808,7 @@ func (n *Node) startController(ctx context.Context) error {
 		Destinations: func(ctx context.Context, r storage.Reader[storage.Library], ids []roots.ID) (map[roots.ID]roots.Destination, error) {
 			return roots.DestinationsIn(ctx, r, ids, stored, side)
 		},
-		Writing: subtitles.Writing, Roster: side, Videos: imports.Videos, Reconciling: reconciling.Blocked, Hub: n.hub,
+		Writing: writing, Roster: side, Videos: imports.Videos, Reconciling: reconciling.Blocked, Hub: n.hub,
 		Changed: moves.ChangedEvent.Bind(n.hub), FilesChanged: files.ChangedEvent.Bind(n.hub),
 		Touch:   func(nodes ...role.NodeID) { stored.Touch(nodes...) },
 		Clients: clients,
@@ -786,6 +820,34 @@ func (n *Node) startController(ctx context.Context) error {
 		Clock: time.Now, Log: n.rootLog.With("subsystem", "moves"),
 	})
 	copies.Register(mover.Purpose())
+	converts = conversions.New(conversions.Config{
+		Library:   lib.db,
+		Files:     shelf,
+		Targets:   goals,
+		Transfers: copies,
+		Board:     side.Board,
+		Control:   func() *role.Control[*cv1.Intent, *cv1.Facts, *cv1.Result] { return conversionRuns },
+		Converting: func(node role.NodeID) convertingv1connect.ConvertingServiceClient {
+			return convertingv1connect.ConvertingService.On(cluster, node)
+		},
+		Probes:        probes,
+		RootRoom:      found.CopyRoom,
+		TranscodingOn: servers.TranscodingOn,
+		History:       n.history.Recorder("conversions", conversions.Entries()),
+		Changed:       conversions.ChangedEvent.Bind(n.hub),
+		Live:          conversions.LiveEvent.Bind(n.hub),
+		Hub:           n.hub,
+		Poke:          poke,
+		Reconciling:   reconciling.Blocked,
+		Zone:          n.zone,
+		Timings:       n.cfg.Timings.Conversions,
+		Run:           n.cfg.Timings.Converting,
+		Clock:         time.Now,
+		Log:           n.rootLog.With("subsystem", "conversions"),
+	})
+	built.Store(converts)
+	copies.Register(converts.Purpose())
+	converts.Register(found.Converter())
 	front := home.New(home.Config{
 		Library: lib.db, Moves: mover, Grabs: pipeline, Imports: found, Works: tree, Files: shelf, Clients: clients,
 		Changed: home.SettingsChangedEvent.Bind(n.hub),
@@ -798,7 +860,7 @@ func (n *Node) startController(ctx context.Context) error {
 	})
 	cat.Seal()
 
-	started := Half{Link: n.link, Dispatch: dispatch, Local: local, Library: lib.db, Controls: controls, Cluster: cluster, Clients: clients, Imports: found, Transfers: copies, Moves: mover}
+	started := Half{Link: n.link, Dispatch: dispatch, Local: local, Library: lib.db, Controls: controls, Cluster: cluster, Clients: clients, Imports: found, Transfers: copies, Moves: mover, Conversions: converts}
 	scheduler, err = tasks.Open(ctx, tasks.Config{
 		Library: lib.db,
 		Catalog: append(catalog(housekeeping.Config{
@@ -810,7 +872,7 @@ func (n *Node) startController(ctx context.Context) error {
 			},
 			Keep:  n.history,
 			Batch: n.cfg.Timings.Housekeeping.PruneBatch,
-			Steps: append(housekeepingSteps(registry, servers, n.history, pipeline, found, shelf, subtitler), moves.Retention(lib.db)),
+			Steps: append(housekeepingSteps(registry, servers, n.history, pipeline, found, converts, shelf, subtitler), moves.Retention(lib.db)),
 			Reconciling: func(ctx context.Context) (paused bool, err error) {
 				err = lib.db.Read(ctx, func(ctx context.Context, r storage.Reader[storage.Library]) error {
 					paused, err = reconciling.Blocked(ctx, r)
@@ -869,9 +931,11 @@ func (n *Node) startController(ctx context.Context) error {
 
 		subtitles: subtitler,
 
-		transfers: copies,
-		copier:    copier,
-		moves:     mover,
+		transfers:   copies,
+		copier:      copier,
+		moves:       mover,
+		conversions: converts,
+		scratch:     scratchOf,
 	}
 	if h.health, err = n.openHealth(ctx, lib.db, h); err != nil {
 		return err
@@ -890,6 +954,7 @@ func (n *Node) startController(ctx context.Context) error {
 	n.claimed.Go("reachability", reach.Run)
 	n.claimed.Go("files", shelf.Run)
 	n.claimed.Go("moves", mover.Run)
+	n.claimed.Go("conversions", converts.Run)
 	n.claimed.Go("subtitles", subtitler.Run)
 	n.claimed.Go("tasks", scheduler.Run)
 	n.claimed.Go("library scan", found.Run)
@@ -975,6 +1040,18 @@ func (a lateArtwork) PublicURL(ref artwork.Ref, size artwork.Size) (string, erro
 // lateSubtitles is the Controller's Subtitles once it opens: files opens
 // before it, since subtitles reads files.
 type lateSubtitles struct{ files.Subtitles }
+
+// lateConversions is the Controller's Conversions once they are made:
+// imports is made before them, since they read its copy room.
+type lateConversions struct{ converts **conversions.Conversions }
+
+func (c lateConversions) Follow(ctx context.Context, tx *storage.Tx[storage.Library], id conversions.ID, r conversions.Report) (conversions.Followed, error) {
+	return (*c.converts).Follow(ctx, tx, id, r)
+}
+
+func (c lateConversions) Followed(ctx context.Context, fs ...conversions.Followed) {
+	(*c.converts).Followed(ctx, fs...)
+}
 
 // lateTasks is the Scheduled tasks once they open: the Media Servers and
 // grabs are made before them, since the tasks' catalog lists their tasks.
@@ -1171,7 +1248,7 @@ func (n *Node) startWorker(ctx context.Context) error {
 	client := n.httpClient(n.env.Net.DialContext)
 	metadatav1connect.MetadataService.Mount(dispatch, metadata.NewHolder(n.openHolder(client)))
 	subtitlesv1connect.SubtitlesService.Mount(dispatch, n.subtitlesHolder(client))
-	mediav1connect.MediaService.Mount(dispatch, media.NewService(n.env.Media, n.downloading, n.store.Holds, n.cfg.Timings.Media))
+	mediav1connect.MediaService.Mount(dispatch, media.NewService(n.env.Media, n.downloading, n.store.Holds, n.store.LibraryFile, n.cfg.Timings.Media))
 	notifyv1connect.NotifyingService.Mount(dispatch, notifying.Serve(n.cfg.Timings.Mail, n.env.Net.DialContext, n.env.Scripts))
 	if err := n.mountSidecars(ctx, dispatch, local); err != nil {
 		return err
@@ -1180,6 +1257,7 @@ func (n *Node) startWorker(ctx context.Context) error {
 	storagev1connect.FolderService.Mount(dispatch, n.store)
 	downloadingv1connect.DownloadingService.Mount(dispatch, n.downloading)
 	mediaserverv1connect.MediaServerLinkService.Mount(dispatch, n.mediaLink.Service())
+	convertingv1connect.ConvertingService.Mount(dispatch, converting.Service(n.proofs))
 	n.serveSystem(dispatch)
 	networkv1connect.NodeNetworkService.Mount(dispatch, netfacts.NewService(n.network))
 	housekeepingv1connect.HousekeepingService.Mount(dispatch, housekeeping.Service{Local: local})
@@ -1241,6 +1319,7 @@ func (n *Node) startHolding(ctx context.Context, self role.NodeID, upstream role
 		Sources:   opener{store: n.store, torrents: n.downloading},
 		Roots:     n.store,
 		Downloads: n.downloading,
+		Scratch:   n.scratch,
 		Timings:   n.cfg.Timings.Transfers,
 		Retry:     n.cfg.Timings.Backups.WindowsRetry,
 		Hooks:     n.env.Test.Transfers,
@@ -1284,10 +1363,10 @@ func (n *Node) serveSystem(d *rpc.Dispatch) {
 // housekeepingSteps is Housekeeping's prunes in their units' order. The
 // Grabs step runs before the Imports step, so the Imports step sees the
 // Grabs it deleted.
-func housekeepingSteps(registry *indexers.Indexers, servers *mediaservers.MediaServers, h *history.Service, pipeline *grabs.Grabs, found *imports.Imports, shelf *files.Files, subtitler *subtitles.Subtitles) []housekeeping.Step {
+func housekeepingSteps(registry *indexers.Indexers, servers *mediaservers.MediaServers, h *history.Service, pipeline *grabs.Grabs, found *imports.Imports, converts *conversions.Conversions, shelf *files.Files, subtitler *subtitles.Subtitles) []housekeeping.Step {
 	return []housekeeping.Step{
 		housekeeping.Plain("indexer-queries", "Indexer queries and sessions", tasks.Runs, registry.Prune), servers.Housekeeping(),
-		h.Retention(), pipeline.Retention(), found.Retention(), shelf.Retention(), subtitler.Retention(),
+		h.Retention(), pipeline.Retention(), found.Retention(), converts.Retention(), shelf.Retention(), subtitler.Retention(),
 	}
 }
 
@@ -1297,7 +1376,7 @@ func owners(clients *downloadclients.Clients, servers *mediaservers.MediaServers
 		indexers.SearchingOwner,
 		clients.DownloadingOwner(),
 		roots.StorageOwner(files.RootContents{}),
-		nodes.Unowned(role.Converting),
+		conversions.Owner,
 		subtitles.Owner,
 		metadata.Owner,
 		servers.Owner(),
@@ -1307,15 +1386,51 @@ func owners(clients *downloadclients.Clients, servers *mediaservers.MediaServers
 	}
 }
 
+// otherCopies is the bytes other owners expect on node's volume: the
+// copies S48 (Moves) granted and the outputs unfinished Conversions write.
+// The Conversions are made after imports, which reads them.
+func otherCopies(converts **conversions.Conversions) imports.OtherCopies {
+	return func(ctx context.Context, r storage.Reader[storage.Library], node role.NodeID, volume string) (int64, error) {
+		moved, err := moves.OtherCopies(ctx, r, node, volume)
+		if err != nil {
+			return 0, err
+		}
+		made, err := (*converts).OutputsIn(ctx, r, node, volume)
+		return moved + made, err
+	}
+}
+
+// writing is which of fs a Move waits for: a Speech Map or Sidecar
+// written for it, or an unfinished Conversion reading or making it.
+func writing(ctx context.Context, r storage.Reader[storage.Library], fs []files.ID) (map[files.ID]bool, error) {
+	out := map[files.ID]bool{}
+	for _, of := range []func(context.Context, storage.Reader[storage.Library], []files.ID) (map[files.ID]bool, error){subtitles.Writing, conversions.Open} {
+		busy, err := of(ctx, r, fs)
+		if err != nil {
+			return nil, err
+		}
+		for id, b := range busy {
+			out[id] = out[id] || b
+		}
+	}
+	return out, nil
+}
+
 // heldRoles is every Role this binary runs, and the Node-wide channels
 // every Node holds, one held line each.
 func (n *Node) heldRoles(local *storage.DB[storage.Local], dispatch *rpc.Dispatch, copier *transfers.Node) []role.Held {
+	convert := converting.Hold(converting.HolderConfig{
+		Converter: n.converter, Proofs: n.proofs, Media: n.env.Media, Scratch: n.scratch, Override: n.ffmpegPath,
+		Local: n.store.Local, Disk: n.disk, DB: local,
+		Timings: n.cfg.Timings.Converting, Log: n.rootLog.With("subsystem", "converting"),
+	})
 	return []role.Held{
 		downloading.Def.Hold(n.downloading.Run(local, downloadingv1connect.DownloadingControlService.Call(dispatch)), n.downloading.Release),
 		storing.Def.Hold(n.store.Run, n.store.Release),
 		transfers.Def.Hold(copier.Run, copier.Release),
 		mediaserverlink.Def.Hold(n.mediaLink.Run(local, mediaserverv1connect.MediaServerControlService.Call(dispatch)), n.mediaLink.Release),
 		netmodel.Def.Hold(n.network.Watch, n.network.Release),
+		converting.Def.Hold(convert.Run, convert.Release),
 	}
 }
 
@@ -1475,4 +1590,22 @@ func rootBusy(ctx context.Context, r storage.Reader[storage.Library], root roots
 		return roots.Busy{}, err
 	}
 	return roots.Busy{Moves: int(movesIn), Imports: int(importsIn), Transfers: transfersIn}, nil
+}
+
+// deriveConversions derives a Converting intent, which asks nothing of a
+// Node until the Controller's Conversions are built.
+func deriveConversions(built *atomic.Pointer[conversions.Conversions]) func(context.Context, storage.Reader[storage.Library], role.NodeID) (*cv1.Intent, error) {
+	return func(ctx context.Context, r storage.Reader[storage.Library], id role.NodeID) (*cv1.Intent, error) {
+		c := built.Load()
+		if c == nil {
+			return &cv1.Intent{}, nil
+		}
+		return c.Derive(ctx, r, id)
+	}
+}
+
+func notedConversions(built *atomic.Pointer[conversions.Conversions], id role.NodeID, scope string) {
+	if c := built.Load(); c != nil {
+		c.Noted(id, scope)
+	}
 }

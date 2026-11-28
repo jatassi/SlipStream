@@ -43,6 +43,9 @@ const (
 	Canceled         ReasonCode = "canceled"
 	Blocklisted      ReasonCode = "blocklisted"
 	WorkDeleted      ReasonCode = "work_deleted"
+	// ConversionCanceled is a conversion Import its Conversion's cancel
+	// ended.
+	ConversionCanceled ReasonCode = "conversion_canceled"
 )
 
 // Reason is why a file is left out, waits or failed. It is stored as JSON

@@ -67,6 +67,8 @@ const because: {
   unresponsive: (_refusal, { node }) => `${node} didn't respond in time`,
   network_share: () => "it's on a network share",
   outside: (_refusal, { node }) => `it isn't in a library root or a download folder on ${node}`,
+  inside_backups: () => "it's inside the Backups folder",
+  contains_backups: () => "it contains the Backups folder",
   node_offline: (_refusal, { node }) => `${node} is offline`,
 };
 

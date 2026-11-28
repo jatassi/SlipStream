@@ -168,36 +168,37 @@ type MediaserversPlexAccount struct {
 }
 
 type MediaserversServer struct {
-	ID              link.ServerID
-	Kind            link.KindName
-	Name            string
-	Address         string
-	FallbackAddress *string
-	BrowserAddress  *string
-	Identity        string
-	Version         string
-	MonitorDelayMs  *int64
-	ReachingNodeID  role.NodeID
-	RunsOnNodeID    role.NodeID
-	DeviceID        *string
-	SecretsSealed   secret.Sealed
-	SettingsVersion int64
-	Fallback        string
-	CheckedAt       storage.Time
-	Contact         link.Contact
-	ContactSince    storage.Time
-	ContactFound    *string
-	LastContactAt   storage.Time
-	Sends           string
-	SendsSince      storage.Time
-	LastSendAt      storage.Time
-	UnhealthySince  storage.Time
-	UnhealthyReason *string
-	CreatedAt       storage.Time
-	UpdatedAt       storage.Time
-	MembersSee      bool
-	MemberAddress   *string
-	PlaysSince      storage.Time
+	ID                link.ServerID
+	Kind              link.KindName
+	Name              string
+	Address           string
+	FallbackAddress   *string
+	BrowserAddress    *string
+	Identity          string
+	Version           string
+	MonitorDelayMs    *int64
+	ReachingNodeID    role.NodeID
+	RunsOnNodeID      role.NodeID
+	DeviceID          *string
+	SecretsSealed     secret.Sealed
+	SettingsVersion   int64
+	Fallback          string
+	CheckedAt         storage.Time
+	Contact           link.Contact
+	ContactSince      storage.Time
+	ContactFound      *string
+	LastContactAt     storage.Time
+	Sends             string
+	SendsSince        storage.Time
+	LastSendAt        storage.Time
+	UnhealthySince    storage.Time
+	UnhealthyReason   *string
+	CreatedAt         storage.Time
+	UpdatedAt         storage.Time
+	MembersSee        bool
+	MemberAddress     *string
+	PlaysSince        storage.Time
+	PausesConversions bool
 }
 
 type MediaserversSetting struct {

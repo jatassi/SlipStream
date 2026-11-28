@@ -162,6 +162,10 @@ const (
 	// writable and apart from every root the Node holds and its downloads
 	// folders. It may sit in the data dir.
 	Purpose_PURPOSE_BACKUPS Purpose = 5
+	// CONVERTING: a Node's scratch folder for Conversions: writable and
+	// apart from every root the Node holds, its downloads folders and the
+	// Backups folder. It may sit in the data dir.
+	Purpose_PURPOSE_CONVERTING Purpose = 6
 )
 
 // Enum value maps for Purpose.
@@ -173,6 +177,7 @@ var (
 		3: "PURPOSE_CLIENT_FOLDER",
 		4: "PURPOSE_IMPORT",
 		5: "PURPOSE_BACKUPS",
+		6: "PURPOSE_CONVERTING",
 	}
 	Purpose_value = map[string]int32{
 		"PURPOSE_UNSPECIFIED":   0,
@@ -181,6 +186,7 @@ var (
 		"PURPOSE_CLIENT_FOLDER": 3,
 		"PURPOSE_IMPORT":        4,
 		"PURPOSE_BACKUPS":       5,
+		"PURPOSE_CONVERTING":    6,
 	}
 )
 
@@ -228,6 +234,9 @@ const (
 	Reason_REASON_UNRESPONSIVE       Reason = 11
 	Reason_REASON_NETWORK_SHARE      Reason = 12
 	Reason_REASON_OUTSIDE            Reason = 13
+	// The scratch folder may not overlap the Node's Backups folder.
+	Reason_REASON_INSIDE_BACKUPS   Reason = 14
+	Reason_REASON_CONTAINS_BACKUPS Reason = 15
 )
 
 // Enum value maps for Reason.
@@ -247,6 +256,8 @@ var (
 		11: "REASON_UNRESPONSIVE",
 		12: "REASON_NETWORK_SHARE",
 		13: "REASON_OUTSIDE",
+		14: "REASON_INSIDE_BACKUPS",
+		15: "REASON_CONTAINS_BACKUPS",
 	}
 	Reason_value = map[string]int32{
 		"REASON_UNSPECIFIED":        0,
@@ -263,6 +274,8 @@ var (
 		"REASON_UNRESPONSIVE":       11,
 		"REASON_NETWORK_SHARE":      12,
 		"REASON_OUTSIDE":            13,
+		"REASON_INSIDE_BACKUPS":     14,
+		"REASON_CONTAINS_BACKUPS":   15,
 	}
 )
 
@@ -5226,14 +5239,15 @@ const file_slipstream_storage_v1_storage_proto_rawDesc = "" +
 	"\x17VOLUME_KIND_UNSPECIFIED\x10\x00\x12\x15\n" +
 	"\x11VOLUME_KIND_LOCAL\x10\x01\x12\x19\n" +
 	"\x15VOLUME_KIND_REMOVABLE\x10\x02\x12\x17\n" +
-	"\x13VOLUME_KIND_NETWORK\x10\x03*\x8f\x01\n" +
+	"\x13VOLUME_KIND_NETWORK\x10\x03*\xa7\x01\n" +
 	"\aPurpose\x12\x17\n" +
 	"\x13PURPOSE_UNSPECIFIED\x10\x00\x12\x10\n" +
 	"\fPURPOSE_ROOT\x10\x01\x12\x15\n" +
 	"\x11PURPOSE_DOWNLOADS\x10\x02\x12\x19\n" +
 	"\x15PURPOSE_CLIENT_FOLDER\x10\x03\x12\x12\n" +
 	"\x0ePURPOSE_IMPORT\x10\x04\x12\x13\n" +
-	"\x0fPURPOSE_BACKUPS\x10\x05*\xe6\x02\n" +
+	"\x0fPURPOSE_BACKUPS\x10\x05\x12\x16\n" +
+	"\x12PURPOSE_CONVERTING\x10\x06*\x9e\x03\n" +
 	"\x06Reason\x12\x16\n" +
 	"\x12REASON_UNSPECIFIED\x10\x00\x12\x17\n" +
 	"\x13REASON_NOT_ABSOLUTE\x10\x01\x12\x14\n" +
@@ -5249,7 +5263,9 @@ const file_slipstream_storage_v1_storage_proto_rawDesc = "" +
 	"\x12\x17\n" +
 	"\x13REASON_UNRESPONSIVE\x10\v\x12\x18\n" +
 	"\x14REASON_NETWORK_SHARE\x10\f\x12\x12\n" +
-	"\x0eREASON_OUTSIDE\x10\r*l\n" +
+	"\x0eREASON_OUTSIDE\x10\r\x12\x19\n" +
+	"\x15REASON_INSIDE_BACKUPS\x10\x0e\x12\x1b\n" +
+	"\x17REASON_CONTAINS_BACKUPS\x10\x0f*l\n" +
 	"\rMissingReason\x12\x1e\n" +
 	"\x1aMISSING_REASON_UNSPECIFIED\x10\x00\x12\x1a\n" +
 	"\x16MISSING_REASON_MISSING\x10\x01\x12\x1f\n" +

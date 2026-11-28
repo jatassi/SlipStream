@@ -5,6 +5,7 @@ import type { NodesLeaves } from "./nodesLeaves.ts";
 import type { NodesLetsGo } from "./nodesLetsGo.ts";
 import type { NodesMoves } from "./nodesMoves.ts";
 import type { NodesPinned } from "./nodesPinned.ts";
+import type { NodesRequeues } from "./nodesRequeues.ts";
 import type { NodesWritesOff } from "./nodesWritesOff.ts";
 
 export type NodesEffect =
@@ -14,5 +15,6 @@ export type NodesEffect =
   | NodesHandedBack
   | NodesPinned
   | NodesMoves
+  | NodesRequeues
   | NodesWritesOff
   | NodesLeaves;

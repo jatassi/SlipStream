@@ -15,10 +15,9 @@ import {
   useListContentTypesSuspense,
 } from "../../../api/gen/query/works/works";
 import { ensureQuery } from "../../../api/query-client";
-import { DownloadEntry, waitingFiles } from "../../../imports/download-entry";
+import { entryTitle, PendingEntry } from "../../../imports/pending-entry";
 import { Page, PagePending } from "../../../shell/page";
 import { loaderTitle } from "../../../shell/titles";
-import { Empty } from "../../../ui/empty";
 
 export const Route = createFileRoute("/_app/library/pending_/$importId")({
   staticData: { title: loaderTitle },
@@ -34,7 +33,7 @@ export const Route = createFileRoute("/_app/library/pending_/$importId")({
       await ensureQuery(queryClient, getGetWorkSuspenseQueryOptions(entry.workId));
     }
     return {
-      title: entry.grab?.release ?? entry.folder,
+      title: entryTitle(entry),
       trail: [{ title: "Pending imports", pathname: "/library/pending" }],
     };
   },
@@ -42,7 +41,7 @@ export const Route = createFileRoute("/_app/library/pending_/$importId")({
   component: PendingImport,
 });
 
-/** One download's Pending import, the phone's pushed page for it. */
+/** One download's or Conversion's Pending import, the phone's pushed page for it. */
 function PendingImport() {
   const entry = useGetImportSuspense(Route.useParams().importId).data;
   const type = useListContentTypesSuspense().data.contentTypes.find(
@@ -50,13 +49,7 @@ function PendingImport() {
   );
   return (
     <Page>
-      {type === undefined || waitingFiles(entry).length === 0 ? (
-        <Empty look="sheet">Nothing in this download needs attention now.</Empty>
-      ) : (
-        <ul>
-          <DownloadEntry entry={entry} type={type} />
-        </ul>
-      )}
+      <PendingEntry entry={entry} type={type} />
     </Page>
   );
 }

@@ -580,7 +580,8 @@ func TestSetProfileGivesEveryWorkOneImpactAndKeepsOwnLists(t *testing.T) {
 
 	s.Expect(t, http.MethodPut, "/api/v1/works/profile?confirm=0", body, http.StatusConflict,
 		`{"status":409,"code":"impact_changed","title":"The change now does more than its preview showed",`+
-			`"detail":"The save now leaves 1 file unwanted, and the preview showed 0. Preview the change again."}`)
+			`"detail":"The save now leaves 1 file unwanted, and the preview showed 0. Preview the change again.",`+
+			`"impact":{"works":2,"ownList":1,"unwanted":{"files":1,"bytes":6},"renamed":0,"renames":[],"newlyWanted":0,"downloading":0,"subtitles":{"gained":[],"dropped":[],"days":0},"made":{"files":0,"works":0,"seconds":0,"bytes":0,"nodes":[],"unconvertible":[],"matching":0,"rows":[]},"remake":{"older":0,"rows":[]}}}`)
 	expectEvents(t, s, "a refused save", "")
 
 	got, _ = s.act(t, http.MethodPut, "/api/v1/works/profile?confirm=1", body)

@@ -16,7 +16,7 @@ const (
 	english       = `{"language":"en","forced":false,"hearingImpaired":"allow","audio":"always"}`
 	forcedFrench  = `{"language":"fra","forced":true,"hearingImpaired":"avoid","audio":"no_audio"}`
 	noLanguages   = `"subtitles":{"gained":[],"dropped":[],"days":0}`
-	untouched     = `{"works":0,"ownList":0,"unwanted":{"files":0,"bytes":0},"renamed":0,"renames":[],"newlyWanted":0,"downloading":0,` + noLanguages + `}`
+	untouched     = `{"works":0,"ownList":0,"unwanted":{"files":0,"bytes":0},"renamed":0,"renames":[],"newlyWanted":0,"downloading":0,` + noLanguages + `,"made":{"files":0,"works":0,"seconds":0,"bytes":0,"nodes":[],"unconvertible":[],"matching":0,"rows":[]},"remake":{"older":0,"rows":[]}}`
 	savedFixture  = `{"id":"id1","name":"Fixture","contentType":"fixture","default":true,"targets":[{"targetId":"id2","sourcing":"download"}],"editions":{"kind":"any"},"languages":[`
 	frenchOnWire  = `{"language":"fr","forced":true,"hearingImpaired":"avoid","audio":"no_audio"}`
 	invalidLocale = `{"language":"en-GB","forced":false,"hearingImpaired":"allow","audio":"always"}`

@@ -23,7 +23,7 @@ export const listImportsQueryLimitMax = 500;
 
 export const ListImportsQueryParams = zod.object({
   source: zod
-    .enum(["grab", "root", "folder"])
+    .enum(["grab", "root", "folder", "conversion"])
     .exactOptional()
     .describe("Only Imports from this source; every source's when left out"),
   rootId: zod

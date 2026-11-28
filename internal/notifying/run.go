@@ -9,6 +9,8 @@ import (
 	"slices"
 	"strings"
 	"time"
+
+	"github.com/jatassi/slipstream/internal/proctree"
 )
 
 // Script is one run of an Admin's program for Custom Script.
@@ -77,7 +79,7 @@ func (p ProcessRunner) Run(ctx context.Context, s Script) Ran {
 	out := &tail{}
 	cmd.Stdout, cmd.Stderr = out, out
 	cmd.WaitDelay = stopGrace
-	end, err := startTree(cmd)
+	end, err := proctree.Start(cmd)
 	if err != nil {
 		return Ran{Exit: -1, Err: err.Error()}
 	}

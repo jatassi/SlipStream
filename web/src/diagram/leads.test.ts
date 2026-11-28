@@ -7,7 +7,7 @@ import { TOP } from "./layout";
 
 const landingFrom = (count: number) => {
   const { topology, board } = fixtureOf(count);
-  return landingOf(topology, board, new Set(), fixtureClock);
+  return landingOf(topology, board, new Set(), new Map(), fixtureClock);
 };
 
 test("every machine is cabled into its tile: one cable per Role, dropping onto a grommet set on the tile's top", () => {

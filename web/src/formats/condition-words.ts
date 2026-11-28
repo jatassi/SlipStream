@@ -30,6 +30,10 @@ export function clauseOf(condition: ConditionDraft): string | undefined {
         ? `its size ${is(negate)} over ${min} GB and at most ${max} GB`
         : `its ${subject(condition)} ${is(negate)} ${min} to ${max}`;
     }
+    case "none":
+      return negate
+        ? "SlipStream didn't make it from another file"
+        : "SlipStream made it from another file";
     default:
       return value satisfies never;
   }

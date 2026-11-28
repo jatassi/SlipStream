@@ -10,6 +10,8 @@ import (
 	"github.com/jatassi/slipstream/internal/backups"
 	"github.com/jatassi/slipstream/internal/backupsapi"
 	"github.com/jatassi/slipstream/internal/calendarapi"
+	"github.com/jatassi/slipstream/internal/conversions"
+	"github.com/jatassi/slipstream/internal/conversionsapi"
 	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/downloadclientsapi"
 	"github.com/jatassi/slipstream/internal/files"
@@ -136,6 +138,8 @@ var Events = []live.Event{
 	subtitles.AttemptEvent,
 	reconciling.ChangedEvent,
 	backups.ChangedEvent,
+	conversions.ChangedEvent,
+	conversions.LiveEvent,
 }
 
 // Node is the running Node as the operations reach it: its claim, the
@@ -160,6 +164,7 @@ type Node interface {
 	downloadclientsapi.Clients
 	transfersapi.Copies
 	movesapi.Mover
+	conversionsapi.Owner
 	backupsapi.Keeper
 	shellapi.Shell
 	systemapi.Systems
@@ -211,6 +216,7 @@ func Mount(r *api.Router, s Services) {
 	downloadclientsapi.Routes(r, s.Node)
 	transfersapi.Routes(r, s.Node)
 	movesapi.Routes(r, s.Node)
+	conversionsapi.Routes(r, s.Node)
 	backupsapi.Routes(r, s.Node)
 	shellapi.Routes(r, s.Node)
 	tasksapi.Routes(r, s.Node)

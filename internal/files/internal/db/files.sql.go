@@ -504,32 +504,38 @@ func (q *Queries) InsertDoomed(ctx context.Context, arg InsertDoomedParams) erro
 
 const insertFile = `-- name: InsertFile :exec
 INSERT INTO files_file (id, work_id, cut, root_id, path, size, probe, grab_id, quality, label, extra,
-    release_name, title_read, modified_at, node_file_id, node_volume_id, probed_at, source_name)
+    release_name, title_read, modified_at, node_file_id, node_volume_id, probed_at, source_name,
+    derived, derived_from_file_id, derived_target_id, conversion_version)
 VALUES (?1, ?2, ?3, ?4, ?5,
     ?6, ?7, ?8, ?9, ?10, ?11,
     ?12, ?13, ?14, ?15, ?16,
-    ?17, ?18)
+    ?17, ?18,
+    ?19, ?20, ?21, ?22)
 `
 
 type InsertFileParams struct {
-	ID           FileID
-	WorkID       works.WorkID
-	Cut          release.CutKey
-	RootID       roots.ID
-	Path         string
-	Size         int64
-	Probe        media.Record
-	GrabID       storage.UUID
-	Quality      release.Quality
-	Label        string
-	Extra        int64
-	ReleaseName  string
-	TitleRead    Reading
-	ModifiedAt   storage.Time
-	NodeFileID   *string
-	NodeVolumeID *string
-	ProbedAt     storage.Time
-	SourceName   *string
+	ID                FileID
+	WorkID            works.WorkID
+	Cut               release.CutKey
+	RootID            roots.ID
+	Path              string
+	Size              int64
+	Probe             media.Record
+	GrabID            storage.UUID
+	Quality           release.Quality
+	Label             string
+	Extra             int64
+	ReleaseName       string
+	TitleRead         Reading
+	ModifiedAt        storage.Time
+	NodeFileID        *string
+	NodeVolumeID      *string
+	ProbedAt          storage.Time
+	SourceName        *string
+	Derived           bool
+	DerivedFromFileID FileID
+	DerivedTargetID   targets.TargetID
+	ConversionVersion *int64
 }
 
 func (q *Queries) InsertFile(ctx context.Context, arg InsertFileParams) error {
@@ -552,6 +558,10 @@ func (q *Queries) InsertFile(ctx context.Context, arg InsertFileParams) error {
 		arg.NodeVolumeID,
 		arg.ProbedAt,
 		arg.SourceName,
+		arg.Derived,
+		arg.DerivedFromFileID,
+		arg.DerivedTargetID,
+		arg.ConversionVersion,
 	)
 	return err
 }
@@ -665,18 +675,22 @@ func (q *Queries) InsertPrune(ctx context.Context, arg InsertPruneParams) error 
 }
 
 const listBriefFilesOfWorks = `-- name: ListBriefFilesOfWorks :many
-SELECT id, work_id, cut, root_id, size, quality, extra, gone_at FROM files_file WHERE work_id IN (/*SLICE:work_ids*/?) ORDER BY work_id
+SELECT id, work_id, cut, root_id, size, quality, extra, gone_at, derived, derived_from_file_id, derived_target_id, conversion_version FROM files_file WHERE work_id IN (/*SLICE:work_ids*/?) ORDER BY work_id
 `
 
 type ListBriefFilesOfWorksRow struct {
-	ID      FileID
-	WorkID  works.WorkID
-	Cut     release.CutKey
-	RootID  roots.ID
-	Size    int64
-	Quality release.Quality
-	Extra   int64
-	GoneAt  storage.Time
+	ID                FileID
+	WorkID            works.WorkID
+	Cut               release.CutKey
+	RootID            roots.ID
+	Size              int64
+	Quality           release.Quality
+	Extra             int64
+	GoneAt            storage.Time
+	Derived           bool
+	DerivedFromFileID FileID
+	DerivedTargetID   targets.TargetID
+	ConversionVersion *int64
 }
 
 func (q *Queries) ListBriefFilesOfWorks(ctx context.Context, workIds []works.WorkID) ([]ListBriefFilesOfWorksRow, error) {
@@ -707,6 +721,10 @@ func (q *Queries) ListBriefFilesOfWorks(ctx context.Context, workIds []works.Wor
 			&i.Quality,
 			&i.Extra,
 			&i.GoneAt,
+			&i.Derived,
+			&i.DerivedFromFileID,
+			&i.DerivedTargetID,
+			&i.ConversionVersion,
 		); err != nil {
 			return nil, err
 		}
@@ -756,18 +774,22 @@ func (q *Queries) ListDoomed(ctx context.Context) ([]FilesDoomed, error) {
 }
 
 const listEveryBriefFile = `-- name: ListEveryBriefFile :many
-SELECT id, work_id, cut, root_id, size, quality, extra, gone_at FROM files_file ORDER BY rowid
+SELECT id, work_id, cut, root_id, size, quality, extra, gone_at, derived, derived_from_file_id, derived_target_id, conversion_version FROM files_file ORDER BY rowid
 `
 
 type ListEveryBriefFileRow struct {
-	ID      FileID
-	WorkID  works.WorkID
-	Cut     release.CutKey
-	RootID  roots.ID
-	Size    int64
-	Quality release.Quality
-	Extra   int64
-	GoneAt  storage.Time
+	ID                FileID
+	WorkID            works.WorkID
+	Cut               release.CutKey
+	RootID            roots.ID
+	Size              int64
+	Quality           release.Quality
+	Extra             int64
+	GoneAt            storage.Time
+	Derived           bool
+	DerivedFromFileID FileID
+	DerivedTargetID   targets.TargetID
+	ConversionVersion *int64
 }
 
 func (q *Queries) ListEveryBriefFile(ctx context.Context) ([]ListEveryBriefFileRow, error) {
@@ -788,6 +810,10 @@ func (q *Queries) ListEveryBriefFile(ctx context.Context) ([]ListEveryBriefFileR
 			&i.Quality,
 			&i.Extra,
 			&i.GoneAt,
+			&i.Derived,
+			&i.DerivedFromFileID,
+			&i.DerivedTargetID,
+			&i.ConversionVersion,
 		); err != nil {
 			return nil, err
 		}
@@ -803,7 +829,7 @@ func (q *Queries) ListEveryBriefFile(ctx context.Context) ([]ListEveryBriefFileR
 }
 
 const listEveryFile = `-- name: ListEveryFile :many
-SELECT id, work_id, cut, root_id, path, size, probe, grab_id, quality, label, extra, release_name, title_read, modified_at, node_file_id, node_volume_id, gone_at, probe_version, probed_at, probe_error, source_name, placed_by FROM files_file ORDER BY rowid
+SELECT id, work_id, cut, root_id, path, size, probe, grab_id, quality, label, extra, release_name, title_read, modified_at, node_file_id, node_volume_id, gone_at, probe_version, probed_at, probe_error, source_name, placed_by, derived_from_file_id, derived_target_id, conversion_version, derived FROM files_file ORDER BY rowid
 `
 
 func (q *Queries) ListEveryFile(ctx context.Context) ([]FilesFile, error) {
@@ -838,6 +864,10 @@ func (q *Queries) ListEveryFile(ctx context.Context) ([]FilesFile, error) {
 			&i.ProbeError,
 			&i.SourceName,
 			&i.PlacedBy,
+			&i.DerivedFromFileID,
+			&i.DerivedTargetID,
+			&i.ConversionVersion,
+			&i.Derived,
 		); err != nil {
 			return nil, err
 		}
@@ -1082,7 +1112,7 @@ func (q *Queries) ListFileReadsOfWorks(ctx context.Context, workIds []works.Work
 }
 
 const listFilesByID = `-- name: ListFilesByID :many
-SELECT id, work_id, cut, root_id, path, size, probe, grab_id, quality, label, extra, release_name, title_read, modified_at, node_file_id, node_volume_id, gone_at, probe_version, probed_at, probe_error, source_name, placed_by FROM files_file WHERE id IN (/*SLICE:ids*/?) ORDER BY id
+SELECT id, work_id, cut, root_id, path, size, probe, grab_id, quality, label, extra, release_name, title_read, modified_at, node_file_id, node_volume_id, gone_at, probe_version, probed_at, probe_error, source_name, placed_by, derived_from_file_id, derived_target_id, conversion_version, derived FROM files_file WHERE id IN (/*SLICE:ids*/?) ORDER BY id
 `
 
 func (q *Queries) ListFilesByID(ctx context.Context, ids []FileID) ([]FilesFile, error) {
@@ -1127,6 +1157,10 @@ func (q *Queries) ListFilesByID(ctx context.Context, ids []FileID) ([]FilesFile,
 			&i.ProbeError,
 			&i.SourceName,
 			&i.PlacedBy,
+			&i.DerivedFromFileID,
+			&i.DerivedTargetID,
+			&i.ConversionVersion,
+			&i.Derived,
 		); err != nil {
 			return nil, err
 		}
@@ -1142,7 +1176,7 @@ func (q *Queries) ListFilesByID(ctx context.Context, ids []FileID) ([]FilesFile,
 }
 
 const listFilesOfWorks = `-- name: ListFilesOfWorks :many
-SELECT id, work_id, cut, root_id, path, size, probe, grab_id, quality, label, extra, release_name, title_read, modified_at, node_file_id, node_volume_id, gone_at, probe_version, probed_at, probe_error, source_name, placed_by FROM files_file WHERE work_id IN (/*SLICE:work_ids*/?) ORDER BY id
+SELECT id, work_id, cut, root_id, path, size, probe, grab_id, quality, label, extra, release_name, title_read, modified_at, node_file_id, node_volume_id, gone_at, probe_version, probed_at, probe_error, source_name, placed_by, derived_from_file_id, derived_target_id, conversion_version, derived FROM files_file WHERE work_id IN (/*SLICE:work_ids*/?) ORDER BY id
 `
 
 func (q *Queries) ListFilesOfWorks(ctx context.Context, workIds []works.WorkID) ([]FilesFile, error) {
@@ -1187,6 +1221,10 @@ func (q *Queries) ListFilesOfWorks(ctx context.Context, workIds []works.WorkID) 
 			&i.ProbeError,
 			&i.SourceName,
 			&i.PlacedBy,
+			&i.DerivedFromFileID,
+			&i.DerivedTargetID,
+			&i.ConversionVersion,
+			&i.Derived,
 		); err != nil {
 			return nil, err
 		}
@@ -1526,7 +1564,7 @@ func (q *Queries) ListLandingsOf(ctx context.Context, importIds []storage.UUID) 
 }
 
 const listLeftIn = `-- name: ListLeftIn :many
-SELECT f.id, f.work_id, f.cut, f.root_id, f.path, f.size, f.probe, f.grab_id, f.quality, f.label, f.extra, f.release_name, f.title_read, f.modified_at, f.node_file_id, f.node_volume_id, f.gone_at, f.probe_version, f.probed_at, f.probe_error, f.source_name, f.placed_by FROM files_file f
+SELECT f.id, f.work_id, f.cut, f.root_id, f.path, f.size, f.probe, f.grab_id, f.quality, f.label, f.extra, f.release_name, f.title_read, f.modified_at, f.node_file_id, f.node_volume_id, f.gone_at, f.probe_version, f.probed_at, f.probe_error, f.source_name, f.placed_by, f.derived_from_file_id, f.derived_target_id, f.conversion_version, f.derived FROM files_file f
 WHERE f.work_id IN (/*SLICE:work_ids*/?) AND f.gone_at IS NULL AND NOT EXISTS (SELECT 1 FROM files_move m WHERE m.file_id = f.id)
 ORDER BY f.id
 `
@@ -1573,7 +1611,51 @@ func (q *Queries) ListLeftIn(ctx context.Context, workIds []works.WorkID) ([]Fil
 			&i.ProbeError,
 			&i.SourceName,
 			&i.PlacedBy,
+			&i.DerivedFromFileID,
+			&i.DerivedTargetID,
+			&i.ConversionVersion,
+			&i.Derived,
 		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listMadeBefore = `-- name: ListMadeBefore :many
+SELECT id, work_id, derived_from_file_id FROM files_file
+WHERE derived = 1 AND derived_target_id = ?1 AND conversion_version < ?2 AND gone_at IS NULL
+ORDER BY work_id, id
+`
+
+type ListMadeBeforeParams struct {
+	TargetID targets.TargetID
+	Version  *int64
+}
+
+type ListMadeBeforeRow struct {
+	ID                FileID
+	WorkID            works.WorkID
+	DerivedFromFileID FileID
+}
+
+func (q *Queries) ListMadeBefore(ctx context.Context, arg ListMadeBeforeParams) ([]ListMadeBeforeRow, error) {
+	rows, err := q.db.QueryContext(ctx, listMadeBefore, arg.TargetID, arg.Version)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListMadeBeforeRow
+	for rows.Next() {
+		var i ListMadeBeforeRow
+		if err := rows.Scan(&i.ID, &i.WorkID, &i.DerivedFromFileID); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -1986,7 +2068,7 @@ func (q *Queries) ListSitsOfWorks(ctx context.Context, workIds []works.WorkID) (
 const listTalliesSince = `-- name: ListTalliesSince :many
 SELECT import_id, CAST(min(json_array_length(replaced) > 0) AS INTEGER) AS upgraded FROM files_imported
 WHERE import_id IN (SELECT DISTINCT i.import_id FROM files_imported i INDEXED BY files_imported_at
-    WHERE i.at >= ?1 AND i.import_id IS NOT NULL)
+    WHERE i.at >= ?1 AND i.import_id IS NOT NULL AND i.placed_by <> 'converted')
 GROUP BY import_id ORDER BY import_id
 `
 

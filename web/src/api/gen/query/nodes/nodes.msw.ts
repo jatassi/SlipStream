@@ -17,6 +17,7 @@ import type {
   NodesOpenCodes,
   NodesOutcome,
   NodesPinned,
+  NodesRequeues,
   NodesRoleBoard,
   NodesSettings,
   NodesTopology,
@@ -127,6 +128,7 @@ export const getListNodesResponseMock = (
           "engine-starts",
           "data-writable",
           "listener-up",
+          "ffmpeg-runs",
         ] as const),
         ...(faker.datatype.boolean()
           ? {
@@ -136,6 +138,9 @@ export const getListNodesResponseMock = (
                 "downloads_on_network_share",
                 "data_not_writable",
                 "http_not_listening",
+                "ffmpeg_fails",
+                "no_gpu",
+                "ffmpeg_testing",
               ] as const),
             }
           : {}),
@@ -238,6 +243,7 @@ export const getGetRoleBoardResponseMock = (
                   "engine-starts",
                   "data-writable",
                   "listener-up",
+                  "ffmpeg-runs",
                 ] as const),
               }
             : {}),
@@ -282,6 +288,7 @@ export const getGetRoleBoardResponseMock = (
           "engine-starts",
           "data-writable",
           "listener-up",
+          "ffmpeg-runs",
         ] as const),
         ...(faker.datatype.boolean()
           ? {
@@ -291,6 +298,9 @@ export const getGetRoleBoardResponseMock = (
                 "downloads_on_network_share",
                 "data_not_writable",
                 "http_not_listening",
+                "ffmpeg_fails",
+                "no_gpu",
+                "ffmpeg_testing",
               ] as const),
             }
           : {}),
@@ -507,6 +517,35 @@ export const getSetRolesResponseNodesMovesMock = (
   ...overrideResponse,
 });
 
+export const getSetRolesResponseNodesRequeuesMock = (
+  overrideResponse: Partial<NodesRequeues> = {},
+): NodesRequeues => ({
+  ...{
+    from: { id: faker.string.uuid(), name: faker.string.alpha({ length: { min: 10, max: 20 } }) },
+    held: {
+      bytes: faker.number.int(),
+      endlessUnits: faker.number.int({ min: 0 }),
+      noun: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      units: faker.number.int(),
+    },
+    kind: faker.helpers.arrayElement(["requeues"] as const),
+    role: faker.helpers.arrayElement([
+      "searching",
+      "downloading",
+      "storage",
+      "converting",
+      "subtitles",
+      "metadata",
+      "media-server-link",
+      "notifying",
+      "relaying",
+      "serving",
+    ] as const),
+    words: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
+  ...overrideResponse,
+});
+
 export const getSetRolesResponseNodesWritesOffMock = (
   overrideResponse: Partial<NodesWritesOff> = {},
 ): NodesWritesOff => ({
@@ -600,6 +639,7 @@ export const getSetRolesResponseMock = (
       { ...getSetRolesResponseNodesHandedBackMock() },
       { ...getSetRolesResponseNodesPinnedMock() },
       { ...getSetRolesResponseNodesMovesMock() },
+      { ...getSetRolesResponseNodesRequeuesMock() },
       { ...getSetRolesResponseNodesWritesOffMock() },
       { ...getSetRolesResponseNodesLeavesMock() },
     ]),
@@ -796,6 +836,35 @@ export const getPlanRolesResponseNodesMovesMock = (
   ...overrideResponse,
 });
 
+export const getPlanRolesResponseNodesRequeuesMock = (
+  overrideResponse: Partial<NodesRequeues> = {},
+): NodesRequeues => ({
+  ...{
+    from: { id: faker.string.uuid(), name: faker.string.alpha({ length: { min: 10, max: 20 } }) },
+    held: {
+      bytes: faker.number.int(),
+      endlessUnits: faker.number.int({ min: 0 }),
+      noun: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      units: faker.number.int(),
+    },
+    kind: faker.helpers.arrayElement(["requeues"] as const),
+    role: faker.helpers.arrayElement([
+      "searching",
+      "downloading",
+      "storage",
+      "converting",
+      "subtitles",
+      "metadata",
+      "media-server-link",
+      "notifying",
+      "relaying",
+      "serving",
+    ] as const),
+    words: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
+  ...overrideResponse,
+});
+
 export const getPlanRolesResponseNodesWritesOffMock = (
   overrideResponse: Partial<NodesWritesOff> = {},
 ): NodesWritesOff => ({
@@ -889,6 +958,7 @@ export const getPlanRolesResponseMock = (
       { ...getPlanRolesResponseNodesHandedBackMock() },
       { ...getPlanRolesResponseNodesPinnedMock() },
       { ...getPlanRolesResponseNodesMovesMock() },
+      { ...getPlanRolesResponseNodesRequeuesMock() },
       { ...getPlanRolesResponseNodesWritesOffMock() },
       { ...getPlanRolesResponseNodesLeavesMock() },
     ]),
@@ -1098,6 +1168,7 @@ export const getGetTopologyResponseMock = (
           "engine-starts",
           "data-writable",
           "listener-up",
+          "ffmpeg-runs",
         ] as const),
         ...(faker.datatype.boolean()
           ? {
@@ -1107,6 +1178,9 @@ export const getGetTopologyResponseMock = (
                 "downloads_on_network_share",
                 "data_not_writable",
                 "http_not_listening",
+                "ffmpeg_fails",
+                "no_gpu",
+                "ffmpeg_testing",
               ] as const),
             }
           : {}),
@@ -1281,7 +1355,12 @@ export const getGetNodeResponseMock = (
     () => ({
       at: faker.date.past().toISOString().slice(0, 19) + "Z",
       fit: faker.helpers.arrayElement(["fits", "weak", "fails"] as const),
-      probe: faker.helpers.arrayElement(["engine-starts", "data-writable", "listener-up"] as const),
+      probe: faker.helpers.arrayElement([
+        "engine-starts",
+        "data-writable",
+        "listener-up",
+        "ffmpeg-runs",
+      ] as const),
       ...(faker.datatype.boolean()
         ? {
             reason: faker.helpers.arrayElement([
@@ -1290,6 +1369,9 @@ export const getGetNodeResponseMock = (
               "downloads_on_network_share",
               "data_not_writable",
               "http_not_listening",
+              "ffmpeg_fails",
+              "no_gpu",
+              "ffmpeg_testing",
             ] as const),
           }
         : {}),
@@ -1400,7 +1482,12 @@ export const getRenameNodeResponseMock = (
     () => ({
       at: faker.date.past().toISOString().slice(0, 19) + "Z",
       fit: faker.helpers.arrayElement(["fits", "weak", "fails"] as const),
-      probe: faker.helpers.arrayElement(["engine-starts", "data-writable", "listener-up"] as const),
+      probe: faker.helpers.arrayElement([
+        "engine-starts",
+        "data-writable",
+        "listener-up",
+        "ffmpeg-runs",
+      ] as const),
       ...(faker.datatype.boolean()
         ? {
             reason: faker.helpers.arrayElement([
@@ -1409,6 +1496,9 @@ export const getRenameNodeResponseMock = (
               "downloads_on_network_share",
               "data_not_writable",
               "http_not_listening",
+              "ffmpeg_fails",
+              "no_gpu",
+              "ffmpeg_testing",
             ] as const),
           }
         : {}),
@@ -1519,7 +1609,12 @@ export const getSetNodeDialResponseMock = (
     () => ({
       at: faker.date.past().toISOString().slice(0, 19) + "Z",
       fit: faker.helpers.arrayElement(["fits", "weak", "fails"] as const),
-      probe: faker.helpers.arrayElement(["engine-starts", "data-writable", "listener-up"] as const),
+      probe: faker.helpers.arrayElement([
+        "engine-starts",
+        "data-writable",
+        "listener-up",
+        "ffmpeg-runs",
+      ] as const),
       ...(faker.datatype.boolean()
         ? {
             reason: faker.helpers.arrayElement([
@@ -1528,6 +1623,9 @@ export const getSetNodeDialResponseMock = (
               "downloads_on_network_share",
               "data_not_writable",
               "http_not_listening",
+              "ffmpeg_fails",
+              "no_gpu",
+              "ffmpeg_testing",
             ] as const),
           }
         : {}),
@@ -1737,6 +1835,35 @@ export const getWriteOffResponseNodesMovesMock = (
   ...overrideResponse,
 });
 
+export const getWriteOffResponseNodesRequeuesMock = (
+  overrideResponse: Partial<NodesRequeues> = {},
+): NodesRequeues => ({
+  ...{
+    from: { id: faker.string.uuid(), name: faker.string.alpha({ length: { min: 10, max: 20 } }) },
+    held: {
+      bytes: faker.number.int(),
+      endlessUnits: faker.number.int({ min: 0 }),
+      noun: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      units: faker.number.int(),
+    },
+    kind: faker.helpers.arrayElement(["requeues"] as const),
+    role: faker.helpers.arrayElement([
+      "searching",
+      "downloading",
+      "storage",
+      "converting",
+      "subtitles",
+      "metadata",
+      "media-server-link",
+      "notifying",
+      "relaying",
+      "serving",
+    ] as const),
+    words: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
+  ...overrideResponse,
+});
+
 export const getWriteOffResponseNodesWritesOffMock = (
   overrideResponse: Partial<NodesWritesOff> = {},
 ): NodesWritesOff => ({
@@ -1830,6 +1957,7 @@ export const getWriteOffResponseMock = (
       { ...getWriteOffResponseNodesHandedBackMock() },
       { ...getWriteOffResponseNodesPinnedMock() },
       { ...getWriteOffResponseNodesMovesMock() },
+      { ...getWriteOffResponseNodesRequeuesMock() },
       { ...getWriteOffResponseNodesWritesOffMock() },
       { ...getWriteOffResponseNodesLeavesMock() },
     ]),

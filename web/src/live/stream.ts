@@ -3,6 +3,7 @@ import type { InvalidateQueryFilters, QueryClient } from "@tanstack/react-query"
 import { isProblem } from "../api/errors";
 import { getSession } from "../api/gen/query/identity/identity";
 import { LiveEvent } from "../api/gen/zod/slipStream.schemas.zod";
+import { forgetConversions } from "./conversions";
 import { effects } from "./effects";
 import { refresh } from "./refresh";
 import { type Source, openSource } from "./source";
@@ -25,7 +26,11 @@ const eventNames = LiveEvent.options.flatMap((branch) => branch.shape.event.opti
 
 // A sample that fails to parse is dropped: the next replaces it within a
 // second, where a resync would refetch every query at the samples' rate.
-const samples: ReadonlySet<string> = new Set<ProductEventName>(["nodes.traffic", "torrents.live"]);
+const samples: ReadonlySet<string> = new Set<ProductEventName>([
+  "nodes.traffic",
+  "torrents.live",
+  "conversions.live",
+]);
 
 type ParsedEvent = ReturnType<typeof LiveEvent.parse>;
 type ControlEvent = Extract<ParsedEvent, { event: `live.${string}` }>;
@@ -195,6 +200,7 @@ class Stream {
 
   private resync() {
     forgetTorrents(this.options.queryClient);
+    forgetConversions(this.options.queryClient);
     this.refreshQueries();
   }
 

@@ -92,6 +92,9 @@ type Config struct {
 	Events Events
 	// Touch follows every commit that changes a Node's intent.
 	Touch func(nodes ...role.NodeID)
+	// Touched follows every commit that changes which servers run on a
+	// Node or pause its Conversions: conversions.TouchHolders.
+	Touched func()
 	// Facts are a Node's last facts of Media Server link, false while its
 	// session is detached.
 	Facts func(node role.NodeID) (*msv1.Facts, bool)

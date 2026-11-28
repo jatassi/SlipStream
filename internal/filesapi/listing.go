@@ -5,6 +5,7 @@ import (
 	"errors"
 	"math"
 	"path"
+	"slices"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/api"
@@ -32,8 +33,14 @@ type ListedFile struct {
 	GoneAt     *time.Time                         `json:"goneAt" doc:"When a library scan found it missing from its root; null while it is there"`
 	ProbeError *string                            `json:"probeError" doc:"The first line ffprobe printed when the last library scan couldn't read the file, in which case media is from the read before; null when the last read worked"`
 	Media      api.Nullable[mediaInfo]            `json:"media" doc:"What ffprobe read of it; null for a file read before SlipStream kept its tracks"`
-	PlacedBy   api.Nullable[string]               `json:"placedBy" enum:"link,clone,copy,transfer,move,in_place" doc:"How its import put it into the library; null for a file no import recorded"`
+	PlacedBy   api.Nullable[string]               `json:"placedBy" enum:"link,clone,copy,transfer,move,in_place,converted" doc:"How its import put it into the library; null for a file no import recorded"`
+	MadeFrom   api.Nullable[madeFrom]             `json:"madeFrom" doc:"The file a Conversion made it from; null for a file no Conversion made"`
 	Grab       api.Nullable[fileGrab]             `json:"grab" doc:"The Grab whose download it came from; null for a file no Grab brought"`
+}
+
+type madeFrom struct {
+	FileID *string `json:"fileId" format:"uuid" doc:"null once the file is gone"`
+	Name   string  `json:"name" doc:"The file's name, while it is one of this Work's; empty otherwise"`
 }
 
 type fileGrab struct {
@@ -108,7 +115,7 @@ func wordsOf[S ~string](vs []S) []string {
 	return out
 }
 
-func listedOf(f files.Listed) ListedFile {
+func listedOf(f files.Listed, all []files.Listed) ListedFile {
 	fills := make([]fill, len(f.Fills))
 	for i, k := range f.Fills {
 		fills[i] = fill{ItemID: k.Item.String(), Edition: string(k.Edition), TargetID: k.Target.String()}
@@ -125,6 +132,9 @@ func listedOf(f files.Listed) ListedFile {
 	}
 	if f.PlacedBy != "" {
 		out.PlacedBy = api.Some(f.PlacedBy)
+	}
+	if d := f.Derived; d != nil {
+		out.MadeFrom = api.Some(madeFromOf(d.From, all))
 	}
 	if !f.GrabID.IsZero() {
 		out.Grab = api.Some(fileGrab{ID: f.GrabID.String(), Release: f.ReleaseName})
@@ -204,7 +214,18 @@ func (h handlers) listWorkFiles(ctx context.Context, by identity.Admin, in *cell
 	}
 	out := fileList{Folder: l.Folder, Files: make([]ListedFile, len(l.Files))}
 	for i, f := range l.Files {
-		out.Files[i] = listedOf(f)
+		out.Files[i] = listedOf(f, l.Files)
 	}
 	return &fileListOutput{Body: out}, nil
+}
+
+func madeFromOf(from files.ID, all []files.Listed) madeFrom {
+	if from.IsZero() {
+		return madeFrom{}
+	}
+	out := madeFrom{FileID: new(from.String())}
+	if i := slices.IndexFunc(all, func(o files.Listed) bool { return o.ID == from }); i >= 0 {
+		out.Name = path.Base(all[i].Path)
+	}
+	return out
 }
