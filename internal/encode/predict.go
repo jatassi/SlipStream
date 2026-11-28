@@ -138,23 +138,16 @@ func Predict(src release.Read, m media.Record, s Settings) release.Read {
 	return r
 }
 
-// Rewrite is Predict with the made file's probe winning. The video counts
-// as copied when its codec, resolution and HDR formats are the source's.
-func Rewrite(src release.Read, out media.Record) release.Read {
-	r := rewrite(src, out, sameVideo(src.Facts, out))
+// Rewrite is Predict with the made file's probe winning. copied says
+// whether the Conversion copied the source's video stream, which only the
+// run knows: a re-encode at the same codec and resolution still clears Remux.
+func Rewrite(src release.Read, out media.Record, copied bool) release.Read {
+	r := rewrite(src, out, copied)
 	r.Facts.Size = release.Fact[int64]{}
 	if out.Bitrate > 0 && out.Duration > 0 {
 		r.Facts.Size = release.Known(int64(float64(out.Bitrate) / 8 * out.Duration.Seconds()))
 	}
 	return r
-}
-
-func sameVideo(f release.Facts, out media.Record) bool {
-	codec, codecKnown := f.Video.Get()
-	res, resKnown := f.Resolution.Get()
-	formats, hdrKnown := f.HDR.Get()
-	wantCodec, _ := release.VideoCodecOf(out.Codec).Get()
-	return codecKnown && resKnown && hdrKnown && codec == wantCodec && res == out.Resolution() && slices.Equal(formats, out.HDR)
 }
 
 var reencodedAway = []release.Modifier{release.ModRemux, release.ModBRDisk, release.ModRawHD}

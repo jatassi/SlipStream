@@ -178,16 +178,23 @@ func TestPredictAndRewrite(t *testing.T) {
 		{
 			"the probe of a 2160p Remux made into 1080p",
 			func() release.Read {
-				return encode.Rewrite(source(release.Remux2160p, release.R2160p, "x265", "HDR10"), madeFHD)
+				return encode.Rewrite(source(release.Remux2160p, release.R2160p, "x265", "HDR10"), madeFHD, false)
 			},
 			read{release.Bluray1080p, false, "x264", release.R1080p, []release.HDR{"SDR"}},
 		},
 		{
 			"the probe of a copied 1080p Remux",
 			func() release.Read {
-				return encode.Rewrite(source(release.Remux1080p, release.R1080p, "x264", "SDR"), madeFHD)
+				return encode.Rewrite(source(release.Remux1080p, release.R1080p, "x264", "SDR"), madeFHD, true)
 			},
 			read{release.Remux1080p, true, "x264", release.R1080p, []release.HDR{"SDR"}},
+		},
+		{
+			"the probe of a 1080p Remux re-encoded at the same codec and size",
+			func() release.Read {
+				return encode.Rewrite(source(release.Remux1080p, release.R1080p, "x264", "SDR"), madeFHD, false)
+			},
+			read{release.Bluray1080p, false, "x264", release.R1080p, []release.HDR{"SDR"}},
 		},
 	}
 	for _, c := range cases {
