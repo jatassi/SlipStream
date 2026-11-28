@@ -140,6 +140,17 @@ type FolderField struct {
 	Purpose string `json:"purpose" enum:"downloads,backups,converting" doc:"The rules the Node judges the folder by, as checkFolder names them"`
 }
 
+// FileField is a File on the wire: a path in its Node's own style.
+type FileField struct {
+	About
+	Kind        string `json:"kind" enum:"file"`
+	Value       string `json:"value"`
+	Running     string `json:"running"`
+	Default     string `json:"default" doc:"Empty runs the program SlipStream bundles"`
+	NodeID      string `json:"nodeId" format:"uuid" doc:"The Node the path is on, which checks that the program is there and runs"`
+	Unsupported bool   `json:"unsupported" doc:"SlipStream's support doesn't cover a program set here"`
+}
+
 // SpaceField is a Space on the wire.
 type SpaceField struct {
 	About

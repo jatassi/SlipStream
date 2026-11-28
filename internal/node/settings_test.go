@@ -62,6 +62,7 @@ func TestTheNodeSettingsTableReadsItsDefaultsFromDefaults(t *testing.T) {
 	}
 	downloads := jsonText(t, filepath.Join(testDataPath, "downloads"))
 	folder := jsonText(t, filepath.Join(testDataPath, "backups"))
+	scratch := jsonText(t, filepath.Join(testDataPath, "converting"))
 	want := `[` +
 		`{"key":"http.listen","label":"Listen on","source":"default","applies":"restart","isDefault":true,"pendingRestart":false,"kind":"listen","value":{"host":"all","port":8484,"address":"[::]:8484"},"running":{"host":"all","port":8484,"address":"[::]:8484"},"default":{"host":"all","port":8484,"address":"[::]:8484"}},` +
 		`{"key":"http.ports_to_try","label":"Ports to try","source":"default","applies":"restart","isDefault":true,"pendingRestart":false,"kind":"count","value":1,"running":1,"default":1,"min":1,"max":100,"unit":{"one":"port","many":"ports"}},` +
@@ -73,7 +74,8 @@ func TestTheNodeSettingsTableReadsItsDefaultsFromDefaults(t *testing.T) {
 		`{"key":"log.viewer_lines","label":"Lines kept for the viewer","source":"default","applies":"live","isDefault":true,"pendingRestart":false,"kind":"count","value":2000,"running":2000,"default":2000,"min":100,"max":50000,"unit":{"one":"line","many":"lines"}},` +
 		`{"key":"torrent.listen","label":"Listen address","source":"default","applies":"restart","isDefault":true,"pendingRestart":false,"kind":"address","value":"0.0.0.0:6881","running":"0.0.0.0:6881","default":"0.0.0.0:6881"},` +
 		`{"key":"torrent.downloads","label":"Downloads folder","source":"default","applies":"restart","isDefault":true,"pendingRestart":false,"kind":"folder","value":` + downloads + `,"running":` + downloads + `,"default":` + downloads + `,"nodeId":"` + testNodeID.String() + `","purpose":"downloads"},` +
-		`{"key":"backups.folder","label":"Backups folder","source":"default","applies":"restart","isDefault":true,"pendingRestart":false,"kind":"folder","value":` + folder + `,"running":` + folder + `,"default":` + folder + `,"nodeId":"` + testNodeID.String() + `","purpose":"backups"}` +
+		`{"key":"backups.folder","label":"Backups folder","source":"default","applies":"restart","isDefault":true,"pendingRestart":false,"kind":"folder","value":` + folder + `,"running":` + folder + `,"default":` + folder + `,"nodeId":"` + testNodeID.String() + `","purpose":"backups"},` +
+		`{"key":"converting.scratch","label":"Scratch folder","source":"default","applies":"restart","isDefault":true,"pendingRestart":false,"kind":"folder","value":` + scratch + `,"running":` + scratch + `,"default":` + scratch + `,"nodeId":"` + testNodeID.String() + `","purpose":"converting"}` +
 		`]`
 	if string(got) != want {
 		t.Fatalf("fields =\n%s\nwant\n%s", got, want)

@@ -588,6 +588,47 @@ func (f Folder) Field(override *string, node string) FolderField {
 	}
 }
 
+// File is a path to a program on one Node, which checks that it is there
+// and runs. Unsupported marks a path SlipStream's support doesn't cover,
+// such as a program in place of a bundled one.
+type File struct {
+	Key, Label  string
+	Default     string
+	Unsupported bool
+}
+
+func (f File) Value(override *string) string {
+	if override == nil {
+		return f.Default
+	}
+	return *override
+}
+
+// Parse accepts any path, which only the file's Node can judge; nil
+// resets.
+func (f File) Parse(path *string) (Stored[string], error) {
+	if path == nil {
+		return Stored[string]{}, nil
+	}
+	if strings.TrimSpace(*path) == "" {
+		return Stored[string]{}, refuse(f.Key, "Choose a file.")
+	}
+	return override(*path), nil
+}
+
+// Field reports the file on node, the id of the Node it is a path on.
+func (f File) Field(override *string, node string) FileField {
+	return FileField{
+		About:       about(f.Key, f.Label, override == nil),
+		Kind:        "file",
+		Value:       f.Value(override),
+		Running:     f.Value(override),
+		Default:     f.Default,
+		NodeID:      node,
+		Unsupported: f.Unsupported,
+	}
+}
+
 // Unit is what an Amount counts.
 type Unit string
 

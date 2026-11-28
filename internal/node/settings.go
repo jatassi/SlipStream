@@ -66,6 +66,10 @@ var nodeSettings = []settingRow{
 		desc:  setting.Folder{Key: "backups.folder", Label: "Backups folder", Purpose: setting.FolderBackups},
 		rowOf: rowOf[string]{at: func(c *Config) *string { return &c.Backups.Folder }},
 	},
+	folderRow{
+		desc:  setting.Folder{Key: "converting.scratch", Label: "Scratch folder", Purpose: setting.FolderConverting},
+		rowOf: rowOf[string]{at: func(c *Config) *string { return &c.Converting.Scratch }},
+	},
 }
 
 var logLevels = []setting.Option[logs.Level]{
