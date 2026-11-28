@@ -75,17 +75,13 @@ func (c *Conversions) Cancel(ctx context.Context, id ID) (ListRow, error) {
 	})
 }
 
-// CancelGroup cancels every unfinished Conversion of a backfill's group,
-// answering how many.
+// CancelGroup cancels every unfinished Conversion of a backfill's or a
+// season's group, answering how many.
 func (c *Conversions) CancelGroup(ctx context.Context, id GroupID) (int, error) {
-	backfill, err := storage.ParseUUID(string(id))
-	if err != nil {
-		return 0, ErrNoConversion
-	}
 	var ids []ID
-	err = c.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+	err := c.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		var err error
-		if ids, err = db.New(tx).ListOpenOfBackfill(ctx, BackfillID{UUID: backfill}); err != nil {
+		if ids, err = c.groupMembers(ctx, tx, id); err != nil {
 			return err
 		}
 		for _, id := range ids {
@@ -119,16 +115,7 @@ func (c *Conversions) act(ctx context.Context, id ID, do func(context.Context, *
 	if err != nil {
 		return ListRow{}, err
 	}
-	var out ListRow
-	err = c.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[storage.Library]) error {
-		q := db.New(r)
-		var err error
-		if out.Row, err = readRow(ctx, q, id); err != nil {
-			return err
-		}
-		out.Attempts, err = attemptsOf(ctx, q, id)
-		return err
-	})
+	out, err := c.row(ctx, id)
 	if err != nil {
 		return ListRow{}, err
 	}

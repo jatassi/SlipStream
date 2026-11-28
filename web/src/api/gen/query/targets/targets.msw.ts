@@ -778,6 +778,7 @@ export const getListTargetsResponseMock = (
       ]),
       createdAt: faker.date.past().toISOString().slice(0, 19) + "Z",
       cutoff: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      defaultKbps: faker.number.int({ min: 100 }),
       filters: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
         () => ({
           attribute: faker.helpers.arrayElement([
@@ -921,6 +922,7 @@ export const getCreateTargetResponseMock = (
   ]),
   createdAt: faker.date.past().toISOString().slice(0, 19) + "Z",
   cutoff: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  defaultKbps: faker.number.int({ min: 100 }),
   filters: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
     () => ({
       attribute: faker.helpers.arrayElement([
@@ -1052,6 +1054,7 @@ export const getGetTargetResponseMock = (
   ]),
   createdAt: faker.date.past().toISOString().slice(0, 19) + "Z",
   cutoff: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  defaultKbps: faker.number.int({ min: 100 }),
   filters: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
     () => ({
       attribute: faker.helpers.arrayElement([
@@ -1263,6 +1266,7 @@ export const getUpdateTargetResponseMock = (
     ]),
     createdAt: faker.date.past().toISOString().slice(0, 19) + "Z",
     cutoff: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    defaultKbps: faker.number.int({ min: 100 }),
     filters: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
       () => ({
         attribute: faker.helpers.arrayElement([
@@ -1400,6 +1404,7 @@ export const getDuplicateTargetResponseMock = (
   ]),
   createdAt: faker.date.past().toISOString().slice(0, 19) + "Z",
   cutoff: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  defaultKbps: faker.number.int({ min: 100 }),
   filters: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
     () => ({
       attribute: faker.helpers.arrayElement([

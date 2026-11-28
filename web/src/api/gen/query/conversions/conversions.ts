@@ -22,14 +22,12 @@ import type {
   CancelConversion409,
   CancelConversion422,
   CancelConversion500,
-  CancelConversion501,
   CancelConversionGroup401,
   CancelConversionGroup403,
   CancelConversionGroup404,
   CancelConversionGroup409,
   CancelConversionGroup422,
   CancelConversionGroup500,
-  CancelConversionGroup501,
   CanceledOutputBody,
   ConversionsConversionList,
   ConversionsConversionRow,
@@ -42,7 +40,6 @@ import type {
   GetConversionGroup409,
   GetConversionGroup422,
   GetConversionGroup500,
-  GetConversionGroup501,
   GetConversionGroupParams,
   GetNodeConverting401,
   GetNodeConverting403,
@@ -50,13 +47,11 @@ import type {
   GetNodeConverting409,
   GetNodeConverting422,
   GetNodeConverting500,
-  GetNodeConverting501,
   ListConversions401,
   ListConversions403,
   ListConversions409,
   ListConversions422,
   ListConversions500,
-  ListConversions501,
   ListConversionsParams,
   MoveConversion401,
   MoveConversion403,
@@ -64,14 +59,12 @@ import type {
   MoveConversion409,
   MoveConversion422,
   MoveConversion500,
-  MoveConversion501,
   MoveConversionUp401,
   MoveConversionUp403,
   MoveConversionUp404,
   MoveConversionUp409,
   MoveConversionUp422,
   MoveConversionUp500,
-  MoveConversionUp501,
   MoveInputBody,
   RerunNodeTests401,
   RerunNodeTests403,
@@ -79,21 +72,18 @@ import type {
   RerunNodeTests409,
   RerunNodeTests422,
   RerunNodeTests500,
-  RerunNodeTests501,
   RetryConversion401,
   RetryConversion403,
   RetryConversion404,
   RetryConversion409,
   RetryConversion422,
   RetryConversion500,
-  RetryConversion501,
   UpdateNodeConverting401,
   UpdateNodeConverting403,
   UpdateNodeConverting404,
   UpdateNodeConverting409,
   UpdateNodeConverting422,
   UpdateNodeConverting500,
-  UpdateNodeConverting501,
 } from "../../model";
 
 import { apiFetch } from "../../../fetch.ts";
@@ -157,7 +147,6 @@ export const getListConversionsSuspenseQueryOptions = <
     | ListConversions409
     | ListConversions422
     | ListConversions500
-    | ListConversions501
   >,
 >(
   params?: ListConversionsParams,
@@ -195,7 +184,6 @@ export type ListConversionsSuspenseQueryError = ErrorType<
   | ListConversions409
   | ListConversions422
   | ListConversions500
-  | ListConversions501
 >;
 
 export function useListConversionsSuspense<
@@ -206,7 +194,6 @@ export function useListConversionsSuspense<
     | ListConversions409
     | ListConversions422
     | ListConversions500
-    | ListConversions501
   >,
 >(
   params: undefined | ListConversionsParams,
@@ -226,7 +213,6 @@ export function useListConversionsSuspense<
     | ListConversions409
     | ListConversions422
     | ListConversions500
-    | ListConversions501
   >,
 >(
   params?: ListConversionsParams,
@@ -246,7 +232,6 @@ export function useListConversionsSuspense<
     | ListConversions409
     | ListConversions422
     | ListConversions500
-    | ListConversions501
   >,
 >(
   params?: ListConversionsParams,
@@ -270,7 +255,6 @@ export function useListConversionsSuspense<
     | ListConversions409
     | ListConversions422
     | ListConversions500
-    | ListConversions501
   >,
 >(
   params?: ListConversionsParams,
@@ -338,7 +322,6 @@ export const getGetConversionGroupSuspenseQueryOptions = <
     | GetConversionGroup409
     | GetConversionGroup422
     | GetConversionGroup500
-    | GetConversionGroup501
   >,
 >(
   groupId: string,
@@ -378,7 +361,6 @@ export type GetConversionGroupSuspenseQueryError = ErrorType<
   | GetConversionGroup409
   | GetConversionGroup422
   | GetConversionGroup500
-  | GetConversionGroup501
 >;
 
 export function useGetConversionGroupSuspense<
@@ -390,7 +372,6 @@ export function useGetConversionGroupSuspense<
     | GetConversionGroup409
     | GetConversionGroup422
     | GetConversionGroup500
-    | GetConversionGroup501
   >,
 >(
   groupId: string,
@@ -412,7 +393,6 @@ export function useGetConversionGroupSuspense<
     | GetConversionGroup409
     | GetConversionGroup422
     | GetConversionGroup500
-    | GetConversionGroup501
   >,
 >(
   groupId: string,
@@ -434,7 +414,6 @@ export function useGetConversionGroupSuspense<
     | GetConversionGroup409
     | GetConversionGroup422
     | GetConversionGroup500
-    | GetConversionGroup501
   >,
 >(
   groupId: string,
@@ -460,7 +439,6 @@ export function useGetConversionGroupSuspense<
     | GetConversionGroup409
     | GetConversionGroup422
     | GetConversionGroup500
-    | GetConversionGroup501
   >,
 >(
   groupId: string,
@@ -510,7 +488,6 @@ export const getCancelConversionGroupMutationOptions = <
     | CancelConversionGroup409
     | CancelConversionGroup422
     | CancelConversionGroup500
-    | CancelConversionGroup501
   >,
   TContext = unknown,
 >(options?: {
@@ -557,7 +534,6 @@ export type CancelConversionGroupMutationError = ErrorType<
   | CancelConversionGroup409
   | CancelConversionGroup422
   | CancelConversionGroup500
-  | CancelConversionGroup501
 >;
 export type CancelConversionGroupMutationVariables = { groupId: string };
 
@@ -572,7 +548,6 @@ export const useCancelConversionGroup = <
     | CancelConversionGroup409
     | CancelConversionGroup422
     | CancelConversionGroup500
-    | CancelConversionGroup501
   >,
   TContext = unknown,
 >(
@@ -621,7 +596,6 @@ export const getCancelConversionMutationOptions = <
     | CancelConversion409
     | CancelConversion422
     | CancelConversion500
-    | CancelConversion501
   >,
   TContext = unknown,
 >(options?: {
@@ -668,7 +642,6 @@ export type CancelConversionMutationError = ErrorType<
   | CancelConversion409
   | CancelConversion422
   | CancelConversion500
-  | CancelConversion501
 >;
 export type CancelConversionMutationVariables = { id: string };
 
@@ -683,7 +656,6 @@ export const useCancelConversion = <
     | CancelConversion409
     | CancelConversion422
     | CancelConversion500
-    | CancelConversion501
   >,
   TContext = unknown,
 >(
@@ -754,7 +726,6 @@ export const getMoveConversionMutationOptions = <
     | MoveConversion409
     | MoveConversion422
     | MoveConversion500
-    | MoveConversion501
   >,
   TContext = unknown,
 >(options?: {
@@ -799,7 +770,6 @@ export type MoveConversionMutationError = ErrorType<
   | MoveConversion409
   | MoveConversion422
   | MoveConversion500
-  | MoveConversion501
 >;
 export type MoveConversionMutationVariables = { id: string; data: MoveInputBody };
 
@@ -814,7 +784,6 @@ export const useMoveConversion = <
     | MoveConversion409
     | MoveConversion422
     | MoveConversion500
-    | MoveConversion501
   >,
   TContext = unknown,
 >(
@@ -863,7 +832,6 @@ export const getMoveConversionUpMutationOptions = <
     | MoveConversionUp409
     | MoveConversionUp422
     | MoveConversionUp500
-    | MoveConversionUp501
   >,
   TContext = unknown,
 >(options?: {
@@ -910,7 +878,6 @@ export type MoveConversionUpMutationError = ErrorType<
   | MoveConversionUp409
   | MoveConversionUp422
   | MoveConversionUp500
-  | MoveConversionUp501
 >;
 export type MoveConversionUpMutationVariables = { id: string };
 
@@ -925,7 +892,6 @@ export const useMoveConversionUp = <
     | MoveConversionUp409
     | MoveConversionUp422
     | MoveConversionUp500
-    | MoveConversionUp501
   >,
   TContext = unknown,
 >(
@@ -974,7 +940,6 @@ export const getRetryConversionMutationOptions = <
     | RetryConversion409
     | RetryConversion422
     | RetryConversion500
-    | RetryConversion501
   >,
   TContext = unknown,
 >(options?: {
@@ -1021,7 +986,6 @@ export type RetryConversionMutationError = ErrorType<
   | RetryConversion409
   | RetryConversion422
   | RetryConversion500
-  | RetryConversion501
 >;
 export type RetryConversionMutationVariables = { id: string };
 
@@ -1036,7 +1000,6 @@ export const useRetryConversion = <
     | RetryConversion409
     | RetryConversion422
     | RetryConversion500
-    | RetryConversion501
   >,
   TContext = unknown,
 >(
@@ -1088,7 +1051,6 @@ export const getGetNodeConvertingSuspenseQueryOptions = <
     | GetNodeConverting409
     | GetNodeConverting422
     | GetNodeConverting500
-    | GetNodeConverting501
   >,
 >(
   id: string,
@@ -1127,7 +1089,6 @@ export type GetNodeConvertingSuspenseQueryError = ErrorType<
   | GetNodeConverting409
   | GetNodeConverting422
   | GetNodeConverting500
-  | GetNodeConverting501
 >;
 
 export function useGetNodeConvertingSuspense<
@@ -1139,7 +1100,6 @@ export function useGetNodeConvertingSuspense<
     | GetNodeConverting409
     | GetNodeConverting422
     | GetNodeConverting500
-    | GetNodeConverting501
   >,
 >(
   id: string,
@@ -1160,7 +1120,6 @@ export function useGetNodeConvertingSuspense<
     | GetNodeConverting409
     | GetNodeConverting422
     | GetNodeConverting500
-    | GetNodeConverting501
   >,
 >(
   id: string,
@@ -1181,7 +1140,6 @@ export function useGetNodeConvertingSuspense<
     | GetNodeConverting409
     | GetNodeConverting422
     | GetNodeConverting500
-    | GetNodeConverting501
   >,
 >(
   id: string,
@@ -1206,7 +1164,6 @@ export function useGetNodeConvertingSuspense<
     | GetNodeConverting409
     | GetNodeConverting422
     | GetNodeConverting500
-    | GetNodeConverting501
   >,
 >(
   id: string,
@@ -1277,7 +1234,6 @@ export const getUpdateNodeConvertingMutationOptions = <
     | UpdateNodeConverting409
     | UpdateNodeConverting422
     | UpdateNodeConverting500
-    | UpdateNodeConverting501
   >,
   TContext = unknown,
 >(options?: {
@@ -1324,7 +1280,6 @@ export type UpdateNodeConvertingMutationError = ErrorType<
   | UpdateNodeConverting409
   | UpdateNodeConverting422
   | UpdateNodeConverting500
-  | UpdateNodeConverting501
 >;
 export type UpdateNodeConvertingMutationVariables = { id: string; data: ConversionsNodeSettings };
 
@@ -1339,7 +1294,6 @@ export const useUpdateNodeConverting = <
     | UpdateNodeConverting409
     | UpdateNodeConverting422
     | UpdateNodeConverting500
-    | UpdateNodeConverting501
   >,
   TContext = unknown,
 >(
@@ -1388,7 +1342,6 @@ export const getRerunNodeTestsMutationOptions = <
     | RerunNodeTests409
     | RerunNodeTests422
     | RerunNodeTests500
-    | RerunNodeTests501
   >,
   TContext = unknown,
 >(options?: {
@@ -1433,7 +1386,6 @@ export type RerunNodeTestsMutationError = ErrorType<
   | RerunNodeTests409
   | RerunNodeTests422
   | RerunNodeTests500
-  | RerunNodeTests501
 >;
 export type RerunNodeTestsMutationVariables = { id: string };
 
@@ -1448,7 +1400,6 @@ export const useRerunNodeTests = <
     | RerunNodeTests409
     | RerunNodeTests422
     | RerunNodeTests500
-    | RerunNodeTests501
   >,
   TContext = unknown,
 >(

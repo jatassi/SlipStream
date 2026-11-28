@@ -184,6 +184,7 @@ export function filesOf({ cells }: FilesCellList): FilesFileList {
         goneAt: null,
         probeError: null,
         placedBy: null,
+        madeFrom: null,
         grab: null,
         media: {
           container: "matroska,webm",

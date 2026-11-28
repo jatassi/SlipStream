@@ -13,6 +13,11 @@ export interface TargetsTarget {
   createdAt: string;
   /** The first quality of the tier at which a file is final */
   cutoff: string;
+  /**
+   * The bitrate Conversion settings turned on at 1080p start at
+   * @minimum 100
+   */
+  defaultKbps: number;
   /** Every attribute that isn't Any, in attribute order */
   filters: TargetsFilter[];
   /**

@@ -9,4 +9,5 @@ export type FilesListedFilePlacedBy =
   | "transfer"
   | "move"
   | "in_place"
+  | "converted"
   | null;

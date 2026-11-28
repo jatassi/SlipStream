@@ -13,6 +13,7 @@ const scannedFile = {
   goneAt: null,
   probeError: null,
   placedBy: null,
+  madeFrom: null,
   grab: null,
 } as const;
 

@@ -701,6 +701,13 @@ export const getListWorkFilesResponseMock = (
     id: faker.string.uuid(),
     kept: faker.datatype.boolean(),
     label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    madeFrom: faker.helpers.arrayElement([
+      {
+        fileId: faker.helpers.arrayElement([faker.string.uuid(), null]),
+        name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      },
+      null,
+    ]),
     media: faker.helpers.arrayElement([
       {
         audio: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
@@ -767,6 +774,7 @@ export const getListWorkFilesResponseMock = (
         "transfer",
         "move",
         "in_place",
+        "converted",
       ] as const),
       null,
     ]),

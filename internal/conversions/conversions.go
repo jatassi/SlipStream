@@ -130,8 +130,6 @@ func New(cfg Config) *Conversions {
 	return c
 }
 
-var errNotBuilt = errors.New("conversions isn't built yet")
-
 var (
 	ErrNoConversion = errors.New("no Conversion has that id")
 	ErrFinished     = errors.New("the Conversion has finished")

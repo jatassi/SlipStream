@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"slices"
 	"strings"
 
 	"github.com/jatassi/slipstream/internal/api"
@@ -16,7 +17,8 @@ import (
 )
 
 var (
-	ImpactChanged    = api.NewCode(http.StatusConflict, "impact_changed", "The change now does more than its preview showed")
+	impactChanged    = api.NewCarrying[Impact](http.StatusConflict, "impact_changed", "The change now does more than its preview showed", "impact")
+	ImpactChanged    = impactChanged.Code
 	profileIsDefault = api.NewCode(http.StatusConflict, "profile_is_default", "The default Profile can't be deleted")
 	profileWrongType = api.NewCode(http.StatusUnprocessableEntity, "profile_wrong_type", "The Profile is for another Content Type")
 	profileNotFound  = api.NewCode(http.StatusUnprocessableEntity, "profile_not_found", "No Profile has that id")
@@ -93,22 +95,26 @@ func ImpactOf(i files.Impact) Impact {
 	return Impact{
 		Works: i.Works, OwnList: i.OwnList, Unwanted: unwantedFiles{Files: i.Unwanted, Bytes: i.Bytes},
 		Renamed: i.Renamed, Renames: renames, NewlyWanted: i.NewlyWanted, Downloading: i.Downloading, Subtitles: subtitlesOf(i.Subtitles),
-		Made: noMade(), Remake: noRemake(),
+		Made: madeOf(i.Made), Remake: remakeOf(i.Remake),
 	}
 }
 
 // Changing is the query every change that can leave files unwanted takes.
 // It is exported so the document carries the parameters it embeds.
 type Changing struct {
-	Preview  bool                `query:"preview" doc:"Return the change's Impact and save nothing"`
-	Unwanted string              `query:"unwanted" enum:"delete,keep" default:"delete" doc:"What happens to the files no Target uses after the change"`
-	Confirm  api.Optional[int64] `query:"confirm" minimum:"0" doc:"The unwanted file count the Admin confirmed from the preview: a save that would delete more is refused with impact_changed"`
+	Preview     bool                `query:"preview" doc:"Return the change's Impact and save nothing"`
+	Unwanted    string              `query:"unwanted" enum:"delete,keep" default:"delete" doc:"What happens to the files no Target uses after the change"`
+	Confirm     api.Optional[int64] `query:"confirm" minimum:"0" doc:"The unwanted file count the Admin confirmed from the preview: a save that would delete more is refused with impact_changed"`
+	ConfirmMade api.Optional[int64] `query:"confirmMade" minimum:"0" doc:"The made file count the Admin confirmed from the preview: a save that would make more is refused with impact_changed"`
 }
 
 func (c Changing) Mode() files.Mode {
 	m := files.Mode{Preview: c.Preview, Unwanted: files.Unwanted(c.Unwanted)}
 	if c.Confirm.Set {
 		m.Confirmed = new(int(c.Confirm.Value))
+	}
+	if c.ConfirmMade.Set {
+		m.ConfirmedMade = new(int(c.ConfirmMade.Value))
 	}
 	return m
 }
@@ -122,8 +128,8 @@ func changed(err error) error {
 }
 
 // ImpactRefused is the problem a save that would leave more files
-// unwanted, or delete more subtitles, than its preview showed is refused
-// with.
+// unwanted, delete more subtitles, or make or remake more files than its
+// preview showed is refused with. It carries the Impact the save has now.
 func ImpactRefused(e *files.ImpactChangedError) error {
 	var words []string
 	if e.Files {
@@ -132,7 +138,13 @@ func ImpactRefused(e *files.ImpactChangedError) error {
 	if e.Subtitles {
 		words = append(words, fmt.Sprintf("The save now deletes %s, and the preview showed %d.", subtitlesWords(e.Impact.Subtitles.Deleted()), e.ConfirmedSubtitles))
 	}
-	return ImpactChanged.Because(strings.Join(append(words, "Preview the change again."), " "))
+	if e.Made {
+		words = append(words, fmt.Sprintf("The save now makes %s, and the preview showed %d.", filesOf(e.Impact.Made.Files), e.ConfirmedMade))
+	}
+	if e.Remake {
+		words = append(words, fmt.Sprintf("The save now makes %s again, and the preview showed %d.", filesOf(e.Impact.Remake.Files()), e.ConfirmedRemake))
+	}
+	return impactChanged.Explained(strings.Join(append(words, "Preview the change again."), " "), ImpactOf(e.Impact))
 }
 
 func subtitlesWords(n int) string {
@@ -168,11 +180,18 @@ func (h handlers) updateTarget(ctx context.Context, by identity.Admin, in *updat
 	if err != nil {
 		return nil, err
 	}
-	s, err := specOf(in.Body)
+	s, err := h.specOf(in.Body)
 	if err != nil {
 		return nil, err
 	}
-	i, err := shelf(h.goals).Change(ctx, by, targets.UpdateTarget{ID: id, Spec: s}, in.Mode())
+	m := in.Mode()
+	if in.ConfirmRemake.Set {
+		m.ConfirmedRemake = new(int(in.ConfirmRemake.Value))
+	}
+	if m.Remake, err = workIDs("remake", in.Body.Remake); err != nil {
+		return nil, err
+	}
+	i, err := shelf(h.goals).Change(ctx, by, targets.UpdateTarget{ID: id, Spec: s}, m)
 	switch {
 	case errors.Is(err, targets.ErrNoTarget):
 		return nil, noSuchTarget
@@ -183,13 +202,20 @@ func (h handlers) updateTarget(ctx context.Context, by identity.Admin, in *updat
 	if err != nil {
 		return nil, err
 	}
-	return &targetChangeOutput{Body: targetChange{Impact: ImpactOf(i), Target: targetOf(t)}}, nil
+	view, err := h.targetOf(ctx, t)
+	if err != nil {
+		return nil, err
+	}
+	impact, err := h.impactOf(ctx, i)
+	if err != nil {
+		return nil, err
+	}
+	return &targetChangeOutput{Body: targetChange{Impact: impact, Target: view}}, nil
 }
 
 type updateProfileInput struct {
 	ProfileID        string              `path:"profileId" format:"uuid"`
 	ConfirmSubtitles api.Optional[int64] `query:"confirmSubtitles" minimum:"0" doc:"The deleted subtitle count the Admin confirmed from the preview: a save that would delete more is refused with impact_changed"`
-	ConfirmMade      api.Optional[int64] `query:"confirmMade" minimum:"0" doc:"The made file count the Admin confirmed from the preview: a save that would make more is refused with impact_changed"`
 	Changing
 	Body newProfile
 }
@@ -214,7 +240,11 @@ func (h handlers) updateProfile(ctx context.Context, by identity.Admin, in *upda
 	if in.ConfirmSubtitles.Set {
 		m.ConfirmedSubtitles = new(int(in.ConfirmSubtitles.Value))
 	}
-	i, err := shelf(h.goals).Change(ctx, by, targets.UpdateProfile{ID: id, Spec: s}, m)
+	c, err := h.profileChange(ctx, by, id, s, in.Body.Backfill)
+	if err != nil {
+		return nil, err
+	}
+	i, err := shelf(h.goals).Change(ctx, by, c, m)
 	if err != nil {
 		return nil, wrongType(changed(err))
 	}
@@ -256,7 +286,11 @@ func (h handlers) profileChanged(ctx context.Context, by identity.Admin, i files
 	if err != nil {
 		return nil, err
 	}
-	return &profileChangeOutput{Body: profileChange{Impact: ImpactOf(i), Profile: profileOf(p)}}, nil
+	impact, err := h.impactOf(ctx, i)
+	if err != nil {
+		return nil, err
+	}
+	return &profileChangeOutput{Body: profileChange{Impact: impact, Profile: profileOf(p)}}, nil
 }
 
 // wrongType answers a Profile of another Content Type, which the body or
@@ -307,5 +341,70 @@ func (h handlers) setWorkWants(ctx context.Context, by identity.Admin, in *setWa
 	if err != nil {
 		return nil, err
 	}
-	return &wantsChangeOutput{Body: wantsChange{Impact: ImpactOf(i), Wants: wantsOf(g)}}, nil
+	impact, err := h.impactOf(ctx, i)
+	if err != nil {
+		return nil, err
+	}
+	return &wantsChangeOutput{Body: wantsChange{Impact: impact, Wants: wantsOf(g)}}, nil
+}
+
+// impactOf is i on the wire, with the Works of its made rows named.
+func (h handlers) impactOf(ctx context.Context, i files.Impact) (Impact, error) {
+	out := ImpactOf(i)
+	err := h.titled(ctx, &out)
+	return out, err
+}
+
+func workIDs(field string, raw []string) ([]works.WorkID, error) {
+	var out []works.WorkID
+	for k, s := range raw {
+		u, err := storage.ParseUUID(s)
+		if err != nil {
+			return nil, api.Invalid.On(fmt.Sprintf("%s[%d]", field, k), "No Work has this id.")
+		}
+		out = append(out, works.WorkID{UUID: u})
+	}
+	return out, nil
+}
+
+// profileChange is the Change a Profile save makes: an UpdateProfile,
+// or with a backfill a SplitProfile whose rest are the Works the save
+// would make files for that the backfill doesn't convert.
+func (h handlers) profileChange(ctx context.Context, by identity.Admin, id targets.ProfileID, s targets.ProfileSpec, b *backfill) (targets.Change, error) {
+	update := targets.UpdateProfile{ID: id, Spec: s}
+	if b == nil {
+		return update, nil
+	}
+	convert, err := workIDs("backfill.convert", b.Convert)
+	if err != nil {
+		return nil, err
+	}
+	split := targets.SplitProfile{Profile: id, Spec: s, To: targets.ProfileTarget{NewName: b.Rest.NewName}}
+	switch {
+	case b.Rest.ProfileID != "":
+		to, err := profileID(b.Rest.ProfileID)
+		if err != nil {
+			return nil, profileNotFound
+		}
+		split.To.Profile = &to
+	case b.Rest.NewName == "":
+		return nil, api.Invalid.On("backfill.rest", "Choose a Profile for the other Works, or name a new one.")
+	}
+	if b.Default != "" {
+		d, err := profileID(b.Default)
+		if err != nil {
+			return nil, profileNotFound
+		}
+		split.Default = &d
+	}
+	preview, err := shelf(h.goals).Change(ctx, by, update, files.Mode{Preview: true})
+	if err != nil {
+		return nil, wrongType(changed(err))
+	}
+	for _, r := range preview.Made.Rows {
+		if !slices.Contains(convert, r.Work) {
+			split.Rest = append(split.Rest, r.Work)
+		}
+	}
+	return split, nil
 }

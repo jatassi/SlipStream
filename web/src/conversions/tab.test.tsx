@@ -18,7 +18,7 @@ const waiting = (id: string, title: string): ConversionsConversionRow => ({
   work: { id: `${id}-work`, title, type: anthologies.id },
   items: [],
   target: { id: "720p-mobile", name: "720p mobile" },
-  source: { fileId: `${id}-file`, name: `${title}.mkv`, target: "1080p" },
+  source: { fileId: `${id}-file`, name: `${title}.mkv`, targetId: "1080p", target: "1080p", edition: "any" },
   node: { id: "home", name: "home" },
   progress: null,
   pausedBy: null,

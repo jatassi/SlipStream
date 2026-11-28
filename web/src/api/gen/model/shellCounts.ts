@@ -4,7 +4,7 @@ import type { ShellBanner } from "./shellBanner.ts";
 
 export interface ShellCounts {
   /**
-   * The Grabs neither imported nor failed
+   * The Grabs neither imported nor failed, and the Conversions running
    * @minimum 0
    */
   activity: number;

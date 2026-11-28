@@ -175,7 +175,8 @@ func TestASaveDeletingMoreThanItsPreviewConfirmedIsRefused(t *testing.T) {
 	}
 	before := s.seen(t, ids)
 	s.Expect(t, http.MethodPut, path+"?confirm=0", empty, http.StatusConflict,
-		`{"status":409,"code":"impact_changed","title":"The change now does more than its preview showed","detail":"The save now leaves 1 file unwanted, and the preview showed 0. Preview the change again."}`)
+		`{"status":409,"code":"impact_changed","title":"The change now does more than its preview showed","detail":"The save now leaves 1 file unwanted, and the preview showed 0. Preview the change again.",`+
+			`"impact":{"works":1,"ownList":0,"unwanted":{"files":1,"bytes":2097152000},"renamed":0,"renames":[],"newlyWanted":0,"downloading":0,"subtitles":{"gained":[],"dropped":[],"days":0},"made":{"files":0,"works":0,"seconds":0,"bytes":0,"nodes":[],"unconvertible":[],"matching":0,"rows":[]},"remake":{"older":0,"rows":[]}}}`)
 	if after := s.seen(t, ids); after != before || s.changed.n != 0 {
 		t.Fatalf("the refused save published %d times and changed\n%s\nto\n%s", s.changed.n, before, after)
 	}

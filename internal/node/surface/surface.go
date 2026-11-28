@@ -164,6 +164,7 @@ type Node interface {
 	downloadclientsapi.Clients
 	transfersapi.Copies
 	movesapi.Mover
+	conversionsapi.Owner
 	backupsapi.Keeper
 	shellapi.Shell
 	systemapi.Systems
@@ -215,7 +216,7 @@ func Mount(r *api.Router, s Services) {
 	downloadclientsapi.Routes(r, s.Node)
 	transfersapi.Routes(r, s.Node)
 	movesapi.Routes(r, s.Node)
-	conversionsapi.Routes(r)
+	conversionsapi.Routes(r, s.Node)
 	backupsapi.Routes(r, s.Node)
 	shellapi.Routes(r, s.Node)
 	tasksapi.Routes(r, s.Node)

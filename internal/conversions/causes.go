@@ -170,7 +170,7 @@ func (c *Conversions) Causes(ctx context.Context, ts []targets.TargetID) (map[ta
 }
 
 func causeOf(row db.ConversionsCause) Cause {
-	c := Cause{Key: CauseKey{Why: Why(row.Why), Target: some(row.TargetID)}, Count: int(row.Count), Node: some(row.NodeID)}
+	c := Cause{Key: CauseKey{Why: Why(row.Why), Target: some(row.TargetID)}, Count: int(row.Count), Node: some(row.NodeID), Notified: row.NotifiedAt.Time()}
 	if row.Class != nil {
 		c.Key.Class, c.Key.Shape = encode.Class(*row.Class), *row.Shape
 	}

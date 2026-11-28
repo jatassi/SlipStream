@@ -1155,9 +1155,18 @@ export type ConversionsProgress = zod.input<typeof ConversionsProgress>;
 export type ConversionsProgressOutput = zod.output<typeof ConversionsProgress>;
 
 export const ConversionsSource = zod.object({
+  edition: zod.string().describe("The cut of the cell it fills"),
   fileId: zod.uuid().nullable().describe("null once the source file is gone"),
   name: zod.string().describe("The source file's name"),
-  target: zod.string().describe("The name of the Target the source file fills"),
+  target: zod
+    .string()
+    .describe(
+      "The name of the Target the source file fills; empty once no Profile makes this Target from one",
+    ),
+  targetId: zod
+    .uuid()
+    .nullable()
+    .describe("The Target the source file fills; null once no Profile makes this Target from one"),
 });
 
 export type ConversionsSource = zod.input<typeof ConversionsSource>;
@@ -3823,6 +3832,14 @@ export const FilesFill = zod.object({
 export type FilesFill = zod.input<typeof FilesFill>;
 export type FilesFillOutput = zod.output<typeof FilesFill>;
 
+export const FilesMadeFrom = zod.object({
+  fileId: zod.uuid().nullable().describe("null once the file is gone"),
+  name: zod.string().describe("The file's name, while it is one of this Work's; empty otherwise"),
+});
+
+export type FilesMadeFrom = zod.input<typeof FilesMadeFrom>;
+export type FilesMadeFromOutput = zod.output<typeof FilesMadeFrom>;
+
 export const FilesSubtitleTrack = zod.object({
   codec: zod.string().describe("ffprobe's codec name, such as subrip"),
   default: zod.boolean(),
@@ -3911,6 +3928,9 @@ export const FilesListedFile = zod.object({
   id: zod.uuid(),
   kept: zod.boolean().describe("A Kept file, which no Target uses"),
   label: zod.string().describe("The Target name its file name carries, before any suffix"),
+  madeFrom: zod
+    .union([FilesMadeFrom, zod.null()])
+    .describe("The file a Conversion made it from; null for a file no Conversion made"),
   media: zod
     .union([FilesMediaInfo, zod.null()])
     .describe("What ffprobe read of it; null for a file read before SlipStream kept its tracks"),
@@ -3929,6 +3949,7 @@ export const FilesListedFile = zod.object({
       zod.literal("transfer"),
       zod.literal("move"),
       zod.literal("in_place"),
+      zod.literal("converted"),
       zod.literal(null),
     ])
     .nullable()
@@ -13666,7 +13687,10 @@ export const shellCountsActivityMin = 0;
 export const shellCountsPendingImportsMin = 0;
 
 export const ShellCounts = zod.object({
-  activity: zod.int().min(shellCountsActivityMin).describe("The Grabs neither imported nor failed"),
+  activity: zod
+    .int()
+    .min(shellCountsActivityMin)
+    .describe("The Grabs neither imported nor failed, and the Conversions running"),
   alerts: ShellAlerts,
   downloads: DownloadclientsAggregate.describe(
     "Every download at once; torrents.live keeps it current",
@@ -15019,6 +15043,8 @@ export const TargetsScores = zod.object({
 export type TargetsScores = zod.input<typeof TargetsScores>;
 export type TargetsScoresOutput = zod.output<typeof TargetsScores>;
 
+export const targetsTargetDefaultKbpsMin = 100;
+
 export const targetsTargetHoldSecondsMin = 0;
 export const targetsTargetHoldSecondsMax = 604800;
 
@@ -15033,6 +15059,10 @@ export const TargetsTarget = zod.object({
     ),
   createdAt: zod.iso.datetime({ offset: true }),
   cutoff: zod.string().describe("The first quality of the tier at which a file is final"),
+  defaultKbps: zod
+    .int()
+    .min(targetsTargetDefaultKbpsMin)
+    .describe("The bitrate Conversion settings turned on at 1080p start at"),
   filters: zod.array(TargetsFilter).describe("Every attribute that isn't Any, in attribute order"),
   holdSeconds: zod
     .int()
