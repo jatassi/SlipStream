@@ -32,7 +32,7 @@ func TestTheWorldSeedsTheScenarioLibrary(t *testing.T) {
 			},
 			{Name: "Small", Tiers: [][]scenario.QualityKey{{"webdl-720p"}, {"dvd"}}, Cutoff: "dvd"},
 		},
-		Profiles: []scenario.LibraryProfile{{Name: "Standard", ContentType: "music", Targets: []string{"Small", "Lossless"}}},
+		Profiles: []scenario.LibraryProfile{{Name: "Standard", ContentType: "music", Targets: []scenario.LibraryEntry{{Target: "Small"}, {Target: "Lossless"}}}},
 	}
 	run := worldtest.LaunchE2EScenario(t, s)
 	a := api(t, run)

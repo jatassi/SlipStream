@@ -412,12 +412,16 @@ func SignIn(ctx context.Context, c *http.Client, baseURL, email, pin string) (*h
 
 // CreateTarget creates the Scenario Target t and returns its id.
 func CreateTarget(ctx context.Context, c *http.Client, baseURL, apiKey string, t scenario.LibraryTarget, formats map[string]string) (string, error) {
+	body, err := targetBody(t, formats)
+	if err != nil {
+		return "", err
+	}
 	var target struct {
 		ID string `json:"id"`
 	}
-	err := call(ctx, c, request{
+	err = call(ctx, c, request{
 		what: "create Target " + t.Name, method: http.MethodPost, url: baseURL + "/api/v1/targets",
-		header: apiKeyHeader(apiKey), body: targetBody(t, formats), want: http.StatusCreated,
+		header: apiKeyHeader(apiKey), body: body, want: http.StatusCreated,
 	}, &target)
 	return target.ID, err
 }
@@ -425,11 +429,14 @@ func CreateTarget(ctx context.Context, c *http.Client, baseURL, apiKey string, t
 // UpdateTarget replaces Target id's rules with the Scenario Target t's,
 // deleting any file they leave filling nothing.
 func UpdateTarget(ctx context.Context, c *http.Client, baseURL, apiKey, id string, t scenario.LibraryTarget, formats map[string]string) error {
-	err := call(ctx, c, request{
+	body, err := targetBody(t, formats)
+	if err != nil {
+		return err
+	}
+	return call(ctx, c, request{
 		what: "update Target " + t.Name, method: http.MethodPut, url: baseURL + "/api/v1/targets/" + id,
-		header: apiKeyHeader(apiKey), body: targetBody(t, formats), want: http.StatusOK,
+		header: apiKeyHeader(apiKey), body: body, want: http.StatusOK,
 	}, nil)
-	return err
 }
 
 type targetFilter struct {
@@ -441,7 +448,7 @@ type targetFilter struct {
 type targetSize struct {
 	Quality scenario.QualityKey `json:"quality"`
 	Min     float64             `json:"min"`
-	Max     *float64            `json:"max,omitempty"`
+	Max     *float64            `json:"max"`
 }
 
 type formatScore struct {
@@ -455,19 +462,45 @@ type targetScores struct {
 }
 
 type newTarget struct {
-	Name    string                  `json:"name"`
-	Tiers   [][]scenario.QualityKey `json:"tiers"`
-	Cutoff  scenario.QualityKey     `json:"cutoff"`
-	Filters []targetFilter          `json:"filters,omitempty"`
-	Sizes   []targetSize            `json:"sizes,omitempty"`
-	Scores  *targetScores           `json:"scores,omitempty"`
-	Hold    int64                   `json:"holdSeconds,omitempty"`
+	Name       string                  `json:"name"`
+	Tiers      [][]scenario.QualityKey `json:"tiers"`
+	Cutoff     scenario.QualityKey     `json:"cutoff"`
+	Filters    []targetFilter          `json:"filters,omitempty"`
+	Sizes      []targetSize            `json:"sizes,omitempty"`
+	Scores     *targetScores           `json:"scores,omitempty"`
+	Hold       int64                   `json:"holdSeconds,omitempty"`
+	Conversion *targetConversion       `json:"conversion,omitempty"`
+}
+
+type targetConversion struct {
+	RunOn           *string `json:"runOnNodeId"`
+	Codec           string  `json:"codec"`
+	MaxHeight       int     `json:"maxHeight"`
+	Kbps            int     `json:"kbps"`
+	Depth           int     `json:"depth"`
+	Range           string  `json:"range"`
+	KeepDolbyVision bool    `json:"keepDolbyVision"`
+	Curve           string  `json:"curve"`
+	Audio           string  `json:"audio"`
+	DropCommentary  bool    `json:"dropCommentary"`
+	Container       string  `json:"container"`
 }
 
 // targetBody is t's body, its scores naming each Custom Format by its id
 // in formats.
-func targetBody(t scenario.LibraryTarget, formats map[string]string) newTarget {
+func targetBody(t scenario.LibraryTarget, formats map[string]string) (newTarget, error) {
 	body := newTarget{Name: t.Name, Tiers: t.Tiers, Cutoff: t.Cutoff, Hold: int64(t.Hold / time.Second)}
+	spec, err := t.Spec()
+	if err != nil {
+		return newTarget{}, fmt.Errorf("target %s: %w", t.Name, err)
+	}
+	if c := spec.Conversion; c != nil {
+		s := c.Settings
+		body.Conversion = &targetConversion{
+			Codec: string(s.Codec), MaxHeight: int(s.MaxHeight), Kbps: s.Kbps, Depth: int(s.Depth), Range: string(s.Range),
+			KeepDolbyVision: s.KeepDV, Curve: string(s.Curve), Audio: string(s.Audio), DropCommentary: s.DropCommentary, Container: string(s.Container),
+		}
+	}
 	if t.Scores != nil {
 		body.Scores = &targetScores{Minimum: t.Scores.Minimum}
 		for _, name := range slices.Sorted(maps.Keys(t.Scores.Formats)) {
@@ -480,7 +513,7 @@ func targetBody(t scenario.LibraryTarget, formats map[string]string) newTarget {
 	for _, z := range t.Sizes {
 		body.Sizes = append(body.Sizes, targetSize(z))
 	}
-	return body
+	return body, nil
 }
 
 // CreateFormat creates a Custom Format that matches a Release whose
@@ -524,14 +557,19 @@ func ListTargets(ctx context.Context, c *http.Client, baseURL, apiKey string) (m
 	return out, err
 }
 
-// CreateProfile creates a Profile of the Targets with ids targetIDs, in
-// Profile order, downloaded, of the cuts listed, any cut when none is,
-// and returns its id.
-func CreateProfile(ctx context.Context, c *http.Client, baseURL, apiKey, name, contentType string, targetIDs, cuts []string) (string, error) {
-	type entry struct {
-		TargetID string `json:"targetId"`
-		Sourcing string `json:"sourcing"`
-	}
+// ProfileEntry is one of a Profile's Targets: downloaded, or made from
+// the file of Target FromTargetID, after Grace seconds for
+// download_then_derive.
+type ProfileEntry struct {
+	TargetID     string `json:"targetId"`
+	Sourcing     string `json:"sourcing"`
+	FromTargetID string `json:"fromTargetId,omitempty"`
+	Grace        int64  `json:"graceSeconds,omitempty"`
+}
+
+// CreateProfile creates a Profile of entries, in Profile order, of the
+// cuts listed, any cut when none is, and returns its id.
+func CreateProfile(ctx context.Context, c *http.Client, baseURL, apiKey, name, contentType string, entries []ProfileEntry, cuts []string) (string, error) {
 	type editions struct {
 		Kind string   `json:"kind"`
 		Cuts []string `json:"cuts,omitempty"`
@@ -540,21 +578,17 @@ func CreateProfile(ctx context.Context, c *http.Client, baseURL, apiKey, name, c
 	if len(cuts) > 0 {
 		listed = editions{Kind: "cuts", Cuts: cuts}
 	}
-	entries := []entry{}
-	for _, id := range targetIDs {
-		entries = append(entries, entry{id, "download"})
-	}
 	var profile struct {
 		ID string `json:"id"`
 	}
 	err := call(ctx, c, request{
 		what: "create Profile " + name, method: http.MethodPost, url: baseURL + "/api/v1/profiles",
 		header: apiKeyHeader(apiKey), body: struct {
-			Name        string     `json:"name"`
-			ContentType string     `json:"contentType"`
-			Targets     []entry    `json:"targets"`
-			Editions    editions   `json:"editions"`
-			Languages   []struct{} `json:"languages"`
+			Name        string         `json:"name"`
+			ContentType string         `json:"contentType"`
+			Targets     []ProfileEntry `json:"targets"`
+			Editions    editions       `json:"editions"`
+			Languages   []struct{}     `json:"languages"`
 		}{name, contentType, entries, listed, []struct{}{}}, want: http.StatusCreated,
 	}, &profile)
 	return profile.ID, err

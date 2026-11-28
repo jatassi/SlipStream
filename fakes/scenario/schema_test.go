@@ -63,6 +63,8 @@ func schema(t *testing.T) []byte {
 				return &jsonschema.Schema{Type: "string", Enum: qualities}
 			case reflect.TypeFor[fault.Fault]():
 				return &jsonschema.Schema{Type: "string"}
+			case reflect.TypeFor[LibraryEntry]():
+				return libraryEntry()
 			}
 			return nil
 		},
@@ -72,6 +74,19 @@ func schema(t *testing.T) []byte {
 		t.Fatal(err)
 	}
 	return append(out, '\n')
+}
+
+// libraryEntry is a Profile entry: a Target's name, or an object naming
+// it with what it is made from.
+func libraryEntry() *jsonschema.Schema {
+	props := jsonschema.NewProperties()
+	props.Set("target", &jsonschema.Schema{Type: "string"})
+	props.Set("from", &jsonschema.Schema{Type: "string"})
+	props.Set("grace", &jsonschema.Schema{Type: "string", Pattern: durationPattern})
+	return &jsonschema.Schema{OneOf: []*jsonschema.Schema{
+		{Type: "string"},
+		{Type: "object", Properties: props, Required: []string{"target"}, AdditionalProperties: jsonschema.FalseSchema},
+	}}
 }
 
 func TestSchema(t *testing.T) {
@@ -125,7 +140,7 @@ func TestCatalog(t *testing.T) {
 			t.Error(err)
 		}
 	}
-	if want := []string{"auto-search", "busy-feed", "catalog-sites", "cgnat-home", "dead-controller", "external-clients", "external-kinds", "fault-loop", "first-run", "five-indexers-one-late", "full-backups-folder", "gone-with-rss", "hold", "home", "hostile-worker", "imports", "indexers", "limited-tracker", "low-space-warning", "low-space", "magnets", "manual-search", "media-servers", "moves", "movies", "music", "offline-destination", "pack-beats-singles", "packs", "playback", "ported-sites", "remote-cgnat", "remote-double-nat", "remote-ipv6", "remote-mappable", "remote-open", "remote-own-proxy", "remote-single-machine", "remote-vpn", "repair", "restore-in-place-after-grab", "scale", "seedbox-nas", "seeding-routing", "seeding", "series-files-scale", "series-scale", "series", "serving", "showcase", "single-machine", "sizes", "subtitles", "targets", "torrents"}; !reflect.DeepEqual(got, want) {
+	if want := []string{"auto-search", "busy-feed", "catalog-sites", "cgnat-home", "conversion", "dead-controller", "external-clients", "external-kinds", "fault-loop", "first-run", "five-indexers-one-late", "full-backups-folder", "gone-with-rss", "hold", "home", "hostile-worker", "imports", "indexers", "limited-tracker", "low-space-warning", "low-space", "magnets", "manual-search", "media-servers", "moves", "movies", "music", "offline-destination", "pack-beats-singles", "packs", "playback", "ported-sites", "remote-cgnat", "remote-double-nat", "remote-ipv6", "remote-mappable", "remote-open", "remote-own-proxy", "remote-single-machine", "remote-vpn", "repair", "restore-in-place-after-grab", "scale", "seedbox-nas", "seeding-routing", "seeding", "series-files-scale", "series-scale", "series", "serving", "showcase", "single-machine", "sizes", "subtitles", "targets", "torrents"}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("catalog = %v, want %v", got, want)
 	}
 }
