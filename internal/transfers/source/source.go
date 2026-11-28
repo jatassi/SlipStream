@@ -17,6 +17,7 @@ const (
 	PathKind    Kind = "path"
 	BackupKind  Kind = "backup"
 	LibraryKind Kind = "library"
+	ScratchKind Kind = "scratch"
 )
 
 // Ref names one file a sender reads: a Torrent, a Path, a Backup or a

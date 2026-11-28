@@ -78,16 +78,25 @@ type DownloadFolder struct {
 	InfoHash    bencode.InfoHash
 }
 
+// Scratch is a file named Name under Node's scratch folder, where a
+// Conversion reads its source.
+type Scratch struct {
+	Node role.NodeID
+	Name string
+}
+
 func (Root) kind() string              { return rootKind }
 func (BackupDestination) kind() string { return backupKind }
 func (BackupsFolder) kind() string     { return backupsFolderKind }
 func (DownloadFolder) kind() string    { return downloadFolderKind }
+func (Scratch) kind() string           { return scratchKind }
 
 const (
 	rootKind           = "root"
 	backupKind         = "backup"
 	backupsFolderKind  = "backups_folder"
 	downloadFolderKind = "download_folder"
+	scratchKind        = "scratch"
 )
 
 // backupPlace is the place of a Backup kind and of a download folder,
